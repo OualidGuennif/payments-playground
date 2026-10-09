@@ -1,7 +1,7 @@
 import { AdyenCheckout, Dropin } from "@adyen/adyen-web";
 import type { Core } from "@adyen/adyen-web";
 import { apiFetch } from "@suite/ui/client.ts";
-import { Field, PlaygroundWordmark } from "@suite/ui/components.tsx";
+import { Field, PlaygroundWordmark, ThemeToggle } from "@suite/ui/components.tsx";
 import {
   detectCountryFromLanguages,
   FALLBACK_COUNTRY,
@@ -882,6 +882,7 @@ export default function StylingPlayground() {
               {activeTheme === "custom" ? <option value="custom">Custom</option> : null}
             </select>
           </div>
+          <ThemeToggle />
         </div>
       </div>
       {error
@@ -893,7 +894,11 @@ export default function StylingPlayground() {
         )
         : null}
       <div class="styling-layout">
-        <section class="styling-preview" style={previewVariables}>
+        {
+          /* keep-light: dark mode restyles the tool, never the preview, which
+            must show exactly what the merchant configured. */
+        }
+        <section class="styling-preview keep-light" style={previewVariables}>
           <div class="dropin-column">
             {
               /* A sibling of the host, never a child: Adyen owns that node and

@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
+import { THEME_SCRIPT } from "./theme.ts";
 
 interface TestDataLink {
   href: string;
@@ -142,14 +143,63 @@ export function DisclaimerPage(props: { appName: string; repositoryUrl?: string 
   );
 }
 
-export function TestBanner() {
+/** Inline in every app's <head>, before any stylesheet paints. */
+export function ThemeScript() {
+  // A constant written in this repo, never user input. As a text child it
+  // would be HTML-escaped by the server renderer and stop being JavaScript.
+  // deno-lint-ignore react-no-danger
+  return <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />;
+}
+
+/**
+ * The light/dark switch. Its position and aria-checked come from the theme
+ * script, not from props, so it is correct on first paint and needs no island.
+ */
+export function ThemeToggle() {
   return (
-    <div class="test-banner" role="note" aria-label="Test environment warning">
-      <span class="test-badge">TEST</span>
-      <span>
-        Test environment only, never use production credentials or live endpoints.
+    <button
+      type="button"
+      class="theme-toggle"
+      role="switch"
+      data-theme-toggle
+      aria-label="Dark mode"
+      title="Dark mode"
+    >
+      <span class="theme-toggle__track" aria-hidden="true">
+        <span class="theme-toggle__thumb">
+          <svg class="theme-toggle__sun" viewBox="0 0 24 24" width="14" height="14">
+            <circle cx="12" cy="12" r="4.2" fill="currentColor" />
+            <path
+              d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          </svg>
+          <svg class="theme-toggle__moon" viewBox="0 0 24 24" width="14" height="14">
+            <path
+              d="M20.3 14.6A8.5 8.5 0 0 1 9.4 3.7a8.5 8.5 0 1 0 10.9 10.9z"
+              fill="currentColor"
+            />
+          </svg>
+        </span>
       </span>
-    </div>
+    </button>
+  );
+}
+
+/**
+ * Always on screen, on every page and every width: a screenshot of these
+ * playgrounds must never be mistakable for a live checkout.
+ */
+export function TestPill() {
+  return (
+    <span
+      class="env-pill"
+      title="Test environment only, never use production credentials or live endpoints."
+    >
+      TEST
+    </span>
   );
 }
 
@@ -172,11 +222,26 @@ export function PlaygroundWordmark(props: { label: string }) {
   );
 }
 
-const PRIMARY_NAV = [
-  { href: "/", label: "Home" },
+const SECONDARY_NAV = [
   { href: "/back-office", label: "Back Office" },
   { href: "/wiki", label: "Wiki" },
 ] as const;
+
+const DOCS_URL = "https://docs.adyen.com";
+
+function GearIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path
+        d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zm8.1-2.3.1-.9-.1-.9 2-1.6-2-3.4-2.4.9a7.6 7.6 0 0 0-1.6-.9L15.7 3h-3.9l-.4 2.5c-.6.2-1.1.5-1.6.9l-2.4-.9-2 3.4 2 1.6-.1.9.1.9-2 1.6 2 3.4 2.4-.9c.5.4 1 .7 1.6.9l.4 2.5h3.9l.4-2.5c.6-.2 1.1-.5 1.6-.9l2.4.9 2-3.4z"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linejoin="round"
+      />
+    </svg>
+  );
+}
 
 export function AppShell(props: {
   title: string;
@@ -184,53 +249,78 @@ export function AppShell(props: {
   currentPath: string;
   children: ComponentChildren;
   compact?: boolean;
-  /** Set when the page renders <TestDataAndTools /> itself. */
+  /** Set when the page offers its own test data (the checkout does). */
   ownTestingDataset?: boolean;
+  /** Label of the "/" link: "Home" unless the app calls its front page something else. */
+  homeLabel?: string;
+  /** Marks "/" as the current section on pages that belong to it (the checkout flows). */
+  homeActive?: boolean;
 }) {
+  const nav = [{ href: "/", label: props.homeLabel ?? "Home" }, ...SECONDARY_NAV];
+  const current = (href: string) => {
+    const active = href === "/"
+      ? props.currentPath === "/" || props.homeActive
+      : props.currentPath === href;
+    return active ? "page" : undefined;
+  };
   return (
     <>
       <a class="skip-link" href="#main-content">Skip to content</a>
-      <div class="app-chrome">
-        <header class="app-header">
-          <div class="app-header__top">
-            <a class="brand" href="/" aria-label={props.title}>
-              <PlaygroundWordmark label={props.title} />
-            </a>
-            <nav class="app-nav-inline" aria-label="Main navigation">
-              {PRIMARY_NAV.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  aria-current={props.currentPath === item.href ? "page" : undefined}
-                >
-                  {item.label}
-                </a>
-              ))}
-              <a href="https://docs.adyen.com" target="_blank" rel="noopener noreferrer">
-                Documentation
+      <header class="shell-header">
+        <div class="shell-header__bar">
+          <a class="brand" href="/" aria-label={props.title}>
+            <PlaygroundWordmark label={props.title} />
+          </a>
+          <TestPill />
+          <nav class="shell-nav" aria-label="Main navigation">
+            {nav.map((item) => (
+              <a key={item.href} href={item.href} aria-current={current(item.href)}>
+                {item.label}
               </a>
-            </nav>
-            <div class="app-header__actions">
-              <span class="environment-state">
-                <span aria-hidden="true" />
-                TEST connected
-              </span>
-              {
-                /* Apps with their own market selector render this next to it
-                  instead, so it sits with the things it relates to. */
-              }
-              {props.ownTestingDataset ? null : <TestDataAndTools />}
-              <a class="button button--quiet button--small" href="/settings">Settings</a>
-            </div>
+            ))}
+            <a href={DOCS_URL} target="_blank" rel="noopener noreferrer">Docs ↗</a>
+          </nav>
+          <div class="shell-header__actions">
+            {props.ownTestingDataset ? null : <TestDataAndTools />}
+            <ThemeToggle />
+            <a
+              class="shell-icon-button shell-settings"
+              href="/settings"
+              aria-label="Settings"
+              title="Settings"
+              aria-current={current("/settings")}
+            >
+              <GearIcon />
+            </a>
+            <details class="shell-menu">
+              <summary class="shell-icon-button" aria-label="Menu">
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                  <path
+                    d="M4 7h16M4 12h16M4 17h16"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </summary>
+              <nav class="shell-menu__sheet" aria-label="Menu">
+                {nav.map((item) => (
+                  <a key={item.href} href={item.href} aria-current={current(item.href)}>
+                    {item.label}
+                  </a>
+                ))}
+                <a href="/settings" aria-current={current("/settings")}>Settings</a>
+                <a href={DOCS_URL} target="_blank" rel="noopener noreferrer">Adyen docs ↗</a>
+              </nav>
+            </details>
           </div>
-        </header>
-        <TestBanner />
-      </div>
+        </div>
+      </header>
       <div class={props.compact ? "app-frame app-frame--compact" : "app-frame"}>
         <div class="app-content">
           <main id="main-content" tabindex={-1}>{props.children}</main>
           <footer class="app-footer">
-            <span>© 2026 Payments Playground · TEST environment only</span>
+            <span>Payments Playground · TEST environment only, never use live credentials</span>
             <span>
               {props.subtitle} · Adyen Web 6.46.0 · Checkout API v72 ·{" "}
               <a href="/disclaimer">Disclaimer</a>

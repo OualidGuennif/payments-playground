@@ -1,32 +1,98 @@
-:root {
+/* Light values are the original palette; dark ones are declared once below.
+   The theme is chosen by THEME_SCRIPT (packages/ui/theme.ts) before first
+   paint and stored per browser. */
+:root,
+:root[data-theme="dark"] .keep-light {
   --color-ink: #00112c;
   --color-ink-raised: #0b1f3a;
   --color-ink-muted: #5c687c;
   --color-ink-subtle: #8d95a3;
+  --color-on-ink: #ffffff;
   --color-green: #0abf53;
   --color-green-dark: #07883b;
+  --color-green-hover: #08a849;
   --color-green-soft: #e9f9ef;
+  --color-green-border: #cdeed9;
   --color-blue: #1769e0;
   --color-blue-soft: #edf4ff;
+  --color-blue-border: #cfe0f7;
   --color-amber: #a95400;
   --color-amber-soft: #fff5e6;
+  --color-amber-border: #f0d6aa;
   --color-red: #c12435;
   --color-red-soft: #fff0f2;
+  --color-red-border: #efc5cb;
   --color-surface: #ffffff;
   --color-surface-muted: #f7f8fa;
   --color-surface-raised: #fbfcfd;
   --color-surface-strong: #eef1f4;
+  --color-surface-glass: rgba(255, 255, 255, 0.98);
+  --color-code: #f5f7f9;
+  --color-code-inline: #e9edf2;
   --color-border: #e1e5e9;
   --color-border-strong: #c9cfd7;
+  --color-border-hover: #8993a1;
+  --color-border-control-hover: #aeb6c0;
+  --shadow-card: 0 1px 2px rgba(0, 17, 44, 0.04), 0 8px 24px rgba(0, 17, 44, 0.035);
+  --shadow-raised: 0 12px 36px rgba(0, 17, 44, 0.1);
+  --shadow-focus: 0 0 0 3px rgba(23, 105, 224, 0.18);
+  --backdrop: rgba(0, 17, 44, 0.32);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --color-ink: #eef1f6;
+  --color-ink-raised: #ffffff;
+  --color-ink-muted: #a3acba;
+  --color-ink-subtle: #7b8493;
+  --color-on-ink: #0b0d11;
+  --color-green: #12c45c;
+  --color-green-dark: #4ade80;
+  --color-green-hover: #0fb052;
+  --color-green-soft: rgba(18, 196, 92, 0.14);
+  --color-green-border: rgba(18, 196, 92, 0.35);
+  --color-blue: #6ea8ff;
+  --color-blue-soft: rgba(110, 168, 255, 0.13);
+  --color-blue-border: rgba(110, 168, 255, 0.3);
+  --color-amber: #f6b552;
+  --color-amber-soft: rgba(246, 181, 82, 0.13);
+  --color-amber-border: rgba(246, 181, 82, 0.32);
+  --color-red: #ff7b88;
+  --color-red-soft: rgba(255, 123, 136, 0.13);
+  --color-red-border: rgba(255, 123, 136, 0.32);
+  --color-surface: #16191f;
+  --color-surface-muted: #0c0e12;
+  --color-surface-raised: #1b1f26;
+  --color-surface-strong: #242932;
+  --color-surface-glass: rgba(18, 21, 26, 0.96);
+  --color-code: #11141a;
+  --color-code-inline: #242932;
+  --color-border: #272c35;
+  --color-border-strong: #39404c;
+  --color-border-hover: #59616f;
+  --color-border-control-hover: #4b5360;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-raised: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --shadow-focus: 0 0 0 3px rgba(110, 168, 255, 0.3);
+  --backdrop: rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
+/* A region that must keep the light palette in dark mode, such as a styling
+   preview that shows exactly what the merchant configured. Adyen's iframes
+   inside it also stay transparent: their colour scheme matches. */
+:root[data-theme="dark"] .keep-light {
+  color: var(--color-ink);
+  color-scheme: light;
+}
+
+:root {
   --font-sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --radius-xs: 7px;
   --radius-s: 10px;
   --radius-m: 14px;
   --radius-l: 18px;
-  --shadow-card: 0 1px 2px rgba(0, 17, 44, 0.04), 0 8px 24px rgba(0, 17, 44, 0.035);
-  --shadow-raised: 0 12px 36px rgba(0, 17, 44, 0.1);
-  --shadow-focus: 0 0 0 3px rgba(23, 105, 224, 0.18);
   color: var(--color-ink);
   background: var(--color-surface-muted);
   font-family: var(--font-sans);
@@ -85,33 +151,33 @@ a {
   transform: translateY(-180%);
   border-radius: var(--radius-s);
   background: var(--color-ink);
-  color: white;
+  color: var(--color-on-ink);
 }
 
 .skip-link:focus {
   transform: translateY(0);
 }
 
-.app-chrome {
+/* One bar: wordmark, the permanent TEST pill, sections, then the theme switch,
+   settings and, on narrow screens, a menu. Translucent over the page. */
+.shell-header {
   position: sticky;
   z-index: 30;
   top: 0;
-}
-
-.app-header {
   border-bottom: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--color-surface-glass);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
 }
 
-.app-header__top {
+.shell-header__bar {
   display: flex;
-  width: min(1480px, 100%);
-  min-height: 68px;
+  width: min(1380px, 100%);
+  min-height: 60px;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
+  gap: 12px;
   margin: 0 auto;
-  padding: 10px clamp(20px, 4vw, 48px);
+  padding: 8px clamp(14px, 4vw, 48px);
 }
 
 .brand {
@@ -123,68 +189,177 @@ a {
   text-decoration: none;
 }
 
-.app-header__actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.environment-state {
+.env-pill {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 7px;
-  color: var(--color-ink-muted);
-  font-size: 0.72rem;
-  font-weight: 700;
+  padding: 3px 8px;
+  border: 1px solid var(--color-amber-border);
+  border-radius: 999px;
+  background: var(--color-amber-soft);
+  color: var(--color-amber);
+  cursor: help;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
 }
 
-.environment-state > span {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-green);
-  box-shadow: 0 0 0 3px var(--color-green-soft);
-}
-
-.header-link {
-  padding: 7px 9px;
-  color: var(--color-ink);
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.header-link:hover {
-  color: var(--color-green-dark);
-}
-
-.app-nav-inline {
+.shell-nav {
   display: flex;
   flex: 1 1 auto;
   align-items: center;
-  gap: 4px;
-  margin-right: auto;
-  padding-left: 14px;
+  gap: 2px;
+  margin-left: 10px;
 }
 
-.app-nav-inline a {
-  padding: 7px 10px;
-  border-radius: var(--radius-s);
+.shell-nav a {
+  padding: 8px 12px;
+  border-radius: 999px;
   color: var(--color-ink-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
-.app-nav-inline a:hover {
+.shell-nav a:hover {
   color: var(--color-ink);
   background: var(--color-surface-strong);
 }
 
-.app-nav-inline a[aria-current="page"] {
+.shell-nav a[aria-current="page"] {
   color: var(--color-ink);
   background: var(--color-surface-strong);
+}
+
+.shell-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.shell-icon-button {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  list-style: none;
+  text-decoration: none;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.shell-icon-button::-webkit-details-marker {
+  display: none;
+}
+
+.shell-icon-button:hover,
+.shell-icon-button[aria-current="page"] {
+  background: var(--color-surface-strong);
+  color: var(--color-ink);
+}
+
+.shell-menu {
+  position: relative;
+  display: none;
+}
+
+.shell-menu__sheet {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  min-width: 220px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-l);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+}
+
+.shell-menu__sheet a {
+  padding: 12px 14px;
+  border-radius: var(--radius-s);
+  color: var(--color-ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.shell-menu__sheet a:hover,
+.shell-menu__sheet a[aria-current="page"] {
+  background: var(--color-surface-strong);
+}
+
+/* The light/dark switch: 44 px of touch target around a 52 x 30 track. */
+.theme-toggle {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.theme-toggle__track {
+  position: relative;
+  display: block;
+  width: 52px;
+  height: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-strong);
+  transition: background-color 200ms ease, border-color 200ms ease;
+}
+
+.theme-toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  color: var(--color-amber);
+  transition: transform 220ms cubic-bezier(0.3, 0.7, 0.4, 1), background-color 200ms ease;
+}
+
+.theme-toggle__moon {
+  display: none;
+}
+
+:root[data-theme="dark"] .theme-toggle__thumb {
+  transform: translateX(22px);
+  color: var(--color-blue);
+}
+
+:root[data-theme="dark"] .theme-toggle__sun {
+  display: none;
+}
+
+:root[data-theme="dark"] .theme-toggle__moon {
+  display: block;
+}
+
+.theme-toggle:focus-visible {
+  outline: none;
+}
+
+.theme-toggle:focus-visible .theme-toggle__track {
+  box-shadow: var(--shadow-focus);
 }
 
 .header-tools {
@@ -233,8 +408,8 @@ a {
   padding: 6px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-m);
-  background: white;
-  box-shadow: var(--shadow-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
 }
 
 .header-tools[open] .header-tools__menu {
@@ -253,39 +428,10 @@ a {
   background: var(--color-surface-strong);
 }
 
-.test-banner {
-  display: flex;
-  min-height: 32px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 5px 18px;
-  border-bottom: 1px solid #d7dce1;
-  background: #eef0f2;
-  color: #526075;
-  font-size: 0.69rem;
-  font-weight: 650;
-  letter-spacing: 0.005em;
-  text-align: center;
-}
-
-.test-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 7px;
-  border: 1px solid #9199a5;
-  border-radius: 5px;
-  background: #dfe2e6;
-  color: var(--color-ink);
-  font-size: 0.62rem;
-  font-weight: 850;
-  letter-spacing: 0.09em;
-}
-
 .app-frame {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 144px);
+  min-height: calc(100vh - 61px);
 }
 
 .app-content {
@@ -391,7 +537,7 @@ p {
   border: 1px solid var(--color-ink);
   border-radius: var(--radius-s);
   background: var(--color-ink);
-  color: white;
+  color: var(--color-on-ink);
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 750;
@@ -422,26 +568,26 @@ p {
 }
 
 .button--primary:hover {
-  border-color: #08a849;
-  background: #08a849;
+  border-color: var(--color-green-hover);
+  background: var(--color-green-hover);
 }
 
 .button--secondary,
 .button--quiet {
   border-color: var(--color-border-strong);
-  background: white;
+  background: var(--color-surface);
   color: var(--color-ink);
 }
 
 .button--secondary:hover,
 .button--quiet:hover {
-  border-color: #aeb6c0;
+  border-color: var(--color-border-control-hover);
   background: var(--color-surface-muted);
 }
 
 .button--danger {
-  border-color: #e4b8bf;
-  background: white;
+  border-color: var(--color-red-border);
+  background: var(--color-surface);
   color: var(--color-red);
 }
 
@@ -480,7 +626,7 @@ p {
   padding: 32px;
   border: 1px solid var(--color-border);
   border-radius: 22px;
-  background: white;
+  background: var(--color-surface);
   box-shadow: var(--shadow-card);
   text-decoration: none;
   color: inherit;
@@ -489,7 +635,7 @@ p {
 
 .flow-card-simple:hover {
   border-color: var(--color-ink);
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.1);
+  box-shadow: var(--shadow-raised);
   transform: translateY(-3px);
 }
 
@@ -525,7 +671,7 @@ p {
 .settings-shell {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-m);
-  background: white;
+  background: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
@@ -649,14 +795,14 @@ p {
   padding: 9px 11px;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-xs);
-  background: white;
+  background: var(--color-surface);
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
 .field input:hover,
 .field select:hover,
 .field textarea:hover {
-  border-color: #8993a1;
+  border-color: var(--color-border-hover);
 }
 
 .field input:focus,
@@ -695,7 +841,7 @@ p {
   padding: 9px 11px;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-xs);
-  background: white;
+  background: var(--color-surface);
   font-family: var(--font-mono);
   font-size: 0.8rem;
   text-transform: lowercase;
@@ -704,7 +850,7 @@ p {
 }
 
 .color-field__hex:hover {
-  border-color: #8993a1;
+  border-color: var(--color-border-hover);
 }
 
 .color-field__hex:focus {
@@ -745,19 +891,19 @@ p {
   gap: 16px;
   margin: 18px 0;
   padding: 14px 16px;
-  border: 1px solid #cfe0f7;
+  border: 1px solid var(--color-blue-border);
   border-radius: var(--radius-s);
   background: var(--color-blue-soft);
   font-size: 0.76rem;
 }
 
 .callout--warning {
-  border-color: #f0d6aa;
+  border-color: var(--color-amber-border);
   background: var(--color-amber-soft);
 }
 
 .callout--danger {
-  border-color: #efc5cb;
+  border-color: var(--color-red-border);
   background: var(--color-red-soft);
 }
 
@@ -810,7 +956,7 @@ p {
   justify-content: center;
   border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  background: white;
+  background: var(--color-surface);
   color: var(--color-ink-muted);
   content: "+";
   font-size: 1rem;
@@ -838,7 +984,7 @@ p {
 .scenario-settings__body {
   padding: 18px;
   border-top: 1px solid var(--color-border);
-  background: white;
+  background: var(--color-surface);
 }
 
 .segmented-control {
@@ -863,7 +1009,7 @@ p {
 }
 
 .segmented-control button[aria-pressed="true"] {
-  background: white;
+  background: var(--color-surface);
   color: var(--color-ink);
   box-shadow: 0 1px 3px rgba(0, 17, 44, 0.12);
 }
@@ -924,7 +1070,7 @@ p {
   min-height: 1.2em;
   margin: 0;
   font-size: 0.78rem;
-  color: var(--color-warning, #b5842a);
+  color: var(--color-amber);
 }
 
 .custom-card-submit:disabled {
@@ -935,7 +1081,7 @@ p {
 .custom-card-hint {
   margin: 0;
   font-size: 0.72rem;
-  color: #7c8aa0;
+  color: var(--color-ink-subtle);
 }
 
 .payment-stage__header h2 {
@@ -979,7 +1125,7 @@ p {
   align-items: center;
   justify-content: center;
   border-radius: 9px;
-  background: white;
+  background: var(--color-surface);
   box-shadow: 0 1px 3px rgba(0, 17, 44, 0.1);
   font-size: 1rem;
 }
@@ -1022,7 +1168,7 @@ p {
   width: 42px;
   height: 42px;
   margin: 0 auto 12px;
-  border: 1px solid #cdeed9;
+  border: 1px solid var(--color-green-border);
   border-radius: 12px;
   background: var(--color-green-soft);
   color: var(--color-green-dark);
@@ -1061,7 +1207,7 @@ p {
   padding: 6px 30px 6px 10px;
   border: 1px solid var(--color-border);
   border-radius: 9px;
-  background: white;
+  background: var(--color-surface);
   font-size: 0.74rem;
   font-weight: 700;
 }
@@ -1290,7 +1436,7 @@ p {
   padding: 14px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-s);
-  background: #f5f7f9;
+  background: var(--color-code);
   color: var(--color-ink);
 }
 
@@ -1301,7 +1447,7 @@ p {
   width: min(760px, 100%);
   padding: 24px;
   border-left: 1px solid var(--color-border-strong);
-  background: white;
+  background: var(--color-surface);
   box-shadow: -14px 0 40px rgba(0, 17, 44, 0.13);
   overflow: auto;
 }
@@ -1338,7 +1484,7 @@ th {
 }
 
 tbody tr:hover {
-  background: #fbfcfd;
+  background: var(--color-surface-raised);
   cursor: pointer;
 }
 
@@ -1386,7 +1532,7 @@ tr.is-selected td {
 
 .pagination__page[aria-current="page"] {
   background: var(--color-ink);
-  color: white;
+  color: var(--color-on-ink);
 }
 
 .mono {
@@ -1402,7 +1548,7 @@ tr.is-selected td {
   padding: 32px;
   border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-m);
-  background: white;
+  background: var(--color-surface);
   text-align: center;
 }
 
@@ -1444,7 +1590,7 @@ tr.is-selected td {
   left: -19px;
   width: 9px;
   height: 9px;
-  border: 2px solid white;
+  border: 2px solid var(--color-surface);
   border-radius: 50%;
   background: var(--color-green);
   box-shadow: 0 0 0 1px var(--color-border-strong);
@@ -1486,7 +1632,7 @@ details > summary {
   padding: 14px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-s);
-  background: white;
+  background: var(--color-surface);
 }
 
 .profile-row p {
@@ -1509,7 +1655,7 @@ details > summary {
   padding: 14px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-s);
-  background: white;
+  background: var(--color-surface);
 }
 
 .wiki-toc a {
@@ -1530,7 +1676,7 @@ details > summary {
   padding: clamp(20px, 3vw, 34px);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-m);
-  background: white;
+  background: var(--color-surface);
 }
 
 .wiki-content section {
@@ -1551,7 +1697,7 @@ details > summary {
 .wiki-content code {
   padding: 2px 4px;
   border-radius: 4px;
-  background: #e9edf2;
+  background: var(--color-code-inline);
   font-family: var(--font-mono);
   font-size: 0.88em;
 }
@@ -1609,10 +1755,6 @@ details > summary {
 }
 
 @media (max-width: 900px) {
-  .environment-state {
-    display: none;
-  }
-
   .metrics {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1638,35 +1780,19 @@ details > summary {
   }
 }
 
-@media (max-width: 700px) {
-  .app-header__top {
-    min-height: 60px;
-    flex-wrap: wrap;
-    padding: 8px 14px;
-  }
-
-  /* Hidden only in the cramped header bar, pages that moved it next to their
-     market selector keep it, since there it has room of its own. */
-  .header-link,
-  .app-header__actions .header-tools {
+@media (max-width: 760px) {
+  .shell-nav,
+  .shell-settings,
+  .shell-header__actions .header-tools {
     display: none;
   }
 
-  .app-nav-inline {
-    padding-left: 0;
+  .shell-menu {
+    display: block;
   }
+}
 
-  .app-nav-inline a {
-    padding: 6px 8px;
-    font-size: 0.71rem;
-  }
-
-  .test-banner {
-    justify-content: flex-start;
-    padding: 5px 14px;
-    text-align: left;
-  }
-
+@media (max-width: 700px) {
   main {
     padding: 28px 14px 54px;
   }

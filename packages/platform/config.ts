@@ -28,8 +28,21 @@ function readEnvFile(path: string): Record<string, string> {
   }
 }
 
+/**
+ * `docker run --env-file` passes `KEY="value"` through with its quotes, unlike
+ * every dotenv parser, so a .env written for `deno task dev` handed Adyen an
+ * API key wrapped in quotes and got 401s. No credential here is quoted.
+ */
+export function unquoteEnvValue(value: string): string {
+  const quoted = value.length >= 2 && (value[0] === '"' || value[0] === "'") &&
+    value.at(-1) === value[0];
+  return quoted ? value.slice(1, -1) : value;
+}
+
 function environmentWithLocalFallback(): Record<string, string> {
-  const values = Deno.env.toObject();
+  const values = Object.fromEntries(
+    Object.entries(Deno.env.toObject()).map(([key, value]) => [key, unquoteEnvValue(value)]),
+  );
   const explicitLegacy = values.LEGACY_ENV_PATH;
   const candidates = [
     explicitLegacy,

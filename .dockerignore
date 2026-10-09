@@ -1,0 +1,17 @@
+# An image must never carry local secrets or TEST data. Without this file,
+# `COPY apps ./apps` baked every app's .env (API, HMAC and client keys) and its
+# SQLite orders into the image, and a `docker push` would have published them.
+# Credentials reach a container as environment variables, nothing else.
+**/.env
+**/.env.local
+**/data
+**/*.sqlite
+**/*.sqlite-shm
+**/*.sqlite-wal
+
+# Rebuilt inside the image.
+**/_fresh
+**/node_modules
+
+.git
+**/.DS_Store

@@ -21,7 +21,7 @@ export default define.page(function WikiPage() {
       <PageHeader
         eyebrow="Living reference"
         title="Digital integration wiki"
-        description="Maintained against Adyen Web 6.41.0 and Checkout API v72. The supplied callback PDF (v6.40.2) is used as a reviewed secondary source."
+        description="Maintained against Adyen Web 6.46.0 and Checkout API v72. The supplied callback PDF (v6.40.2) is used as a reviewed secondary source."
       />
       <Callout title="Source policy">
         The callback PDF is useful for callback signatures and ordering, but official Adyen
@@ -41,7 +41,7 @@ export default define.page(function WikiPage() {
               AUTHORISATION webhook.
             </p>
             <p>
-              With v6.41.0, card installments for Sessions belong in the request-level
+              Since v6.41.0, card installments for Sessions belong in the request-level
               <code>installmentOptions</code>. Checkout API v72 accepts an expiry up to 24 hours;
               the default session expiry is one hour.
             </p>
@@ -70,12 +70,15 @@ export default define.page(function WikiPage() {
               snapshots. Encrypted fields, sessionData and card data are redacted.
             </p>
             <p>
-              Adyen Web 6.41.0 adds healthcare data to{" "}
-              <code>onBinLookup</code>, validates an invalid
+              Adyen Web 6.41.0 added healthcare data to{" "}
+              <code>onBinLookup</code>, validated an invalid
               <code>threeDSNotificationURL</code>{" "}
-              in challenge tokens, uses stricter TypeScript callback types, and fixes{" "}
+              in challenge tokens, tightened the TypeScript callback types, and fixed{" "}
               <code>aria-checked</code> when
-              <code>openFirstPaymentMethod=false</code>.
+              <code>openFirstPaymentMethod=false</code>. Up to 6.46.0 it then let the 3DS2 iframe
+              run WebAuthn and SPC challenges, added a Sessions <code>onReview</code>{" "}
+              callback, kept a Drop-in method's state when another is selected, and allowed a
+              disclaimer above the Pay button.
             </p>
           </section>
           <section id="webhooks">

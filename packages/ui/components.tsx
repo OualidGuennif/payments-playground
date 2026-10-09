@@ -232,7 +232,7 @@ export function AppShell(props: {
           <footer class="app-footer">
             <span>© 2026 Payments Playground · TEST environment only</span>
             <span>
-              {props.subtitle} · Adyen Web 6.41.0 · Checkout API v72 ·{" "}
+              {props.subtitle} · Adyen Web 6.46.0 · Checkout API v72 ·{" "}
               <a href="/disclaimer">Disclaimer</a>
             </span>
           </footer>

@@ -5,7 +5,7 @@
  * StyleDefinitions, the card/Drop-in options are CardConfiguration and
  * DropinConfiguration (all of them that a merchant is allowed to set), and the
  * CSS custom properties are the ones actually shipped in adyen.css, all read
- * from @adyen/adyen-web 6.41.0. Re-check them on every SDK bump.
+ * from @adyen/adyen-web 6.46.0. Re-check them on every SDK bump.
  */
 
 import {
@@ -13,7 +13,7 @@ import {
   SOCIAL_SECURITY_NUMBER_COUNTRIES,
 } from "@suite/ui/paymentMethods.ts";
 
-export const ADYEN_WEB_VERSION = "6.41.0";
+export const ADYEN_WEB_VERSION = "6.46.0";
 export const ADYEN_CSS_URL =
   `https://checkoutshopper-live.cdn.adyen.com/checkoutshopper/sdk/${ADYEN_WEB_VERSION}/adyen.css`;
 
@@ -483,11 +483,12 @@ export const CSS_TOKEN_SPECS: CssTokenSpec[] = [
     ["color-label-secondary", "#5c687c"],
     ["color-label-tertiary", "#5c687c"],
     ["color-label-disabled", "#8d95a3"],
-    ["color-label-highlight", "#0070f5"],
+    ["color-label-highlight", "#00112c"],
     ["color-label-critical", "#c72727"],
     ["color-label-success", "#07893c"],
     ["color-label-on-color", "#ffffff"],
     ["color-label-on-background-highlight-weak", "#0063d7"],
+    ["color-label-on-background-success-weak", "#067934"],
   ]),
   ...tokenGroup("Surfaces", "color-background-", [
     ["color-background-primary", "#ffffff"],
@@ -503,6 +504,8 @@ export const CSS_TOKEN_SPECS: CssTokenSpec[] = [
     ["color-background-always-dark", "#00112c"],
     ["color-background-always-dark-active", "#8d95a3"],
     ["color-background-critical-strong", "#e22d2d"],
+    ["color-background-highlight-weak", "#f2f8ff"],
+    ["color-background-success-weak", "#edfaf3"],
   ]),
   ...tokenGroup("Outlines & separators", "color-", [
     ["color-outline-primary", "#dbdee2"],
@@ -981,7 +984,7 @@ export function storedCardConfigObject(styles: SecureStyles, card: CardOptions) 
  * see, the rest are merchant identifiers and flow callbacks.
  *
  * Values come from ApplePayConfiguration / GooglePayConfiguration /
- * PayPalConfiguration in @adyen/adyen-web 6.41.0.
+ * PayPalConfiguration in @adyen/adyen-web 6.46.0.
  */
 // Spelled out as unions rather than string[]: Adyen's own configuration types
 // are unions, and a plain string here is rejected at the Dropin boundary.

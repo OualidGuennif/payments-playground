@@ -52,7 +52,7 @@ export default define.page(function WikiPage() {
             <h2>Human-confirmed payment handoff</h2>
             <p>
               After reviewing the offer, the user can explicitly create a standard Checkout API v72
-              session and complete it with Adyen Web 6.41.0. This is a real Adyen TEST online
+              session and complete it with Adyen Web 6.46.0. This is a real Adyen TEST online
               payment call when credentials are configured, but it is not described as an Agentic
               Commerce API call.
             </p>

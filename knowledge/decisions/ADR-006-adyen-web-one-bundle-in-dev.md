@@ -29,5 +29,6 @@ Re-enabling the optimizer for the package breaks the Deno loader (`?v=` hashes).
 Builds are untouched.
 
 **Consequences.** Dev now matches production in shape: one file, no analytics path. Verified in
-headless Firefox with an `analytics` request block. The bundle is built once per server start. Other
-apps that mount Adyen Web (styling, agentic) do not use the plugin yet.
+headless Firefox with an `analytics` request block. The bundle is built once per server start. Wired
+into digital and styling (styling verified on 2026-10-09: same methods, secured fields, theme
+presets and export as before, production build byte-identical); agentic does not use it.

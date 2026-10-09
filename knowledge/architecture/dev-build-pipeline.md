@@ -11,7 +11,7 @@ generated:
 sources:
   - id: vite-config
     resource: apps/adyen-digital/vite.config.ts
-    title: The digital app's Vite configuration
+    title: The digital app's Vite configuration (styling's is the same)
   - id: dev-bundle
     resource: scripts/adyen-web-dev-bundle.ts
     title: Adyen Web served as one bundle in dev

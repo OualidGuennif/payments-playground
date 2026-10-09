@@ -29,8 +29,8 @@ sources:
   `styles`, Card and Drop-in options, and every `--adyen-sdk-*` token Adyen Web reads, with export.
   It creates a session and mounts a Drop-in; it stores nothing but panel settings in `localStorage`.
   Its token audit (`components/adyenOptions.test.ts`) fetches the real `adyen.css` for the pinned
-  version and fails on drift, so an Adyen Web bump has to be looked at. It does not use the dev
-  bundle plugin yet, so in dev it has the same ad-blocker exposure digital had.
+  version and fails on drift, so an Adyen Web bump has to be looked at. It uses the dev bundle
+  plugin, like digital; its production build is unchanged by it (verified byte-identical).
   [README](../../apps/adyen-v6-styling/README.md).
 - **`adyen-ipp-endless-aisle` (in progress, port 8002).** In-person cart paid on a TEST terminal
   through Terminal API Cloud (device API). Mock mode calls Adyen not at all.

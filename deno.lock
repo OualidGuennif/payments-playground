@@ -1301,6 +1301,7 @@
           "npm:@adyen/adyen-web@6.46.0",
           "npm:@adyen/api-library@32.0.0",
           "npm:@preact/signals@2.9.0",
+          "npm:esbuild@0.25.12",
           "npm:preact@10.29.8",
           "npm:vite@7.1.4"
         ]

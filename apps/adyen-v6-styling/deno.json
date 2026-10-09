@@ -22,7 +22,8 @@
     "@preact/signals": "npm:@preact/signals@2.9.0",
     "@adyen/api-library": "npm:@adyen/api-library@32.0.0",
     "@adyen/adyen-web": "npm:@adyen/adyen-web@6.46.0",
-    "vite": "npm:vite@7.1.4"
+    "vite": "npm:vite@7.1.4",
+    "esbuild": "npm:esbuild@0.25.12"
   },
   "compilerOptions": {
     "lib": ["dom", "dom.asynciterable", "dom.iterable", "deno.ns"],

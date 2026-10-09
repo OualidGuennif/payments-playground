@@ -17,7 +17,7 @@ sources:
     title: POST /webhook
 verified:
   - at: 2026-10-09
-    check: "A CAPTURE notification signed with the local ADYEN_HMAC_KEY and posted to localhost:5173/webhook answered 202 and settled the order paid. Real notifications read from webhook.site matched that shape; replayed with their own signature they answered 401 locally, as expected."
+    check: "Adyen's real CAPTURE ZC55WDCR763KPPT5, read from webhook.site and replayed unchanged to a dev server holding the webhook.site HMAC key, answered 202 with hmac_valid = 1 and settled order 5aa671e7 paid. Notifications captured before that key existed carried no hmacSignature."
 ---
 
 # Webhooks locally, without a tunnel
@@ -45,10 +45,13 @@ a `.env.local` file (git- and docker-ignored) as `WEBHOOK_SITE_API_KEY`;
 `GET https://webhook.site/token/<token id>/requests?sorting=newest` with header `Api-Key` lists the
 captured requests, whose `content` is Adyen's JSON.
 
-Each webhook endpoint in the Customer Area has **its own HMAC key**. Real notifications captured
-there are signed with that endpoint's key, so replayed locally they verify only if the local
-`ADYEN_HMAC_KEY` is that same key. Otherwise they are recorded with `hmac_valid = 0`, correlated,
-and not processed (401), which is the correct behaviour.
+Each webhook endpoint in the Customer Area has **its own HMAC key**. The webhook.site endpoint
+signed nothing until its key was generated on 2026-10-09; that key is in the same `.env.local` as
+`HMAC`. To replay a captured notification for real, start a throwaway dev server whose process
+environment sets `ADYEN_HMAC_KEY` to it (process env wins over `.env`; spawn it from a script that
+reads the file, so the key is never typed or printed) and POST the captured body unchanged. With any
+other key, or no signature, the item is recorded with `hmac_valid = 0`, correlated, and not
+processed (401), which is the correct behaviour.
 
 ## 3. Tunnel
 

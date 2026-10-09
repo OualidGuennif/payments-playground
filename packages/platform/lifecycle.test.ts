@@ -60,3 +60,25 @@ Deno.test("lifecycle actions target the latest authorised attempt, not a later r
   assertEquals(source?.id, "1");
   assertEquals(lifecycleSourceAttempt([attempt("1", "refused")]), undefined);
 });
+
+Deno.test("methods without separate capture are refunded, never captured or cancelled", () => {
+  for (const method of ["wero", "wechatpayQR", "paybybank"]) {
+    const permissions = actionPermissions("payment_pending", method, 10_000);
+    assertEquals(permissions.capture.allowed, false, method);
+    assertEquals(permissions.cancel.allowed, false, method);
+    assertEquals(permissions.refund.allowed, true, method);
+  }
+});
+
+Deno.test("methods with separate capture follow the account's manual card capture", () => {
+  for (
+    const method of ["googlepay", "applepay", "klarna_account", "alma", "facilypay_3x", "ancv"]
+  ) {
+    const permissions = actionPermissions("payment_pending", method, 10_000);
+    assertEquals(permissions.capture.allowed, true, method);
+    assertEquals(permissions.cancel.allowed, true, method);
+    assertEquals(permissions.refund.allowed, false, method);
+  }
+  assertEquals(capabilitiesFor("ancv").partialRefund, false);
+  assertEquals(capabilitiesFor("alma").validityMinutes, 30 * 24 * 60);
+});

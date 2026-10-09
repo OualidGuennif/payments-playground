@@ -94,8 +94,9 @@ works without them.
 - **Capture**: the order is `payment_pending` or `partially_paid` and the method supports separate
   capture and is not configured as captured on authorisation.
 - **Cancel**: same states, the method supports cancel, nothing captured yet.
-- **Refund**: the order is `paid`, or the method is captured on authorisation (iDEAL, PayPal here,
-  gift cards) and some amount is authorised.
+- **Refund**: the order is `paid`, or the method is captured on authorisation (PayPal on this
+  account; iDEAL, MB WAY, Wero, WeChat Pay, Pay by Bank and gift cards by nature) and some amount is
+  authorised.
 
 Actions target the latest **authorised** attempt (`lifecycleSourceAttempt`), are idempotent on the
 `Idempotency-Key` header, and are recorded as `received`. Their outcome arrives as a webhook.

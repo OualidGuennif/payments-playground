@@ -133,8 +133,10 @@ export function requestOrigin(request: Request, publicOrigin: string): string {
 
 export function csrfProtection(signingSecret: string, publicOrigin: string): MiddlewareHandler {
   return async (c, next) => {
-    const session = await ensureSession(c, signingSecret);
-    c.set("session", session);
+    // Checked before ensureSession, so a rejected request never issues
+    // cookies. A first visit's POST can race the page's own GET
+    // /api/bootstrap; answering it with a fresh token replaced the one
+    // bootstrap had just set, and the next POST failed with a stale header.
     if (["POST", "PUT", "PATCH", "DELETE"].includes(c.req.method)) {
       // The real protection: a double-submit token the browser only ever
       // exposes to same-origin script, backed by SameSite=Strict on the
@@ -149,6 +151,7 @@ export function csrfProtection(signingSecret: string, publicOrigin: string): Mid
         return c.json({ error: "Cross-origin request rejected." }, 403);
       }
     }
+    c.set("session", await ensureSession(c, signingSecret));
     await next();
   };
 }

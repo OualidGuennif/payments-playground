@@ -73,3 +73,19 @@ Deno.test("Basic Auth, when configured, challenges every path but the health che
   }
   assertEquals(basicAuthChallenge(new Request("http://localhost/back-office")), undefined);
 });
+
+Deno.test("a rejected POST issues no cookies, so it cannot replace bootstrap's CSRF token", async () => {
+  const app = new Hono();
+  app.use("*", csrfProtection("test-secret", PUBLIC_ORIGIN));
+  app.get("/api/bootstrap", (c) => c.json({ ok: true }));
+  app.post("/api/x", (c) => c.json({ ok: true }));
+
+  const rejected = await app.request("http://127.0.0.1:8001/api/x", { method: "POST" });
+  assertEquals(rejected.status, 403);
+  assertEquals(rejected.headers.getSetCookie(), []);
+
+  const bootstrap = await app.request("http://127.0.0.1:8001/api/bootstrap");
+  const issued = bootstrap.headers.getSetCookie().map((cookie) => cookie.split(";")[0]);
+  assertEquals(issued.some((cookie) => cookie.startsWith("adyen_csrf=")), true);
+  assertEquals(issued.some((cookie) => cookie.startsWith("adyen_session=")), true);
+});

@@ -533,15 +533,18 @@ export default function StylingPlayground() {
 
   // Side lookup only, populates the pre-select dropdown with this
   // merchant's real payment methods for the chosen country. Independent of
-  // the /sessions call the preview actually uses.
+  // the /sessions call the preview actually uses. It waits for bootstrap,
+  // which issues the CSRF cookie: on a first visit it used to run first and
+  // be refused, leaving the dropdown empty.
   useEffect(() => {
+    if (!bootstrap) return;
     apiFetch<{ paymentMethods: AvailableMethod[] }>("/api/styling/payment-methods", {
       method: "POST",
       body: JSON.stringify({ countryCode: country }),
     })
       .then((response) => setAvailableMethods(response.paymentMethods))
       .catch(() => setAvailableMethods([]));
-  }, [country]);
+  }, [country, bootstrap]);
 
   async function initialize() {
     const boot = await apiFetch<Bootstrap>("/api/bootstrap");

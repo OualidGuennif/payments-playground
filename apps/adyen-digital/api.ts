@@ -186,6 +186,28 @@ function settleAttempt(
   return resolveAndStore(order);
 }
 
+// What Adyen Web puts in state.data beside paymentMethod and /payments accepts
+// (checked against PaymentRequest in api-library 32). Dropping them lost the
+// shopper's installment choice, Brazil's CPF and the device fingerprint.
+// Addresses and shopperEmail are handled by requestBase.
+const FORWARDED_STATE_DATA = [
+  "riskData",
+  "installments",
+  "socialSecurityNumber",
+  "shopperName",
+  "telephoneNumber",
+  "dateOfBirth",
+] as const;
+
+function forwardedStateData(body: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    FORWARDED_STATE_DATA.filter((field) => body[field] !== undefined).map((field) => [
+      field,
+      body[field],
+    ]),
+  );
+}
+
 function permissionsFor(order: OrderAggregate, attempts: AttemptAggregate[]) {
   const paymentMethod = (lifecycleSourceAttempt(attempts) ??
     attempts.find((attempt) => attempt.paymentMethod))?.paymentMethod;
@@ -468,6 +490,7 @@ api.post("/api/digital/payments", async (c) => {
   const origin = requestOrigin(c.req.raw, context.config.publicOrigin);
   const request = {
     ...requestBase({ body, secrets, order, origin, context: "payments" }),
+    ...forwardedStateData(body),
     paymentMethod,
     browserInfo: body.browserInfo,
     origin,

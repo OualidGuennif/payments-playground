@@ -229,26 +229,36 @@ export function applySecurityHeaders(headers: Headers): void {
   // of our page CSP, so it wasn't buying real protection here, only churn.
 }
 
-export function optionalBasicAuth(): MiddlewareHandler {
+const BASIC_AUTH_REALM = 'Basic realm="Adyen TEST Playground"';
+
+/**
+ * The 401 to answer with when PLAYGROUND_BASIC_AUTH_* is set and the request
+ * does not carry those credentials, otherwise undefined. Framework-free so
+ * each app's main.ts can run it before Fresh: as a Hono middleware alone it
+ * only ever covered /api/*, leaving every page public and flow pages
+ * crashing on their in-process bootstrap call.
+ */
+export function basicAuthChallenge(request: Request): Response | undefined {
   const username = Deno.env.get("PLAYGROUND_BASIC_AUTH_USER");
   const password = Deno.env.get("PLAYGROUND_BASIC_AUTH_PASSWORD");
-  if (!username || !password) return async (_c, next) => await next();
+  if (!username || !password) return undefined;
+  const path = new URL(request.url).pathname;
+  if (path === "/healthz" || path === "/api/health") return undefined;
+  const header = request.headers.get("authorization");
+  let decoded = "";
+  try {
+    decoded = header?.startsWith("Basic ") ? atob(header.slice(6)) : "";
+  } catch {
+    decoded = "";
+  }
+  if (decoded === `${username}:${password}`) return undefined;
+  // Sent on every 401, so a browser asks again after a wrong password.
+  return new Response(header ? "Invalid authentication" : "Authentication required", {
+    status: 401,
+    headers: { "WWW-Authenticate": BASIC_AUTH_REALM },
+  });
+}
 
-  return async (c, next) => {
-    const path = new URL(c.req.url).pathname;
-    if (path === "/healthz" || path === "/api/health") return await next();
-    const header = c.req.header("authorization");
-    if (!header?.startsWith("Basic ")) {
-      c.header("WWW-Authenticate", 'Basic realm="Adyen TEST Playground"');
-      return c.body("Authentication required", 401);
-    }
-    let decoded = "";
-    try {
-      decoded = atob(header.slice(6));
-    } catch {
-      return c.body("Invalid authentication", 401);
-    }
-    if (decoded !== `${username}:${password}`) return c.body("Invalid authentication", 401);
-    await next();
-  };
+export function optionalBasicAuth(): MiddlewareHandler {
+  return async (c, next) => basicAuthChallenge(c.req.raw) ?? await next();
 }

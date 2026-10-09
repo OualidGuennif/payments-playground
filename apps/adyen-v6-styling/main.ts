@@ -1,9 +1,16 @@
 import { App, staticFiles } from "fresh";
-import { applySecurityHeaders } from "@suite/platform/security.ts";
+import { applySecurityHeaders, basicAuthChallenge } from "@suite/platform/security.ts";
 import { api } from "./api.ts";
 import { define, type State } from "./utils.ts";
 
 export const app = new App<State>();
+// First, so optional Basic Auth covers pages and static files, not only the API.
+app.use(define.middleware((ctx) => {
+  const challenge = basicAuthChallenge(ctx.req);
+  if (!challenge) return ctx.next();
+  applySecurityHeaders(challenge.headers);
+  return challenge;
+}));
 app.use(staticFiles());
 app.use(define.middleware(async (ctx) => {
   ctx.state.requestId = crypto.randomUUID();

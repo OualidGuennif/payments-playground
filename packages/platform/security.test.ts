@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { Hono } from "hono";
-import { csrfProtection, requestOrigin } from "./security.ts";
+import { basicAuthChallenge, csrfProtection, requestOrigin } from "./security.ts";
 
 const PUBLIC_ORIGIN = "http://127.0.0.1:8001";
 
@@ -49,4 +49,27 @@ Deno.test("CSRF still rejects a cross-origin POST that carries a valid token", a
     headers: { ...headers, origin: "https://evil.example" },
   });
   assertEquals(crossOrigin.status, 403);
+});
+
+Deno.test("Basic Auth, when configured, challenges every path but the health checks", () => {
+  Deno.env.set("PLAYGROUND_BASIC_AUTH_USER", "user");
+  Deno.env.set("PLAYGROUND_BASIC_AUTH_PASSWORD", "pass");
+  try {
+    const challenge = basicAuthChallenge(new Request("http://localhost/back-office"));
+    assertEquals(challenge?.status, 401);
+    assertEquals(challenge?.headers.get("www-authenticate"), 'Basic realm="Adyen TEST Playground"');
+    const wrong = new Request("http://localhost/", {
+      headers: { authorization: `Basic ${btoa("user:nope")}` },
+    });
+    assertEquals(basicAuthChallenge(wrong)?.headers.has("www-authenticate"), true);
+    const right = new Request("http://localhost/", {
+      headers: { authorization: `Basic ${btoa("user:pass")}` },
+    });
+    assertEquals(basicAuthChallenge(right), undefined);
+    assertEquals(basicAuthChallenge(new Request("http://localhost/healthz")), undefined);
+  } finally {
+    Deno.env.delete("PLAYGROUND_BASIC_AUTH_USER");
+    Deno.env.delete("PLAYGROUND_BASIC_AUTH_PASSWORD");
+  }
+  assertEquals(basicAuthChallenge(new Request("http://localhost/back-office")), undefined);
 });

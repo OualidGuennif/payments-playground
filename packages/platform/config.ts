@@ -40,9 +40,15 @@ export function unquoteEnvValue(value: string): string {
 }
 
 function environmentWithLocalFallback(): Record<string, string> {
-  const values = Object.fromEntries(
-    Object.entries(Deno.env.toObject()).map(([key, value]) => [key, unquoteEnvValue(value)]),
-  );
+  const values = Deno.env.toObject();
+  for (const [key, value] of Object.entries(values)) {
+    const unquoted = unquoteEnvValue(value);
+    if (unquoted === value) continue;
+    values[key] = unquoted;
+    // Written back too: profiles.ts and the Basic Auth middleware read
+    // Deno.env directly, and both are set up after this on every startup.
+    Deno.env.set(key, unquoted);
+  }
   const explicitLegacy = values.LEGACY_ENV_PATH;
   const candidates = [
     explicitLegacy,

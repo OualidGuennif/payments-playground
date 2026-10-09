@@ -83,3 +83,50 @@ Deno.test("effective link expiration closes the order", () => {
   assertEquals(resolution.state, "expired");
   assertEquals(resolution.terminal, true);
 });
+
+Deno.test("a successful CAPTURE webhook settles the order as paid", () => {
+  const resolution = resolveOrder({
+    currentState: "payment_pending",
+    totalValue: 10_000,
+    modificationWebhook: { kind: "capture", success: true },
+    attempts: [{ id: "card", state: "authorised", value: 10_000, pspReference: "PSP-1" }],
+  });
+
+  assertEquals(resolution.state, "paid");
+  assertEquals(resolution.terminal, true);
+});
+
+Deno.test("a failed CAPTURE webhook leaves the authorisation where it was", () => {
+  const resolution = resolveOrder({
+    currentState: "payment_pending",
+    totalValue: 10_000,
+    modificationWebhook: { kind: "capture", success: false },
+    attempts: [{ id: "card", state: "authorised", value: 10_000, pspReference: "PSP-1" }],
+  });
+
+  assertEquals(resolution.state, "payment_pending");
+});
+
+Deno.test("a successful CANCELLATION webhook cancels the order", () => {
+  const resolution = resolveOrder({
+    currentState: "payment_pending",
+    totalValue: 10_000,
+    modificationWebhook: { kind: "cancel", success: true },
+    attempts: [{ id: "card", state: "authorised", value: 10_000, pspReference: "PSP-1" }],
+  });
+
+  assertEquals(resolution.state, "cancelled");
+});
+
+Deno.test("a later webhook never reopens a settled order", () => {
+  for (const currentState of ["paid", "cancelled"] as const) {
+    const resolution = resolveOrder({
+      currentState,
+      totalValue: 10_000,
+      attempts: [{ id: "card", state: "authorised", value: 10_000, pspReference: "PSP-1" }],
+    });
+
+    assertEquals(resolution.state, currentState);
+    assertEquals(resolution.terminal, true);
+  }
+});

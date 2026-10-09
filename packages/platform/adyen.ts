@@ -213,6 +213,9 @@ async function adyenRequest(input: {
   endpoint: string;
   method?: HttpMethod;
   payload?: Payload;
+  // The library builds the request path from the endpoint's pathname alone,
+  // so a query string written into `endpoint` is silently dropped.
+  params?: Record<string, string>;
   idempotencyKey?: string;
   timeoutMs?: number;
   httpClient: AdyenHttpClient;
@@ -235,6 +238,7 @@ async function adyenRequest(input: {
       {
         method: input.method ?? "POST",
         headers: { Accept: "application/json" },
+        ...(input.params ? { params: input.params } : {}),
         ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
       },
     );
@@ -261,6 +265,17 @@ export class AdyenTestClient {
       endpoint: `${CHECKOUT_BASE_URL}/sessions`,
       payload,
       idempotencyKey,
+      httpClient: this.#httpClient,
+    });
+  }
+
+  /** The authoritative outcome of a Sessions-flow checkout, keyed by the result Adyen Web returns. */
+  async getSessionResult(sessionId: string, sessionResult: string): Promise<unknown> {
+    return await adyenRequest({
+      apiKey: this.#secrets.apiKey!,
+      endpoint: `${CHECKOUT_BASE_URL}/sessions/${encodeURIComponent(sessionId)}`,
+      method: "GET",
+      params: { sessionResult },
       httpClient: this.#httpClient,
     });
   }

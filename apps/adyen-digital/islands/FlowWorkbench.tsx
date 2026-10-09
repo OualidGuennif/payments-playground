@@ -152,6 +152,7 @@ function callbackMeta(name: string): CallbackMeta {
 // Every Checkout endpoint the backend can record, in one line each, so the
 // API tab reads as a sequence of intentions rather than a pile of JSON.
 const API_HINTS: Array<[string, string]> = [
+  ["GET /sessions", "The session's authoritative outcome, fetched with Adyen Web's sessionResult."],
   ["/sessions", "One call, Adyen Web owns 3DS and the rest of the orchestration."],
   ["/paymentMethods", "Methods available for this amount, country and locale."],
   ["/payments/details", "Second leg of a 3DS or redirect flow."],
@@ -473,8 +474,14 @@ export default function FlowWorkbench(
   >("UnscheduledCardOnFile");
   const [validityHours, setValidityHours] = useState(24);
   const [reusable, setReusable] = useState(false);
+  // Adyen Web renders into this node with its own Preact copy, so it is kept
+  // apart from anything this island renders: the placeholder is a sibling.
   const dropinHost = useRef<HTMLDivElement>(null);
+  const [checkoutMounted, setCheckoutMounted] = useState(false);
   const mounted = useRef<MountedComponent | null>(null);
+  // Bumped by every start(). A settings change can restart the checkout while
+  // the previous run still awaits the network; only the latest run may mount.
+  const runRef = useRef(0);
   const correlationRef = useRef<string | null>(null);
   const checkoutRef = useRef<Core | null>(null);
   const customCardHolderNameRef = useRef<HTMLInputElement | null>(null);
@@ -605,7 +612,9 @@ export default function FlowWorkbench(
       optional: callbackMeta(name).rank !== "required",
     };
     setCallbacks((current) => [...current, entry]);
-    const id = explicitCorrelation ?? correlationId;
+    // The ref, not the state: Adyen Web keeps the handlers of the render that
+    // created the checkout, whose state still holds the previous run's id.
+    const id = explicitCorrelation ?? correlationRef.current;
     if (id) {
       apiFetch("/api/callbacks", {
         method: "POST",
@@ -632,21 +641,49 @@ export default function FlowWorkbench(
       onPaymentCompleted: (result: unknown) => {
         addCallback("onPaymentCompleted", result);
         setOutcome({ status: "completed", result: recordSafe(result) });
+        syncSessionResult(result);
       },
       onPaymentFailed: (result: unknown) => {
         addCallback("onPaymentFailed", result);
         setOutcome({ status: "failed", result: recordSafe(result) });
+        syncSessionResult(result);
       },
       onError: (cause: unknown) => {
         addCallback("onError", cause);
         if (isNonFatalWalletError(cause)) return;
         setError(cause instanceof Error ? cause.message : "Adyen Web reported an error.");
       },
+      ...extra,
+    };
+  }
+
+  // Sessions only: Adyen Web ran the payment, so the server asks Adyen how it
+  // ended, which is what lets the Back Office show it without a webhook.
+  function syncSessionResult(result: unknown) {
+    const sessionResult = (result as { sessionResult?: unknown } | null)?.sessionResult;
+    const orderId = correlationRef.current;
+    if (flow !== "sessions" || typeof sessionResult !== "string" || !orderId) return;
+    apiFetch(`/api/digital/sessions/${orderId}/result`, {
+      method: "POST",
+      body: JSON.stringify({ sessionResult }),
+    }, profileId).catch(() => undefined);
+  }
+
+  // Card-only events. Adyen Web reads them from the card's own configuration
+  // and ignores them, with a console warning, at the AdyenCheckout level.
+  function methodsConfiguration(): Record<string, unknown> {
+    const configuration = paymentMethodsConfiguration(country, bootstrap?.profile.merchantAccount, {
+      enableStoreDetails: flow !== "sessions",
+    });
+    const cardEvents = {
       onBinLookup: (data: unknown) => addCallback("onBinLookup", data),
       onBinValue: (data: unknown) => addCallback("onBinValue", data),
       onBrand: (data: unknown) => addCallback("onBrand", data),
-      ...extra,
     };
+    for (const type of ["card", "scheme"]) {
+      configuration[type] = { ...configuration[type] as Record<string, unknown>, ...cardEvents };
+    }
+    return configuration;
   }
 
   function mountComponentType(type: string) {
@@ -662,9 +699,7 @@ export default function FlowWorkbench(
       }
       mounted.current?.unmount();
       dropinHost.current.replaceChildren();
-      const config = paymentMethodsConfiguration(country, bootstrap?.profile.merchantAccount, {
-        enableStoreDetails: flow !== "sessions",
-      })[type] as Record<string, unknown> | undefined;
+      const config = methodsConfiguration()[type] as Record<string, unknown> | undefined;
       // Card/PayPal/etc. have dedicated classes whose static `type` is already
       // correct, but every redirect-only method (Alma, Wero, WeChat...) shares
       // the same generic Redirect element, without an explicit `type` here it
@@ -673,17 +708,20 @@ export default function FlowWorkbench(
       const instance = new ComponentClass(checkout, { ...config, type });
       instance.mount(dropinHost.current);
       mounted.current = instance;
+      setCheckoutMounted(true);
       setComponentType(type);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : `Could not mount "${type}".`);
     }
   }
 
-  async function mountCheckout(configuration: Record<string, unknown>) {
-    mounted.current?.unmount();
-    if (!dropinHost.current) return;
-    dropinHost.current.replaceChildren();
+  async function mountCheckout(configuration: Record<string, unknown>, stale: () => boolean) {
     const checkout = await AdyenCheckout(configuration as never) as Core;
+    // A newer run owns the host now; mounting this one too would stack two
+    // checkouts in it. The previous checkout stays up until then.
+    if (stale() || !dropinHost.current) return;
+    mounted.current?.unmount();
+    dropinHost.current.replaceChildren();
     checkoutRef.current = checkout;
 
     if (flow === "api-only") {
@@ -721,6 +759,7 @@ export default function FlowWorkbench(
       submitBtn?.addEventListener("click", () => component.submit());
       component.mount(dropinHost.current);
       mounted.current = component as MountedComponent;
+      setCheckoutMounted(true);
       return;
     }
 
@@ -729,16 +768,13 @@ export default function FlowWorkbench(
 
     if (integration === "dropin") {
       const component = new Dropin(checkout, {
-        paymentMethodsConfiguration: paymentMethodsConfiguration(
-          country,
-          bootstrap?.profile.merchantAccount,
-          { enableStoreDetails: flow !== "sessions" },
-        ),
+        paymentMethodsConfiguration: methodsConfiguration(),
         openFirstPaymentMethod: false,
         instantPaymentTypes: ["applepay", "googlepay"],
       });
       component.mount(dropinHost.current);
       mounted.current = component as MountedComponent;
+      setCheckoutMounted(true);
       return;
     }
 
@@ -748,7 +784,7 @@ export default function FlowWorkbench(
     mountComponentType(nextType);
   }
 
-  async function startSession() {
+  async function startSession(stale: () => boolean) {
     const data = await apiFetch<{
       correlationId: string;
       session: { id: string; sessionData: string };
@@ -762,9 +798,10 @@ export default function FlowWorkbench(
         installments,
       }),
     }, profileId);
+    if (stale()) return;
     updateCorrelation(data.correlationId);
     addCallback("sessionCreated", { id: data.session.id }, data.correlationId);
-    await mountCheckout(commonConfiguration({
+    const configuration = commonConfiguration({
       session: data.session,
       beforeSubmit: (state: unknown, _component: unknown, actions: CallbackActions) => {
         addCallback("beforeSubmit", state, data.correlationId);
@@ -774,10 +811,11 @@ export default function FlowWorkbench(
         // then rejects as "Required field 'paymentMethod' is null".
         actions.resolve(state);
       },
-    }));
+    });
+    await mountCheckout(configuration, stale);
   }
 
-  async function startAdvanced() {
+  async function startAdvanced(stale: () => boolean) {
     const methods = await apiFetch<{
       correlationId: string;
       shopperConversionId: string;
@@ -790,9 +828,10 @@ export default function FlowWorkbench(
         shopperLocale: locale,
       }),
     }, profileId);
+    if (stale()) return;
     updateCorrelation(methods.correlationId);
     shopperConversionRef.current = methods.shopperConversionId;
-    await mountCheckout(commonConfiguration({
+    const configuration = commonConfiguration({
       amount: { value: amount, currency },
       paymentMethodsResponse: methods.paymentMethodsResponse,
       onSubmit: async (state: unknown, _component: unknown, actions: CallbackActions) => {
@@ -850,7 +889,8 @@ export default function FlowWorkbench(
           actions.reject();
         }
       },
-    }));
+    });
+    await mountCheckout(configuration, stale);
   }
 
   async function createPaymentLink() {
@@ -903,16 +943,18 @@ export default function FlowWorkbench(
     setAdditionalDataOpen(new Set());
     // A conversion id belongs to one checkout; the next one mints its own.
     shopperConversionRef.current = null;
+    const run = ++runRef.current;
+    const stale = () => run !== runRef.current;
     setLoading(true);
     try {
-      if (flow === "sessions") await startSession();
-      else if (flow === "advanced" || flow === "api-only") await startAdvanced();
+      if (flow === "sessions") await startSession(stale);
+      else if (flow === "advanced" || flow === "api-only") await startAdvanced(stale);
       else if (flow === "pay-by-link") await createPaymentLink();
       else await runMit();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The flow could not start.");
+      if (!stale()) setError(cause instanceof Error ? cause.message : "The flow could not start.");
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
   }
 
@@ -1368,8 +1410,9 @@ export default function FlowWorkbench(
                 : flow === "mit" && outcome
                 ? <pre class="code-block">{prettyJson(recordSafe(outcome))}</pre>
                 : (
-                  <div class="dropin-host" ref={dropinHost} aria-live="polite">
-                    {!mounted.current
+                  <div class="dropin-host" aria-live="polite">
+                    <div ref={dropinHost} />
+                    {!checkoutMounted
                       ? (
                         <div class="dropin-placeholder">
                           <p>

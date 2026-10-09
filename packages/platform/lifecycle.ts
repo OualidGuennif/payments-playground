@@ -1,4 +1,9 @@
-import type { ActionPermissions, LifecycleCapabilities, OrderState } from "./types.ts";
+import type {
+  ActionPermissions,
+  AttemptAggregate,
+  LifecycleCapabilities,
+  OrderState,
+} from "./types.ts";
 
 export const PAYMENT_METHOD_CAPABILITIES: Record<string, LifecycleCapabilities> = {
   scheme: {
@@ -69,12 +74,30 @@ export function capabilitiesFor(paymentMethod: string | undefined): LifecycleCap
     PAYMENT_METHOD_CAPABILITIES.scheme;
 }
 
+/**
+ * The attempt a capture, cancel or refund applies to: the latest authorised
+ * one. The latest attempt with any PSP reference could be a refusal, and
+ * Adyen rejects a modification on a refused payment.
+ */
+export function lifecycleSourceAttempt(
+  attempts: AttemptAggregate[],
+): AttemptAggregate | undefined {
+  return attempts.findLast((attempt) => attempt.state === "authorised" && attempt.pspReference);
+}
+
+/**
+ * `authorisedValue` is the order's paid value. A method Adyen captures on
+ * authorisation (iDEAL, PayPal here, gift cards) never sees a CAPTURE
+ * webhook, so for those an authorised amount already counts as captured.
+ */
 export function actionPermissions(
   state: OrderState,
   paymentMethod?: string,
+  authorisedValue = 0,
 ): ActionPermissions {
   const capabilities = capabilitiesFor(paymentMethod);
-  const captured = state === "paid";
+  const captured = state === "paid" ||
+    (capabilities.automaticCapture && authorisedValue > 0 && state !== "cancelled");
   const pendingAuthorisation = state === "payment_pending" || state === "partially_paid";
 
   return {

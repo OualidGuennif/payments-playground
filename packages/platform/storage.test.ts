@@ -54,3 +54,52 @@ Deno.test("orders beyond the retained cap are purged per app on creation", () =>
     repository.close();
   }
 });
+
+Deno.test("one PSP reference records one payment part, however often it is reported", () => {
+  const repository = new Repository(":memory:");
+  try {
+    const order = repository.createOrder({
+      appId: "digital",
+      flow: "advanced-dropin",
+      amount: { value: 1000, currency: "EUR" },
+    });
+    const part = {
+      orderId: order.id,
+      pspReference: "PSP-1",
+      amount: { value: 1000, currency: "EUR" },
+      state: "authorised",
+    };
+    const first = repository.recordPaymentPart(part);
+    assertEquals(repository.recordPaymentPart(part), first);
+    const count = repository.database.prepare<{ count: number }>(
+      "SELECT COUNT(*) AS count FROM payment_parts WHERE order_id = ?",
+    ).get(order.id);
+    assertEquals(count?.count, 1);
+  } finally {
+    repository.close();
+  }
+});
+
+Deno.test("an order is found from an attempt's PSP reference and its Adyen session", () => {
+  const repository = new Repository(":memory:");
+  try {
+    const order = repository.createOrder({
+      appId: "digital",
+      flow: "sessions-dropin",
+      amount: { value: 1000, currency: "EUR" },
+    });
+    repository.createSession({ orderId: order.id, kind: "sessions-dropin", adyenSessionId: "CS1" });
+    repository.createAttempt({
+      orderId: order.id,
+      amount: { value: 1000, currency: "EUR" },
+      state: "authorised",
+      pspReference: "PSP-1",
+    });
+
+    assertEquals(repository.findOrderByPspReference("PSP-1")?.id, order.id);
+    assertEquals(repository.findOrderByPspReference("PSP-unknown"), undefined);
+    assertEquals(repository.findAdyenSessionId(order.id), "CS1");
+  } finally {
+    repository.close();
+  }
+});

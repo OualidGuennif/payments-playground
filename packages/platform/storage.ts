@@ -162,6 +162,23 @@ export class Repository {
     return row ? mapOrder(row) : undefined;
   }
 
+  /** A modification webhook names its payment only through originalReference. */
+  findOrderByPspReference(pspReference: string): OrderAggregate | undefined {
+    const row = this.database.prepare<OrderRow>(
+      `SELECT orders.* FROM orders JOIN attempts ON attempts.order_id = orders.id
+       WHERE attempts.psp_reference = ? LIMIT 1`,
+    ).get(pspReference);
+    return row ? mapOrder(row) : undefined;
+  }
+
+  findAdyenSessionId(orderId: string): string | undefined {
+    const row = this.database.prepare<{ adyen_session_id: string | null }>(
+      `SELECT adyen_session_id FROM payment_sessions
+       WHERE order_id = ? ORDER BY created_at DESC LIMIT 1`,
+    ).get(orderId);
+    return row?.adyen_session_id || undefined;
+  }
+
   listOrders(appId: AppId, limit = 100): OrderAggregate[] {
     return this.database.prepare<OrderRow>(
       "SELECT * FROM orders WHERE app_id = ? ORDER BY updated_at DESC LIMIT ?",
@@ -295,6 +312,15 @@ export class Repository {
     amount: Amount;
     state: string;
   }): string {
+    // The /payments response and the AUTHORISATION webhook both report the
+    // same authorisation; one PSP reference is one part, whichever lands first.
+    if (input.pspReference) {
+      const existing = this.database.prepare<{ id: string }>(
+        `SELECT id FROM payment_parts
+         WHERE order_id = ? AND psp_reference = ? AND state = ?`,
+      ).get(input.orderId, input.pspReference, input.state);
+      if (existing) return existing.id;
+    }
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     this.database.prepare(

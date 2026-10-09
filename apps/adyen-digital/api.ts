@@ -2,9 +2,14 @@ import { createPlatformContext, selectedSecrets } from "@suite/platform/base-api
 import { AdyenTestClient } from "@suite/platform/adyen.ts";
 import { buildCheckoutAddresses, SUPPORTED_COUNTRY_CODES } from "@suite/platform/addresses.ts";
 import { type StandardWebhookItem, verifyStandardHmac } from "@suite/platform/hmac.ts";
-import { actionPermissions, PAYMENT_METHOD_CAPABILITIES } from "@suite/platform/lifecycle.ts";
+import {
+  actionPermissions,
+  lifecycleSourceAttempt,
+  PAYMENT_METHOD_CAPABILITIES,
+} from "@suite/platform/lifecycle.ts";
 import { PAYMENT_METHOD_RULES } from "@suite/platform/payment-methods.ts";
 import { rejectRawCardData, sanitize } from "@suite/platform/sanitize.ts";
+import { requestOrigin } from "@suite/platform/security.ts";
 import {
   buildLineItems,
   paymentsRiskFields,
@@ -13,10 +18,15 @@ import {
   splitsCardFundingSources,
 } from "@suite/platform/sessionContext.ts";
 import { weeklyShopperReference } from "@suite/platform/shopper.ts";
-import { mapAdyenResultCode, resolveOrder } from "@suite/platform/state-machine.ts";
+import {
+  mapAdyenResultCode,
+  type OrderResolution,
+  type OrderResolutionInput,
+  resolveOrder,
+} from "@suite/platform/state-machine.ts";
 import type {
   Amount,
-  AttemptState,
+  AttemptAggregate,
   JsonValue,
   OrderAggregate,
   ProfileSecrets,
@@ -121,10 +131,72 @@ async function recordedCall<T>(input: {
   }
 }
 
+/** Re-derives the order from its attempts (plus any terminal event) and stores it. */
+function resolveAndStore(
+  order: OrderAggregate,
+  events: Pick<
+    OrderResolutionInput,
+    "expiresAt" | "linkStatus" | "orderClosedWebhook" | "modificationWebhook"
+  > = {},
+): OrderResolution {
+  const resolution = resolveOrder({
+    currentState: order.state,
+    totalValue: order.amount.value,
+    expiresAt: order.expiresAt,
+    ...events,
+    attempts: context.repository.listAttempts(order.id).map((attempt) => ({
+      id: attempt.id,
+      state: attempt.state,
+      value: attempt.amount.value,
+      pspReference: attempt.pspReference,
+    })),
+  });
+  context.repository.updateOrder(order.id, {
+    state: resolution.state,
+    paidValue: resolution.paidValue,
+  });
+  return resolution;
+}
+
+/**
+ * Writes one Adyen payment result onto its attempt and re-resolves the order.
+ * /payments, /payments/details and MIT all end here, so a 3DS or redirect
+ * outcome reaches the Back Office the same way a frictionless one does.
+ */
+function settleAttempt(
+  order: OrderAggregate,
+  attempt: AttemptAggregate,
+  result: unknown,
+): OrderResolution {
+  const state = mapAdyenResultCode(String(resultField(result, "resultCode") ?? ""));
+  const updated = context.repository.updateAttempt(attempt.id, {
+    state,
+    pspReference: String(resultField(result, "pspReference") ?? "") || undefined,
+    refusalReason: String(resultField(result, "refusalReason") ?? "") || undefined,
+  });
+  if (state === "authorised") {
+    context.repository.recordPaymentPart({
+      orderId: order.id,
+      attemptId: attempt.id,
+      pspReference: updated.pspReference,
+      amount: updated.amount,
+      state: "authorised",
+    });
+  }
+  return resolveAndStore(order);
+}
+
+function permissionsFor(order: OrderAggregate, attempts: AttemptAggregate[]) {
+  const paymentMethod = (lifecycleSourceAttempt(attempts) ??
+    attempts.find((attempt) => attempt.paymentMethod))?.paymentMethod;
+  return actionPermissions(order.state, paymentMethod, order.paidValue);
+}
+
 function requestBase(input: {
   body: Record<string, unknown>;
   secrets: ProfileSecrets;
   order: OrderAggregate;
+  origin: string;
   // "payments" gets merchantRiskIndicator too; /sessions and /paymentLinks
   // reject it outright ("contains the following unknown fields").
   context: "sessions" | "payments" | "paymentLinks";
@@ -161,7 +233,7 @@ function requestBase(input: {
     // Required for line-item-aware methods (Klarna and other BNPL) to be
     // considered eligible at all, without it they're silently excluded.
     lineItems: buildLineItems(input.order.amount),
-    returnUrl: `${context.config.publicOrigin}/result?orderId=${input.order.id}`,
+    returnUrl: `${input.origin}/result?orderId=${input.order.id}`,
     billingAddress,
     deliveryAddress,
     // Lets the shopper opt in to saving the card (shown as a checkbox in the
@@ -196,12 +268,7 @@ api.get("/api/digital/config", (c) => {
 api.get("/api/digital/orders", (c) => {
   const orders = context.repository.listOrders("digital").map((order) => {
     const attempts = context.repository.listAttempts(order.id);
-    const paymentMethod = attempts.find((attempt) => attempt.paymentMethod)?.paymentMethod;
-    return {
-      ...order,
-      attempts,
-      permissions: actionPermissions(order.state, paymentMethod),
-    };
+    return { ...order, attempts, permissions: permissionsFor(order, attempts) };
   });
   return c.json({ orders });
 });
@@ -210,12 +277,11 @@ api.get("/api/digital/orders/:id", (c) => {
   const order = context.repository.getOrder(c.req.param("id"));
   if (!order) return c.json({ error: "Order not found." }, 404);
   const attempts = context.repository.listAttempts(order.id);
-  const paymentMethod = attempts.find((attempt) => attempt.paymentMethod)?.paymentMethod;
   return c.json({
     order,
     attempts,
     timeline: context.repository.timeline(order.id),
-    permissions: actionPermissions(order.state, paymentMethod),
+    permissions: permissionsFor(order, attempts),
   });
 });
 
@@ -231,8 +297,9 @@ api.post("/api/digital/sessions", async (c) => {
     metadata: { profileId },
   });
   const idempotencyKey = crypto.randomUUID();
+  const origin = requestOrigin(c.req.raw, context.config.publicOrigin);
   const request = {
-    ...requestBase({ body, secrets, order, context: "sessions" }),
+    ...requestBase({ body, secrets, order, origin, context: "sessions" }),
     ...(body.installments === true
       ? { installmentOptions: { card: { values: [2, 3, 4], preselectedValue: 2 } } }
       : {}),
@@ -266,6 +333,80 @@ api.post("/api/digital/sessions", async (c) => {
     order,
     session: result,
   }, 201);
+});
+
+interface SessionPayment {
+  pspReference: string;
+  resultCode: string;
+  amount?: Amount;
+  paymentMethod?: string;
+}
+
+function sessionPayments(result: unknown): SessionPayment[] {
+  const payments = object(result).payments;
+  if (!Array.isArray(payments)) return [];
+  return payments.map(object).filter((payment) => typeof payment.pspReference === "string").map(
+    (payment) => {
+      const amount = object(payment.amount);
+      return {
+        pspReference: String(payment.pspReference),
+        resultCode: String(payment.resultCode ?? ""),
+        amount: typeof amount.value === "number" && typeof amount.currency === "string"
+          ? { value: amount.value, currency: amount.currency }
+          : undefined,
+        paymentMethod: typeof object(payment.paymentMethod).type === "string"
+          ? String(object(payment.paymentMethod).type)
+          : undefined,
+      };
+    },
+  );
+}
+
+// Adyen Web runs the whole Sessions payment client-side, so without a webhook
+// this server never learned how it ended and every Sessions order stayed
+// "open". The sessionResult Adyen Web hands back on completion is the key to
+// GET /sessions/{id}, which answers with the PSP reference of each payment.
+api.post("/api/digital/sessions/:orderId/result", async (c) => {
+  const order = context.repository.getOrder(c.req.param("orderId"));
+  const sessionId = order ? context.repository.findAdyenSessionId(order.id) : undefined;
+  if (!order || !sessionId) return c.json({ error: "Unknown Sessions order." }, 404);
+  const body = object(await c.req.json());
+  const sessionResult = typeof body.sessionResult === "string" ? body.sessionResult : "";
+  if (!sessionResult) return c.json({ error: "sessionResult is required." }, 400);
+  const { client } = await profileClient(c.req.raw);
+  const result = await recordedCall({
+    correlationId: order.id,
+    name: "Checkout API GET /sessions/{id}",
+    method: "GET",
+    endpoint: `https://checkout-test.adyen.com/v72/sessions/${sessionId}`,
+    request: { sessionId, sessionResult },
+    execute: () => client.getSessionResult(sessionId, sessionResult),
+  });
+  const attempts = context.repository.listAttempts(order.id);
+  for (const payment of sessionPayments(result)) {
+    const state = mapAdyenResultCode(payment.resultCode);
+    const amount = payment.amount ?? order.amount;
+    const existing = attempts.find((attempt) => attempt.pspReference === payment.pspReference);
+    const attempt = existing
+      ? context.repository.updateAttempt(existing.id, { state })
+      : context.repository.createAttempt({
+        orderId: order.id,
+        amount,
+        state,
+        paymentMethod: payment.paymentMethod,
+        pspReference: payment.pspReference,
+      });
+    if (state === "authorised") {
+      context.repository.recordPaymentPart({
+        orderId: order.id,
+        attemptId: attempt.id,
+        pspReference: payment.pspReference,
+        amount,
+        state: "authorised",
+      });
+    }
+  }
+  return c.json({ correlationId: order.id, result, resolution: resolveAndStore(order) });
 });
 
 api.post("/api/digital/payment-methods", async (c) => {
@@ -324,11 +465,12 @@ api.post("/api/digital/payments", async (c) => {
     paymentMethod: String(paymentMethod.type ?? "unknown"),
   });
   const idempotencyKey = crypto.randomUUID();
+  const origin = requestOrigin(c.req.raw, context.config.publicOrigin);
   const request = {
-    ...requestBase({ body, secrets, order, context: "payments" }),
+    ...requestBase({ body, secrets, order, origin, context: "payments" }),
     paymentMethod,
     browserInfo: body.browserInfo,
-    origin: context.config.publicOrigin,
+    origin,
     // Paying with a token, or asking to store one, is a card-on-file
     // transaction, the legacy playground derived both fields from the payload
     // instead of trusting the client to label it correctly.
@@ -357,50 +499,19 @@ api.post("/api/digital/payments", async (c) => {
     request,
     execute: () => client.payments(request, idempotencyKey),
   });
-  const state = mapAdyenResultCode(String(resultField(result, "resultCode") ?? ""));
-  const updatedAttempt = context.repository.updateAttempt(attempt.id, {
-    state,
-    pspReference: String(resultField(result, "pspReference") ?? "") || undefined,
-    refusalReason: String(resultField(result, "refusalReason") ?? "") || undefined,
-  });
-  if (state === "authorised") {
-    context.repository.recordPaymentPart({
-      orderId: order.id,
-      attemptId: attempt.id,
-      pspReference: updatedAttempt.pspReference,
-      amount,
-      state: "authorised",
-    });
-  }
-  const resolution = resolveOrder({
-    currentState: order.state,
-    totalValue: order.amount.value,
-    expiresAt: order.expiresAt,
-    attempts: context.repository.listAttempts(order.id).map((item) => ({
-      id: item.id,
-      state: item.state,
-      value: item.amount.value,
-      pspReference: item.pspReference,
-    })),
-  });
-  context.repository.updateOrder(order.id, {
-    state: resolution.state,
-    paidValue: resolution.paidValue,
-  });
   return c.json({
     correlationId: order.id,
     attemptId: attempt.id,
     result,
-    resolution,
+    resolution: settleAttempt(order, attempt, result),
   }, 201);
 });
 
 api.post("/api/digital/payments/details", async (c) => {
   const body = object(await c.req.json());
   const correlationId = String(body.correlationId ?? "");
-  if (!context.repository.getOrder(correlationId)) {
-    return c.json({ error: "Unknown correlationId." }, 404);
-  }
+  const order = context.repository.getOrder(correlationId);
+  if (!order) return c.json({ error: "Unknown correlationId." }, 404);
   const { client } = await profileClient(c.req.raw);
   const request = {
     details: object(body.details),
@@ -413,7 +524,12 @@ api.post("/api/digital/payments/details", async (c) => {
     request,
     execute: () => client.paymentDetails(request, crypto.randomUUID()),
   });
-  return c.json({ correlationId, result });
+  // The attempt /payments left waiting on 3DS or a redirect.
+  const attempt = context.repository.listAttempts(order.id).findLast((item) =>
+    item.state === "pending" || item.state === "created"
+  );
+  const resolution = attempt ? settleAttempt(order, attempt, result) : undefined;
+  return c.json({ correlationId, result, resolution });
 });
 
 api.post("/api/digital/payment-links", async (c) => {
@@ -432,8 +548,9 @@ api.post("/api/digital/payment-links", async (c) => {
     expiresAt,
     metadata: { profileId, validityHours },
   });
+  const origin = requestOrigin(c.req.raw, context.config.publicOrigin);
   const request = {
-    ...requestBase({ body, secrets, order, context: "paymentLinks" }),
+    ...requestBase({ body, secrets, order, origin, context: "paymentLinks" }),
     expiresAt,
     description: String(body.description ?? "Adyen TEST playground order").slice(0, 280),
     reusable: Boolean(body.reusable),
@@ -473,21 +590,9 @@ api.get("/api/digital/payment-links/:orderId", async (c) => {
     | "expired"
     | "completed"
     | "paymentPending";
-  const resolution = resolveOrder({
-    currentState: order.state,
-    totalValue: order.amount.value,
+  const resolution = resolveAndStore(order, {
     expiresAt: String(resultField(result, "expiresAt") ?? order.expiresAt),
     linkStatus,
-    attempts: context.repository.listAttempts(order.id).map((item) => ({
-      id: item.id,
-      state: item.state,
-      value: item.amount.value,
-      pspReference: item.pspReference,
-    })),
-  });
-  context.repository.updateOrder(order.id, {
-    state: resolution.state,
-    paidValue: resolution.paidValue,
   });
   return c.json({ paymentLink: result, resolution });
 });
@@ -566,12 +671,8 @@ api.post("/api/digital/mit", async (c) => {
     request,
     execute: () => client.payments(request, crypto.randomUUID()),
   });
-  context.repository.updateAttempt(attempt.id, {
-    state: mapAdyenResultCode(String(resultField(result, "resultCode") ?? "")),
-    pspReference: String(resultField(result, "pspReference") ?? "") || undefined,
-    refusalReason: String(resultField(result, "refusalReason") ?? "") || undefined,
-  });
-  return c.json({ correlationId: order.id, result }, 201);
+  const resolution = settleAttempt(order, attempt, result);
+  return c.json({ correlationId: order.id, result, resolution }, 201);
 });
 
 api.post("/api/digital/api-only", async (c) => {
@@ -605,10 +706,15 @@ api.post("/api/digital/orders/:id/actions/:action", async (c) => {
   if (!["capture", "cancel", "refund"].includes(action)) {
     return c.json({ error: "Unsupported lifecycle action." }, 400);
   }
-  const attempts = context.repository.listAttempts(order.id);
-  const sourceAttempt = attempts.findLast((attempt) => Boolean(attempt.pspReference));
-  if (!sourceAttempt?.pspReference) return c.json({ error: "No PSP reference is available." }, 409);
-  const permissions = actionPermissions(order.state, sourceAttempt.paymentMethod);
+  const sourceAttempt = lifecycleSourceAttempt(context.repository.listAttempts(order.id));
+  if (!sourceAttempt?.pspReference) {
+    return c.json({ error: "No authorised payment is available." }, 409);
+  }
+  const permissions = actionPermissions(
+    order.state,
+    sourceAttempt.paymentMethod,
+    order.paidValue,
+  );
   const permission = permissions[action as keyof typeof permissions];
   if (!permission.allowed) return c.json({ error: permission.reason, permissions }, 409);
 
@@ -686,8 +792,21 @@ function correlateWebhook(item: StandardWebhookItem): OrderAggregate | undefined
     const byReference = context.repository.getOrderByReference(merchantReference);
     if (byReference) return byReference;
   }
+  // CAPTURE, CANCELLATION and REFUND carry the reference this server gave the
+  // modification ("capture-<order>"), so their payment is found through the
+  // original PSP reference instead.
+  for (const reference of [item.originalReference, item.pspReference]) {
+    if (!reference) continue;
+    const byPsp = context.repository.findOrderByPspReference(String(reference));
+    if (byPsp) return byPsp;
+  }
   return undefined;
 }
+
+const MODIFICATION_EVENTS: Record<string, "capture" | "cancel"> = {
+  CAPTURE: "capture",
+  CANCELLATION: "cancel",
+};
 
 api.post("/webhook", async (c) => {
   const payload = await c.req.json();
@@ -728,8 +847,8 @@ api.post("/webhook", async (c) => {
     }
     if (!order) continue;
 
+    const success = String(item.success).toLowerCase() === "true";
     if (eventType === "AUTHORISATION") {
-      const success = String(item.success).toLowerCase() === "true";
       let attempt = context.repository.listAttempts(order.id).find((value) =>
         value.pspReference === item.pspReference
       );
@@ -766,23 +885,10 @@ api.post("/webhook", async (c) => {
       }
     }
 
-    const resolution = resolveOrder({
-      currentState: order.state,
-      totalValue: order.amount.value,
-      expiresAt: order.expiresAt,
-      orderClosedWebhook: eventType === "ORDER_CLOSED"
-        ? { success: String(item.success).toLowerCase() === "true" }
-        : undefined,
-      attempts: context.repository.listAttempts(order.id).map((attempt) => ({
-        id: attempt.id,
-        state: attempt.state as AttemptState,
-        value: attempt.amount.value,
-        pspReference: attempt.pspReference,
-      })),
-    });
-    context.repository.updateOrder(order.id, {
-      state: resolution.state,
-      paidValue: resolution.paidValue,
+    const modification = MODIFICATION_EVENTS[eventType];
+    resolveAndStore(order, {
+      orderClosedWebhook: eventType === "ORDER_CLOSED" ? { success } : undefined,
+      modificationWebhook: modification ? { kind: modification, success } : undefined,
     });
   }
 

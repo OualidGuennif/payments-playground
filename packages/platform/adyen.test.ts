@@ -44,6 +44,21 @@ Deno.test("sessions uses the exact Checkout v72 TEST endpoint and TEST credentia
   assertEquals(response, { id: "CS_TEST", sessionData: "session-data" });
 });
 
+Deno.test("getSessionResult sends sessionResult as a query param, not in the path", async () => {
+  const { calls, httpClient } = recordingHttpClient(() =>
+    Promise.resolve(JSON.stringify({ id: "CS_TEST", status: "completed" }))
+  );
+  const client = new AdyenTestClient({ apiKey: "test-api-key" }, httpClient);
+
+  await client.getSessionResult("CS_TEST", "result/with+chars");
+
+  const [endpoint, json, , , requestOptions] = calls[0];
+  assertEquals(endpoint, "https://checkout-test.adyen.com/v72/sessions/CS_TEST");
+  assertEquals(json, "");
+  assertEquals(requestOptions.method, "GET");
+  assertEquals(requestOptions.params, { sessionResult: "result/with+chars" });
+});
+
 Deno.test("Adyen HTTP errors preserve the upstream status and safe message", async () => {
   const responseBody = JSON.stringify({
     status: 422,

@@ -94,8 +94,44 @@ function normalizeHost(host: string): string {
   return host.replace(/^localhost(?=:|$)/, "127.0.0.1");
 }
 
+// Host-only comparison (scheme ignored: Render terminates TLS and forwards
+// over plain http internally). Accepts the host the request actually arrived
+// on as well as the configured PUBLIC_ORIGIN, PUBLIC_ORIGIN is a fixed env
+// var, so a renamed service, a custom domain or a www/non-www visit would
+// otherwise 403 real users even though the request is genuinely same-origin.
+function sameOriginHost(request: Request, publicOrigin: string, origin: string): boolean {
+  const requestHosts = [
+    request.headers.get("x-forwarded-host"),
+    request.headers.get("host"),
+    new URL(request.url).host,
+  ];
+  const allowedHosts = new Set(
+    [new URL(publicOrigin).host, ...requestHosts]
+      .filter((host): host is string => Boolean(host))
+      .map((host) => normalizeHost(host.split(",")[0].trim())),
+  );
+  try {
+    return allowedHosts.has(normalizeHost(new URL(origin).host));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The origin the shopper's browser is actually on, for `returnUrl` and the
+ * 3DS `origin` field. PUBLIC_ORIGIN is right in a deployment, but locally the
+ * same app is reached on 8001 through `dev:digital`, on Vite's 5173 through
+ * `deno task dev`, or on a tunnel, and a redirect back to the wrong one lands
+ * on a dead page. Only a same-origin Origin header is trusted.
+ */
+export function requestOrigin(request: Request, publicOrigin: string): string {
+  const origin = request.headers.get("origin");
+  return origin && sameOriginHost(request, publicOrigin, origin)
+    ? new URL(origin).origin
+    : publicOrigin;
+}
+
 export function csrfProtection(signingSecret: string, publicOrigin: string): MiddlewareHandler {
-  const configuredHost = normalizeHost(new URL(publicOrigin).host);
   return async (c, next) => {
     const session = await ensureSession(c, signingSecret);
     c.set("session", session);
@@ -109,32 +145,8 @@ export function csrfProtection(signingSecret: string, publicOrigin: string): Mid
         return c.json({ error: "CSRF validation failed." }, 403);
       }
       const origin = c.req.header("origin");
-      if (origin) {
-        // Host-only comparison (scheme ignored: Render terminates TLS and
-        // forwards over plain http internally). Accepts the host the request
-        // actually arrived on as well as the configured PUBLIC_ORIGIN ,
-        // PUBLIC_ORIGIN is a fixed env var, so a renamed service, a custom
-        // domain or a www/non-www visit would otherwise 403 real users even
-        // though the request is genuinely same-origin.
-        const requestHosts = [
-          c.req.header("x-forwarded-host"),
-          c.req.header("host"),
-          new URL(c.req.url).host,
-        ];
-        const allowedHosts = new Set(
-          [configuredHost, ...requestHosts]
-            .filter((host): host is string => Boolean(host))
-            .map((host) => normalizeHost(host.split(",")[0].trim())),
-        );
-        let originHost: string;
-        try {
-          originHost = normalizeHost(new URL(origin).host);
-        } catch {
-          return c.json({ error: "Cross-origin request rejected." }, 403);
-        }
-        if (!allowedHosts.has(originHost)) {
-          return c.json({ error: "Cross-origin request rejected." }, 403);
-        }
+      if (origin && !sameOriginHost(c.req.raw, publicOrigin, origin)) {
+        return c.json({ error: "Cross-origin request rejected." }, 403);
       }
     }
     await next();

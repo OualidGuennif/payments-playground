@@ -13,8 +13,16 @@ export interface OrderResolutionInput {
   expiresAt?: string;
   linkStatus?: "active" | "expired" | "completed" | "paymentPending";
   orderClosedWebhook?: { success: boolean };
+  // A successful CAPTURE or CANCELLATION webhook. Only these settle a card
+  // payment one way or the other; an authorisation alone never does.
+  modificationWebhook?: { kind: "capture" | "cancel"; success: boolean };
   attempts: AttemptSnapshot[];
 }
+
+// Reached only through an authoritative event (ORDER_CLOSED, a completed
+// link, a confirmed capture or cancellation), so nothing later reopens them:
+// a REFUND webhook arriving after the capture must leave the order paid.
+const SETTLED_STATES: ReadonlySet<OrderState> = new Set(["paid", "cancelled"]);
 
 export interface OrderResolution {
   state: OrderState;
@@ -52,6 +60,31 @@ export function resolveOrder(input: OrderResolutionInput, now = new Date()): Ord
     successfulByReference.set(attempt.pspReference ?? attempt.id, attempt.value);
   }
   const paidValue = [...successfulByReference.values()].reduce((sum, value) => sum + value, 0);
+
+  if (SETTLED_STATES.has(input.currentState)) {
+    return {
+      state: input.currentState,
+      paidValue,
+      terminal: true,
+      reason: "The order was already settled by an authoritative event.",
+    };
+  }
+
+  if (input.modificationWebhook?.success) {
+    return input.modificationWebhook.kind === "capture"
+      ? {
+        state: "paid",
+        paidValue,
+        terminal: true,
+        reason: "CAPTURE success=true: the authorised amount is captured.",
+      }
+      : {
+        state: "cancelled",
+        paidValue,
+        terminal: true,
+        reason: "CANCELLATION success=true: the authorisation is released.",
+      };
+  }
 
   if (input.orderClosedWebhook) {
     return input.orderClosedWebhook.success

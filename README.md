@@ -133,7 +133,8 @@ entirely at your own risk. See [SECURITY.md](./docs/SECURITY.md) and
 
 ## Documentation
 
-- [Architecture](./docs/ARCHITECTURE.md)
+- [Knowledge base](./knowledge/index.md): architecture, decisions, runbooks, verified state (start
+  there; [AGENTS.md](./AGENTS.md) is the short version for coding agents)
 - [Security and threat model](./docs/SECURITY.md)
 - [Known limits and simulated features](./docs/KNOWN_LIMITS.md)
 - Built-in wikis at `/wiki` in Digital, IPP and Agentic

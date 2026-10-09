@@ -40,7 +40,11 @@ configured. iDEAL, MB WAY and PayPal's settlement-only default are documented in
 `packages/platform/payment-methods.ts`, but that file is this repo's model of Adyen's behaviour ,
 not Adyen's answer. The Back Office does not replace the API response or the Customer Area.
 
-Real captures and refunds still need confirming against an authorised TEST profile.
+A capture has been accepted on TEST and a CAPTURE notification settles the order, but a refund has
+not been exercised yet, and cards are modelled as captured manually: on a merchant account that
+captures automatically, capture is still offered. Without a webhook reaching the server, a card
+order stops at "authorised". The dated, evidence-backed list is
+[knowledge/current/digital-status.md](../knowledge/current/digital-status.md).
 
 ## Styling
 

@@ -17,6 +17,9 @@ URL costs you nothing, but they are not a PCI-certified platform and not a produ
 5. **Turn on `PLAYGROUND_BASIC_AUTH_USER` / `PLAYGROUND_BASIC_AUTH_PASSWORD`** if the deployment is
    public. Basic Auth is optional and off by default.
 6. **Rotate your Adyen TEST API key** if you ever pasted it somewhere shared.
+7. **Never bake a `.env` into an image.** The repo's `.dockerignore` keeps every `.env`,
+   `.env.local` and SQLite file out of the build context; pass credentials with `--env-file` or your
+   host's environment, and keep that file if you change the Dockerfiles.
 
 Everything below explains why those exist and what they do not cover.
 
@@ -56,11 +59,13 @@ stored or logged. That is a backstop for a mistake, not a licence to send card d
 
 **Requests**
 
-- signed, HttpOnly session cookie (`SameSite=Lax`, `Secure` over HTTPS)
+- signed, HttpOnly session cookie (`SameSite=Strict`, `Secure` over HTTPS)
 - double-submit CSRF token on every `/api/*` mutation, with a same-host origin check
 - optional Basic Auth over the whole playground
 - in-memory rate limiter
-- CSP and security headers on API responses
+- security headers on every response; deliberately no Content-Security-Policy, which kept blocking
+  Adyen and wallet resources (see
+  [ADR-005](../knowledge/decisions/ADR-005-no-content-security-policy.md))
 
 **Webhooks and replay**
 

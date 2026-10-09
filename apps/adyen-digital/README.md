@@ -13,7 +13,7 @@ that correlates what each one produced.
 
 ```bash
 cp .env.example .env      # then fill in the four Adyen values below
-deno task dev             # http://localhost:8000
+deno task dev             # http://localhost:5173 (Vite)
 ```
 
 From the repository root, `deno task dev:digital` runs it on port 8001.

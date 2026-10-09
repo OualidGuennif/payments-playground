@@ -43,6 +43,7 @@
     "jsr:@std/semver@^1.0.6": "1.0.8",
     "jsr:@std/uuid@^1.0.9": "1.1.1",
     "jsr:@std/yaml@1": "1.2.0",
+    "jsr:@std/yaml@1.2.0": "1.2.0",
     "npm:@adyen/adyen-web@6.46.0": "6.46.0",
     "npm:@adyen/api-library@32.0.0": "32.0.0",
     "npm:@babel/core@^7.28.0": "7.29.7",
@@ -717,7 +718,9 @@
     },
     "@paypal/paypal-js@11.0.0": {
       "integrity": "sha512-V1xjR8oTPRU55V11OzsUd2wXE9QUTqs8ybPcgtkp4rVN+XB05taMFzn5nfhsK+LlTCehs07IfHSdXJdjXXgXYQ==",
-      "dependencies": ["promise-polyfill"]
+      "dependencies": [
+        "promise-polyfill"
+      ]
     },
     "@preact/signals-core@1.14.4": {
       "integrity": "sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA=="
@@ -1229,6 +1232,7 @@
       "jsr:@std/assert@1.0.19",
       "jsr:@std/dotenv@0.225.7",
       "jsr:@std/path@1.1.6",
+      "jsr:@std/yaml@1.2.0",
       "npm:@adyen/adyen-web@6.46.0",
       "npm:@adyen/api-library@32.0.0",
       "npm:@preact/signals@2.9.0",

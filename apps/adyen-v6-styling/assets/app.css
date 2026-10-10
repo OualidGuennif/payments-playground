@@ -131,10 +131,9 @@ body {
    Sideways that same room is what frames the pair and keeps the tiles off the
    window edge, so only the vertical is cut. */
 .styling-preview {
-  /* For the tool's own controls on this canvas. The canvas is the merchant's
-     page colour, dark with the Dark preset, so they carry a near-opaque
-     surface of the tool's theme instead of tinting whatever is behind them:
-     translucent white turned to a muddy grey on a dark page. */
+  /* The tool's own controls on this canvas carry a near-opaque surface of the
+     tool's theme: translucent white turned a muddy grey whenever what lay
+     behind it was dark. */
   --canvas-surface: color-mix(in srgb, var(--color-surface) 94%, transparent);
 
   display: flex;
@@ -143,7 +142,11 @@ body {
   gap: 18px;
   container: preview / inline-size;
   padding: clamp(20px, 2.4vw, 36px) clamp(20px, 5vw, 68px);
-  background: var(--adyen-sdk-color-background-secondary, var(--color-surface-muted));
+  /* The tool's background in both themes, never the merchant's
+     background-secondary: with a dark theme in the light playground (or the
+     reverse) that painted half the page in the other theme. The theme shows
+     on the Drop-in card, which is all the export describes. */
+  background: var(--color-surface-muted);
 }
 
 /* Translucent tiles, Wallet-style: the PAN is the point, so it is the only
@@ -339,10 +342,10 @@ body {
   color: var(--color-ink-muted);
 }
 
-/* In dark mode the canvas is the tool's, not the merchant's page: its
-   background-secondary only frames the checkout in light mode. */
-:root[data-theme="dark"] .styling-preview {
-  background: var(--color-surface-muted);
+/* The card keeps the light tokens, so its border is a light hairline: a frame
+   around a dark theme's card on the dark canvas. Here it only marks an edge. */
+:root[data-theme="dark"] .styling-preview .dropin-host {
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 :root[data-theme="dark"] .test-card,

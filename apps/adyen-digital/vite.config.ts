@@ -13,5 +13,8 @@ export default defineConfig({
   // Adyen Web components deepens the import graph enough that some chunks
   // fall outside the default fs allowlist and silently 403 in dev, breaking
   // Drop-in. Explicitly allow the monorepo root.
-  server: { fs: { allow: ["../.."] } },
+  // A production build (deno task check, build:digital) rewrites _fresh/;
+  // watched, that reloaded every open dev page several times per build, and
+  // each Sessions reload created an empty order.
+  server: { fs: { allow: ["../.."] }, watch: { ignored: ["**/_fresh/**"] } },
 });

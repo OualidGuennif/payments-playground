@@ -851,9 +851,9 @@
 
 .inspector-panel {
   position: sticky;
-  top: 76px;
+  top: 16px;
   display: flex;
-  max-height: calc(100vh - 96px);
+  max-height: calc(100vh - 32px);
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--color-border);
@@ -1501,9 +1501,9 @@ main:has(> .home) {
 
 .bo-detail {
   position: sticky;
-  top: 76px;
+  top: 16px;
   display: grid;
-  max-height: calc(100vh - 96px);
+  max-height: calc(100vh - 32px);
   align-content: start;
   gap: 18px;
   padding: 22px;

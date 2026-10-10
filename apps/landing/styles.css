@@ -13,15 +13,20 @@
   --green-dark: #07883b;
   --green-soft: #e9f9ef;
   --radius: 14px;
+  --glow-green: rgba(10, 191, 83, 0.13);
+  --glow-blue: rgba(23, 105, 224, 0.12);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  background: var(--surface-muted);
+}
+
 body {
   margin: 0;
-  background: var(--surface-muted);
   color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   line-height: 1.6;
@@ -32,13 +37,27 @@ a {
   color: inherit;
 }
 
+/* The playgrounds' green and blue glows, fixed behind the page (the same
+   layer as packages/ui/styles.css; this page shares no stylesheet). */
+body::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 50% at 0% 0%, var(--glow-green), transparent 70%),
+    radial-gradient(ellipse 50% 50% at 100% 8%, var(--glow-blue), transparent 70%),
+    radial-gradient(ellipse 50% 45% at 92% 100%, var(--glow-green), transparent 70%),
+    radial-gradient(ellipse 45% 45% at 6% 96%, var(--glow-blue), transparent 70%);
+  content: "";
+  pointer-events: none;
+}
+
 .top {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 20px clamp(20px, 5vw, 56px);
   border-bottom: 1px solid var(--border);
-  background: var(--surface);
 }
 
 /* A wordmark of its own, not a borrowed one: this page is the first thing a

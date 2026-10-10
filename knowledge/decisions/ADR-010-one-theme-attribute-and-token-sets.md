@@ -6,7 +6,7 @@ tags: [decision, ui, theme, dark-mode]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-10T10:30:00Z
+  at: 2026-10-10T11:00:00Z
 sources:
   - id: theme
     resource: packages/ui/theme.ts
@@ -47,6 +47,9 @@ Adyen's secured-field iframes take their colours only when they mount.
   theme preset, chosen in Theme and exported like any other; the switch never changes the theme
   being configured. The first version kept the whole canvas light, which on a phone left a dark
   toolbar over a white page (owner, 2026-10-10).
+- Every page sits on fixed green and blue glows over the page colour (`body::before`, both themes),
+  and headers stay at the top of the page instead of floating over the content as it scrolls (owner,
+  2026-10-10).
 - The full-width TEST banner became a permanent TEST pill, visible on mobile too: in the header
   (IPP, agentic), in the footer on digital and styling, whose headers keep only navigation or
   preview controls, the theme switch and settings (owner, 2026-10-10).

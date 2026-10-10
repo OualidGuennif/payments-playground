@@ -6,7 +6,7 @@ tags: [decision, ui, theme, dark-mode]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-10T09:10:00Z
+  at: 2026-10-10T10:00:00Z
 sources:
   - id: theme
     resource: packages/ui/theme.ts
@@ -43,8 +43,11 @@ Adyen's secured-field iframes take their colours only when they mount.
   `color-scheme:
   light`: the checkout and the export look the same in both themes. Everything
   around it is the tool's and goes dark: toolbar, test data, options panel and the canvas, which
-  only shows the merchant's `background-secondary` in light mode. The first version kept the whole
-  canvas light, which on a phone left a dark toolbar over a white page (owner, 2026-10-10).
+  only shows the merchant's `background-secondary` in light mode. Controls on the canvas carry a
+  near-opaque surface of the tool's theme, so they read on any merchant page colour. A dark checkout
+  is the Dark theme preset, chosen in Theme and exported like any other; the switch never changes
+  the theme being configured. The first version kept the whole canvas light, which on a phone left a
+  dark toolbar over a white page (owner, 2026-10-10).
 - The full-width TEST banner became a permanent TEST pill, visible on mobile too: in the header
   (IPP, agentic), in the footer on digital and styling, whose headers keep only navigation or
   preview controls, the theme switch and settings (owner, 2026-10-10).

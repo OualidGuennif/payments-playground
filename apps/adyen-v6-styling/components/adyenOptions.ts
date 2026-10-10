@@ -1357,6 +1357,86 @@ export const THEME_PRESETS: ThemePreset[] = [
     },
     showDonation: true,
   },
+  {
+    // A checkout for a dark page, picked by hand: the playground's own light
+    // and dark switch never changes the theme being configured, because
+    // the preview is what gets exported (owner, 2026-10-10). The surfaces are
+    // the ones digital's checkout uses in dark mode.
+    id: "dark",
+    label: "Dark",
+    description: "Light text on near-black surfaces, for a checkout on a dark page.",
+    secure: {
+      base: {
+        ...DEFAULT_SECURE.base,
+        color: "#eef1f6",
+        caretColor: "#eef1f6",
+        // The secured-field iframes paint their own background; it has to be
+        // the input's, color-background-primary, or each field shows a light
+        // box inside a dark one.
+        background: "#16191f",
+        fontFamily: SYSTEM_STACK,
+      },
+      error: { color: "#ff7b88" },
+      placeholder: { ...DEFAULT_SECURE.placeholder, color: "#7b8493" },
+      validated: { color: "#4ade80" },
+    },
+    tokens: {
+      "color-background-primary": "#16191f",
+      "color-background-primary-hover": "#1d2128",
+      "color-background-secondary": "#1b1f26",
+      "color-background-secondary-hover": "#242932",
+      "color-background-secondary-active": "#2b313b",
+      "color-background-tertiary": "#242932",
+      "color-background-quaternary": "#39404c",
+      "color-background-disabled": "#1b1f26",
+      "color-background-inverse-primary": "#eef1f6",
+      // Solid, not translucent: these two tints and the alert backgrounds are
+      // edited with a colour picker, which only holds hex. Each is its
+      // translucent tint laid over #16191f.
+      "color-background-highlight-weak": "#212c3c",
+      "color-background-success-weak": "#153128",
+      // Light button, dark label: the inverse of the default.
+      ...payButton("#eef1f6", "#ffffff", "#ffffff", "#0b0d11"),
+      "color-label-primary": "#eef1f6",
+      "color-label-secondary": "#a3acba",
+      "color-label-tertiary": "#7b8493",
+      "color-label-disabled": "#59616f",
+      "color-label-highlight": "#6ea8ff",
+      "color-label-critical": "#ff7b88",
+      "color-label-success": "#4ade80",
+      "color-label-on-background-highlight-weak": "#9cc4ff",
+      "color-label-on-background-success-weak": "#4ade80",
+      "color-outline-primary": "#39404c",
+      "color-outline-primary-hover": "#59616f",
+      "color-outline-primary-active": "#eef1f6",
+      "color-outline-secondary": "#39404c",
+      "color-outline-tertiary": "#59616f",
+      "color-outline-tertiary-hover": "#eef1f6",
+      "color-outline-tertiary-active": "#eef1f6",
+      "color-outline-critical": "#ff7b88",
+      "color-outline-disabled": "#272c35",
+      "color-separator-primary": "#272c35",
+      "color-separator-secondary": "#39404c",
+      "focus-ring-color": "rgba(110, 168, 255, 0.6)",
+      "alert-critical-background-color": "#34262d",
+      "alert-warning-background-color": "#332d26",
+      "alert-success-background-color": "#153128",
+      "alert-highlight-background-color": "#212c3c",
+      "button-tertiary-color": "#eef1f6",
+      "toggle-track-background-color": "#1b1f26",
+      "toggle-track-border": "1px solid #59616f",
+      "toggle-track-hover-background-color": "#242932",
+      "toggle-track-active-background-color": "#2b313b",
+      "toggle-track-active-border-color": "#eef1f6",
+    },
+    wallets: {
+      ...DEFAULT_WALLETS,
+      applePayButtonColor: "white",
+      googlePayButtonColor: "white",
+      paypalColor: "white",
+    },
+    showDonation: true,
+  },
 ];
 
 export function dropinProps(

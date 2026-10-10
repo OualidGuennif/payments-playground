@@ -31,11 +31,11 @@ sources:
   Its token audit (`components/adyenOptions.test.ts`) fetches the real `adyen.css` for the pinned
   version and fails on drift, so an Adyen Web bump has to be looked at. It uses the dev bundle
   plugin, like digital; its production build is unchanged by it (verified byte-identical). Its
-  toolbar is four glass blocks (Country, Locale, Theme, Dark mode) at the top of the preview column,
-  sharing the checkout's edges; the TEST pill and the SDK version sit in the footer. Dark mode
-  darkens everything but the Drop-in
-  ([ADR-010](../decisions/ADR-010-one-theme-attribute-and-token-sets.md)).
-  [README](../../apps/adyen-v6-styling/README.md).
+  toolbar is four glass blocks (Country, Locale, Theme, and the light/dark switch) at the top of the
+  preview column, sharing the checkout's edges; the TEST pill and the SDK version sit in the footer.
+  Dark mode darkens everything but the Drop-in
+  ([ADR-010](../decisions/ADR-010-one-theme-attribute-and-token-sets.md)); a dark checkout is the
+  Dark theme preset, picked by hand. [README](../../apps/adyen-v6-styling/README.md).
 - **`adyen-ipp-endless-aisle` (in progress, port 8002).** In-person cart paid on a TEST terminal
   through Terminal API Cloud (device API). Mock mode calls Adyen not at all.
   [README](../../apps/adyen-ipp-endless-aisle/README.md).

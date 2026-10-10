@@ -48,7 +48,7 @@ body {
   align-items: center;
   border: 1px solid var(--glass-edge);
   border-radius: 18px;
-  background: var(--glass-fill);
+  background: var(--canvas-surface);
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -99,14 +99,7 @@ body {
 }
 
 .toolbar-field--mode {
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 6px 0 14px;
-}
-
-.toolbar-field__mode {
-  font-size: 0.86rem;
-  font-weight: 600;
+  justify-content: center;
 }
 
 /* The disclaimer page has no preview: a back link and the switch. */
@@ -138,6 +131,12 @@ body {
    Sideways that same room is what frames the pair and keeps the tiles off the
    window edge, so only the vertical is cut. */
 .styling-preview {
+  /* For the tool's own controls on this canvas. The canvas is the merchant's
+     page colour, dark with the Dark preset, so they carry a near-opaque
+     surface of the tool's theme instead of tinting whatever is behind them:
+     translucent white turned to a muddy grey on a dark page. */
+  --canvas-surface: color-mix(in srgb, var(--color-surface) 94%, transparent);
+
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -172,7 +171,7 @@ body {
   padding: 8px 16px;
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--canvas-surface);
   color: var(--color-ink);
   cursor: pointer;
   font-size: 0.76rem;
@@ -239,9 +238,9 @@ body {
   flex-direction: column;
   gap: 7px;
   padding: 11px 13px;
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--glass-edge);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--canvas-surface);
   box-shadow: 0 6px 18px rgba(0, 17, 44, 0.08);
   color: var(--color-ink);
   cursor: pointer;
@@ -324,7 +323,7 @@ body {
 }
 
 .test-card--static:hover {
-  border-color: rgba(255, 255, 255, 0.65);
+  border-color: var(--glass-edge);
   box-shadow: 0 6px 18px rgba(0, 17, 44, 0.08);
   transform: none;
 }
@@ -346,22 +345,8 @@ body {
   background: var(--color-surface-muted);
 }
 
-:root[data-theme="dark"] .test-cards__toggle {
-  background: var(--color-surface);
-}
-
-:root[data-theme="dark"] .test-card {
-  border-color: var(--glass-edge);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-card);
-}
-
-:root[data-theme="dark"] .test-card:hover {
-  border-color: var(--color-green);
-}
-
+:root[data-theme="dark"] .test-card,
 :root[data-theme="dark"] .test-card--static:hover {
-  border-color: var(--glass-edge);
   box-shadow: var(--shadow-card);
 }
 
@@ -1166,14 +1151,6 @@ body {
     padding: 22px 26px 7px 12px;
     background-position: right 12px center;
     /* Safari zooms the page in on focus for any control under 16px. */
-    font-size: 16px;
-  }
-
-  .toolbar-field--mode {
-    padding-left: 12px;
-  }
-
-  .toolbar-field__mode {
     font-size: 16px;
   }
 

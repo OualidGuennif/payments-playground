@@ -901,8 +901,11 @@ export default function StylingPlayground() {
                 {activeTheme === "custom" ? <option value="custom">Custom</option> : null}
               </select>
             </label>
+            {
+              /* The switch alone, no caption: its sun and moon say it (owner,
+                2026-10-10); screen readers get its "Dark mode" label. */
+            }
             <div class="toolbar-field toolbar-field--mode">
-              <span class="toolbar-field__mode">Dark mode</span>
               <ThemeToggle />
             </div>
           </div>

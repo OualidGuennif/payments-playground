@@ -1,5 +1,6 @@
 import { apiFetch } from "@suite/ui/client.ts";
-import { Callout, Field, StatusPill } from "@suite/ui/components.tsx";
+import { Field } from "@suite/ui/components.tsx";
+import { useCopy } from "@suite/ui/useCopy.ts";
 import { useEffect, useState } from "preact/hooks";
 
 interface Profile {
@@ -8,13 +9,16 @@ interface Profile {
   isDefault: boolean;
   isConfigured: boolean;
   missingFields: string[];
+  merchantAccount?: string;
   updatedAt: string;
 }
 
 interface Bootstrap {
   profile: Profile;
   profiles: Profile[];
+  clientKey: string | null;
   webhookUrl: string;
+  webhookHmacConfigured: boolean;
 }
 
 export default function ProfileManager() {
@@ -27,6 +31,7 @@ export default function ProfileManager() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { copied, copy } = useCopy();
 
   async function load() {
     setBootstrap(await apiFetch<Bootstrap>("/api/bootstrap"));
@@ -71,155 +76,181 @@ export default function ProfileManager() {
     await load();
   }
 
-  async function remove(id: string) {
+  async function remove(id: string, name: string) {
+    if (!globalThis.confirm(`Delete the profile "${name}"? This cannot be undone.`)) return;
     await apiFetch(`/api/profiles/${id}`, { method: "DELETE" });
     await load();
   }
 
+  const active = bootstrap?.profile;
+
   return (
-    <>
-      <Callout title="Secret handling">
-        The API key and HMAC key are never included in bootstrap, logs or profile responses. The
-        Adyen TEST client key is publishable and is sent only to initialize Adyen Web; it is never
-        printed in this interface.
-      </Callout>
-      {error
-        ? (
-          <div class="callout callout--danger" role="alert">
-            <strong>Error</strong>
-            <div>{error}</div>
-          </div>
-        )
-        : null}
-      {message
-        ? (
-          <div class="callout">
-            <strong>Saved</strong>
-            <div>{message}</div>
-          </div>
-        )
-        : null}
-      <div class="settings-layout">
-        <section class="panel">
-          <div class="panel__header">
-            <div>
-              <h2>Available TEST profiles</h2>
-              <p>The preferred profile id is remembered in a signed HttpOnly cookie.</p>
-            </div>
-          </div>
-          <div class="profile-list">
-            {bootstrap?.profiles.map((profile) => (
-              <article class="profile-row">
-                <div>
-                  <strong>{profile.label}</strong>{" "}
-                  {profile.isDefault ? <StatusPill>Environment</StatusPill> : null}
-                  <p>
-                    {profile.isConfigured
-                      ? "Configured for Adyen TEST"
-                      : `Missing: ${profile.missingFields.join(", ")}`}
-                  </p>
-                </div>
-                <div class="form-actions">
-                  {bootstrap.profile.id === profile.id
-                    ? <StatusPill tone="positive">Preferred</StatusPill>
-                    : (
-                      <button
-                        class="button button--secondary button--small"
-                        type="button"
-                        onClick={() => select(profile.id)}
-                      >
-                        Use profile
-                      </button>
-                    )}
-                  {!profile.isDefault
-                    ? (
-                      <button
-                        class="button button--danger button--small"
-                        type="button"
-                        onClick={() => remove(profile.id)}
-                      >
-                        Delete
-                      </button>
-                    )
-                    : null}
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-        <form class="panel" onSubmit={save}>
-          <div class="panel__header">
-            <div>
-              <h2>Add a server-side profile</h2>
-              <p>TEST values only. LIVE-prefixed client keys and LIVE endpoints are rejected.</p>
-            </div>
-          </div>
-          <div class="form-grid">
-            <div class="field field--full">
-              <Field label="Profile label" htmlFor="profile-label">
-                <input
-                  id="profile-label"
-                  required
-                  minlength={2}
-                  value={label}
-                  onInput={(event) => setLabel(event.currentTarget.value)}
-                />
-              </Field>
-            </div>
-            <div class="field field--full">
-              <Field label="Adyen TEST API key" htmlFor="api-key">
-                <input
-                  id="api-key"
-                  type="password"
-                  required
-                  autocomplete="new-password"
-                  value={apiKey}
-                  onInput={(event) => setApiKey(event.currentTarget.value)}
-                />
-              </Field>
-            </div>
-            <div class="field field--full">
-              <Field label="Merchant account" htmlFor="merchant-account">
-                <input
-                  id="merchant-account"
-                  required
-                  autocomplete="off"
-                  value={merchantAccount}
-                  onInput={(event) => setMerchantAccount(event.currentTarget.value)}
-                />
-              </Field>
-            </div>
-            <div class="field field--full">
-              <Field label="TEST client key" htmlFor="client-key" hint="Must start with test_">
-                <input
-                  id="client-key"
-                  type="password"
-                  required
-                  autocomplete="new-password"
-                  value={clientKey}
-                  onInput={(event) => setClientKey(event.currentTarget.value)}
-                />
-              </Field>
-            </div>
-            <div class="field field--full">
-              <Field label="Standard webhook HMAC key" htmlFor="hmac-key">
-                <input
-                  id="hmac-key"
-                  type="password"
-                  autocomplete="new-password"
-                  value={hmacKey}
-                  onInput={(event) => setHmacKey(event.currentTarget.value)}
-                />
-              </Field>
-            </div>
-          </div>
-          <div class="form-actions">
-            <button class="button button--primary" type="submit" disabled={saving}>
-              {saving ? "Encrypting…" : "Save encrypted profile"}
+    <div class="settings">
+      {error ? <div class="notice notice--danger" role="alert">{error}</div> : null}
+      {message ? <div class="notice" role="status">{message}</div> : null}
+
+      <section class="settings-card">
+        <header class="settings-card__head">
+          <h2>Connection</h2>
+          {active
+            ? (
+              <span
+                class={`status-pill status-pill--${active.isConfigured ? "positive" : "warning"}`}
+              >
+                {active.isConfigured ? "Ready" : "Incomplete"}
+              </span>
+            )
+            : null}
+        </header>
+        {active
+          ? (
+            <dl class="facts settings-facts">
+              <dt>Profile in use</dt>
+              <dd>{active.label}</dd>
+              <dt>Merchant account</dt>
+              <dd>{active.merchantAccount ?? "Not set"}</dd>
+              <dt>Client key</dt>
+              <dd>{bootstrap?.clientKey ? "Set (test_…)" : "Missing"}</dd>
+              {!active.isConfigured
+                ? (
+                  <>
+                    <dt>Missing</dt>
+                    <dd>{active.missingFields.join(", ")}</dd>
+                  </>
+                )
+                : null}
+              <dt>Webhook HMAC key</dt>
+              <dd>{bootstrap?.webhookHmacConfigured ? "Set" : "Missing: webhooks are rejected"}</dd>
+              <dt>Webhook URL</dt>
+              <dd>
+                <button
+                  type="button"
+                  class="text-button mono"
+                  onClick={() => copy(bootstrap?.webhookUrl ?? "", { raw: true })}
+                >
+                  {copied === bootstrap?.webhookUrl ? "Copied" : bootstrap?.webhookUrl}
+                </button>
+              </dd>
+            </dl>
+          )
+          : <p class="muted">Loading…</p>}
+        <p class="settings-note">
+          Point a TEST standard webhook at this URL and put its HMAC key in the profile. API and
+          HMAC keys stay on the server: they are encrypted at rest and never sent to the browser.
+        </p>
+      </section>
+
+      <section class="settings-card">
+        <header class="settings-card__head">
+          <h2>Profiles</h2>
+        </header>
+        <ul class="profile-list">
+          {bootstrap?.profiles.map((profile) => (
+            <li class="profile-item" key={profile.id}>
+              <span class="profile-item__main">
+                <strong>{profile.label}</strong>
+                <small>
+                  {profile.isDefault ? "From environment variables · " : ""}
+                  {profile.isConfigured
+                    ? "Ready for Adyen TEST"
+                    : `Missing ${profile.missingFields.join(", ")}`}
+                </small>
+              </span>
+              <span class="profile-item__actions">
+                {bootstrap.profile.id === profile.id
+                  ? <span class="status-pill status-pill--positive">In use</span>
+                  : (
+                    <button
+                      class="button button--secondary button--small"
+                      type="button"
+                      onClick={() => select(profile.id)}
+                    >
+                      Use
+                    </button>
+                  )}
+                {!profile.isDefault
+                  ? (
+                    <button
+                      class="button button--danger button--small"
+                      type="button"
+                      onClick={() => remove(profile.id, profile.label)}
+                    >
+                      Delete
+                    </button>
+                  )
+                  : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <details class="settings-add">
+          <summary>Add a TEST profile</summary>
+          <form class="settings-form" onSubmit={save}>
+            <Field label="Name" htmlFor="profile-label">
+              <input
+                id="profile-label"
+                required
+                minlength={2}
+                value={label}
+                onInput={(event) => setLabel(event.currentTarget.value)}
+              />
+            </Field>
+            <Field label="Merchant account" htmlFor="merchant-account">
+              <input
+                id="merchant-account"
+                required
+                autocomplete="off"
+                value={merchantAccount}
+                onInput={(event) => setMerchantAccount(event.currentTarget.value)}
+              />
+            </Field>
+            <Field
+              label="API key"
+              htmlFor="api-key"
+              hint="Customer Area, Developers, API credentials"
+            >
+              <input
+                id="api-key"
+                type="password"
+                required
+                autocomplete="new-password"
+                value={apiKey}
+                onInput={(event) => setApiKey(event.currentTarget.value)}
+              />
+            </Field>
+            <Field label="Client key" htmlFor="client-key" hint="Starts with test_">
+              <input
+                id="client-key"
+                type="password"
+                required
+                autocomplete="new-password"
+                value={clientKey}
+                onInput={(event) => setClientKey(event.currentTarget.value)}
+              />
+            </Field>
+            <Field
+              label="Webhook HMAC key"
+              htmlFor="hmac-key"
+              hint="Optional; needed to accept webhooks"
+            >
+              <input
+                id="hmac-key"
+                type="password"
+                autocomplete="new-password"
+                value={hmacKey}
+                onInput={(event) => setHmacKey(event.currentTarget.value)}
+              />
+            </Field>
+            <button class="button button--primary button--block" type="submit" disabled={saving}>
+              {saving ? "Encrypting…" : "Save profile"}
             </button>
-          </div>
-        </form>
-      </div>
-    </>
+            <p class="settings-note">
+              TEST values only: LIVE client keys and LIVE endpoints are rejected.
+            </p>
+          </form>
+        </details>
+      </section>
+    </div>
   );
 }

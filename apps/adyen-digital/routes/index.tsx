@@ -1,58 +1,67 @@
+import type { ComponentChildren } from "preact";
+import { FlowIcon } from "../components/FlowIcon.tsx";
+import { type FlowInfo, FLOWS } from "../components/flows.ts";
 import { DigitalLayout } from "../components/Layout.tsx";
 import { define } from "../utils.ts";
 
-interface FlowCard {
-  title: string;
-  subtitle: string;
-  href: string;
+function Card(
+  props: { href: string; icon: string; title: string; children: ComponentChildren; badge?: string },
+) {
+  return (
+    <a class="home-card" href={props.href}>
+      <FlowIcon name={props.icon} class="home-card__icon" />
+      <span class="home-card__body">
+        <span class="home-card__title">
+          {props.title}
+          {props.badge ? <span class="home-card__badge">{props.badge}</span> : null}
+        </span>
+        <span class="home-card__text">{props.children}</span>
+      </span>
+      <span class="home-card__arrow" aria-hidden="true">→</span>
+    </a>
+  );
 }
 
-const flows: FlowCard[] = [
-  {
-    title: "Sessions Flow",
-    subtitle: "The simplest PCI-conscious integration, Adyen Web manages 3DS and orchestration.",
-    href: "/sessions?integration=dropin",
-  },
-  {
-    title: "Advanced Flow",
-    subtitle: "Own the /paymentMethods, /payments and /payments/details orchestration.",
-    href: "/advanced?integration=dropin",
-  },
-  {
-    title: "API Only / PCI",
-    subtitle: "Custom UI with encrypted card fields and full backend orchestration.",
-    href: "/api-only",
-  },
-  {
-    title: "MIT, Merchant Initiated Transactions",
-    subtitle: "Charge a stored card without shopper interaction using tokenised credentials.",
-    href: "/mit",
-  },
-  {
-    title: "Pay by Link",
-    subtitle: "Create a payment link via API using the selected country and locale.",
-    href: "/pay-by-link",
-  },
-  {
-    title: "E-commerce Back Office",
-    subtitle: "Inspect correlated callbacks, API calls, attempts, webhooks and lifecycle actions.",
-    href: "/back-office",
-  },
-];
+function flowHref(flow: FlowInfo): string {
+  return flow.hasIntegration ? `/${flow.id}?integration=dropin` : `/${flow.id}`;
+}
 
 export default define.page(function Home() {
+  const checkout = FLOWS.filter((flow) => flow.group === "checkout");
+  const beyond = FLOWS.filter((flow) => flow.group === "beyond");
   return (
     <DigitalLayout path="/">
-      <div class="flows-grid">
-        {flows.map((flow) => (
-          <a class="flow-card-simple" key={flow.href} href={flow.href}>
-            <div>
-              <h2>{flow.title}</h2>
-              <p class="flow-subtitle">{flow.subtitle}</p>
-            </div>
-            <span class="flow-card-arrow" aria-hidden="true">→</span>
-          </a>
-        ))}
+      <div class="home">
+        <section class="home-group">
+          <h2>Checkout flows</h2>
+          <div class="home-grid">
+            {checkout.map((flow) => (
+              <Card
+                key={flow.id}
+                href={flowHref(flow)}
+                icon={flow.id}
+                title={flow.title}
+                badge={flow.recommended ? "Recommended" : undefined}
+              >
+                {flow.description}
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        <section class="home-group">
+          <h2>Beyond checkout</h2>
+          <div class="home-grid">
+            {beyond.map((flow) => (
+              <Card key={flow.id} href={flowHref(flow)} icon={flow.id} title={flow.title}>
+                {flow.description}
+              </Card>
+            ))}
+            <Card href="/back-office" icon="back-office" title="Back Office">
+              Every order with its attempts, API calls and webhooks; capture, cancel or refund.
+            </Card>
+          </div>
+        </section>
       </div>
     </DigitalLayout>
   );

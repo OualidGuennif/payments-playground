@@ -1,23 +1,31 @@
 import { AdyenCheckout, CustomCard, Dropin } from "@adyen/adyen-web";
 import type { Core } from "@adyen/adyen-web";
-import { apiFetch, formatMinorAmount, prettyJson } from "@suite/ui/client.ts";
-import { Callout, Field, StatusPill, TestDataAndTools } from "@suite/ui/components.tsx";
+import { apiFetch, formatMinorAmount } from "@suite/ui/client.ts";
+import { Field } from "@suite/ui/components.tsx";
 import {
   currencyForCountry,
   defaultAmountForCurrency,
   detectCountryFromLanguages,
   FALLBACK_COUNTRY,
   localeForCountry,
+  ZERO_DECIMAL_CURRENCIES,
 } from "@suite/platform/markets.ts";
+import { weeklyShopperReference } from "@suite/platform/shopper.ts";
 import {
   INSTALLMENT_COUNTRIES,
   isNonFatalWalletError,
   paymentMethodsConfiguration,
 } from "@suite/ui/paymentMethods.ts";
 import "@suite/ui/registerPaymentMethods.ts";
+import { currentTheme, type Theme, THEME_CHANGE_EVENT } from "@suite/ui/theme.ts";
+import { useCopy } from "@suite/ui/useCopy.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
-
-type Flow = "sessions" | "advanced" | "pay-by-link" | "mit" | "api-only";
+import { FlowIcon } from "../components/FlowIcon.tsx";
+import { type Flow, flowInfo } from "../components/flows.ts";
+import { Sheet } from "../components/Sheet.tsx";
+import { type PaymentOutcome, ResultCard } from "../components/ResultCard.tsx";
+import { TestData } from "../components/TestData.tsx";
+import { Timeline, type TimelineEntry } from "../components/Timeline.tsx";
 
 interface PublicProfile {
   id: string;
@@ -44,161 +52,6 @@ export interface Bootstrap {
   webhookUrl: string;
 }
 
-interface TimelineEntry {
-  id: string;
-  kind: "api_call" | "frontend_callback" | "webhook" | "action" | "state";
-  name: string;
-  status: string;
-  occurredAt: string;
-  payload: unknown;
-  durationMs?: number;
-  hmacValid?: boolean;
-  optional?: boolean;
-}
-
-type CallbackRank = "required" | "recommended" | "optional" | "app";
-
-interface CallbackMeta {
-  rank: CallbackRank;
-  hint: string;
-}
-
-/**
- * What each row of the callbacks tab actually is. A single "optional" badge
- * on everything that was not a payment outcome was wrong twice over: it
- * called `onSubmit` optional, and it presented this playground's own backend
- * responses as if Adyen Web had emitted them. `app` marks the latter.
- */
-const CALLBACK_CATALOG: Record<string, CallbackMeta> = {
-  onSubmit: {
-    rank: "required",
-    hint: "You must call /payments with this state and resolve with its response.",
-  },
-  onAdditionalDetails: {
-    rank: "required",
-    hint: "3DS or redirect result: forward it to /payments/details, resolve with the response.",
-  },
-  onPaymentCompleted: {
-    rank: "required",
-    hint: "Terminal success. The resultCode is final, show the success page here.",
-  },
-  onPaymentFailed: {
-    rank: "required",
-    hint: "Terminal failure (refused, cancelled, expired). The order can still be retried.",
-  },
-  onPaymentMethodsRequest: {
-    rank: "required",
-    hint: "Sessions flow: intercepts /paymentMethods. You must resolve with the response.",
-  },
-  onOrderRequest: {
-    rank: "required",
-    hint: "Partial payments: create the order via /orders and resolve with it.",
-  },
-  onOrderUpdated: {
-    rank: "required",
-    hint: "Partial payments: the remaining amount after each partial authorisation.",
-  },
-  onError: {
-    rank: "recommended",
-    hint: "Any Adyen Web error, including non-fatal wallet cancellations. Not a result.",
-  },
-  beforeSubmit: {
-    rank: "optional",
-    hint: "resolve() is not a plain continue: what you pass becomes the /payments payload.",
-  },
-  onChange: {
-    rank: "optional",
-    hint: "Fires on every field edit. Diagnostics only, never a payment decision.",
-  },
-  onBinLookup: {
-    rank: "optional",
-    hint: "Co-badged networks detected from the first digits. Diagnostics only.",
-  },
-  onBinValue: {
-    rank: "optional",
-    hint: "Hashed BIN of the card being typed. Diagnostics only.",
-  },
-  onBrand: {
-    rank: "optional",
-    hint: "Network detected inside the secured fields. Diagnostics only.",
-  },
-  sessionCreated: {
-    rank: "app",
-    hint: "Not an Adyen Web callback: the /sessions response from this playground.",
-  },
-  backendPaymentResponse: {
-    rank: "app",
-    hint: "Not an Adyen Web callback: this playground's /payments response, pre-resolve().",
-  },
-  paymentLinkCreated: {
-    rank: "app",
-    hint: "Not an Adyen Web callback: the /paymentLinks response from this playground.",
-  },
-  mitResponse: {
-    rank: "app",
-    hint: "Not an Adyen Web callback: the merchant-initiated /payments response.",
-  },
-};
-
-const UNLISTED_CALLBACK: CallbackMeta = {
-  rank: "optional",
-  hint: "Not in the reference list of this playground, check the Adyen Web changelog.",
-};
-
-function callbackMeta(name: string): CallbackMeta {
-  return CALLBACK_CATALOG[name] ?? UNLISTED_CALLBACK;
-}
-
-// Every Checkout endpoint the backend can record, in one line each, so the
-// API tab reads as a sequence of intentions rather than a pile of JSON.
-const API_HINTS: Array<[string, string]> = [
-  ["GET /sessions", "The session's authoritative outcome, fetched with Adyen Web's sessionResult."],
-  ["/sessions", "One call, Adyen Web owns 3DS and the rest of the orchestration."],
-  ["/paymentMethods", "Methods available for this amount, country and locale."],
-  ["/payments/details", "Second leg of a 3DS or redirect flow."],
-  ["/paymentLinks", "Creates the Adyen-hosted payment page."],
-  ["/orders", "Partial payments: opens the order the gift card pays into."],
-  ["/payments", "Authorisation attempt for the submitted payment method."],
-];
-
-function apiHint(name: string): string {
-  return API_HINTS.find(([endpoint]) => name.includes(endpoint))?.[1] ?? "Adyen Checkout API call.";
-}
-
-type PanelTab = "callbacks" | "api" | "webhooks";
-type PanelSize = "normal" | "wide" | "full";
-
-const RANK_LABEL: Record<CallbackRank, string> = {
-  required: "required",
-  recommended: "recommended",
-  optional: "optional",
-  app: "not Adyen Web",
-};
-
-const NEXT_PANEL_SIZE: Record<PanelSize, PanelSize> = {
-  normal: "wide",
-  wide: "full",
-  full: "normal",
-};
-
-const PANEL_SIZE_HINT: Record<PanelSize, string> = {
-  normal: "Widen the inspector",
-  wide: "Expand the inspector to the full screen",
-  full: "Dock the inspector back",
-};
-
-const EMPTY_TAB_COPY: Record<PanelTab, string> = {
-  callbacks: "Callbacks land here in the order Adyen Web fires them, oldest first.",
-  api: "Calls this playground makes to the Checkout API land here once a flow starts.",
-  webhooks: "Notifications sent by Adyen to this backend land here after the payment.",
-};
-
-function toggledSet(current: Set<string>, key: string): Set<string> {
-  const next = new Set(current);
-  if (!next.delete(key)) next.add(key);
-  return next;
-}
-
 interface CallbackActions {
   resolve(value?: unknown): void;
   reject(): void;
@@ -208,6 +61,18 @@ interface MountedComponent {
   mount(el: HTMLElement): void;
   unmount(): void;
 }
+
+interface StoredMethod {
+  id: string;
+  brand?: string;
+  lastFour?: string;
+  expiryMonth?: string;
+  expiryYear?: string;
+  name?: string;
+  supportedRecurringProcessingModels?: string[];
+}
+
+type RecurringModel = "UnscheduledCardOnFile" | "Subscription";
 
 const MARKETS = [
   ["AE", "United Arab Emirates"],
@@ -253,6 +118,14 @@ const MARKETS = [
 const LOCALE_OPTIONS = [...new Set(MARKETS.map(([code]) => localeForCountry(code)))].sort();
 const CURRENCY_OPTIONS = [...new Set(MARKETS.map(([code]) => currencyForCountry(code)))].sort();
 
+const VALIDITY_OPTIONS: Array<[number, string]> = [
+  [1, "1 hour"],
+  [24, "24 hours"],
+  [24 * 7, "7 days"],
+  [24 * 30, "30 days"],
+  [24 * 70, "70 days (maximum)"],
+];
+
 /**
  * Market to open on: pay-by-link keeps its NL default, everything else is
  * guessed from the browser's languages and falls back to a European market.
@@ -268,8 +141,7 @@ function detectInitialCountry(flow: Flow): string {
 }
 
 // Reuses Adyen's own shipped CSS classes (imported globally as adyen.css) for
-// field box sizing/focus states, same as the legacy playground's hand-rolled
-// Secure Fields form, only the wrapper/status/hint below are custom.
+// field box sizing/focus states; only the wrapper, status and hint are ours.
 const CUSTOM_CARD_MARKUP = `
   <div class="custom-card-form">
     <div class="adyen-checkout__field">
@@ -312,12 +184,21 @@ const CUSTOM_CARD_MARKUP = `
     >
       Pay now
     </button>
-    <p class="custom-card-hint">
-      Card data never touches our server, these fields are Adyen-hosted iframes (Secure
-      Fields). Only encrypted blobs reach the backend.
-    </p>
   </div>
 `;
+
+/**
+ * Secured fields render inside Adyen's iframes, out of reach of this page's
+ * CSS: in dark mode their text colours have to be passed in as `styles`.
+ */
+function securedFieldStyles(theme: Theme): Record<string, unknown> | undefined {
+  if (theme !== "dark") return undefined;
+  return {
+    base: { color: "#eef1f6", caretColor: "#eef1f6" },
+    placeholder: { color: "#7b8493" },
+    error: { color: "#ff7b88" },
+  };
+}
 
 function flagEmoji(countryCode: string): string {
   return String.fromCodePoint(
@@ -325,9 +206,13 @@ function flagEmoji(countryCode: string): string {
   );
 }
 
-// This is a TEST playground: sdkData, sessionData and other frontend
-// callback payloads are shown in full, nothing here is a real credential,
-// and truncating them just hides useful debug information.
+function minorExponent(currency: string): number {
+  return ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase()) ? 0 : 2;
+}
+
+// This is a TEST playground: sdkData, sessionData and other frontend callback
+// payloads are shown in full; nothing here is a real credential, and
+// truncating them only hides useful debug information.
 function recordSafe(value: unknown, depth = 0): unknown {
   if (depth > 5) return "[depth limited]";
   if (Array.isArray(value)) return value.slice(0, 30).map((entry) => recordSafe(entry, depth + 1));
@@ -339,91 +224,11 @@ function recordSafe(value: unknown, depth = 0): unknown {
   return output;
 }
 
-function timestamp(): string {
-  return new Date().toISOString();
-}
-
-function extractAdditionalData(value: unknown): { rest: unknown; additionalData: unknown } {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { rest: value, additionalData: null };
-  }
-  const { additionalData, ...rest } = value as Record<string, unknown>;
-  return { rest, additionalData: additionalData ?? null };
-}
-
-const LONG_VALUE_LIMIT = 120;
-
-interface Fold {
-  key: string;
-  expanded: boolean;
-}
-
-/**
- * Rewrites every string longer than LONG_VALUE_LIMIT to its first characters
- * followed by a marker, which the renderer turns into a per-value expander.
- * A single sdkData blob is otherwise long enough to bury the four fields
- * around it, and hiding it outright would lose it.
- */
-function foldLongValues(
-  value: unknown,
-  expandedValues: Set<string>,
-  baseKey: string,
-  folds: Fold[],
-  path = "",
-): unknown {
-  if (typeof value === "string" && value.length > LONG_VALUE_LIMIT) {
-    const key = `${baseKey}#${path}`;
-    const expanded = expandedValues.has(key);
-    folds.push({ key, expanded });
-    const shown = expanded ? value : `${value.slice(0, LONG_VALUE_LIMIT)}…`;
-    return `${shown}@@FOLD:${folds.length - 1}@@`;
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry, index) =>
-      foldLongValues(entry, expandedValues, baseKey, folds, `${path}[${index}]`)
-    );
-  }
-  if (value && typeof value === "object") {
-    const output: Record<string, unknown> = {};
-    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-      output[key] = foldLongValues(entry, expandedValues, baseKey, folds, `${path}.${key}`);
-    }
-    return output;
-  }
-  return value;
-}
-
-function JsonBlock(
-  { value, entryKey, expandedValues, onToggleValue }: {
-    value: unknown;
-    entryKey: string;
-    expandedValues: Set<string>;
-    onToggleValue: (key: string) => void;
-  },
-) {
-  const folds: Fold[] = [];
-  const text = prettyJson(foldLongValues(value, expandedValues, entryKey, folds)) || "null";
-  const parts = text.split(/@@FOLD:(\d+)@@/);
-  return (
-    <pre>
-      {parts.map((part, index) => {
-        if (index % 2 === 0) return part;
-        const fold = folds[Number(part)];
-        if (!fold) return null;
-        return (
-          <button
-            type="button"
-            class="json-fold"
-            key={fold.key}
-            title={fold.expanded ? "Collapse this value" : "Show the full value"}
-            onClick={() => onToggleValue(fold.key)}
-          >
-            {fold.expanded ? "collapse" : "…"}
-          </button>
-        );
-      })}
-    </pre>
-  );
+function field(value: unknown, key: string): string | undefined {
+  const entry = value && typeof value === "object"
+    ? (value as Record<string, unknown>)[key]
+    : undefined;
+  return typeof entry === "string" && entry ? entry : undefined;
 }
 
 export default function FlowWorkbench(
@@ -433,6 +238,7 @@ export default function FlowWorkbench(
     initialIntegration?: "dropin" | "component";
   },
 ) {
+  const info = flowInfo(flow);
   const hasAutoInit = flow === "sessions" || flow === "advanced" || flow === "api-only";
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(initialBootstrap ?? null);
   const [profileId, setProfileId] = useState(initialBootstrap?.profile.id ?? "default");
@@ -447,33 +253,32 @@ export default function FlowWorkbench(
     defaultAmountForCurrency(currencyForCountry(detectInitialCountry(flow)))
   );
   const [locale, setLocale] = useState(() => localeForCountry(detectInitialCountry(flow)));
+  const [theme, setTheme] = useState<Theme>(() => currentTheme());
   // Whether installments are offered is a property of the market, not a
-  // manual preference, always derived from country rather than a toggle.
+  // manual preference: always derived from the country.
   const installments = INSTALLMENT_COUNTRIES.includes(country.toUpperCase());
   const [correlationId, setCorrelationId] = useState<string | null>(null);
-  // The advanced flow mints a new correlation id at /payments, so keeping only
-  // the current one made the /paymentMethods call vanish from the API tab the
-  // moment a payment was submitted. Every id of the run is polled and merged.
+  // The Advanced flow mints a new correlation id at /payments, so keeping only
+  // the current one made the /paymentMethods call vanish from the inspector
+  // the moment a payment was submitted. Every id of the run is polled.
   const [correlationIds, setCorrelationIds] = useState<string[]>([]);
   const [callbacks, setCallbacks] = useState<TimelineEntry[]>([]);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [panelSize, setPanelSize] = useState<PanelSize>("normal");
-  const [panelTab, setPanelTab] = useState<PanelTab>("callbacks");
-  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
-  const [expandedValues, setExpandedValues] = useState<Set<string>>(new Set());
-  const [additionalDataOpen, setAdditionalDataOpen] = useState<Set<string>>(new Set());
-  const [webhookWaiting, setWebhookWaiting] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [testDataOpen, setTestDataOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [outcome, setOutcome] = useState<Record<string, unknown> | null>(null);
+  const [outcome, setOutcome] = useState<PaymentOutcome | null>(null);
+  const [link, setLink] = useState<Record<string, unknown> | null>(null);
+  const [linkState, setLinkState] = useState<string | null>(null);
+  const [storedMethods, setStoredMethods] = useState<StoredMethod[] | null>(null);
   const [storedPaymentMethodId, setStoredPaymentMethodId] = useState("");
-  const [shopperReference, setShopperReference] = useState("shopper-test-001");
-  const [recurringModel, setRecurringModel] = useState<
-    "UnscheduledCardOnFile" | "Subscription"
-  >("UnscheduledCardOnFile");
+  const [shopperReference, setShopperReference] = useState(() => weeklyShopperReference());
+  const [recurringModel, setRecurringModel] = useState<RecurringModel>("UnscheduledCardOnFile");
   const [validityHours, setValidityHours] = useState(24);
   const [reusable, setReusable] = useState(false);
+  const [amountDraft, setAmountDraft] = useState<string | null>(null);
   // Adyen Web renders into this node with its own Preact copy, so it is kept
   // apart from anything this island renders: the placeholder is a sibling.
   const dropinHost = useRef<HTMLDivElement>(null);
@@ -485,26 +290,22 @@ export default function FlowWorkbench(
   const correlationRef = useRef<string | null>(null);
   const checkoutRef = useRef<Core | null>(null);
   const customCardHolderNameRef = useRef<HTMLInputElement | null>(null);
+  // The last payment response the server returned, for the result screen.
+  const lastPaymentRef = useRef<PaymentOutcome>({});
   // Minted by /paymentMethods and repeated on the /payments call it leads to,
   // so Adyen sees both requests as one checkout conversion.
   const shopperConversionRef = useRef<string | null>(null);
+  const { copied, copy } = useCopy();
+
+  const amountText = formatMinorAmount(Number.isFinite(amount) ? amount : 0, currency);
+  const exponent = minorExponent(currency);
+  const countryName = MARKETS.find(([code]) => code === country)?.[1] ?? country;
+  const selectedProfile = bootstrap?.profiles.find((profile) => profile.id === profileId);
 
   function updateCorrelation(value: string) {
     correlationRef.current = value;
     setCorrelationId(value);
     setCorrelationIds((current) => current.includes(value) ? current : [...current, value]);
-  }
-
-  function toggleEntry(id: string) {
-    setExpandedEntries((current) => toggledSet(current, id));
-  }
-
-  function toggleValue(key: string) {
-    setExpandedValues((current) => toggledSet(current, key));
-  }
-
-  function toggleAdditionalData(id: string) {
-    setAdditionalDataOpen((current) => toggledSet(current, id));
   }
 
   useEffect(() => {
@@ -514,7 +315,12 @@ export default function FlowWorkbench(
         setProfileId(data.profile.id);
       })
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Bootstrap failed."));
-    return () => mounted.current?.unmount();
+    const syncTheme = () => setTheme(currentTheme());
+    globalThis.addEventListener(THEME_CHANGE_EVENT, syncTheme);
+    return () => {
+      globalThis.removeEventListener(THEME_CHANGE_EVENT, syncTheme);
+      mounted.current?.unmount();
+    };
   }, []);
 
   const autoInitRef = useRef(false);
@@ -524,9 +330,9 @@ export default function FlowWorkbench(
     start();
   }, [bootstrap]);
 
-  // No "Update settings" button, any change to the scenario reloads the
-  // checkout on its own, debounced so typing an amount or flipping through
-  // markets doesn't refire on every keystroke.
+  // No "Update" button: any change to the scenario reloads the checkout on
+  // its own, debounced so typing an amount doesn't refire on every keystroke.
+  // The theme is part of it: secured fields only take their colours at mount.
   const skipFirstAutoRestart = useRef(true);
   useEffect(() => {
     if (!hasAutoInit || !autoInitRef.current) return;
@@ -536,11 +342,36 @@ export default function FlowWorkbench(
     }
     const timeout = setTimeout(() => start(), 500);
     return () => clearTimeout(timeout);
-  }, [amount, currency, country, locale, integration, profileId]);
+  }, [amount, currency, country, locale, integration, profileId, theme]);
+
+  // MIT charges a card saved earlier: list the ones Adyen holds for this
+  // week's shopper, instead of asking for a token by hand.
+  useEffect(() => {
+    if (flow !== "mit" || !bootstrap?.clientKey) return;
+    setStoredMethods(null);
+    apiFetch<{ paymentMethodsResponse: { storedPaymentMethods?: StoredMethod[] } }>(
+      "/api/digital/payment-methods",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          amount: { value: amount, currency },
+          countryCode: country,
+          shopperLocale: locale,
+        }),
+      },
+      profileId,
+    )
+      .then((response) => {
+        const methods = response.paymentMethodsResponse.storedPaymentMethods ?? [];
+        setStoredMethods(methods);
+        setStoredPaymentMethodId((current) => current || methods[0]?.id || "");
+      })
+      .catch(() => setStoredMethods([]));
+  }, [bootstrap, country, currency, profileId]);
 
   const polledCorrelations = correlationIds.join("|");
   useEffect(() => {
-    if (!polledCorrelations || !panelOpen) return;
+    if (!polledCorrelations || !inspectorOpen) return;
     let active = true;
     const refresh = async () => {
       try {
@@ -555,11 +386,7 @@ export default function FlowWorkbench(
         for (const response of responses) {
           for (const entry of response.entries) merged.set(entry.id, entry);
         }
-        const entries = [...merged.values()].sort((left, right) =>
-          left.occurredAt.localeCompare(right.occurredAt)
-        );
-        setTimeline(entries);
-        setWebhookWaiting(!entries.some((entry) => entry.kind === "webhook"));
+        setTimeline([...merged.values()]);
       } catch {
         // Inspector polling is best-effort and must not interrupt checkout.
       }
@@ -570,7 +397,7 @@ export default function FlowWorkbench(
       active = false;
       globalThis.clearInterval(interval);
     };
-  }, [polledCorrelations, panelOpen]);
+  }, [polledCorrelations, inspectorOpen]);
 
   async function switchProfile(nextId: string) {
     setError(null);
@@ -593,11 +420,22 @@ export default function FlowWorkbench(
     const nextCurrency = currencyForCountry(nextCountry);
     if (nextCurrency !== currency) setAmount(defaultAmountForCurrency(nextCurrency));
     setCurrency(nextCurrency);
+    setAmountDraft(null);
   }
 
   function selectCurrency(nextCurrency: string) {
     setAmount(defaultAmountForCurrency(nextCurrency));
     setCurrency(nextCurrency);
+    setAmountDraft(null);
+  }
+
+  // Shoppers think in euros, the API in minor units: the field takes the
+  // former and the hint shows the latter.
+  function updateAmount(text: string) {
+    setAmountDraft(text);
+    const parsed = Number(text.replace(",", "."));
+    if (!Number.isFinite(parsed) || parsed <= 0) return;
+    setAmount(Math.round(parsed * 10 ** exponent));
   }
 
   function addCallback(name: string, payload: unknown, explicitCorrelation?: string) {
@@ -607,9 +445,8 @@ export default function FlowWorkbench(
       kind: "frontend_callback",
       name,
       status: "received",
-      occurredAt: timestamp(),
+      occurredAt: new Date().toISOString(),
       payload: safePayload,
-      optional: callbackMeta(name).rank !== "required",
     };
     setCallbacks((current) => [...current, entry]);
     // The ref, not the state: Adyen Web keeps the handlers of the render that
@@ -628,6 +465,14 @@ export default function FlowWorkbench(
     }
   }
 
+  function finish(result: unknown) {
+    setOutcome({
+      ...lastPaymentRef.current,
+      resultCode: field(result, "resultCode") ?? lastPaymentRef.current.resultCode,
+    });
+    syncSessionResult(result);
+  }
+
   function commonConfiguration(extra: Record<string, unknown>) {
     if (!bootstrap?.clientKey) throw new Error("A valid TEST client key is required.");
     return {
@@ -640,13 +485,11 @@ export default function FlowWorkbench(
       onChange: (state: unknown) => addCallback("onChange", state),
       onPaymentCompleted: (result: unknown) => {
         addCallback("onPaymentCompleted", result);
-        setOutcome({ status: "completed", result: recordSafe(result) });
-        syncSessionResult(result);
+        finish(result);
       },
       onPaymentFailed: (result: unknown) => {
         addCallback("onPaymentFailed", result);
-        setOutcome({ status: "failed", result: recordSafe(result) });
-        syncSessionResult(result);
+        finish(result);
       },
       onError: (cause: unknown) => {
         addCallback("onError", cause);
@@ -660,28 +503,45 @@ export default function FlowWorkbench(
   // Sessions only: Adyen Web ran the payment, so the server asks Adyen how it
   // ended, which is what lets the Back Office show it without a webhook.
   function syncSessionResult(result: unknown) {
-    const sessionResult = (result as { sessionResult?: unknown } | null)?.sessionResult;
+    const sessionResult = field(result, "sessionResult");
     const orderId = correlationRef.current;
-    if (flow !== "sessions" || typeof sessionResult !== "string" || !orderId) return;
-    apiFetch(`/api/digital/sessions/${orderId}/result`, {
-      method: "POST",
-      body: JSON.stringify({ sessionResult }),
-    }, profileId).catch(() => undefined);
+    if (flow !== "sessions" || !sessionResult || !orderId) return;
+    apiFetch<{ result: { payments?: Array<Record<string, unknown>> } }>(
+      `/api/digital/sessions/${orderId}/result`,
+      { method: "POST", body: JSON.stringify({ sessionResult }) },
+      profileId,
+    )
+      .then((response) => {
+        const payment = response.result.payments?.[0];
+        if (!payment) return;
+        const method = payment.paymentMethod as Record<string, unknown> | undefined;
+        setOutcome((current) =>
+          current && {
+            ...current,
+            pspReference: field(payment, "pspReference") ?? current.pspReference,
+            method: field(method, "brand") ?? field(method, "type") ?? current.method,
+          }
+        );
+      })
+      .catch(() => undefined);
   }
 
-  // Card-only events. Adyen Web reads them from the card's own configuration
-  // and ignores them, with a console warning, at the AdyenCheckout level.
+  // Card-only settings. Adyen Web reads these from the card's own
+  // configuration and ignores them, with a console warning, at the
+  // AdyenCheckout level.
   function methodsConfiguration(): Record<string, unknown> {
     const configuration = paymentMethodsConfiguration(country, bootstrap?.profile.merchantAccount, {
       enableStoreDetails: flow !== "sessions",
     });
-    const cardEvents = {
+    const styles = securedFieldStyles(theme);
+    const cardOptions = {
       onBinLookup: (data: unknown) => addCallback("onBinLookup", data),
       onBinValue: (data: unknown) => addCallback("onBinValue", data),
       onBrand: (data: unknown) => addCallback("onBrand", data),
+      ...(styles ? { styles } : {}),
     };
-    for (const type of ["card", "scheme"]) {
-      configuration[type] = { ...configuration[type] as Record<string, unknown>, ...cardEvents };
+    for (const type of ["card", "scheme", "storedCard"]) {
+      configuration[type] = { ...configuration[type] as Record<string, unknown>, ...cardOptions };
     }
     return configuration;
   }
@@ -702,8 +562,8 @@ export default function FlowWorkbench(
       const config = methodsConfiguration()[type] as Record<string, unknown> | undefined;
       // Card/PayPal/etc. have dedicated classes whose static `type` is already
       // correct, but every redirect-only method (Alma, Wero, WeChat...) shares
-      // the same generic Redirect element, without an explicit `type` here it
-      // mounts with no identifiable payment method, so `state.data.paymentMethod`
+      // the same generic Redirect element: without an explicit `type` here it
+      // mounts with no identifiable payment method, `state.data.paymentMethod`
       // comes back empty and the backend later rejects it as null.
       const instance = new ComponentClass(checkout, { ...config, type });
       instance.mount(dropinHost.current);
@@ -736,9 +596,11 @@ export default function FlowWorkbench(
       customCardHolderNameRef.current = dropinHost.current.querySelector<HTMLInputElement>(
         "#customCardHolderName",
       );
+      const styles = securedFieldStyles(theme);
       const component = new CustomCard(checkout, {
         type: "card",
         autoFocus: true,
+        ...(styles ? { styles } : {}),
         onLoad: () => {
           if (statusEl) statusEl.textContent = "Loading secure fields…";
         },
@@ -756,6 +618,7 @@ export default function FlowWorkbench(
           if (statusEl && first?.fieldType) statusEl.textContent = `Check ${first.fieldType}.`;
         },
       } as never);
+      if (submitBtn) submitBtn.textContent = `Pay ${amountText}`;
       submitBtn?.addEventListener("click", () => component.submit());
       component.mount(dropinHost.current);
       mounted.current = component as MountedComponent;
@@ -860,6 +723,12 @@ export default function FlowWorkbench(
             }),
           }, profileId);
           updateCorrelation(response.correlationId);
+          lastPaymentRef.current = {
+            pspReference: field(response.result, "pspReference"),
+            resultCode: field(response.result, "resultCode"),
+            method: field(stateData.paymentMethod, "brand") ??
+              field(stateData.paymentMethod, "type"),
+          };
           addCallback("backendPaymentResponse", response.result, response.correlationId);
           actions.resolve(response.result);
         } catch (cause) {
@@ -883,6 +752,12 @@ export default function FlowWorkbench(
             },
             profileId,
           );
+          lastPaymentRef.current = {
+            ...lastPaymentRef.current,
+            pspReference: field(response.result, "pspReference") ??
+              lastPaymentRef.current.pspReference,
+            resultCode: field(response.result, "resultCode"),
+          };
           actions.resolve(response.result);
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : "Additional details failed.");
@@ -908,8 +783,25 @@ export default function FlowWorkbench(
       }),
     }, profileId);
     updateCorrelation(response.correlationId);
-    setOutcome(response.paymentLink);
+    setLink(response.paymentLink);
+    setLinkState(field(response.paymentLink, "status") ?? "active");
     addCallback("paymentLinkCreated", response.paymentLink, response.correlationId);
+  }
+
+  async function refreshLink() {
+    if (!correlationRef.current) return;
+    setLoading(true);
+    try {
+      const response = await apiFetch<{
+        paymentLink: Record<string, unknown>;
+        resolution: { state: string };
+      }>(`/api/digital/payment-links/${correlationRef.current}`, {}, profileId);
+      setLinkState(field(response.paymentLink, "status") ?? response.resolution.state);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not read the link.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function runMit() {
@@ -926,7 +818,12 @@ export default function FlowWorkbench(
       }),
     }, profileId);
     updateCorrelation(response.correlationId);
-    setOutcome(response.result);
+    const stored = storedMethods?.find((method) => method.id === storedPaymentMethodId);
+    setOutcome({
+      resultCode: field(response.result, "resultCode"),
+      pspReference: field(response.result, "pspReference"),
+      method: stored?.brand ?? stored?.name,
+    });
     addCallback("mitResponse", response.result, response.correlationId);
   }
 
@@ -938,9 +835,7 @@ export default function FlowWorkbench(
     setCallbacks([]);
     setTimeline([]);
     setCorrelationIds([]);
-    setExpandedEntries(new Set());
-    setExpandedValues(new Set());
-    setAdditionalDataOpen(new Set());
+    lastPaymentRef.current = {};
     // A conversion id belongs to one checkout; the next one mints its own.
     shopperConversionRef.current = null;
     const run = ++runRef.current;
@@ -958,592 +853,575 @@ export default function FlowWorkbench(
     }
   }
 
-  function renderEvent(entry: TimelineEntry) {
-    const entryOpen = expandedEntries.has(entry.id);
-    const extraOpen = additionalDataOpen.has(entry.id);
-    const meta = entry.kind === "frontend_callback" ? callbackMeta(entry.name) : null;
-    const api = entry.kind === "api_call"
-      ? entry.payload as { request?: unknown; response?: unknown; error?: string }
-      : null;
-    const failed = Boolean(api?.error) || Number(entry.status) >= 400;
-    const source = api ? (api.error ? { error: api.error } : api.response) : entry.payload;
-    const { rest: body, additionalData } = extractAdditionalData(source);
+  // One list for the inspector: Adyen Web callbacks as they happen, plus what
+  // the server recorded (API calls, webhooks). The server's copy of each
+  // callback is left out, it is the same event.
+  const events = [
+    ...callbacks,
+    ...timeline.filter((entry) => entry.kind !== "frontend_callback"),
+  ].sort((left, right) => left.occurredAt.localeCompare(right.occurredAt));
+  const names = new Set(events.map((entry) => entry.name));
+  const steps: Array<[string, boolean]> = [
+    [
+      "Checkout ready",
+      names.has("sessionCreated") || events.some((entry) => entry.name.includes("paymentMethods")),
+    ],
+    ["Submitted", names.has("onSubmit") || names.has("beforeSubmit")],
+    ["Result", Boolean(outcome)],
+    ["Webhook", events.some((entry) => entry.kind === "webhook")],
+  ];
 
-    return (
-      <article class="event-row" key={entry.id}>
-        <button
-          type="button"
-          class="event-row__header"
-          aria-expanded={entryOpen}
-          onClick={() => toggleEntry(entry.id)}
-        >
-          <span class="event-row__meta">
-            <strong>{entry.name}</strong>
-            {meta
-              ? (
-                <span class={`event-row__badge event-row__badge--${meta.rank}`}>
-                  {RANK_LABEL[meta.rank]}
-                </span>
-              )
-              : null}
-            {api
-              ? (
-                <span class={`event-row__badge event-row__badge--${failed ? "error" : "ok"}`}>
-                  {api.error ? "failed" : entry.status}
-                </span>
-              )
-              : null}
-            {entry.kind === "webhook"
-              ? (
-                <span
-                  class={`event-row__badge event-row__badge--${entry.hmacValid ? "ok" : "error"}`}
-                >
-                  {entry.hmacValid ? "HMAC valid" : "HMAC invalid"}
-                </span>
-              )
-              : null}
-            <time datetime={entry.occurredAt}>
-              {new Date(entry.occurredAt).toLocaleTimeString()}
-              {entry.durationMs ? ` · ${entry.durationMs} ms` : ""}
-            </time>
-          </span>
-          <span class="event-row__caret" aria-hidden="true">{entryOpen ? "−" : "+"}</span>
-        </button>
-        {entryOpen
-          ? (
-            <div class="event-row__detail">
-              <p class="event-row__hint">
-                {meta
-                  ? meta.hint
-                  : api
-                  ? apiHint(entry.name)
-                  : "Server-to-server notification, HMAC checked when the backend received it."}
-              </p>
-              {api
+  function renderPayment() {
+    if (flow === "pay-by-link") {
+      if (link) {
+        const url = field(link, "url") ?? "";
+        const expiresAt = field(link, "expiresAt");
+        return (
+          <div class="link-card">
+            <div class="link-card__head">
+              <h3>Payment link ready</h3>
+              <span class="status-pill status-pill--info">{linkState ?? "active"}</span>
+            </div>
+            <a class="link-card__url" href={url} target="_blank" rel="noopener noreferrer">
+              {url}
+            </a>
+            <div class="link-card__actions">
+              <button
+                class="button button--primary"
+                type="button"
+                onClick={() => copy(url, { raw: true })}
+              >
+                {copied === url ? "Copied" : "Copy link"}
+              </button>
+              <a
+                class="button button--secondary"
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open ↗
+              </a>
+              <button
+                class="button button--secondary"
+                type="button"
+                disabled={loading}
+                onClick={refreshLink}
+              >
+                Refresh status
+              </button>
+            </div>
+            <dl class="facts">
+              <dt>Amount</dt>
+              <dd>{amountText}</dd>
+              {expiresAt
                 ? (
-                  <div class="event-row__section">
-                    <span class="event-row__label">Request</span>
-                    <JsonBlock
-                      value={api.request}
-                      entryKey={`${entry.id}:request`}
-                      expandedValues={expandedValues}
-                      onToggleValue={toggleValue}
-                    />
-                  </div>
+                  <>
+                    <dt>Expires</dt>
+                    <dd>{new Date(expiresAt).toLocaleString()}</dd>
+                  </>
                 )
                 : null}
-              <div class="event-row__section">
-                <span class="event-row__label">
-                  {api ? "Response" : entry.kind === "webhook" ? "Notification" : "Payload"}
-                </span>
-                <JsonBlock
-                  value={body}
-                  entryKey={`${entry.id}:body`}
-                  expandedValues={expandedValues}
-                  onToggleValue={toggleValue}
-                />
-              </div>
-              {additionalData
+              <dt>Reusable</dt>
+              <dd>{field(link, "reusable") ?? (reusable ? "yes" : "no")}</dd>
+            </dl>
+            <div class="result__actions">
+              <button class="text-button" type="button" onClick={() => setLink(null)}>
+                Create another link
+              </button>
+              {correlationId
                 ? (
-                  <div class="event-row__section">
-                    <button
-                      type="button"
-                      class="data-toggle"
-                      aria-pressed={extraOpen}
-                      onClick={() => toggleAdditionalData(entry.id)}
-                    >
-                      <span class="data-toggle__track" aria-hidden="true"></span>
-                      <span class="data-toggle__label">Show additionalData</span>
-                      <span class="data-toggle__state">{extraOpen ? "ON" : "OFF"}</span>
-                    </button>
-                    {extraOpen
-                      ? (
-                        <JsonBlock
-                          value={additionalData}
-                          entryKey={`${entry.id}:additionalData`}
-                          expandedValues={expandedValues}
-                          onToggleValue={toggleValue}
-                        />
-                      )
-                      : null}
-                  </div>
+                  <a class="text-button" href={`/back-office?orderId=${correlationId}`}>
+                    Open in Back Office
+                  </a>
                 )
                 : null}
             </div>
+          </div>
+        );
+      }
+      return (
+        <form
+          class="pay-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            start();
+          }}
+        >
+          <Field label="Link valid for" htmlFor="validity">
+            <select
+              id="validity"
+              value={validityHours}
+              onChange={(event) => setValidityHours(Number(event.currentTarget.value))}
+            >
+              {VALIDITY_OPTIONS.map(([hours, label]) => (
+                <option key={hours} value={hours}>{label}</option>
+              ))}
+            </select>
+          </Field>
+          <label class="switch-row">
+            <span>
+              <strong>Reusable</strong>
+              <small>Several shoppers can pay with the same link.</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={reusable}
+              onChange={(event) => setReusable(event.currentTarget.checked)}
+            />
+          </label>
+          <button
+            class="button button--primary button--block"
+            type="submit"
+            disabled={loading || !selectedProfile?.isConfigured}
+          >
+            {loading ? "Creating…" : `Create a link for ${amountText}`}
+          </button>
+        </form>
+      );
+    }
+
+    if (flow === "mit") {
+      if (outcome) {
+        return (
+          <ResultCard
+            outcome={outcome}
+            amountText={amountText}
+            orderId={correlationId}
+            onRestart={() => setOutcome(null)}
+          />
+        );
+      }
+      const selected = storedMethods?.find((method) => method.id === storedPaymentMethodId);
+      const modelMismatch = selected?.supportedRecurringProcessingModels?.length &&
+        !selected.supportedRecurringProcessingModels.includes(recurringModel);
+      return (
+        <form
+          class="pay-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            start();
+          }}
+        >
+          <fieldset class="choice-list">
+            <legend>Saved payment method</legend>
+            {storedMethods === null
+              ? <p class="muted">Looking up this week's saved cards…</p>
+              : storedMethods.length
+              ? storedMethods.map((method) => (
+                <label class="choice" key={method.id}>
+                  <input
+                    type="radio"
+                    name="stored"
+                    checked={storedPaymentMethodId === method.id}
+                    onChange={() => setStoredPaymentMethodId(method.id)}
+                  />
+                  <span class="choice__main">
+                    <strong>
+                      {method.brand ?? method.name ?? "Card"}
+                      {method.lastFour ? ` •••• ${method.lastFour}` : ""}
+                    </strong>
+                    <small>
+                      {method.expiryMonth
+                        ? `Expires ${method.expiryMonth}/${method.expiryYear}`
+                        : ""}
+                    </small>
+                  </span>
+                </label>
+              ))
+              : (
+                <p class="muted">
+                  No saved card for this week's shopper yet. Pay once in{" "}
+                  <a href="/advanced?integration=dropin">Advanced</a>{" "}
+                  with “Save for my next payment” ticked, then come back.
+                </p>
+              )}
+          </fieldset>
+          <div class="field">
+            <span>Recurring model</span>
+            <div class="segmented-control">
+              {(["UnscheduledCardOnFile", "Subscription"] as const).map((model) => (
+                <button
+                  type="button"
+                  aria-pressed={recurringModel === model}
+                  onClick={() => setRecurringModel(model)}
+                >
+                  {model === "UnscheduledCardOnFile" ? "Unscheduled" : "Subscription"}
+                </button>
+              ))}
+            </div>
+            {modelMismatch
+              ? (
+                <small class="field-warning">
+                  This card was saved for{" "}
+                  {selected?.supportedRecurringProcessingModels?.join(", ")}; Adyen may refuse a
+                  {" "}
+                  {recurringModel} charge.
+                </small>
+              )
+              : null}
+          </div>
+          <details class="more">
+            <summary>Use another token</summary>
+            <Field
+              label="storedPaymentMethodId"
+              htmlFor="stored-id"
+              hint="Adyen token, never a PAN"
+            >
+              <input
+                id="stored-id"
+                autocomplete="off"
+                value={storedPaymentMethodId}
+                onInput={(event) => setStoredPaymentMethodId(event.currentTarget.value)}
+              />
+            </Field>
+            <Field label="Shopper reference" htmlFor="shopper-ref" hint="Must not contain PII">
+              <input
+                id="shopper-ref"
+                value={shopperReference}
+                onInput={(event) => setShopperReference(event.currentTarget.value)}
+              />
+            </Field>
+          </details>
+          <button
+            class="button button--primary button--block"
+            type="submit"
+            disabled={loading || !storedPaymentMethodId || !selectedProfile?.isConfigured}
+          >
+            {loading ? "Charging…" : `Charge ${amountText}`}
+          </button>
+        </form>
+      );
+    }
+
+    return (
+      <>
+        {outcome
+          ? (
+            <ResultCard
+              outcome={outcome}
+              amountText={amountText}
+              orderId={correlationId}
+              onRestart={start}
+            />
           )
           : null}
-      </article>
+        <div class={`dropin-host${outcome ? " is-hidden" : ""}`} aria-live="polite">
+          <div ref={dropinHost} />
+          {!checkoutMounted
+            ? (
+              <div class="pay-skeleton" aria-label="Loading the checkout">
+                <span />
+                <span />
+                <span />
+              </div>
+            )
+            : null}
+        </div>
+        {flow === "api-only" && !outcome
+          ? (
+            <p class="pay-note">
+              Card details are typed into Adyen-hosted fields and reach this server encrypted; raw
+              card numbers are refused.
+            </p>
+          )
+          : null}
+      </>
     );
   }
 
-  const apiEntries = timeline.filter((entry) => entry.kind === "api_call");
-  const webhookEntries = timeline.filter((entry) => entry.kind === "webhook");
-  // Nothing is filtered out and nothing is hidden behind an "expand all":
-  // a callback you never see is a callback you never learn.
-  const visibleEvents = panelTab === "callbacks"
-    ? callbacks
-    : panelTab === "api"
-    ? apiEntries
-    : webhookEntries;
-  const selectedProfile = bootstrap?.profiles.find((profile) => profile.id === profileId);
-
   return (
-    <>
+    <div class="checkout-page">
+      <div class="scenario-bar">
+        <div class="scenario-bar__start">
+          <h1 class="flow-badge" title={info.description}>
+            <FlowIcon name={flow} class="flow-badge__icon" size={18} />
+            {info.title}
+          </h1>
+          <button
+            class="scenario-chip"
+            type="button"
+            onClick={() => setConfigOpen(true)}
+            aria-label="Change market, amount and integration"
+          >
+            <span class="scenario-chip__flag" aria-hidden="true">{flagEmoji(country)}</span>
+            <span class="scenario-chip__text">
+              <strong>{countryName}</strong>
+              <span>
+                {locale} · {amountText}
+                {info.hasIntegration
+                  ? ` · ${integration === "dropin" ? "Drop-in" : "Components"}`
+                  : ""}
+              </span>
+            </span>
+            <span class="scenario-chip__edit">Edit</span>
+          </button>
+        </div>
+        <div class="scenario-bar__actions">
+          <button class="pill-button" type="button" onClick={() => setTestDataOpen(true)}>
+            Test cards
+          </button>
+          <button
+            class="pill-button"
+            type="button"
+            aria-pressed={inspectorOpen}
+            onClick={() => setInspectorOpen(!inspectorOpen)}
+          >
+            Inspector
+            {events.length ? <span class="pill-button__count">{events.length}</span> : null}
+          </button>
+        </div>
+      </div>
+
       {bootstrap && !selectedProfile?.isConfigured
         ? (
-          <Callout title="Profile incomplete" tone="warning">
-            Add the missing server-side fields in Settings:{" "}
-            {selectedProfile?.missingFields.join(", ") ?? ""}.
-          </Callout>
+          <div class="notice notice--warning" role="note">
+            <div>
+              <strong>This profile is incomplete</strong>
+              <p>
+                Missing: {selectedProfile?.missingFields.join(", ")}. Add them in{" "}
+                <a href="/settings">Settings</a>.
+              </p>
+            </div>
+          </div>
         )
         : null}
       {error
         ? (
-          <div class="callout callout--danger" role="alert">
-            <strong>Flow stopped</strong>
-            <div>{error}</div>
+          <div class="notice notice--danger" role="alert">
+            <div>
+              <strong>Something went wrong</strong>
+              <p>{error}</p>
+            </div>
+            {hasAutoInit
+              ? (
+                <button
+                  class="button button--secondary button--small"
+                  type="button"
+                  onClick={start}
+                >
+                  Try again
+                </button>
+              )
+              : null}
           </div>
         )
         : null}
-      <div class="checkout-layout">
-        <section class="checkout-shell" aria-busy={loading}>
-          <div class="checkout-context">
-            <StatusPill
-              tone={!bootstrap ? "neutral" : selectedProfile?.isConfigured ? "positive" : "warning"}
-            >
-              {selectedProfile?.label ?? "Loading profile"}
-            </StatusPill>
-            <div class="checkout-market">
-              <TestDataAndTools />
-              <select
-                aria-label="Checkout market"
-                value={country}
-                onChange={(event) => selectMarket(event.currentTarget.value)}
-              >
-                {MARKETS.map(([code, name]) => (
-                  <option key={code} value={code}>{flagEmoji(code)} {name}</option>
+
+      <div class={`checkout-workspace${inspectorOpen ? " has-inspector" : ""}`}>
+        <div class="checkout-card">
+          <aside class="checkout-summary" aria-label="Order summary">
+            <span class="checkout-summary__label">Order</span>
+            <div class="summary-line">
+              <span class="summary-line__thumb" aria-hidden="true">🛍️</span>
+              <span class="summary-line__name">
+                Playground order
+                <small>1 item · TEST</small>
+              </span>
+              <strong>{amountText}</strong>
+            </div>
+            <div class="summary-total">
+              <span>Total</span>
+              <strong>{amountText}</strong>
+            </div>
+          </aside>
+          <section class="checkout-pay" aria-busy={loading}>
+            <div class="checkout-pay__head">
+              <h2>{flow === "pay-by-link" ? "Payment link" : "Payment"}</h2>
+              {integration === "component" && info.hasIntegration &&
+                  availableComponents.length > 0
+                ? (
+                  <select
+                    class="compact-select"
+                    aria-label="Payment method component"
+                    value={componentType}
+                    onChange={(event) => mountComponentType(event.currentTarget.value)}
+                  >
+                    {availableComponents.map((method) => (
+                      <option key={method.type} value={method.type}>{method.name}</option>
+                    ))}
+                  </select>
+                )
+                : null}
+            </div>
+            {renderPayment()}
+          </section>
+        </div>
+
+        {inspectorOpen
+          ? (
+            <aside class="inspector-panel" aria-label="Inspector">
+              <header class="inspector-panel__head">
+                <div>
+                  <h2>Inspector</h2>
+                  <p>Everything this checkout did, in order.</p>
+                </div>
+                <button
+                  type="button"
+                  class="icon-button"
+                  aria-label="Close the inspector"
+                  onClick={() => setInspectorOpen(false)}
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                    <path
+                      d="M6 6l12 12M18 6L6 18"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </header>
+              <ol class="steps" aria-label="Progress">
+                {steps.map(([label, done]) => (
+                  <li key={label} class={done ? "is-done" : undefined}>{label}</li>
                 ))}
-              </select>
+              </ol>
+              <div class="inspector-panel__body">
+                <Timeline
+                  entries={events}
+                  empty="Events land here as the checkout runs: Adyen Web callbacks, the API calls this server makes, and the webhooks Adyen sends back."
+                />
+              </div>
+              {correlationId
+                ? (
+                  <footer class="inspector-panel__foot">
+                    <span>Correlation</span>
+                    <button
+                      type="button"
+                      class="text-button mono"
+                      onClick={() => copy(correlationId)}
+                    >
+                      {copied === correlationId ? "Copied" : correlationId}
+                    </button>
+                  </footer>
+                )
+                : null}
+            </aside>
+          )
+          : null}
+      </div>
+
+      <Sheet
+        open={configOpen}
+        title="Checkout settings"
+        subtitle="Changes reload the checkout."
+        onClose={() => setConfigOpen(false)}
+        footer={
+          <button
+            class="button button--primary button--block"
+            type="button"
+            onClick={() => setConfigOpen(false)}
+          >
+            Done
+          </button>
+        }
+      >
+        <section class="config-group">
+          <h3>Market</h3>
+          <Field label="Country" htmlFor="config-country">
+            <select
+              id="config-country"
+              value={country}
+              onChange={(event) => selectMarket(event.currentTarget.value)}
+            >
+              {MARKETS.map(([code, name]) => (
+                <option key={code} value={code}>{flagEmoji(code)} {name}</option>
+              ))}
+            </select>
+          </Field>
+          <div class="config-row">
+            <Field label="Language" htmlFor="config-locale">
               <select
-                aria-label="Shopper language"
+                id="config-locale"
                 value={locale}
                 onChange={(event) => setLocale(event.currentTarget.value)}
               >
                 {LOCALE_OPTIONS.map((value) => <option key={value} value={value}>{value}</option>)}
               </select>
-            </div>
+            </Field>
+            <Field label="Currency" htmlFor="config-currency">
+              <select
+                id="config-currency"
+                value={currency}
+                onChange={(event) => selectCurrency(event.currentTarget.value)}
+              >
+                {CURRENCY_OPTIONS.map((value) => <option key={value} value={value}>{value}
+                </option>)}
+              </select>
+            </Field>
           </div>
-
-          <details class="scenario-settings">
-            <summary>
-              <span class="scenario-settings__title">
-                <strong>Scenario &amp; Drop-in settings</strong>
-                <span>
-                  {flow === "pay-by-link"
-                    ? "Hosted link"
-                    : flow === "mit"
-                    ? recurringModel
-                    : integration === "dropin"
-                    ? "Drop-in"
-                    : "Components"} ·{" "}
-                  {formatMinorAmount(Number.isFinite(amount) ? amount : 0, currency)} ·{" "}
-                  {flagEmoji(country)} {country} · {locale}
-                </span>
-              </span>
-            </summary>
-            <div class="scenario-settings__body">
-              <div class="form-grid form-grid--three">
-                <Field label="Server-side TEST profile" htmlFor="profile">
-                  <select
-                    id="profile"
-                    value={profileId}
-                    onChange={(event) => switchProfile(event.currentTarget.value)}
-                  >
-                    {bootstrap?.profiles.map((profile) => (
-                      <option key={profile.id} value={profile.id}>
-                        {profile.label}
-                        {profile.isConfigured ? "" : ", incomplete"}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field
-                  label="Amount (minor units)"
-                  htmlFor="amount"
-                  hint={`= ${formatMinorAmount(Number.isFinite(amount) ? amount : 0, currency)}`}
-                >
-                  <input
-                    id="amount"
-                    type="number"
-                    min="1"
-                    max="100000000"
-                    value={amount}
-                    onInput={(event) => setAmount(event.currentTarget.valueAsNumber)}
-                  />
-                </Field>
-                <Field label="Currency" htmlFor="currency">
-                  <select
-                    id="currency"
-                    value={currency}
-                    onChange={(event) => selectCurrency(event.currentTarget.value)}
-                  >
-                    {CURRENCY_OPTIONS.map((value) => (
-                      <option key={value} value={value}>{value}</option>
-                    ))}
-                  </select>
-                </Field>
-                {flow === "sessions" || flow === "advanced" || flow === "api-only"
-                  ? (
-                    <div class="field">
-                      <span>Frontend integration</span>
-                      <div class="segmented-control" aria-label="Frontend integration">
-                        <button
-                          type="button"
-                          aria-pressed={integration === "dropin"}
-                          onClick={() => setIntegration("dropin")}
-                        >
-                          Drop-in
-                        </button>
-                        <button
-                          type="button"
-                          aria-pressed={integration === "component"}
-                          onClick={() => setIntegration("component")}
-                        >
-                          Components
-                        </button>
-                      </div>
-                    </div>
-                  )
-                  : null}
-                {integration === "component" && flow !== "api-only" &&
-                    availableComponents.length > 0
-                  ? (
-                    <Field
-                      label="Component to test"
-                      htmlFor="componentType"
-                      hint="Populated from this profile's actual payment methods"
-                    >
-                      <select
-                        id="componentType"
-                        value={componentType}
-                        onChange={(event) => mountComponentType(event.currentTarget.value)}
-                      >
-                        {availableComponents.map((method) => (
-                          <option key={method.type} value={method.type}>
-                            {method.name} ({method.type})
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                  )
-                  : null}
-                {flow === "sessions" && installments
-                  ? (
-                    <div class="field">
-                      <span>Installments</span>
-                      <small>
-                        installmentOptions is automatically sent in /sessions for this market
-                        (Brazil, Mexico, Japan).
-                      </small>
-                    </div>
-                  )
-                  : null}
-                {flow === "pay-by-link"
-                  ? (
-                    <>
-                      <Field label="Validity (hours)" htmlFor="validity">
-                        <input
-                          id="validity"
-                          type="number"
-                          min="1"
-                          max="1680"
-                          value={validityHours}
-                          onInput={(event) => setValidityHours(event.currentTarget.valueAsNumber)}
-                        />
-                      </Field>
-                      <div class="field">
-                        <span>Reusability</span>
-                        <label class="switch-row">
-                          <span>Reusable link</span>
-                          <input
-                            type="checkbox"
-                            checked={reusable}
-                            onChange={(event) => setReusable(event.currentTarget.checked)}
-                          />
-                        </label>
-                      </div>
-                    </>
-                  )
-                  : null}
-                {flow === "mit"
-                  ? (
-                    <>
-                      <Field
-                        label="storedPaymentMethodId"
-                        htmlFor="storedPaymentMethodId"
-                        hint="Adyen token, never a PAN"
-                      >
-                        <input
-                          id="storedPaymentMethodId"
-                          type="password"
-                          autocomplete="off"
-                          value={storedPaymentMethodId}
-                          onInput={(event) => setStoredPaymentMethodId(event.currentTarget.value)}
-                        />
-                      </Field>
-                      <Field
-                        label="Shopper reference"
-                        htmlFor="shopperReference"
-                        hint="Must not contain PII"
-                      >
-                        <input
-                          id="shopperReference"
-                          value={shopperReference}
-                          onInput={(event) => setShopperReference(event.currentTarget.value)}
-                        />
-                      </Field>
-                      <Field label="Recurring model" htmlFor="recurringModel">
-                        <select
-                          id="recurringModel"
-                          value={recurringModel}
-                          onChange={(event) =>
-                            setRecurringModel(
-                              event.currentTarget.value as
-                                | "UnscheduledCardOnFile"
-                                | "Subscription",
-                            )}
-                        >
-                          <option value="UnscheduledCardOnFile">UnscheduledCardOnFile</option>
-                          <option value="Subscription">Subscription</option>
-                        </select>
-                      </Field>
-                    </>
-                  )
-                  : null}
-              </div>
-              {hasAutoInit
-                ? (
-                  <div class="form-actions">
-                    {loading ? <span class="mono">Reloading checkout…</span> : null}
-                    {correlationId
-                      ? <span class="mono">Correlation {correlationId.slice(0, 13)}…</span>
-                      : null}
-                  </div>
-                )
-                : null}
-            </div>
-          </details>
-
-          {!hasAutoInit
-            ? (
-              <div class="form-actions">
-                <button
-                  class="button button--primary"
-                  type="button"
-                  disabled={loading || !selectedProfile?.isConfigured}
-                  onClick={() => start()}
-                >
-                  {loading
-                    ? "Starting…"
-                    : flow === "pay-by-link"
-                    ? "Create TEST payment link"
-                    : "Run TEST MIT"}
-                </button>
-                {correlationId
-                  ? <span class="mono">Correlation {correlationId.slice(0, 13)}…</span>
-                  : null}
-              </div>
-            )
-            : null}
-
-          {flow === "api-only"
-            ? (
-              <Callout title="PCI boundary" tone="warning">
-                Card entry is rendered by Adyen Secured Fields. This application rejects raw PAN,
-                CVC and security-code properties at the API boundary and stores only sanitized
-                observability data.
-              </Callout>
-            )
-            : null}
-
-          <div class="payment-stage">
-            <div class="payment-stage__main">
-              <div class="payment-stage__header">
-                <div>
-                  <span class="eyebrow">
-                    {flow === "pay-by-link" ? "Hosted checkout" : "Payment experience"}
-                  </span>
-                  <h2>
-                    {flow === "pay-by-link"
-                      ? "Payment link"
-                      : flow === "mit"
-                      ? "MIT response"
-                      : "Select your payment method"}
-                  </h2>
-                </div>
-                <StatusPill>
-                  {flow === "pay-by-link"
-                    ? "Hosted link"
-                    : flow === "mit"
-                    ? "API request"
-                    : integration === "dropin"
-                    ? "Drop-in"
-                    : "Component"}
-                </StatusPill>
-              </div>
-              {flow === "pay-by-link" && outcome
-                ? (
-                  <div class="panel">
-                    <h2>Link created</h2>
-                    {typeof outcome.url === "string"
-                      ? (
-                        <p>
-                          <a href={outcome.url} target="_blank" rel="noreferrer">
-                            Open the Adyen-hosted TEST payment page
-                          </a>
-                        </p>
-                      )
-                      : null}
-                    <pre class="code-block">{prettyJson(recordSafe(outcome))}</pre>
-                  </div>
-                )
-                : flow === "mit" && outcome
-                ? <pre class="code-block">{prettyJson(recordSafe(outcome))}</pre>
-                : (
-                  <div class="dropin-host" aria-live="polite">
-                    <div ref={dropinHost} />
-                    {!checkoutMounted
-                      ? (
-                        <div class="dropin-placeholder">
-                          <p>
-                            The scenario is ready. Open settings only if you want to change the
-                            profile, market, language, amount or integration.
-                          </p>
-                        </div>
-                      )
-                      : null}
-                  </div>
-                )}
-            </div>
-            <aside class="order-summary" aria-label="Order summary">
-              <h3>Order summary</h3>
-              <div class="order-summary__line">
-                <span>
-                  <span class="order-summary__icon" aria-hidden="true">🛍️</span>
-                  Playground order
-                </span>
-                <strong>{formatMinorAmount(Number.isFinite(amount) ? amount : 0, currency)}</strong>
-              </div>
-              <div class="order-summary__total">
-                <span>Total</span>
-                <strong>{formatMinorAmount(Number.isFinite(amount) ? amount : 0, currency)}</strong>
-              </div>
-            </aside>
-          </div>
-        </section>
-
-        <aside
-          class={`inspector inspector--${panelSize}`}
-          hidden={!panelOpen}
-          aria-label="Payment observability panel"
-        >
-          <header class="inspector__header">
-            <div class="inspector__tabs" role="tablist" aria-label="Inspector views">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={panelTab === "callbacks"}
-                onClick={() => setPanelTab("callbacks")}
-              >
-                Callbacks <span class="inspector__count">{callbacks.length}</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={panelTab === "api"}
-                onClick={() => setPanelTab("api")}
-              >
-                API calls <span class="inspector__count">{apiEntries.length}</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={panelTab === "webhooks"}
-                onClick={() => setPanelTab("webhooks")}
-              >
-                Webhooks <span class="inspector__count">{webhookEntries.length}</span>
-              </button>
-            </div>
-            <div class="inspector__actions">
-              <button
-                class="inspector__icon"
-                type="button"
-                title={PANEL_SIZE_HINT[panelSize]}
-                aria-label={PANEL_SIZE_HINT[panelSize]}
-                onClick={() => setPanelSize(NEXT_PANEL_SIZE[panelSize])}
-              >
-                {panelSize === "full" ? "⤡" : "⤢"}
-              </button>
-              <button
-                class="inspector__icon inspector__icon--close"
-                type="button"
-                title="Hide the inspector"
-                aria-label="Hide the inspector"
-                onClick={() => setPanelOpen(false)}
-              >
-                ✕
-              </button>
-            </div>
-          </header>
-          <div class="inspector__body" role="tabpanel">
-            {visibleEvents.length
-              ? <div class="event-list">{visibleEvents.map(renderEvent)}</div>
-              : <p class="inspector__empty">{EMPTY_TAB_COPY[panelTab]}</p>}
-          </div>
-          <footer class="inspector__footer">
-            <span class="mono">
-              {webhookWaiting
-                ? (
-                  <>
-                    <span class="waiting-dot" aria-hidden="true" /> Waiting for a webhook
-                  </>
-                )
-                : `${webhookEntries.length} webhook(s) received`}
-            </span>
-            {panelTab === "webhooks"
-              ? <span class="inspector__note">Asynchronous methods can take a while.</span>
-              : (
-                <button
-                  class="button button--small button--primary"
-                  type="button"
-                  onClick={() => setPanelTab("webhooks")}
-                >
-                  Open webhooks
-                </button>
-              )}
-          </footer>
-        </aside>
-      </div>
-
-      {!panelOpen
-        ? (
-          <button
-            class="inspector-trigger"
-            type="button"
-            onClick={() => setPanelOpen(true)}
-            aria-label="Open the payment inspector"
+          <Field
+            label="Amount"
+            htmlFor="config-amount"
+            hint={`Sent to Adyen as ${amount} minor units`}
           >
-            <span class="inspector-trigger__label">Inspector</span>
-            {callbacks.length
-              ? (
-                <span class="inspector-trigger__count" title="Callbacks captured so far">
-                  {callbacks.length}
-                </span>
-              )
-              : null}
-          </button>
-        )
-        : null}
-    </>
+            <input
+              id="config-amount"
+              inputMode="decimal"
+              value={amountDraft ?? (amount / 10 ** exponent).toFixed(exponent)}
+              onInput={(event) => updateAmount(event.currentTarget.value)}
+              onBlur={() => setAmountDraft(null)}
+            />
+          </Field>
+        </section>
+        {info.hasIntegration
+          ? (
+            <section class="config-group">
+              <h3>Integration</h3>
+              <div class="segmented-control" role="group" aria-label="Frontend integration">
+                <button
+                  type="button"
+                  aria-pressed={integration === "dropin"}
+                  onClick={() => setIntegration("dropin")}
+                >
+                  Drop-in
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={integration === "component"}
+                  onClick={() => setIntegration("component")}
+                >
+                  Components
+                </button>
+              </div>
+              <p class="config-hint">
+                {integration === "dropin"
+                  ? "Every payment method in one list."
+                  : "One payment method at a time; pick it above the payment form."}
+              </p>
+            </section>
+          )
+          : null}
+        <section class="config-group">
+          <h3>Server profile</h3>
+          <Field label="TEST credentials" htmlFor="config-profile">
+            <select
+              id="config-profile"
+              value={profileId}
+              onChange={(event) => switchProfile(event.currentTarget.value)}
+            >
+              {bootstrap?.profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.label}
+                  {profile.isConfigured ? "" : " (incomplete)"}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <p class="config-hint">
+            Add or remove profiles in <a href="/settings">Settings</a>.
+          </p>
+        </section>
+      </Sheet>
+
+      <Sheet
+        open={testDataOpen}
+        title="Test cards"
+        subtitle="Adyen TEST credentials. Tap to copy."
+        onClose={() => setTestDataOpen(false)}
+      >
+        <TestData />
+      </Sheet>
+    </div>
   );
 }

@@ -37,6 +37,18 @@
   --shadow-raised: 0 12px 36px rgba(0, 17, 44, 0.1);
   --shadow-focus: 0 0 0 3px rgba(23, 105, 224, 0.18);
   --backdrop: rgba(0, 17, 44, 0.32);
+  --glass-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.52));
+  --glass-edge: rgba(0, 17, 44, 0.07);
+  --glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 17, 44, 0.04), 0 12px 32px rgba(
+    0,
+    17,
+    44,
+    0.08
+  );
+  --glass-well: rgba(0, 17, 44, 0.045);
+  --glass-lens: #ffffff;
+  --glass-lens-shadow: 0 1px 2px rgba(0, 17, 44, 0.1), 0 2px 8px rgba(0, 17, 44, 0.06);
   color-scheme: light;
 }
 
@@ -75,6 +87,18 @@
   --shadow-raised: 0 16px 40px rgba(0, 0, 0, 0.5);
   --shadow-focus: 0 0 0 3px rgba(110, 168, 255, 0.3);
   --backdrop: rgba(0, 0, 0, 0.55);
+  --glass-fill: linear-gradient(180deg, rgba(40, 45, 55, 0.64), rgba(24, 27, 34, 0.5));
+  --glass-edge: rgba(255, 255, 255, 0.08);
+  --glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 36px rgba(
+    0,
+    0,
+    0,
+    0.45
+  );
+  --glass-well: rgba(255, 255, 255, 0.05);
+  --glass-lens: rgba(255, 255, 255, 0.13);
+  --glass-lens-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 8px rgba(0, 0, 0, 0.35);
   color-scheme: dark;
 }
 
@@ -160,24 +184,40 @@ a {
 
 /* One bar: wordmark, the permanent TEST pill, sections, then the theme switch,
    settings and, on narrow screens, a menu. Translucent over the page. */
+/* The header is a floating capsule of frosted glass: content scrolls under it
+   blurred, and the current section sits on a raised lens, like a segmented
+   control. Only the capsule takes clicks, not the gutter around it. */
 .shell-header {
   position: sticky;
   z-index: 30;
   top: 0;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface-glass);
-  backdrop-filter: saturate(180%) blur(16px);
-  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  padding: 12px clamp(10px, 3vw, 32px) 0;
+  pointer-events: none;
 }
 
 .shell-header__bar {
-  display: flex;
-  width: min(1380px, 100%);
-  min-height: 60px;
+  display: grid;
+  width: min(1180px, 100%);
+  min-height: 58px;
   align-items: center;
+  grid-template-columns: 1fr auto 1fr;
   gap: 12px;
   margin: 0 auto;
-  padding: 8px clamp(14px, 4vw, 48px);
+  padding: 7px 7px 7px 20px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  background: var(--glass-fill);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  pointer-events: auto;
+}
+
+.shell-header__start {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
 }
 
 .brand {
@@ -206,44 +246,45 @@ a {
 
 .shell-nav {
   display: flex;
-  flex: 1 1 auto;
   align-items: center;
   gap: 2px;
-  margin-left: 10px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--glass-well);
 }
 
 .shell-nav a {
-  padding: 8px 12px;
+  padding: 7px 16px;
   border-radius: 999px;
   color: var(--color-ink-muted);
   font-size: 0.8rem;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
-  transition: background-color 140ms ease, color 140ms ease;
+  transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
 
 .shell-nav a:hover {
   color: var(--color-ink);
-  background: var(--color-surface-strong);
 }
 
 .shell-nav a[aria-current="page"] {
+  background: var(--glass-lens);
+  box-shadow: var(--glass-lens-shadow);
   color: var(--color-ink);
-  background: var(--color-surface-strong);
 }
 
 .shell-header__actions {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: auto;
+  justify-content: flex-end;
+  gap: 2px;
 }
 
 .shell-icon-button {
   display: inline-flex;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
@@ -251,7 +292,7 @@ a {
   cursor: pointer;
   list-style: none;
   text-decoration: none;
-  transition: background-color 140ms ease, color 140ms ease;
+  transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
 
 .shell-icon-button::-webkit-details-marker {
@@ -259,8 +300,10 @@ a {
 }
 
 .shell-icon-button:hover,
-.shell-icon-button[aria-current="page"] {
-  background: var(--color-surface-strong);
+.shell-icon-button[aria-current="page"],
+.shell-menu[open] > .shell-icon-button {
+  background: var(--glass-lens);
+  box-shadow: var(--glass-lens-shadow);
   color: var(--color-ink);
 }
 
@@ -272,20 +315,22 @@ a {
 .shell-menu__sheet {
   position: absolute;
   z-index: 40;
-  top: calc(100% + 8px);
+  top: calc(100% + 12px);
   right: 0;
   display: grid;
-  min-width: 220px;
+  min-width: 230px;
   padding: 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-l);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-raised);
+  border: 1px solid var(--glass-edge);
+  border-radius: 24px;
+  background:
+    var(--glass-fill),
+    var(--color-surface);
+  box-shadow: var(--glass-shadow);
 }
 
 .shell-menu__sheet a {
   padding: 12px 14px;
-  border-radius: var(--radius-s);
+  border-radius: 16px;
   color: var(--color-ink);
   font-size: 0.92rem;
   font-weight: 600;
@@ -294,7 +339,47 @@ a {
 
 .shell-menu__sheet a:hover,
 .shell-menu__sheet a[aria-current="page"] {
-  background: var(--color-surface-strong);
+  background: var(--glass-well);
+}
+
+/* Digital's header: no bar, two floating glass groups, navigation on the
+   left (inner pages only) and the theme switch with settings on the right. */
+.shell-header--minimal {
+  padding: 12px clamp(16px, 3vw, 32px) 0;
+}
+
+.shell-float {
+  display: flex;
+  width: min(1416px, 100%);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 auto;
+}
+
+.shell-glass {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  background: var(--glass-fill);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  pointer-events: auto;
+}
+
+.shell-header--minimal .shell-nav {
+  display: flex;
+  padding: 5px;
+  background: var(--glass-fill);
+}
+
+.shell-header--minimal .shell-nav a {
+  padding: 10px 18px;
+  font-size: 0.84rem;
 }
 
 /* The light/dark switch: 44 px of touch target around a 52 x 30 track. */
@@ -431,7 +516,7 @@ a {
 .app-frame {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 61px);
+  min-height: calc(100vh - 71px);
 }
 
 .app-content {
@@ -450,16 +535,42 @@ main {
 
 .app-footer {
   display: flex;
-  width: min(1380px, 100%);
-  min-height: 68px;
+  width: min(1180px, 100%);
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin: 0 auto;
-  padding: 18px clamp(20px, 4vw, 48px);
-  border-top: 1px solid var(--color-border);
+  padding: 22px clamp(20px, 4vw, 48px) 28px;
   color: var(--color-ink-subtle);
-  font-size: 0.67rem;
+  font-size: 0.72rem;
+}
+
+/* Same edges as the minimal header's floating groups and the home tiles. */
+.app-footer--wide {
+  width: min(1480px, 100%);
+  padding-inline: clamp(16px, 3vw, 32px);
+}
+
+.app-footer__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.app-footer__links a {
+  color: var(--color-ink-muted);
+  text-decoration: none;
+}
+
+.app-footer__links a:hover,
+.app-footer__links a[aria-current="page"] {
+  color: var(--color-ink);
 }
 
 .page-header {
@@ -603,72 +714,9 @@ p {
   font-size: 0.7rem;
 }
 
-.button--wide {
-  min-width: 140px;
-  padding-left: 24px;
-  padding-right: 24px;
-}
-
-.flows-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 24px;
-  max-width: 1120px;
-  margin: 32px auto 0;
-}
-
-.flow-card-simple {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 28px;
-  min-height: 168px;
-  padding: 32px;
-  border: 1px solid var(--color-border);
-  border-radius: 22px;
-  background: var(--color-surface);
-  box-shadow: var(--shadow-card);
-  text-decoration: none;
-  color: inherit;
-  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
-}
-
-.flow-card-simple:hover {
-  border-color: var(--color-ink);
-  box-shadow: var(--shadow-raised);
-  transform: translateY(-3px);
-}
-
-.flow-card-simple h2 {
-  margin: 0 0 10px;
-  font-size: 1.3rem;
-  letter-spacing: -0.01em;
-}
-
-.flow-subtitle {
-  margin: 0;
-  color: var(--color-ink-muted);
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-.flow-card-arrow {
-  align-self: flex-end;
-  font-size: 1.4rem;
-  color: var(--color-ink-subtle);
-  transition: transform 180ms ease, color 180ms ease;
-}
-
-.flow-card-simple:hover .flow-card-arrow {
-  color: var(--color-ink);
-  transform: translateX(5px);
-}
-
 .panel,
-.metric,
 .table-shell,
-.checkout-shell,
-.settings-shell {
+.checkout-shell {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-m);
   background: var(--color-surface);
@@ -694,31 +742,6 @@ p {
 .panel__header p {
   margin-bottom: 0;
   font-size: 0.76rem;
-}
-
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 22px;
-}
-
-.metric {
-  padding: 17px;
-  box-shadow: none;
-}
-
-.metric span {
-  display: block;
-  color: var(--color-ink-muted);
-  font-size: 0.69rem;
-  font-weight: 700;
-}
-
-.metric strong {
-  display: block;
-  margin-top: 3px;
-  font-size: 1.45rem;
 }
 
 .status-pill {
@@ -759,10 +782,6 @@ p {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-}
-
-.form-grid--three {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .field {
@@ -1014,15 +1033,6 @@ p {
   box-shadow: 0 1px 3px rgba(0, 17, 44, 0.12);
 }
 
-.checkout-layout {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 16px;
-}
-
 .checkout-shell {
   width: 100%;
   min-width: 0;
@@ -1038,26 +1048,6 @@ p {
   margin-bottom: 22px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--color-border);
-}
-
-.payment-stage {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(230px, 300px);
-  align-items: start;
-  gap: 22px;
-  margin-top: 24px;
-}
-
-.payment-stage__main {
-  min-width: 0;
-}
-
-.payment-stage__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
 }
 
 .custom-card-form {
@@ -1076,73 +1066,6 @@ p {
 .custom-card-submit:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-}
-
-.custom-card-hint {
-  margin: 0;
-  font-size: 0.72rem;
-  color: var(--color-ink-subtle);
-}
-
-.payment-stage__header h2 {
-  margin-bottom: 0;
-}
-
-.order-summary {
-  position: sticky;
-  top: 166px;
-  align-self: start;
-  padding: 18px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-m);
-  background: var(--color-surface-raised);
-}
-
-.order-summary h3 {
-  margin-bottom: 14px;
-}
-
-.order-summary__line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--color-border);
-  font-size: 0.76rem;
-}
-
-.order-summary__line > span:first-child {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.order-summary__icon {
-  display: inline-flex;
-  width: 32px;
-  height: 32px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  background: var(--color-surface);
-  box-shadow: 0 1px 3px rgba(0, 17, 44, 0.1);
-  font-size: 1rem;
-}
-
-.order-summary__total {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 16px;
-  font-size: 0.88rem;
-}
-
-.order-summary__meta {
-  margin: 14px 0 0;
-  color: var(--color-ink-subtle);
-  font-size: 0.65rem;
 }
 
 .dropin-host {
@@ -1183,34 +1106,13 @@ p {
   font-size: 0.8rem;
 }
 
-.checkout-market {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 /* Sits inline with the market selectors rather than in the header nav. */
-.checkout-market .header-tools__toggle,
 .toolbar-markets .header-tools__toggle {
   min-height: 38px;
   white-space: nowrap;
 }
 
 /* Not the rightmost element here, so anchor the dropdown to its left edge. */
-.checkout-market .header-tools__menu {
-  right: auto;
-  left: 0;
-}
-
-.checkout-market select {
-  min-height: 38px;
-  padding: 6px 30px 6px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 9px;
-  background: var(--color-surface);
-  font-size: 0.74rem;
-  font-weight: 700;
-}
 
 .inspector {
   position: relative;
@@ -1231,95 +1133,6 @@ p {
   display: none;
 }
 
-.inspector__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 50px;
-  padding: 8px 12px;
-  border-bottom: 1px solid #2d3e57;
-}
-
-.inspector__tabs {
-  display: flex;
-  gap: 4px;
-}
-
-.inspector__tabs button {
-  padding: 7px 9px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: #aab5c6;
-  cursor: pointer;
-  font-size: 0.68rem;
-  font-weight: 750;
-}
-
-.inspector__tabs button[aria-selected="true"] {
-  background: #25344c;
-  color: white;
-}
-
-.switch-row--inline {
-  min-height: unset;
-  flex: 0 0 auto;
-  gap: 6px;
-  padding: 4px 8px;
-  border-color: #2d3e57;
-  background: transparent;
-  color: #aab5c6;
-  font-size: 0.68rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.inspector__body {
-  height: calc(100% - 106px);
-  overflow: auto;
-  padding: 11px;
-}
-
-.inspector__footer {
-  display: flex;
-  min-height: 56px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 12px;
-  border-top: 1px solid #2d3e57;
-}
-
-.inspector-trigger {
-  position: fixed;
-  z-index: 20;
-  right: 20px;
-  bottom: 20px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border: 1px solid #283b56;
-  border-radius: 999px;
-  background: var(--color-ink);
-  box-shadow: 0 8px 24px rgba(0, 17, 44, 0.2);
-  color: white;
-  cursor: pointer;
-  font-size: 0.7rem;
-  font-weight: 800;
-}
-
-.inspector-trigger::before,
-.waiting-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--color-green);
-  content: "";
-  animation: pulse 1.8s ease-in-out infinite;
-}
-
 @keyframes pulse {
   0%,
   100% {
@@ -1333,94 +1146,6 @@ p {
   }
 }
 
-.event-list__toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: 0.66rem;
-  color: #91a0b5;
-}
-
-.event-list {
-  display: grid;
-  gap: 8px;
-}
-
-.event-row {
-  padding: 10px;
-  border: 1px solid #314058;
-  border-radius: 9px;
-  background: #15243a;
-}
-
-.event-row__header {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.event-row__meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.66rem;
-}
-
-.event-row__badge {
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: #2a3c58;
-  color: #91a0b5;
-  font-size: 0.56rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.event-row__caret {
-  flex: 0 0 auto;
-  color: #91a0b5;
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.event-row__meta time {
-  color: #91a0b5;
-  font-family: var(--font-mono);
-}
-
-.event-row__section {
-  margin-top: 6px;
-}
-
-.event-row__section + .event-row__section {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed #314058;
-}
-
-.event-row__label {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #7fd39c;
-}
-
-.event-row pre,
 .code-block {
   max-height: 280px;
   margin: 0;
@@ -1438,22 +1163,6 @@ p {
   border-radius: var(--radius-s);
   background: var(--color-code);
   color: var(--color-ink);
-}
-
-.webhook-drawer {
-  position: fixed;
-  z-index: 50;
-  inset: 0 0 0 auto;
-  width: min(760px, 100%);
-  padding: 24px;
-  border-left: 1px solid var(--color-border-strong);
-  background: var(--color-surface);
-  box-shadow: -14px 0 40px rgba(0, 17, 44, 0.13);
-  overflow: auto;
-}
-
-.webhook-drawer[hidden] {
-  display: none;
 }
 
 .table-shell {
@@ -1494,45 +1203,6 @@ tr:last-child td {
 
 tr.is-selected td {
   background: var(--color-surface-muted);
-}
-
-.orders-panel {
-  display: flex;
-  flex-direction: column;
-}
-
-.orders-panel__header {
-  margin-bottom: 12px;
-}
-
-.orders-panel__header h2 {
-  margin: 2px 0 0;
-  font-size: 1rem;
-}
-
-.orders-panel .table-shell {
-  margin: 0 -22px;
-  border-left: 0;
-  border-right: 0;
-  border-radius: 0;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.pagination__pages {
-  display: flex;
-  gap: 4px;
-}
-
-.pagination__page[aria-current="page"] {
-  background: var(--color-ink);
-  color: var(--color-on-ink);
 }
 
 .mono {
@@ -1708,25 +1378,6 @@ details > summary {
   gap: 18px;
 }
 
-.three-column {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: start;
-  gap: 14px;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  border: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1739,10 +1390,6 @@ details > summary {
 }
 
 @media (max-width: 1180px) {
-  .checkout-layout {
-    grid-template-columns: 1fr;
-  }
-
   .inspector {
     width: 100%;
     max-width: none;
@@ -1755,18 +1402,6 @@ details > summary {
 }
 
 @media (max-width: 900px) {
-  .metrics {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .payment-stage {
-    grid-template-columns: 1fr;
-  }
-
-  .order-summary {
-    position: static;
-  }
-
   .two-column {
     grid-template-columns: 1fr;
   }
@@ -1781,6 +1416,25 @@ details > summary {
 }
 
 @media (max-width: 760px) {
+  .shell-header {
+    padding: 8px 8px 0;
+  }
+
+  .shell-header--minimal {
+    padding: 10px 14px 0;
+  }
+
+  .shell-header--minimal .shell-nav a {
+    padding: 9px 14px;
+  }
+
+  .shell-header__bar {
+    display: flex;
+    min-height: 54px;
+    justify-content: space-between;
+    padding: 5px 5px 5px 16px;
+  }
+
   .shell-nav,
   .shell-settings,
   .shell-header__actions .header-tools {
@@ -1799,8 +1453,9 @@ details > summary {
 
   .app-footer {
     align-items: flex-start;
-    flex-direction: column;
-    padding: 18px 14px;
+    flex-direction: column-reverse;
+    gap: 10px;
+    padding: 18px 16px 26px;
   }
 
   .page-header {
@@ -1812,10 +1467,7 @@ details > summary {
     margin-top: 16px;
   }
 
-  .form-grid,
-  .form-grid--three,
-  .three-column,
-  .metrics {
+  .form-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1825,10 +1477,7 @@ details > summary {
   }
 
   .scenario-settings,
-  .scenario-settings__body,
-  .payment-stage,
-  .payment-stage__main,
-  .order-summary {
+  .scenario-settings__body {
     min-width: 0;
     max-width: 100%;
   }
@@ -1842,11 +1491,6 @@ details > summary {
     min-height: 58px;
   }
 
-  .checkout-market {
-    width: 100%;
-    flex-wrap: wrap;
-  }
-
   .inspector {
     position: fixed;
     z-index: 45;
@@ -1856,10 +1500,6 @@ details > summary {
     min-width: 0;
     border: 0;
     border-radius: 0;
-  }
-
-  .webhook-drawer {
-    padding: 16px;
   }
 
   .callout {

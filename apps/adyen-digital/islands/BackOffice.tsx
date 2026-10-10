@@ -1,10 +1,20 @@
-import { apiFetch, formatMinorAmount, prettyJson } from "@suite/ui/client.ts";
-import { EmptyState, StatusPill } from "@suite/ui/components.tsx";
+import { apiFetch, formatMinorAmount } from "@suite/ui/client.ts";
+import { useCopy } from "@suite/ui/useCopy.ts";
 import { useEffect, useState } from "preact/hooks";
+import { attemptStatus, isAbandoned, orderStatus, type Tone } from "../components/status.ts";
+import { Timeline, type TimelineEntry } from "../components/Timeline.tsx";
 
 interface Permission {
   allowed: boolean;
   reason: string;
+}
+
+interface Attempt {
+  id: string;
+  state: string;
+  paymentMethod?: string;
+  pspReference?: string;
+  refusalReason?: string;
 }
 
 interface Order {
@@ -15,13 +25,8 @@ interface Order {
   amount: { value: number; currency: string };
   paidValue: number;
   createdAt: string;
-  attempts: Array<{
-    id: string;
-    state: string;
-    paymentMethod?: string;
-    pspReference?: string;
-    refusalReason?: string;
-  }>;
+  updatedAt: string;
+  attempts: Attempt[];
   permissions: {
     capture: Permission;
     cancel: Permission;
@@ -29,76 +34,138 @@ interface Order {
   };
 }
 
-interface TimelineEntry {
-  id: string;
-  kind: string;
-  name: string;
-  status: string;
-  occurredAt: string;
-  durationMs?: number;
-  payload: unknown;
+type Filter = "all" | "authorised" | "captured" | "refused";
+
+const PAGE_SIZE = 12;
+const REFRESH_MS = 4000;
+
+const METHOD_NAMES: Record<string, string> = {
+  scheme: "Card",
+  storedPaymentMethod: "Saved card",
+  googlepay: "Google Pay",
+  applepay: "Apple Pay",
+  paypal: "PayPal",
+  klarna_account: "Klarna",
+  klarna: "Klarna",
+  ideal: "iDEAL",
+  sepadirectdebit: "SEPA",
+  paybybank: "Pay by Bank",
+  wechatpayQR: "WeChat Pay",
+  wero: "Wero",
+  alma: "Alma",
+  ancv: "ANCV",
+  giftcard: "Gift card",
+  facilypay_3x: "Oney 3x",
+  facilypay_4x: "Oney 4x",
+  amex: "Amex",
+  visa: "Visa",
+  mc: "Mastercard",
+  cartebancaire: "Cartes Bancaires",
+};
+
+const FLOW_NAMES: Record<string, string> = {
+  "sessions-dropin": "Sessions · Drop-in",
+  "sessions-component": "Sessions · Component",
+  "advanced-dropin": "Advanced · Drop-in",
+  "advanced-component": "Advanced · Component",
+  "api-only-pci": "API only",
+  "pay-by-link": "Pay by Link",
+  mit: "Merchant-initiated",
+  "partial-payment": "Partial payment",
+};
+
+function methodName(order: Order): string | undefined {
+  const method = order.attempts.findLast((attempt) => attempt.paymentMethod)?.paymentMethod;
+  return method ? METHOD_NAMES[method] ?? method : undefined;
 }
 
-function tone(state: string): "positive" | "warning" | "danger" | "info" | "neutral" {
-  if (["paid", "authorised", "hmac-valid"].includes(state)) return "positive";
-  if (["open", "payment_pending", "partially_paid", "received"].includes(state)) return "warning";
-  if (["failed", "refused", "expired", "cancelled", "hmac-invalid"].includes(state)) {
-    return "danger";
+function relativeTime(iso: string): string {
+  const seconds = (Date.parse(iso) - Date.now()) / 1000;
+  const format = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+    ["day", 86_400],
+    ["hour", 3_600],
+    ["minute", 60],
+  ];
+  for (const [unit, size] of units) {
+    if (Math.abs(seconds) >= size) return format.format(Math.round(seconds / size), unit);
   }
-  return "neutral";
+  return format.format(0, "minute");
 }
 
-const PAGE_SIZE = 10;
-const MAX_PAGES = 7;
+function matchesFilter(order: Order, filter: Filter): boolean {
+  if (filter === "all") return true;
+  const label = orderStatus(order).label;
+  if (filter === "authorised") return label === "Authorised";
+  if (filter === "captured") return label === "Captured";
+  return label === "Refused";
+}
+
+function Pill(props: { tone: Tone; children: string }) {
+  return <span class={`status-pill status-pill--${props.tone}`}>{props.children}</span>;
+}
+
+const ACTION_LABEL = { capture: "Capture", cancel: "Cancel authorisation", refund: "Refund" };
 
 export default function BackOffice() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [query, setQuery] = useState("");
+  const [showAbandoned, setShowAbandoned] = useState(false);
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
+  const { copied, copy } = useCopy();
 
   async function refresh() {
     const response = await apiFetch<{ orders: Order[] }>("/api/digital/orders");
     setOrders(response.orders);
-    const queryId = new URLSearchParams(globalThis.location.search).get("orderId");
-    setSelectedId((current) =>
-      current ??
-        (queryId && response.orders.some((order) => order.id === queryId)
-          ? queryId
-          : response.orders[0]?.id ?? null)
-    );
-    if (queryId) {
-      const index = response.orders.findIndex((order) => order.id === queryId);
-      if (index >= 0) setPage(Math.floor(index / PAGE_SIZE) + 1);
-    }
+    setSelectedId((current) => {
+      if (current) return current;
+      const queryId = new URLSearchParams(globalThis.location.search).get("orderId");
+      if (queryId && response.orders.some((order) => order.id === queryId)) return queryId;
+      // A desktop opens on the latest paid order; a phone starts on the list.
+      if (globalThis.matchMedia?.("(max-width: 860px)").matches) return null;
+      return response.orders.find((order) => !isAbandoned(order))?.id ?? null;
+    });
   }
 
   useEffect(() => {
-    refresh()
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Load failed."))
-      .finally(() => setLoading(false));
+    refresh().catch((cause) => setError(cause instanceof Error ? cause.message : "Load failed."));
+    // Webhooks change orders behind the page's back: a capture becomes
+    // "Captured" a few seconds after the button is pressed.
+    const interval = globalThis.setInterval(() => {
+      if (document.visibilityState === "visible") refresh().catch(() => undefined);
+    }, REFRESH_MS);
+    return () => globalThis.clearInterval(interval);
   }, []);
 
+  const selected = orders?.find((order) => order.id === selectedId);
+  const selectedSignature = selected ? `${selected.id}:${selected.updatedAt}` : "";
   useEffect(() => {
     if (!selectedId) return;
     apiFetch<{ entries: TimelineEntry[] }>(`/api/timeline/${selectedId}`)
       .then((response) => setTimeline(response.entries))
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Timeline failed."));
-  }, [selectedId, orders]);
+  }, [selectedSignature, selectedId]);
 
   async function runAction(action: "capture" | "cancel" | "refund") {
-    if (!selectedId) return;
+    if (!selected) return;
     setActionLoading(action);
     setError(null);
+    setNotice(null);
     try {
-      await apiFetch(`/api/digital/orders/${selectedId}/actions/${action}`, {
+      await apiFetch(`/api/digital/orders/${selected.id}/actions/${action}`, {
         method: "POST",
         headers: { "Idempotency-Key": crypto.randomUUID() },
         body: JSON.stringify({}),
       });
+      setNotice(
+        `${ACTION_LABEL[action]} sent to Adyen. The order updates when its webhook arrives.`,
+      );
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Action failed.");
@@ -107,222 +174,262 @@ export default function BackOffice() {
     }
   }
 
-  const selected = orders.find((order) => order.id === selectedId);
-  const paidOrders = orders.filter((order) => order.state === "paid").length;
-  const openOrders =
-    orders.filter((order) => ["open", "payment_pending", "partially_paid"].includes(order.state))
-      .length;
-  const refusedAttempts =
-    orders.flatMap((order) => order.attempts).filter((attempt) => attempt.state === "refused")
-      .length;
-  const pageCount = Math.min(MAX_PAGES, Math.max(1, Math.ceil(orders.length / PAGE_SIZE)));
-  const safePage = Math.min(page, pageCount);
-  const pageStart = (safePage - 1) * PAGE_SIZE;
-  const pageOrders = orders.slice(pageStart, pageStart + PAGE_SIZE);
-
-  if (loading) return <p aria-live="polite">Loading correlated payment records…</p>;
-  if (!orders.length) {
-    return (
-      <EmptyState
-        title="No payment records yet"
-        description="Start a Sessions, Advanced, Pay by Link, MIT or API Only flow. It will appear here without redirecting the shopper."
-      >
-        <a class="button button--primary" href="/sessions">Start a Sessions flow</a>
-      </EmptyState>
-    );
+  if (!orders) {
+    return error
+      ? <div class="notice notice--danger" role="alert">{error}</div>
+      : <p class="muted" aria-live="polite">Loading orders…</p>;
   }
 
+  const abandoned = orders.filter(isAbandoned);
+  const labels = orders.map((order) => orderStatus(order).label);
+  const count = (label: string) => labels.filter((value) => value === label).length;
+  const needle = query.trim().toLowerCase();
+  const visible = orders
+    .filter((order) => showAbandoned || !isAbandoned(order) || order.id === selectedId)
+    .filter((order) => matchesFilter(order, filter))
+    .filter((order) =>
+      !needle ||
+      order.reference.toLowerCase().includes(needle) ||
+      order.id.includes(needle) ||
+      order.attempts.some((attempt) => attempt.pspReference?.toLowerCase().includes(needle))
+    );
+  const shown = visible.slice(0, limit);
+
   return (
-    <>
-      {error
-        ? (
-          <div class="callout callout--danger" role="alert">
-            <strong>Error</strong>
-            <div>{error}</div>
-          </div>
-        )
-        : null}
-      <div class="metrics">
-        <div class="metric">
-          <span>Total orders</span>
-          <strong>{orders.length}</strong>
+    <div class="bo">
+      <div class="bo-metrics">
+        <div class="bo-metric">
+          <span>Authorised</span>
+          <strong>{count("Authorised")}</strong>
+          <small>awaiting capture</small>
         </div>
-        <div class="metric">
-          <span>Open / pending</span>
-          <strong>{openOrders}</strong>
+        <div class="bo-metric">
+          <span>Captured</span>
+          <strong>{count("Captured")}</strong>
         </div>
-        <div class="metric">
-          <span>Paid</span>
-          <strong>{paidOrders}</strong>
+        <div class="bo-metric">
+          <span>Refused</span>
+          <strong>{count("Refused")}</strong>
         </div>
-        <div class="metric">
-          <span>Refused attempts</span>
-          <strong>{refusedAttempts}</strong>
+        <div class="bo-metric">
+          <span>Not paid</span>
+          <strong>{abandoned.length}</strong>
+          <small>checkouts opened and left</small>
         </div>
       </div>
-      <div class="two-column">
-        <section class="panel orders-panel">
-          <div class="panel__header orders-panel__header">
-            <div>
-              <span class="eyebrow">Orders</span>
-              <h2>
-                {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, orders.length)} of {orders.length}
-              </h2>
-            </div>
-          </div>
-          <div class="table-shell">
-            <table>
-              <thead>
-                <tr>
-                  <th>Order</th>
-                  <th>Flow</th>
-                  <th>Amount</th>
-                  <th>State</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageOrders.map((order) => (
-                  <tr
-                    class={selectedId === order.id ? "is-selected" : undefined}
-                    onClick={() => setSelectedId(order.id)}
-                  >
-                    <td>
-                      <button
-                        class="button button--quiet button--small"
-                        type="button"
-                        onClick={() => setSelectedId(order.id)}
-                        aria-pressed={selectedId === order.id}
-                      >
-                        {order.reference.slice(0, 18)}
-                      </button>
-                      <div class="mono">{new Date(order.createdAt).toLocaleString()}</div>
-                    </td>
-                    <td>{order.flow}</td>
-                    <td>{formatMinorAmount(order.amount.value, order.amount.currency)}</td>
-                    <td>
-                      <StatusPill tone={tone(order.state)}>{order.state}</StatusPill>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {pageCount > 1
+
+      <div class="bo-toolbar">
+        <input
+          class="bo-search"
+          type="search"
+          placeholder="Search a reference or PSP reference"
+          value={query}
+          onInput={(event) => setQuery(event.currentTarget.value)}
+          aria-label="Search orders"
+        />
+        <div class="chips" role="tablist" aria-label="Filter orders">
+          {(["all", "authorised", "captured", "refused"] as const).map((value) => (
+            <button
+              type="button"
+              role="tab"
+              class="chip"
+              aria-selected={filter === value}
+              onClick={() => setFilter(value)}
+            >
+              {value === "all" ? "All" : value[0].toUpperCase() + value.slice(1)}
+            </button>
+          ))}
+        </div>
+        <label class="bo-toggle">
+          <input
+            type="checkbox"
+            checked={showAbandoned}
+            onChange={(event) => setShowAbandoned(event.currentTarget.checked)}
+          />
+          Show not paid ({abandoned.length})
+        </label>
+      </div>
+
+      {error ? <div class="notice notice--danger" role="alert">{error}</div> : null}
+
+      <div class={`bo-layout${selected ? " has-selection" : ""}`}>
+        <section class="bo-list" aria-label="Orders">
+          {shown.length
+            ? shown.map((order) => {
+              const status = orderStatus(order);
+              const method = methodName(order);
+              return (
+                <button
+                  type="button"
+                  class="bo-row"
+                  key={order.id}
+                  aria-current={order.id === selectedId ? "true" : undefined}
+                  onClick={() => setSelectedId(order.id)}
+                >
+                  <span class="bo-row__main">
+                    <strong>{formatMinorAmount(order.amount.value, order.amount.currency)}</strong>
+                    <span>
+                      {[method, FLOW_NAMES[order.flow] ?? order.flow].filter(Boolean).join(" · ")}
+                    </span>
+                  </span>
+                  <span class="bo-row__side">
+                    <Pill tone={status.tone}>{status.label}</Pill>
+                    <time datetime={order.createdAt}>{relativeTime(order.createdAt)}</time>
+                  </span>
+                </button>
+              );
+            })
+            : (
+              <p class="muted bo-empty">
+                {orders.length
+                  ? "No order matches these filters."
+                  : "No payment yet. Start one from the Checkout tab."}
+              </p>
+            )}
+          {visible.length > shown.length
             ? (
-              <nav class="pagination" aria-label="Orders pagination">
-                <button
-                  class="button button--quiet button--small"
-                  type="button"
-                  disabled={safePage === 1}
-                  onClick={() => setPage(safePage - 1)}
-                >
-                  Previous
-                </button>
-                <div class="pagination__pages">
-                  {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => (
-                    <button
-                      key={number}
-                      class="button button--quiet button--small pagination__page"
-                      type="button"
-                      aria-current={number === safePage ? "page" : undefined}
-                      onClick={() => setPage(number)}
-                    >
-                      {number}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  class="button button--quiet button--small"
-                  type="button"
-                  disabled={safePage === pageCount}
-                  onClick={() => setPage(safePage + 1)}
-                >
-                  Next
-                </button>
-              </nav>
+              <button
+                type="button"
+                class="text-button bo-more"
+                onClick={() => setLimit(limit + PAGE_SIZE)}
+              >
+                Show more ({visible.length - shown.length})
+              </button>
             )
             : null}
         </section>
+
         {selected
           ? (
-            <section class="panel digital-order-detail">
-              <div class="panel__header">
-                <div>
-                  <span class="eyebrow">Correlated order</span>
-                  <h2>{selected.reference}</h2>
-                  <p class="mono">{selected.id}</p>
-                </div>
-                <StatusPill tone={tone(selected.state)}>{selected.state}</StatusPill>
-              </div>
-              <div class="three-column">
-                {(["capture", "cancel", "refund"] as const).map((action) => {
-                  const permission = selected.permissions[action];
-                  return (
-                    <button
-                      class="button button--secondary"
-                      type="button"
-                      disabled={!permission.allowed || Boolean(actionLoading)}
-                      title={permission.reason}
-                      aria-describedby={`${action}-reason`}
-                      onClick={() => runAction(action)}
-                    >
-                      {actionLoading === action ? "Submitting…" : action}
-                      <span id={`${action}-reason`} class="sr-only">{permission.reason}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <div>
-                <h3>Attempts</h3>
-                <div class="table-shell">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Method</th>
-                        <th>PSP reference</th>
-                        <th>State</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selected.attempts.map((attempt) => (
-                        <tr>
-                          <td>{attempt.paymentMethod ?? ", "}</td>
-                          <td class="mono">{attempt.pspReference ?? "pending"}</td>
-                          <td>
-                            <StatusPill tone={tone(attempt.state)}>{attempt.state}</StatusPill>
-                            {attempt.refusalReason ? <div>{attempt.refusalReason}</div> : null}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <div>
-                <h3>Lifecycle timeline</h3>
-                <div class="timeline">
-                  {timeline.map((entry) => (
-                    <article class="timeline-entry">
-                      <header>
-                        <strong>{entry.name}</strong>
-                        <StatusPill tone={tone(entry.status)}>{entry.kind}</StatusPill>
-                      </header>
-                      <p>
-                        {new Date(entry.occurredAt).toLocaleString()}
-                        {entry.durationMs ? ` · ${entry.durationMs} ms` : ""}
-                      </p>
-                      <details>
-                        <summary>Sanitized payload</summary>
-                        <pre class="code-block">{prettyJson(entry.payload)}</pre>
-                      </details>
-                    </article>
-                  ))}
-                </div>
-              </div>
+            <section class="bo-detail" aria-label="Order details">
+              <button type="button" class="text-button bo-back" onClick={() => setSelectedId(null)}>
+                ← All orders
+              </button>
+              {(() => {
+                const status = orderStatus(selected);
+                const amount = formatMinorAmount(selected.amount.value, selected.amount.currency);
+                const actions = (["capture", "cancel", "refund"] as const).map((action) => ({
+                  action,
+                  permission: selected.permissions[action],
+                }));
+                const allowed = actions.filter(({ permission }) => permission.allowed);
+                const blocked = actions.filter(({ permission }) => !permission.allowed);
+                return (
+                  <>
+                    <header class="bo-detail__head">
+                      <div>
+                        <span class="bo-detail__amount">{amount}</span>
+                        <Pill tone={status.tone}>{status.label}</Pill>
+                      </div>
+                      {status.detail ? <p>{status.detail}</p> : null}
+                    </header>
+
+                    {allowed.length
+                      ? (
+                        <div class="bo-actions">
+                          {allowed.map(({ action }, index) => (
+                            <button
+                              type="button"
+                              class={`button ${
+                                index === 0 ? "button--primary" : "button--secondary"
+                              }`}
+                              disabled={Boolean(actionLoading)}
+                              onClick={() => runAction(action)}
+                            >
+                              {actionLoading === action
+                                ? "Sending…"
+                                : action === "cancel"
+                                ? ACTION_LABEL.cancel
+                                : `${ACTION_LABEL[action]} ${amount}`}
+                            </button>
+                          ))}
+                        </div>
+                      )
+                      : null}
+                    {notice ? <div class="notice" role="status">{notice}</div> : null}
+                    {blocked.length && !isAbandoned(selected)
+                      ? (
+                        <ul class="bo-reasons">
+                          {blocked.map(({ action, permission }) => (
+                            <li key={action}>
+                              <strong>{ACTION_LABEL[action]}:</strong> {permission.reason}
+                            </li>
+                          ))}
+                        </ul>
+                      )
+                      : null}
+
+                    <dl class="facts bo-facts">
+                      <dt>Reference</dt>
+                      <dd>
+                        <button
+                          type="button"
+                          class="text-button mono"
+                          onClick={() => copy(selected.reference)}
+                        >
+                          {copied === selected.reference ? "Copied" : selected.reference}
+                        </button>
+                      </dd>
+                      <dt>Flow</dt>
+                      <dd>{FLOW_NAMES[selected.flow] ?? selected.flow}</dd>
+                      <dt>Created</dt>
+                      <dd>{new Date(selected.createdAt).toLocaleString()}</dd>
+                    </dl>
+
+                    <div class="bo-section">
+                      <h3>Payment attempts</h3>
+                      {selected.attempts.length
+                        ? (
+                          <ul class="bo-attempts">
+                            {selected.attempts.map((attempt) => {
+                              const attemptState = attemptStatus(attempt.state);
+                              return (
+                                <li key={attempt.id}>
+                                  <span class="bo-attempts__main">
+                                    <strong>
+                                      {METHOD_NAMES[attempt.paymentMethod ?? ""] ??
+                                        attempt.paymentMethod ?? "Payment"}
+                                    </strong>
+                                    {attempt.pspReference
+                                      ? (
+                                        <button
+                                          type="button"
+                                          class="text-button mono"
+                                          onClick={() => copy(attempt.pspReference as string)}
+                                        >
+                                          {copied === attempt.pspReference
+                                            ? "Copied"
+                                            : attempt.pspReference}
+                                        </button>
+                                      )
+                                      : <span class="muted">No PSP reference yet</span>}
+                                    {attempt.refusalReason
+                                      ? <span class="muted">{attempt.refusalReason}</span>
+                                      : null}
+                                  </span>
+                                  <Pill tone={attemptState.tone}>{attemptState.label}</Pill>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )
+                        : <p class="muted">Nobody tried to pay this order.</p>}
+                    </div>
+
+                    <div class="bo-section">
+                      <h3>Timeline</h3>
+                      <Timeline
+                        entries={timeline}
+                        empty="Nothing recorded for this order yet."
+                      />
+                    </div>
+                  </>
+                );
+              })()}
             </section>
           )
           : null}
       </div>
-    </>
+    </div>
   );
 }

@@ -91,6 +91,8 @@ export function createPlatformContext(appId: AppId): PlatformContext {
       clientKey: secrets?.clientKey?.startsWith("test_") ? secrets.clientKey : null,
       publicOrigin: config.publicOrigin,
       webhookUrl: `${config.publicOrigin}/webhook`,
+      // Only whether a key exists, so settings can say if webhooks will verify.
+      webhookHmacConfigured: Boolean(secrets?.hmacKey),
       agentic: {
         realEnabled: config.agenticRealEnabled,
         mode: config.agenticRealEnabled ? "real-configured" : "mock",

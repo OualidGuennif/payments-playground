@@ -222,9 +222,9 @@ export function PlaygroundWordmark(props: { label: string }) {
   );
 }
 
-const SECONDARY_NAV = [
+const NAV = [
+  { href: "/", label: "Home" },
   { href: "/back-office", label: "Back Office" },
-  { href: "/wiki", label: "Wiki" },
 ] as const;
 
 const DOCS_URL = "https://docs.adyen.com";
@@ -245,90 +245,130 @@ function GearIcon() {
 
 export function AppShell(props: {
   title: string;
-  subtitle: string;
   currentPath: string;
   children: ComponentChildren;
   compact?: boolean;
-  /** Set when the page offers its own test data (the checkout does). */
-  ownTestingDataset?: boolean;
-  /** Label of the "/" link: "Home" unless the app calls its front page something else. */
-  homeLabel?: string;
-  /** Marks "/" as the current section on pages that belong to it (the checkout flows). */
-  homeActive?: boolean;
+  /**
+   * Header with only the theme toggle and settings, plus Home and Back Office
+   * on inner pages; the TEST pill moves to the footer. Digital's front page is
+   * its navigation, so a name and section links there only repeated it
+   * (owner, 2026-10-10).
+   */
+  minimal?: boolean;
 }) {
-  const nav = [{ href: "/", label: props.homeLabel ?? "Home" }, ...SECONDARY_NAV];
-  const current = (href: string) => {
-    const active = href === "/"
-      ? props.currentPath === "/" || props.homeActive
-      : props.currentPath === href;
-    return active ? "page" : undefined;
-  };
+  const current = (href: string) => props.currentPath === href ? "page" : undefined;
   return (
     <>
       <a class="skip-link" href="#main-content">Skip to content</a>
-      <header class="shell-header">
-        <div class="shell-header__bar">
-          <a class="brand" href="/" aria-label={props.title}>
-            <PlaygroundWordmark label={props.title} />
-          </a>
-          <TestPill />
-          <nav class="shell-nav" aria-label="Main navigation">
-            {nav.map((item) => (
-              <a key={item.href} href={item.href} aria-current={current(item.href)}>
-                {item.label}
-              </a>
-            ))}
-            <a href={DOCS_URL} target="_blank" rel="noopener noreferrer">Docs ↗</a>
-          </nav>
-          <div class="shell-header__actions">
-            {props.ownTestingDataset ? null : <TestDataAndTools />}
-            <ThemeToggle />
-            <a
-              class="shell-icon-button shell-settings"
-              href="/settings"
-              aria-label="Settings"
-              title="Settings"
-              aria-current={current("/settings")}
-            >
-              <GearIcon />
-            </a>
-            <details class="shell-menu">
-              <summary class="shell-icon-button" aria-label="Menu">
-                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                  <path
-                    d="M4 7h16M4 12h16M4 17h16"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                  />
-                </svg>
-              </summary>
-              <nav class="shell-menu__sheet" aria-label="Menu">
-                {nav.map((item) => (
+      {props.minimal
+        ? <MinimalHeader currentPath={props.currentPath} />
+        : (
+          <header class="shell-header">
+            <div class="shell-header__bar">
+              <div class="shell-header__start">
+                <a class="brand" href="/" aria-label={props.title}>
+                  <PlaygroundWordmark label={props.title} />
+                </a>
+                <TestPill />
+              </div>
+              <nav class="shell-nav" aria-label="Main navigation">
+                {NAV.map((item) => (
                   <a key={item.href} href={item.href} aria-current={current(item.href)}>
                     {item.label}
                   </a>
                 ))}
-                <a href="/settings" aria-current={current("/settings")}>Settings</a>
-                <a href={DOCS_URL} target="_blank" rel="noopener noreferrer">Adyen docs ↗</a>
               </nav>
-            </details>
-          </div>
-        </div>
-      </header>
+              <div class="shell-header__actions">
+                <TestDataAndTools />
+                <ThemeToggle />
+                <a
+                  class="shell-icon-button shell-settings"
+                  href="/settings"
+                  aria-label="Settings"
+                  title="Settings"
+                  aria-current={current("/settings")}
+                >
+                  <GearIcon />
+                </a>
+                <details class="shell-menu">
+                  <summary class="shell-icon-button" aria-label="Menu">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                      <path
+                        d="M4 8h16M4 16h16"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </summary>
+                  <nav class="shell-menu__sheet" aria-label="Menu">
+                    {NAV.map((item) => (
+                      <a key={item.href} href={item.href} aria-current={current(item.href)}>
+                        {item.label}
+                      </a>
+                    ))}
+                    <a href="/settings" aria-current={current("/settings")}>Settings</a>
+                    <a href="/wiki" aria-current={current("/wiki")}>Wiki</a>
+                    <a href={DOCS_URL} target="_blank" rel="noopener noreferrer">Adyen docs ↗</a>
+                  </nav>
+                </details>
+              </div>
+            </div>
+          </header>
+        )}
       <div class={props.compact ? "app-frame app-frame--compact" : "app-frame"}>
         <div class="app-content">
           <main id="main-content" tabindex={-1}>{props.children}</main>
-          <footer class="app-footer">
-            <span>Payments Playground · TEST environment only, never use live credentials</span>
-            <span>
-              {props.subtitle} · Adyen Web 6.46.0 · Checkout API v72 ·{" "}
-              <a href="/disclaimer">Disclaimer</a>
+          <footer class={props.minimal ? "app-footer app-footer--wide" : "app-footer"}>
+            <span class="app-footer__meta">
+              {props.minimal ? <TestPill /> : null}
+              Adyen Web 6.46.0 · Checkout API v72
             </span>
+            <nav class="app-footer__links" aria-label="Footer">
+              <a href="/wiki" aria-current={current("/wiki")}>Wiki</a>
+              <a href={DOCS_URL} target="_blank" rel="noopener noreferrer">Adyen docs ↗</a>
+              <a href="/disclaimer" aria-current={current("/disclaimer")}>Disclaimer</a>
+            </nav>
           </footer>
         </div>
       </div>
     </>
+  );
+}
+
+function MinimalHeader(props: { currentPath: string }) {
+  return (
+    <header class="shell-header shell-header--minimal">
+      <div class="shell-float">
+        {props.currentPath === "/"
+          ? <span />
+          : (
+            <nav class="shell-glass shell-nav" aria-label="Main navigation">
+              {NAV.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  aria-current={props.currentPath === item.href ? "page" : undefined}
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+          )}
+        <div class="shell-glass">
+          <ThemeToggle />
+          <a
+            class="shell-icon-button"
+            href="/settings"
+            aria-label="Settings"
+            title="Settings"
+            aria-current={props.currentPath === "/settings" ? "page" : undefined}
+          >
+            <GearIcon />
+          </a>
+        </div>
+      </div>
+    </header>
   );
 }
 

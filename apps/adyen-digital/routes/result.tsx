@@ -1,25 +1,33 @@
-import { Callout, PageHeader } from "@suite/ui/components.tsx";
 import { DigitalLayout } from "../components/Layout.tsx";
+import RedirectReturn from "../islands/RedirectReturn.tsx";
 import { define } from "../utils.ts";
 
+/**
+ * The returnUrl of every digital payment. A redirect method lands here with a
+ * redirectResult, which the island submits so the order settles before any
+ * webhook arrives.
+ */
 export default define.page(function ResultPage({ url }) {
-  const orderId = url.searchParams.get("orderId") ?? "unknown";
+  const orderId = url.searchParams.get("orderId");
   return (
-    <DigitalLayout path="">
-      <PageHeader
-        eyebrow="Redirect return"
-        title="Shopper returned to the playground"
-        description="The redirect is part of the payment-method flow. The final business outcome still comes from verified webhooks."
-      />
-      <Callout title="Correlation">
-        <p>
-          Order <code>{orderId}</code>{" "}
-          is still being observed. Open the Back Office to inspect its timeline.
-        </p>
-        <a class="button button--secondary" href={`/back-office?orderId=${orderId}`}>
-          Open correlated order
-        </a>
-      </Callout>
+    <DigitalLayout path="/result">
+      <div class="return-page">
+        {orderId
+          ? (
+            <RedirectReturn
+              orderId={orderId}
+              redirectResult={url.searchParams.get("redirectResult")}
+            />
+          )
+          : (
+            <div class="return-card">
+              <p>This page is where a payment method sends the shopper back.</p>
+              <a class="button button--primary" href="/sessions?integration=dropin">
+                Start a checkout
+              </a>
+            </div>
+          )}
+      </div>
     </DigitalLayout>
   );
 });

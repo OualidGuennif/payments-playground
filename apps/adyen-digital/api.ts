@@ -186,6 +186,15 @@ function settleAttempt(
   return resolveAndStore(order);
 }
 
+// What a stored attempt state reads as for a shopper, when /result is reloaded.
+const RESULT_CODE_FOR_STATE: Record<string, string> = {
+  authorised: "Authorised",
+  refused: "Refused",
+  pending: "Pending",
+  cancelled: "Cancelled",
+  error: "Error",
+};
+
 // What Adyen Web puts in state.data beside paymentMethod and /payments accepts
 // (checked against PaymentRequest in api-library 32). Dropping them lost the
 // shopper's installment choice, Brazil's CPF and the device fingerprint.
@@ -553,6 +562,61 @@ api.post("/api/digital/payments/details", async (c) => {
   );
   const resolution = attempt ? settleAttempt(order, attempt, result) : undefined;
   return c.json({ correlationId, result, resolution });
+});
+
+// A redirect method (iDEAL, Klarna, a 3DS1 bank page...) sends the shopper
+// back to /result with a redirectResult and nothing else had told this server
+// how the payment ended. Submitting it to /payments/details settles the order,
+// for Sessions too: the redirectResult carries the whole payment, so the
+// call does not need the session. A reload must not submit it twice, so an
+// order with nothing left waiting answers with what is already stored.
+api.post("/api/digital/orders/:id/redirect-result", async (c) => {
+  const order = context.repository.getOrder(c.req.param("id"));
+  if (!order) return c.json({ error: "Order not found." }, 404);
+  const body = object(await c.req.json());
+  const redirectResult = typeof body.redirectResult === "string" ? body.redirectResult : "";
+  if (!redirectResult) return c.json({ error: "redirectResult is required." }, 400);
+  const attempts = context.repository.listAttempts(order.id);
+  const waiting = attempts.findLast((item) => item.state === "pending" || item.state === "created");
+  const settled = attempts.findLast((item) => item.pspReference && item.state !== "created");
+  if (!waiting && settled) {
+    return c.json({
+      correlationId: order.id,
+      alreadySettled: true,
+      result: {
+        resultCode: RESULT_CODE_FOR_STATE[settled.state],
+        pspReference: settled.pspReference,
+        paymentMethod: { type: settled.paymentMethod },
+      },
+      resolution: resolveAndStore(order),
+    });
+  }
+  const { client } = await profileClient(c.req.raw);
+  const request = { details: { redirectResult } };
+  const result = await recordedCall({
+    correlationId: order.id,
+    name: "Checkout API /payments/details",
+    endpoint: "https://checkout-test.adyen.com/v72/payments/details",
+    request,
+    execute: () => client.paymentDetails(request, crypto.randomUUID()),
+  });
+  const merchantReference = resultField(result, "merchantReference");
+  if (typeof merchantReference === "string" && merchantReference !== order.reference) {
+    return c.json({ error: "This redirect belongs to another order." }, 409);
+  }
+  // Sessions orders get their attempt from the session result, which a
+  // redirect skips; this is the first time the server sees the payment.
+  const attempt = waiting ?? context.repository.createAttempt({
+    orderId: order.id,
+    amount: order.amount,
+    state: "created",
+    paymentMethod: String(object(resultField(result, "paymentMethod")).type ?? "unknown"),
+  });
+  return c.json({
+    correlationId: order.id,
+    result,
+    resolution: settleAttempt(order, attempt, result),
+  });
 });
 
 api.post("/api/digital/payment-links", async (c) => {

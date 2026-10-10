@@ -7,7 +7,7 @@ status: stable
 scope: local-development
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-10-10T08:45:00Z
 sources:
   - id: readme
     resource: apps/adyen-digital/README.md
@@ -40,9 +40,14 @@ on.
 
 ## When to restart
 
-- After editing anything under `packages/platform`: the SSR graph can go stale
-  (`... is not a function`). Touch `apps/adyen-digital/vite.config.ts`; Vite restarts.
+- After editing anything under `packages/platform` or `packages/ui/components.tsx`: the SSR graph
+  can go stale (`... is not a function`, or a page still served with the old markup). Touch
+  `apps/adyen-digital/vite.config.ts`; Vite restarts.
+- If that restart stops at "restarting server..." and the port stops answering, touch the file once
+  more; seen twice on 2026-10-10, on digital and styling.
 - After an Adyen Web version change: the dev bundle is built once per start.
+- Not needed after `deno task check` or a build: digital and styling's Vite ignores `_fresh/`, so a
+  build no longer reloads open dev pages (each Sessions reload used to create an empty order).
 
 ## Paying on TEST
 

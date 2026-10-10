@@ -10,5 +10,7 @@ export default defineConfig({
   ssr: { external: ["@adyen/api-library"] },
   // No root package.json (Deno workspace), so Vite's default workspace-root
   // detection can't find the monorepo's node_modules, explicitly allow it.
-  server: { fs: { allow: ["../.."] } },
+  // A production build (deno task check, build:styling) rewrites _fresh/;
+  // watched, that reloaded every open dev page during each build.
+  server: { fs: { allow: ["../.."] }, watch: { ignored: ["**/_fresh/**"] } },
 });

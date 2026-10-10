@@ -9,8 +9,8 @@ progressively: start at [knowledge/index.md](knowledge/index.md) and open only w
 ## Repository map
 
 ```
-apps/adyen-digital/          online checkout + Back Office (focus)
-apps/adyen-v6-styling/       Drop-in theming workbench (the one marked Ready)
+apps/adyen-digital/          online checkout + Back Office (focus, Ready)
+apps/adyen-v6-styling/       Drop-in theming workbench (Ready)
 apps/adyen-ipp-endless-aisle/, apps/adyen-agentic-commerce/   in progress
 apps/landing/                static front door
 packages/platform/           server only: Adyen client, SQLite, security, state machine

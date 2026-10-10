@@ -12,14 +12,14 @@ platform and UI package.
 
 ## Applications
 
-**Only the styling playground is ready to use.** The other three run and are worth exploring, but
-they are still being built, treat anything you see there as work in progress, not as a reference
-integration.
+**Drop-in Styling and Digital Checkout are ready to use.** The other two run and are worth
+exploring, but they are still being built, treat anything you see there as work in progress, not as
+a reference integration.
 
 | App                       | Covers                                                                | Status                     | Dev port |
 | ------------------------- | --------------------------------------------------------------------- | -------------------------- | -------: |
 | `adyen-v6-styling`        | **Drop-in Styling** · theming options and CSS overrides               | **Ready**                  |     8004 |
-| `adyen-digital`           | **Digital Checkout** · Sessions, Advanced, Pay by Link, MIT, API Only | In progress · est. Q3 2026 |     8001 |
+| `adyen-digital`           | **Digital Checkout** · Sessions, Advanced, Pay by Link, MIT, API only | **Ready**                  |     8001 |
 | `adyen-ipp-endless-aisle` | **Endless Aisle** · in-person cart and Terminal API Cloud Device      | In progress · est. Q4 2026 |     8002 |
 | `adyen-agentic-commerce`  | **Agentic Commerce** · mock and real paths kept distinct              | In progress · est. Q1 2027 |     8003 |
 

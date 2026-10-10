@@ -29,8 +29,8 @@ sources:
 # adyen-digital
 
 Online checkout against Adyen TEST, with a Back Office that correlates what each flow produced.
-Production: `https://digital.payments-playground.com`. Status: in progress (README). What is
-verified today: [current/digital-status.md](../current/digital-status.md).
+Production: `https://digital.payments-playground.com`. Status: Ready (README, since 2026-10-10).
+What is verified today: [current/digital-status.md](../current/digital-status.md).
 
 ## Pages
 

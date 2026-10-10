@@ -1221,12 +1221,10 @@ main:has(> .home) {
 }
 
 .home-card {
-  position: relative;
   display: flex;
-  min-height: clamp(150px, 19vh, 210px);
-  flex-direction: column;
-  justify-content: space-between;
-  gap: clamp(14px, 2vh, 22px);
+  min-height: clamp(120px, 15vh, 160px);
+  align-items: flex-start;
+  gap: 16px;
   padding: clamp(20px, 1.6vw, 28px);
   border: 1px solid var(--color-border);
   border-radius: clamp(20px, 1.4vw, 26px);
@@ -1243,24 +1241,9 @@ main:has(> .home) {
   transform: translateY(-2px);
 }
 
-.home-card__icon {
-  display: grid;
-  width: clamp(44px, 3vw, 54px);
-  height: clamp(44px, 3vw, 54px);
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: clamp(12px, 0.9vw, 16px);
-  background: var(--color-surface-strong);
-  color: var(--color-ink);
-}
-
-.home-card__icon svg {
-  width: clamp(22px, 1.4vw, 26px);
-  height: clamp(22px, 1.4vw, 26px);
-}
-
 .home-card__body {
   display: grid;
+  flex: 1;
   gap: clamp(4px, 0.6vh, 8px);
 }
 
@@ -1291,16 +1274,12 @@ main:has(> .home) {
   line-height: 1.45;
 }
 
-/* Level with the icon, top right. */
+/* Level with the title. */
 .home-card__arrow {
-  position: absolute;
-  top: clamp(20px, 1.6vw, 28px);
-  right: clamp(20px, 1.6vw, 28px);
-  display: grid;
-  height: clamp(44px, 3vw, 54px);
-  place-items: center;
+  flex: 0 0 auto;
   color: var(--color-ink-subtle);
   font-size: clamp(1.1rem, 1.2vw, 1.35rem);
+  line-height: 1.2;
   transition: transform 160ms ease, color 160ms ease;
 }
 
@@ -1315,7 +1294,7 @@ main:has(> .home) {
   }
 }
 
-/* A phone scrolls: tiles go back to compact rows instead of filling height. */
+/* A phone scrolls: one column of compact tiles. */
 @media (max-width: 760px) {
   .home-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1323,21 +1302,11 @@ main:has(> .home) {
 
   .home-card {
     min-height: 0;
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: flex-start;
-    gap: 16px;
     padding: 20px;
     border-radius: 20px;
   }
 
-  .home-card__body {
-    flex: 1;
-  }
-
   .home-card__arrow {
-    position: static;
-    height: auto;
     align-self: center;
   }
 }

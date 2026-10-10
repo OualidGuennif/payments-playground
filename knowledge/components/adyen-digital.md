@@ -98,7 +98,7 @@ same-host Origin ([ADR-008](../decisions/ADR-008-redirects-follow-the-browser-or
   already allowed).
 - `Timeline.tsx`: the inspector and Back Office timeline: one-line summaries, consecutive `onChange`
   grouped, filter chips, request and response with copy.
-- `Sheet.tsx`, `ResultCard.tsx`, `TestData.tsx`, `FlowIcon.tsx` (one icon per flow, tiles and
+- `Sheet.tsx`, `ResultCard.tsx`, `TestData.tsx`, `FlowIcon.tsx` (one icon per flow, for the checkout
   badge), `flows.ts`.
 
 Markets: 36 countries, each with its own currency, locale and default amount

@@ -1,15 +1,13 @@
 import type { ComponentChildren } from "preact";
-import { FlowIcon } from "../components/FlowIcon.tsx";
 import { type FlowInfo, FLOWS } from "../components/flows.ts";
 import { DigitalLayout } from "../components/Layout.tsx";
 import { define } from "../utils.ts";
 
 function Card(
-  props: { href: string; icon: string; title: string; children: ComponentChildren; badge?: string },
+  props: { href: string; title: string; children: ComponentChildren; badge?: string },
 ) {
   return (
     <a class="home-card" href={props.href}>
-      <FlowIcon name={props.icon} class="home-card__icon" />
       <span class="home-card__body">
         <span class="home-card__title">
           {props.title}
@@ -39,7 +37,6 @@ export default define.page(function Home() {
               <Card
                 key={flow.id}
                 href={flowHref(flow)}
-                icon={flow.id}
                 title={flow.title}
                 badge={flow.recommended ? "Recommended" : undefined}
               >
@@ -53,11 +50,11 @@ export default define.page(function Home() {
           <h2>Beyond checkout</h2>
           <div class="home-grid">
             {beyond.map((flow) => (
-              <Card key={flow.id} href={flowHref(flow)} icon={flow.id} title={flow.title}>
+              <Card key={flow.id} href={flowHref(flow)} title={flow.title}>
                 {flow.description}
               </Card>
             ))}
-            <Card href="/back-office" icon="back-office" title="Back Office">
+            <Card href="/back-office" title="Back Office">
               Every order with its attempts, API calls and webhooks; capture, cancel or refund.
             </Card>
           </div>

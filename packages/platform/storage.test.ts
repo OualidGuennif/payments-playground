@@ -39,6 +39,51 @@ Deno.test("webhooks and lifecycle actions are deduplicated idempotently", () => 
   }
 });
 
+Deno.test("modification requests and their webhooks read back for reconciliation", () => {
+  const repository = new Repository(":memory:");
+  try {
+    const order = repository.createOrder({
+      appId: "digital",
+      flow: "sessions-dropin",
+      amount: { value: 10_000, currency: "EUR" },
+    });
+    const action = repository.recordAction({
+      appId: "digital",
+      orderId: order.id,
+      correlationId: order.id,
+      action: "capture",
+      state: "requested",
+      idempotencyKey: "key-1",
+      payload: { amount: { value: 4_000, currency: "EUR" } },
+    });
+    repository.updateAction(action.id, { state: "received", pspReference: "CAP-1" });
+    const [stored] = repository.listActions(order.id);
+    assertEquals(stored.state, "received");
+    assertEquals(stored.value, 4_000);
+    assertEquals(stored.pspReference, "CAP-1");
+    assertEquals(repository.findAction("key-1")?.id, action.id);
+
+    for (const [hmacValid, eventType] of [[true, "CAPTURE"], [false, "REFUND"]] as const) {
+      repository.recordWebhook({
+        appId: "digital",
+        dedupeKey: `${eventType}:CAP-1`,
+        correlationId: order.id,
+        eventType,
+        pspReference: "CAP-1",
+        hmacValid,
+        payload: { success: "true", pspReference: "CAP-1", amount: { value: 4_000 } },
+      });
+    }
+    // Only the HMAC-valid event counts.
+    const events = repository.modificationEvents(order.id);
+    assertEquals(events.length, 1);
+    assertEquals(events[0].eventCode, "CAPTURE");
+    assertEquals(events[0].value, 4_000);
+  } finally {
+    repository.close();
+  }
+});
+
 Deno.test("the timeline gives each API call its method and endpoint", () => {
   const repository = new Repository(":memory:");
   try {

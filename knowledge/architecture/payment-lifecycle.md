@@ -7,7 +7,7 @@ status: stable
 scope: payment-lifecycle
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-10-10T15:00:00Z
 sources:
   - id: state-machine
     resource: packages/platform/state-machine.ts
@@ -15,10 +15,15 @@ sources:
   - id: lifecycle
     resource: packages/platform/lifecycle.ts
     title: Per-method capabilities, actionPermissions, lifecycleSourceAttempt
+  - id: modifications
+    resource: packages/platform/modifications.ts
+    title: reconcile and ledgerOf
   - id: digital-api
     resource: apps/adyen-digital/api.ts
     title: settleAttempt, resolveAndStore, the session-result route, the webhook handler
 verified:
+  - at: 2026-10-10
+    check: "On Adyen TEST, order 2b5a2f81: partial capture 40.00 EUR, partial refund 10.00 EUR and a second partial capture 20.00 EUR all answered received; their real CAPTURE and REFUND webhooks (success=true, HMAC-signed, fetched from webhook.site) replayed locally settled the ledger to 60.00 captured and 10.00 refunded. A replayed Idempotency-Key returned the stored request without a second Adyen call; a new key while a capture was pending got 409."
   - at: 2026-10-09
     check: "Sessions Drop-in, Advanced 3DS2 challenge and a stored-card Advanced payment on Adyen TEST each ended authorised in the Back Office; a capture was accepted; a signed CAPTURE notification settled the order paid. Evidence in current/digital-status.md."
 ---
@@ -88,17 +93,38 @@ works without them.
 
 ## Capture, cancel and refund
 
-`actionPermissions(state, paymentMethod, authorisedValue)` decides, from the capabilities in
-`packages/platform/lifecycle.ts` (editable without touching flow code):
+Every capture, cancel and refund is a **modification**. What they add up to is a **ledger**
+(`packages/platform/modifications.ts`), and what can be done next comes from it
+(`actionPermissions(state, paymentMethod, ledger)` in `lifecycle.ts`).
 
-- **Capture**: the order is `payment_pending` or `partially_paid` and the method supports separate
-  capture and is not configured as captured on authorisation.
-- **Cancel**: same states, the method supports cancel, nothing captured yet.
-- **Refund**: the order is `paid`, or the method is captured on authorisation (PayPal on this
-  account; iDEAL, MB WAY, Wero, WeChat Pay, Pay by Bank and gift cards by nature) and some amount is
-  authorised.
+- **Requests** are the `lifecycle_actions` rows this server writes: `requested` before the call,
+  `received` with the modification's own PSP reference once Adyen answers, `rejected` if the call
+  fails.
+- **Events** are the HMAC-valid CAPTURE, CAPTURE_FAILED, CANCELLATION, REFUND, REFUND_FAILED and
+  REFUNDED_REVERSED webhooks of the order. `reconcile()` matches each request to its events by that
+  PSP reference (older rows without one take the next event of their kind); the latest event wins,
+  so a CAPTURE_FAILED days later overturns a success. Events nothing here asked for (the Customer
+  Area) become modifications of their own.
+- **Ledger**: authorised (the source attempt), captured, refunded, and what is pending a webhook. A
+  method captured on authorisation counts its authorised amount as captured.
 
-Actions target the latest **authorised** attempt (`lifecycleSourceAttempt`), are idempotent on the
-`Idempotency-Key` header, and are recorded as `received`. Their outcome arrives as a webhook.
+Permissions, from the ledger and the method's capabilities:
 
-Known gaps in this model are tracked in [current/digital-status.md](../current/digital-status.md).
+- **Capture** up to what is authorised and not captured; in part when the method allows it; again
+  after a first partial capture only when the method supports multiple partial captures (the
+  merchant account must have them enabled too: OGAccountECOM does, verified 2026-10-10).
+- **Cancel** while nothing is captured or being captured.
+- **Refund** up to what is captured and not refunded; in part, and repeatedly, per method.
+- A request Adyen answered `received` blocks another of its kind until its webhook arrives (the
+  button reads "Waiting for the CAPTURE webhook"). The webhook is the outcome; the response is only
+  an acknowledgement.
+
+**Idempotency.** The Back Office mints one `Idempotency-Key` (UUID v4) per intent (order, action,
+amount) and reuses it when a request got no answer. The server forwards it to Adyen, which keeps it
+7 to 14 days and answers a repeat with the first response (HTTP 409 or 422 with code 704 while the
+first is in flight), and stores it: a key it has seen returns the stored request without calling
+Adyen.
+
+Actions target the latest **authorised** attempt (`lifecycleSourceAttempt`). Capabilities per
+method, and how this account captures each:
+[capture and refund capabilities](../references/capture-and-refund-capabilities.md).

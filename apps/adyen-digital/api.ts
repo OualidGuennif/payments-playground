@@ -2,8 +2,10 @@ import { createPlatformContext, selectedSecrets } from "@suite/platform/base-api
 import { AdyenTestClient } from "@suite/platform/adyen.ts";
 import { buildCheckoutAddresses, SUPPORTED_COUNTRY_CODES } from "@suite/platform/addresses.ts";
 import { type StandardWebhookItem, verifyStandardHmac } from "@suite/platform/hmac.ts";
+import { ledgerOf, reconcile } from "@suite/platform/modifications.ts";
 import {
   actionPermissions,
+  capabilitiesFor,
   lifecycleSourceAttempt,
   PAYMENT_METHOD_CAPABILITIES,
 } from "@suite/platform/lifecycle.ts";
@@ -217,10 +219,32 @@ function forwardedStateData(body: Record<string, unknown>): Record<string, unkno
   );
 }
 
-function permissionsFor(order: OrderAggregate, attempts: AttemptAggregate[]) {
-  const paymentMethod = (lifecycleSourceAttempt(attempts) ??
-    attempts.find((attempt) => attempt.paymentMethod))?.paymentMethod;
-  return actionPermissions(order.state, paymentMethod, order.paidValue);
+/**
+ * What was captured, refunded and cancelled on the order's authorised
+ * payment, and what can be done next. The totals come from HMAC-valid
+ * webhooks; a request Adyen answered "received" is pending until its own
+ * webhook arrives.
+ */
+function lifecycleFor(order: OrderAggregate, attempts: AttemptAggregate[]) {
+  const source = lifecycleSourceAttempt(attempts);
+  const paymentMethod = (source ?? attempts.find((attempt) => attempt.paymentMethod))
+    ?.paymentMethod;
+  const modifications = reconcile(
+    context.repository.listActions(order.id),
+    context.repository.modificationEvents(order.id),
+  );
+  const settled = ledgerOf(source?.amount.value ?? 0, modifications);
+  // A method captured on authorisation never sees a CAPTURE webhook: what is
+  // authorised is captured.
+  const ledger = capabilitiesFor(paymentMethod).automaticCapture && !settled.cancelled
+    ? { ...settled, captured: settled.authorised }
+    : settled;
+  return {
+    ledger,
+    modifications,
+    capabilities: capabilitiesFor(paymentMethod),
+    permissions: actionPermissions(order.state, paymentMethod, ledger),
+  };
 }
 
 function requestBase(input: {
@@ -299,7 +323,7 @@ api.get("/api/digital/config", (c) => {
 api.get("/api/digital/orders", (c) => {
   const orders = context.repository.listOrders("digital").map((order) => {
     const attempts = context.repository.listAttempts(order.id);
-    return { ...order, attempts, permissions: permissionsFor(order, attempts) };
+    return { ...order, attempts, ...lifecycleFor(order, attempts) };
   });
   return c.json({ orders });
 });
@@ -312,7 +336,7 @@ api.get("/api/digital/orders/:id", (c) => {
     order,
     attempts,
     timeline: context.repository.timeline(order.id),
-    permissions: permissionsFor(order, attempts),
+    ...lifecycleFor(order, attempts),
   });
 });
 
@@ -786,67 +810,102 @@ api.post("/api/digital/api-only", async (c) => {
   return await api.fetch(proxied);
 });
 
+// Capture, cancel or refund. Each request carries the Idempotency-Key the
+// Back Office minted for that intent (Adyen keeps it 7 to 14 days and returns
+// the first response to a retry), and this route stores it too: a key it has
+// seen answers with what is known instead of reaching Adyen again. A request
+// Adyen answered "received" blocks another of its kind until its webhook,
+// the only source of the outcome, arrives.
 api.post("/api/digital/orders/:id/actions/:action", async (c) => {
   const order = context.repository.getOrder(c.req.param("id"));
   if (!order) return c.json({ error: "Order not found." }, 404);
   const action = c.req.param("action");
-  if (!["capture", "cancel", "refund"].includes(action)) {
+  if (action !== "capture" && action !== "cancel" && action !== "refund") {
     return c.json({ error: "Unsupported lifecycle action." }, 400);
   }
-  const sourceAttempt = lifecycleSourceAttempt(context.repository.listAttempts(order.id));
-  if (!sourceAttempt?.pspReference) {
-    return c.json({ error: "No authorised payment is available." }, 409);
-  }
-  const permissions = actionPermissions(
-    order.state,
-    sourceAttempt.paymentMethod,
-    order.paidValue,
-  );
-  const permission = permissions[action as keyof typeof permissions];
-  if (!permission.allowed) return c.json({ error: permission.reason, permissions }, 409);
-
-  const body = object(await c.req.json().catch(() => ({})));
   const idempotencyKey = String(c.req.header("idempotency-key") ?? crypto.randomUUID()).slice(
     0,
     64,
   );
-  const actionRecord = context.repository.recordAction({
+  const known = context.repository.findAction(idempotencyKey);
+  if (known) {
+    if (known.state === "requested") {
+      // Adyen's own answer to a duplicate still in flight (error code 704).
+      return c.json({ error: "This request is already being processed." }, 409);
+    }
+    return c.json({ duplicate: true, request: known }, 200);
+  }
+
+  const attempts = context.repository.listAttempts(order.id);
+  const sourceAttempt = lifecycleSourceAttempt(attempts);
+  if (!sourceAttempt?.pspReference) {
+    return c.json({ error: "No authorised payment is available." }, 409);
+  }
+  const { permissions } = lifecycleFor(order, attempts);
+  const permission = permissions[action];
+  if (!permission.allowed) return c.json({ error: permission.reason, permissions }, 409);
+
+  const body = object(await c.req.json().catch(() => ({})));
+  let amount: Amount | undefined;
+  if (action !== "cancel") {
+    const max = permission.maxValue ?? 0;
+    const value = body.amount === undefined ? max : Number(object(body.amount).value);
+    if (!Number.isInteger(value) || value < 1 || value > max) {
+      return c.json({ error: `The amount must be between 1 and ${max} minor units.` }, 400);
+    }
+    if (!permission.partial && value !== max) {
+      return c.json({ error: `This payment method only takes the full ${action}.` }, 400);
+    }
+    amount = { value, currency: sourceAttempt.amount.currency };
+  }
+
+  const record = context.repository.recordAction({
     appId: "digital",
     orderId: order.id,
     correlationId: order.id,
     action,
-    state: "received",
+    state: "requested",
     idempotencyKey,
-    payload: body,
+    payload: amount ? { amount } : {},
   });
-  if (actionRecord.duplicate) {
-    return c.json({ duplicate: true, actionId: actionRecord.id }, 200);
+  if (record.duplicate) {
+    return c.json({ error: "This request is already being processed." }, 409);
   }
   const { client, secrets } = await profileClient(c.req.raw);
   const request = {
     merchantAccount: secrets.merchantAccount,
     reference: `${action}-${order.reference}`.slice(0, 80),
-    ...(action !== "cancel"
-      ? { amount: body.amount ? amountFrom(body.amount, order.amount.currency) : order.amount }
-      : {}),
+    ...(amount ? { amount } : {}),
   };
-  const result = await recordedCall({
-    correlationId: order.id,
-    name: `Checkout API lifecycle ${action}`,
-    endpoint:
-      `https://checkout-test.adyen.com/v72/payments/${sourceAttempt.pspReference}/${action}s`,
-    request,
-    execute: () => {
-      if (action === "capture") {
-        return client.capture(sourceAttempt.pspReference!, request, idempotencyKey);
-      }
-      if (action === "cancel") {
-        return client.cancel(sourceAttempt.pspReference!, request, idempotencyKey);
-      }
-      return client.refund(sourceAttempt.pspReference!, request, idempotencyKey);
-    },
-  });
-  return c.json({ actionId: actionRecord.id, result }, 202);
+  try {
+    const result = await recordedCall({
+      correlationId: order.id,
+      name: `Checkout API lifecycle ${action}`,
+      endpoint:
+        `https://checkout-test.adyen.com/v72/payments/${sourceAttempt.pspReference}/${action}s`,
+      request,
+      execute: () => {
+        if (action === "capture") {
+          return client.capture(sourceAttempt.pspReference!, request, idempotencyKey);
+        }
+        if (action === "cancel") {
+          return client.cancel(sourceAttempt.pspReference!, request, idempotencyKey);
+        }
+        return client.refund(sourceAttempt.pspReference!, request, idempotencyKey);
+      },
+    });
+    context.repository.updateAction(record.id, {
+      state: "received",
+      pspReference: String(resultField(result, "pspReference") ?? "") || undefined,
+    });
+    return c.json({ actionId: record.id, idempotencyKey, result }, 202);
+  } catch (error) {
+    context.repository.updateAction(record.id, {
+      state: "rejected",
+      reason: error instanceof Error ? error.message : "Adyen rejected the request.",
+    });
+    throw error;
+  }
 });
 
 async function hmacSecrets(): Promise<ProfileSecrets[]> {

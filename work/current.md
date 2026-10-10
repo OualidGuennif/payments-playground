@@ -11,13 +11,14 @@ Task state only. Durable facts belong in `knowledge/`; history belongs in `git l
   ([ADR-010](../knowledge/decisions/ADR-010-one-theme-attribute-and-token-sets.md)), redirect
   returns settled through `/result`, Digital Checkout marked Ready, styling's four-block glass
   toolbar and a Dark theme preset, page glows on every app and non-sticky headers, and the rebuilt
-  inspector (Adyen events only, one row per onChange with its diff, cURL, export). All pushed;
-  Render deploys from `main`.
+  inspector (Adyen events only, one row per onChange with its diff, cURL, export), and captures,
+  cancels and refunds as a webhook-settled ledger (partial and multiple partial, idempotent). All
+  pushed; Render deploys from `main`.
 - **Waiting on the owner**: a look at production after the last deploy (styling on a phone in dark
   mode especially); confirm Drop-in in Firefox with Adblock Plus.
-- **Open from this session**: a capture clicked in the redesigned Back Office and a webhook row in
-  the new inspector are not observed yet (webhooks only reach production); on a dark Drop-in, Click
-  to Pay's panel stays white in styling (Adyen hard-codes it, presets ship no CSS rules).
+- **Open from this session**: a webhook row in the new inspector is not observed in a browser yet
+  (webhooks only reach production); on a dark Drop-in, Click to Pay's panel stays white in styling
+  (Adyen hard-codes it, presets ship no CSS rules).
 - **Next candidates** (from [current/digital-status.md](../knowledge/current/digital-status.md)):
   update `lifecycle_actions` from responses and webhooks; model refunds; a webhook.site-to-local
   relay so real notifications reach the dev server without a tunnel.

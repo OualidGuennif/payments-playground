@@ -1,13 +1,20 @@
 import { apiFetch, formatMinorAmount } from "@suite/ui/client.ts";
 import { useCopy } from "@suite/ui/useCopy.ts";
 import { useEffect, useState } from "preact/hooks";
-import { attemptStatus, isAbandoned, orderStatus, type Tone } from "../components/status.ts";
+import {
+  type Capabilities,
+  LifecyclePanel,
+  type Modification,
+  type Permission,
+} from "../components/LifecyclePanel.tsx";
+import {
+  attemptStatus,
+  isAbandoned,
+  type LedgerLike,
+  orderStatus,
+  type Tone,
+} from "../components/status.ts";
 import { Timeline, type TimelineEntry } from "../components/Timeline.tsx";
-
-interface Permission {
-  allowed: boolean;
-  reason: string;
-}
 
 interface Attempt {
   id: string;
@@ -27,6 +34,9 @@ interface Order {
   createdAt: string;
   updatedAt: string;
   attempts: Attempt[];
+  ledger: LedgerLike;
+  modifications: Modification[];
+  capabilities: Capabilities;
   permissions: {
     capture: Permission;
     cancel: Permission;
@@ -93,19 +103,27 @@ function relativeTime(iso: string): string {
   return format.format(0, "minute");
 }
 
+// The metrics and filters group the finer labels the ledger gives.
+const AUTHORISED_LABELS = new Set(["Authorised", "Capture requested", "Cancel requested"]);
+const CAPTURED_LABELS = new Set([
+  "Captured",
+  "Partially captured",
+  "Refund requested",
+  "Partially refunded",
+  "Refunded",
+]);
+
 function matchesFilter(order: Order, filter: Filter): boolean {
   if (filter === "all") return true;
   const label = orderStatus(order).label;
-  if (filter === "authorised") return label === "Authorised";
-  if (filter === "captured") return label === "Captured";
+  if (filter === "authorised") return AUTHORISED_LABELS.has(label);
+  if (filter === "captured") return CAPTURED_LABELS.has(label);
   return label === "Refused";
 }
 
 function Pill(props: { tone: Tone; children: string }) {
   return <span class={`status-pill status-pill--${props.tone}`}>{props.children}</span>;
 }
-
-const ACTION_LABEL = { capture: "Capture", cancel: "Cancel authorisation", refund: "Refund" };
 
 export default function BackOffice() {
   const [orders, setOrders] = useState<Order[] | null>(null);
@@ -115,8 +133,7 @@ export default function BackOffice() {
   const [query, setQuery] = useState("");
   const [showAbandoned, setShowAbandoned] = useState(false);
   const [limit, setLimit] = useState(PAGE_SIZE);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [merchantAccount, setMerchantAccount] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const { copied, copy } = useCopy();
 
@@ -135,6 +152,10 @@ export default function BackOffice() {
 
   useEffect(() => {
     refresh().catch((cause) => setError(cause instanceof Error ? cause.message : "Load failed."));
+    // Named in the manual-capture warning; not a secret.
+    apiFetch<{ profile?: { merchantAccount?: string } }>("/api/bootstrap")
+      .then((data) => setMerchantAccount(data.profile?.merchantAccount))
+      .catch(() => undefined);
     // Webhooks change orders behind the page's back: a capture becomes
     // "Captured" a few seconds after the button is pressed.
     const interval = globalThis.setInterval(() => {
@@ -152,28 +173,6 @@ export default function BackOffice() {
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Timeline failed."));
   }, [selectedSignature, selectedId]);
 
-  async function runAction(action: "capture" | "cancel" | "refund") {
-    if (!selected) return;
-    setActionLoading(action);
-    setError(null);
-    setNotice(null);
-    try {
-      await apiFetch(`/api/digital/orders/${selected.id}/actions/${action}`, {
-        method: "POST",
-        headers: { "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({}),
-      });
-      setNotice(
-        `${ACTION_LABEL[action]} sent to Adyen. The order updates when its webhook arrives.`,
-      );
-      await refresh();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Action failed.");
-    } finally {
-      setActionLoading(null);
-    }
-  }
-
   if (!orders) {
     return error
       ? <div class="notice notice--danger" role="alert">{error}</div>
@@ -182,7 +181,7 @@ export default function BackOffice() {
 
   const abandoned = orders.filter(isAbandoned);
   const labels = orders.map((order) => orderStatus(order).label);
-  const count = (label: string) => labels.filter((value) => value === label).length;
+  const count = (group: Set<string>) => labels.filter((value) => group.has(value)).length;
   const needle = query.trim().toLowerCase();
   const visible = orders
     .filter((order) => showAbandoned || !isAbandoned(order) || order.id === selectedId)
@@ -200,16 +199,16 @@ export default function BackOffice() {
       <div class="bo-metrics">
         <div class="bo-metric">
           <span>Authorised</span>
-          <strong>{count("Authorised")}</strong>
+          <strong>{count(AUTHORISED_LABELS)}</strong>
           <small>awaiting capture</small>
         </div>
         <div class="bo-metric">
           <span>Captured</span>
-          <strong>{count("Captured")}</strong>
+          <strong>{count(CAPTURED_LABELS)}</strong>
         </div>
         <div class="bo-metric">
           <span>Refused</span>
-          <strong>{count("Refused")}</strong>
+          <strong>{count(new Set(["Refused"]))}</strong>
         </div>
         <div class="bo-metric">
           <span>Not paid</span>
@@ -308,12 +307,6 @@ export default function BackOffice() {
               {(() => {
                 const status = orderStatus(selected);
                 const amount = formatMinorAmount(selected.amount.value, selected.amount.currency);
-                const actions = (["capture", "cancel", "refund"] as const).map((action) => ({
-                  action,
-                  permission: selected.permissions[action],
-                }));
-                const allowed = actions.filter(({ permission }) => permission.allowed);
-                const blocked = actions.filter(({ permission }) => !permission.allowed);
                 return (
                   <>
                     <header class="bo-detail__head">
@@ -324,40 +317,13 @@ export default function BackOffice() {
                       {status.detail ? <p>{status.detail}</p> : null}
                     </header>
 
-                    {allowed.length
-                      ? (
-                        <div class="bo-actions">
-                          {allowed.map(({ action }, index) => (
-                            <button
-                              type="button"
-                              class={`button ${
-                                index === 0 ? "button--primary" : "button--secondary"
-                              }`}
-                              disabled={Boolean(actionLoading)}
-                              onClick={() => runAction(action)}
-                            >
-                              {actionLoading === action
-                                ? "Sending…"
-                                : action === "cancel"
-                                ? ACTION_LABEL.cancel
-                                : `${ACTION_LABEL[action]} ${amount}`}
-                            </button>
-                          ))}
-                        </div>
-                      )
-                      : null}
-                    {notice ? <div class="notice" role="status">{notice}</div> : null}
-                    {blocked.length && !isAbandoned(selected)
-                      ? (
-                        <ul class="bo-reasons">
-                          {blocked.map(({ action, permission }) => (
-                            <li key={action}>
-                              <strong>{ACTION_LABEL[action]}:</strong> {permission.reason}
-                            </li>
-                          ))}
-                        </ul>
-                      )
-                      : null}
+                    <LifecyclePanel
+                      order={selected}
+                      methodName={METHOD_NAMES[selected.capabilities.paymentMethod] ??
+                        selected.capabilities.paymentMethod}
+                      merchantAccount={merchantAccount}
+                      onChanged={refresh}
+                    />
 
                     <dl class="facts bo-facts">
                       <dt>Reference</dt>

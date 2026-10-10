@@ -1116,6 +1116,17 @@
   white-space: nowrap;
 }
 
+.ev__tag {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 999px;
+  color: var(--color-ink-muted);
+  font-size: 0.6rem;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
 .ev__status {
   grid-area: status;
   padding: 1px 7px;
@@ -1726,17 +1737,231 @@ main:has(> .home) {
   font-size: 0.84rem;
 }
 
-.bo-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+/* ---------- Wiki: capability table ---------- */
+
+.wiki-table-wrap {
+  margin: 14px 0;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-m);
 }
 
-.bo-actions .button {
+.wiki-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.wiki-table th,
+.wiki-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.wiki-table thead th {
+  background: var(--color-surface-raised);
+  color: var(--color-ink-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: normal;
+}
+
+.wiki-table tbody th {
+  text-align: left;
+}
+
+.wiki-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.wiki-source {
+  color: var(--color-ink-muted);
+  font-size: 0.74rem;
+}
+
+/* ---------- Capture, cancel and refund ---------- */
+
+.lc {
+  display: grid;
+  gap: 14px;
+}
+
+.lc-warning strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.lc-warning p {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.lc-ledger {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.lc-ledger > div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-m);
+  background: var(--color-surface-raised);
+}
+
+.lc-ledger dt {
+  color: var(--color-ink-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lc-ledger dd {
+  display: grid;
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.lc-ledger small {
+  color: var(--color-amber);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.lc-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.lc-action {
+  display: grid;
+  gap: 4px;
+}
+
+.lc-action small {
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+}
+
+.lc-action__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.lc-action .button {
   min-height: 44px;
   padding: 10px 18px;
   border-radius: 999px;
   font-size: 0.82rem;
+}
+
+.lc-amount {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-surface);
+}
+
+.lc-amount:focus-within {
+  border-color: var(--color-blue);
+  box-shadow: var(--shadow-focus);
+}
+
+.lc-amount input {
+  width: 7ch;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  outline: none;
+  text-align: right;
+}
+
+.lc-amount span {
+  color: var(--color-ink-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.lc-waiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spinner--small {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+.lc-history {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lc-history li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-m);
+}
+
+.lc-history__main {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  font-size: 0.82rem;
+}
+
+.lc-history__main small {
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+}
+
+.lc-history__refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.7rem;
+}
+
+.lc-caps {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .bo-reasons {

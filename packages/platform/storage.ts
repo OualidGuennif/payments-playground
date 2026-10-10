@@ -8,10 +8,14 @@ import type {
   AttemptAggregate,
   AttemptState,
   JsonValue,
+  ModificationEvent,
+  ModificationKind,
+  ModificationRequest,
   OrderAggregate,
   OrderState,
   TimelineEntry,
 } from "./types.ts";
+import { isModificationEvent } from "./modifications.ts";
 
 interface OrderRow {
   id: string;
@@ -51,6 +55,33 @@ function parseJson(value: string): JsonValue {
   } catch {
     return { parseError: true };
   }
+}
+
+function mapAction(row: {
+  id: string;
+  action: string;
+  state: string;
+  idempotency_key: string;
+  payload: string;
+  created_at: string;
+}): ModificationRequest {
+  const payload = parseJson(row.payload) as Record<string, unknown>;
+  const amount = (payload.amount ?? {}) as Record<string, unknown>;
+  return {
+    id: row.id,
+    kind: row.action as ModificationKind,
+    state: row.state === "rejected"
+      ? "rejected"
+      : row.state === "requested"
+      ? "requested"
+      : "received",
+    value: typeof amount.value === "number" ? amount.value : undefined,
+    currency: typeof amount.currency === "string" ? amount.currency : undefined,
+    pspReference: typeof payload.pspReference === "string" ? payload.pspReference : undefined,
+    reason: typeof payload.reason === "string" ? payload.reason : undefined,
+    idempotencyKey: row.idempotency_key,
+    createdAt: row.created_at,
+  };
 }
 
 function mapOrder(row: OrderRow): OrderAggregate {
@@ -458,6 +489,73 @@ export class Repository {
       now,
     );
     return { id, duplicate: changes === 0 };
+  }
+
+  /** The captures, cancels and refunds this app sent for an order, oldest first. */
+  listActions(orderId: string): ModificationRequest[] {
+    return this.database.prepare<{
+      id: string;
+      action: string;
+      state: string;
+      idempotency_key: string;
+      payload: string;
+      created_at: string;
+    }>(
+      "SELECT * FROM lifecycle_actions WHERE order_id = ? ORDER BY created_at",
+    ).all(orderId).map((row) => mapAction(row));
+  }
+
+  findAction(idempotencyKey: string): ModificationRequest | undefined {
+    const row = this.database.prepare<{
+      id: string;
+      action: string;
+      state: string;
+      idempotency_key: string;
+      payload: string;
+      created_at: string;
+    }>("SELECT * FROM lifecycle_actions WHERE idempotency_key = ?").get(idempotencyKey);
+    return row ? mapAction(row) : undefined;
+  }
+
+  /** Records Adyen's answer: the modification's PSP reference, or why the call failed. */
+  updateAction(
+    id: string,
+    input: { state: ModificationRequest["state"]; pspReference?: string; reason?: string },
+  ): void {
+    const row = this.database.prepare<{ payload: string }>(
+      "SELECT payload FROM lifecycle_actions WHERE id = ?",
+    ).get(id);
+    if (!row) return;
+    const payload = {
+      ...(parseJson(row.payload) as Record<string, unknown>),
+      ...(input.pspReference ? { pspReference: input.pspReference } : {}),
+      ...(input.reason ? { reason: input.reason } : {}),
+    };
+    this.database.prepare(
+      "UPDATE lifecycle_actions SET state = ?, payload = ?, updated_at = ? WHERE id = ?",
+    ).run(input.state, json(payload), new Date().toISOString(), id);
+  }
+
+  /** HMAC-valid CAPTURE, CANCELLATION, REFUND (and their failures) for an order. */
+  modificationEvents(correlationId: string): ModificationEvent[] {
+    return this.database.prepare<{
+      event_type: string;
+      payload: string;
+      received_at: string;
+    }>(
+      "SELECT event_type, payload, received_at FROM webhooks WHERE correlation_id = ? AND hmac_valid = 1",
+    ).all(correlationId).filter((row) => isModificationEvent(row.event_type)).map((row) => {
+      const payload = parseJson(row.payload) as Record<string, unknown>;
+      const amount = (payload.amount ?? {}) as Record<string, unknown>;
+      return {
+        eventCode: row.event_type,
+        success: String(payload.success).toLowerCase() === "true",
+        value: typeof amount.value === "number" ? amount.value : undefined,
+        pspReference: typeof payload.pspReference === "string" ? payload.pspReference : undefined,
+        reason: typeof payload.reason === "string" && payload.reason ? payload.reason : undefined,
+        receivedAt: row.received_at,
+      };
+    });
   }
 
   audit(input: {

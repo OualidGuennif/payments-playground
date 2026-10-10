@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-10T13:00:00Z
+  at: 2026-10-10T15:00:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -50,23 +50,23 @@ Shared routes from `base-api.ts`: `GET /api/health`, `GET /healthz`, `GET /api/b
 `GET|POST /api/profiles`, `POST /api/profiles/preferred`, `DELETE /api/profiles/:id`,
 `POST /api/callbacks`, `GET /api/timeline/:correlationId`.
 
-| Route                                                                 | Calls Adyen                                      | Notes                                                                                                        |
-| --------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `POST /api/digital/sessions`                                          | `/sessions`                                      | Creates the order and its session row                                                                        |
-| `POST /api/digital/sessions/:orderId/result`                          | `GET /sessions/{id}?sessionResult=`              | Writes the Sessions outcome                                                                                  |
-| `POST /api/digital/payment-methods`                                   | `/paymentMethods`                                | Mints `shopperConversionId`                                                                                  |
-| `POST /api/digital/payments`                                          | `/payments`                                      | Creates order and attempt; forwards selected `state.data`                                                    |
-| `POST /api/digital/payments/details`                                  | `/payments/details`                              | Settles the pending attempt                                                                                  |
-| `POST /api/digital/orders/:id/redirect-result`                        | `/payments/details`                              | Redirect return; creates the attempt for Sessions; a reload reads the stored outcome instead of resubmitting |
-| `POST /api/digital/api-only`                                          | via `/api/digital/payments`                      | Rejects raw card data first                                                                                  |
-| `POST /api/digital/mit`                                               | `/payments` (`ContAuth`)                         | Needs a `storedPaymentMethodId` and the shopper reference it was stored under                                |
-| `POST /api/digital/payment-links`                                     | `/paymentLinks`                                  | Validity 1 h to 70 days                                                                                      |
-| `GET /api/digital/payment-links/:orderId`                             | `GET /paymentLinks/{id}`                         | Re-derives the order from the link status                                                                    |
-| `POST /api/digital/partial-orders`                                    | `/orders`                                        | No client flow uses it yet                                                                                   |
-| `POST /api/digital/orders/:id/actions/:action`                        | `/payments/{psp}/captures`, `cancels`, `refunds` | `Idempotency-Key` header                                                                                     |
-| `GET /api/digital/orders`, `GET /api/digital/orders/:id`              |                                                  | Orders with attempts and permissions                                                                         |
-| `POST /webhook`                                                       |                                                  | Standard notifications, HMAC-checked                                                                         |
-| `GET /api/digital/config`, `GET /api/digital/webhooks/:correlationId` |                                                  | Capabilities and webhook rows                                                                                |
+| Route                                                                 | Calls Adyen                                      | Notes                                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/digital/sessions`                                          | `/sessions`                                      | Creates the order and its session row                                                                                                          |
+| `POST /api/digital/sessions/:orderId/result`                          | `GET /sessions/{id}?sessionResult=`              | Writes the Sessions outcome                                                                                                                    |
+| `POST /api/digital/payment-methods`                                   | `/paymentMethods`                                | Mints `shopperConversionId`                                                                                                                    |
+| `POST /api/digital/payments`                                          | `/payments`                                      | Creates order and attempt; forwards selected `state.data`                                                                                      |
+| `POST /api/digital/payments/details`                                  | `/payments/details`                              | Settles the pending attempt                                                                                                                    |
+| `POST /api/digital/orders/:id/redirect-result`                        | `/payments/details`                              | Redirect return; creates the attempt for Sessions; a reload reads the stored outcome instead of resubmitting                                   |
+| `POST /api/digital/api-only`                                          | via `/api/digital/payments`                      | Rejects raw card data first                                                                                                                    |
+| `POST /api/digital/mit`                                               | `/payments` (`ContAuth`)                         | Needs a `storedPaymentMethodId` and the shopper reference it was stored under                                                                  |
+| `POST /api/digital/payment-links`                                     | `/paymentLinks`                                  | Validity 1 h to 70 days                                                                                                                        |
+| `GET /api/digital/payment-links/:orderId`                             | `GET /paymentLinks/{id}`                         | Re-derives the order from the link status                                                                                                      |
+| `POST /api/digital/partial-orders`                                    | `/orders`                                        | No client flow uses it yet                                                                                                                     |
+| `POST /api/digital/orders/:id/actions/:action`                        | `/payments/{psp}/captures`, `cancels`, `refunds` | Optional `amount` (partial). `Idempotency-Key` per intent: a known key returns the stored request; 409 while a webhook of that kind is awaited |
+| `GET /api/digital/orders`, `GET /api/digital/orders/:id`              |                                                  | Orders with attempts and permissions                                                                                                           |
+| `POST /webhook`                                                       |                                                  | Standard notifications, HMAC-checked                                                                                                           |
+| `GET /api/digital/config`, `GET /api/digital/webhooks/:correlationId` |                                                  | Capabilities and webhook rows                                                                                                                  |
 
 Every mutation needs the CSRF double-submit token (`packages/ui/client.ts` adds it) and, when
 several profiles exist, `X-Profile-Id`. `returnUrl` and the 3DS `origin` follow the browser's
@@ -88,8 +88,11 @@ same-host Origin ([ADR-008](../decisions/ADR-008-redirects-follow-the-browser-or
   (`sessionCreated`, `backendPaymentResponse`, `paymentLinkCreated`, `mitResponse`) as callbacks.
 - **`BackOffice.tsx`**: metrics (Authorised, Captured, Refused, Not paid), search by reference or
   PSP reference, state filters, orders nobody tried to pay hidden by default, 12 per page with "Show
-  more", refresh every 4 s. The detail shows the allowed actions first and why the others are
-  refused.
+  more", refresh every 4 s. The detail holds `LifecyclePanel.tsx`: a warning when the account
+  captures the method manually, the ledger (authorised, captured, refunded, pending), capture and
+  refund with an editable amount where partial is allowed, a disabled "Waiting for the ... webhook"
+  button while one is awaited, why the other actions are refused, and every capture, cancel and
+  refund with its outcome, PSP reference and Idempotency-Key.
 - **`ProfileManager.tsx`**: the Connection card, then add, select and delete TEST profiles.
 - **`RedirectReturn.tsx`**: the `/result` island.
 
@@ -106,6 +109,8 @@ same-host Origin ([ADR-008](../decisions/ADR-008-redirects-follow-the-browser-or
   detail has Response/Request (API), Changes/Payload (`onChange`), coloured JSON with long values
   folded, Copy JSON and Copy cURL (`curl.ts`, API key left to `$ADYEN_API_KEY`).
 - `onChangeDiff.ts`, `curl.ts`, `read.ts`: the pure parts of the timeline, with tests.
+- `status.ts` labels an authorised payment from its ledger: Authorised, Capture requested, Partially
+  captured, Captured, Refund requested, Partially refunded, Refunded, Cancelled.
 - `Sheet.tsx`, `ResultCard.tsx`, `TestData.tsx`, `FlowIcon.tsx` (one icon per flow, for the checkout
   badge), `flows.ts`.
 

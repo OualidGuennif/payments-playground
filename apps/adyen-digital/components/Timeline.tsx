@@ -103,7 +103,10 @@ const CALLBACK_CATALOG: Record<string, { rank: CallbackRank; hint: string }> = {
 };
 
 const API_HINTS: Array<[string, string]> = [
-  ["GET /sessions", "The session's outcome, fetched with Adyen Web's sessionResult."],
+  [
+    "GET /sessions",
+    "Optional. Reads the session's outcome with Adyen Web's sessionResult; this playground uses it to show a result without waiting. Recommended: move to the confirmation page on onPaymentCompleted, and treat the webhook as the only source of truth for the order.",
+  ],
   ["/sessions", "One call; Adyen Web owns 3DS and the rest of the orchestration."],
   ["/paymentMethods", "Methods available for this amount, country and locale."],
   ["/payments/details", "Second leg of a 3DS or redirect flow."],
@@ -118,6 +121,8 @@ const API_HINTS: Array<[string, string]> = [
 interface Row {
   source: Source;
   title: string;
+  /** An Adyen call an integration can do without. */
+  optional?: boolean;
   status?: string;
   tone: "neutral" | "ok" | "error";
   summary: string[];
@@ -155,6 +160,7 @@ function describe(entry: TimelineEntry, source: Source, changes: Change[] | null
     return {
       source,
       title: `${apiMethod(entry)} ${apiPath(entry)}`,
+      optional: apiMethod(entry) === "GET" && apiPath(entry).startsWith("/sessions/"),
       status: Number.isFinite(code) && code > 0 ? String(code) : undefined,
       tone: failed ? "error" : "ok",
       summary: [
@@ -622,7 +628,10 @@ export function Timeline(props: { entries: TimelineEntry[]; empty: string }) {
                     <span class={`ev__src ev__src--${source}`}>
                       {SOURCES.find((item) => item.id === source)?.tag}
                     </span>
-                    <span class="ev__name">{row.title}</span>
+                    <span class="ev__name">
+                      {row.title}
+                      {row.optional ? <span class="ev__tag">optional</span> : null}
+                    </span>
                     {row.status
                       ? <span class={`ev__status ev__status--${row.tone}`}>{row.status}</span>
                       : null}

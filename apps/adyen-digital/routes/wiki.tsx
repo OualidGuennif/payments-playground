@@ -1,3 +1,8 @@
+import {
+  CAPABILITIES_REVIEWED_ON,
+  CAPABILITIES_SOURCE,
+  PAYMENT_METHOD_CAPABILITIES,
+} from "@suite/platform/lifecycle.ts";
 import { Callout, PageHeader } from "@suite/ui/components.tsx";
 import { DigitalLayout } from "../components/Layout.tsx";
 import { define } from "../utils.ts";
@@ -39,6 +44,13 @@ export default define.page(function WikiPage() {
               <code>id</code> and <code>sessionData</code>{" "}
               to Adyen Web. The final outcome is asynchronous and must be reconciled from the
               AUTHORISATION webhook.
+            </p>
+            <p>
+              Move the shopper to the confirmation page on <code>onPaymentCompleted</code>{" "}
+              and let the webhook be the only source of truth for the order.{" "}
+              <code>GET /sessions/{"{id}"}</code> with the <code>sessionResult</code>{" "}
+              is optional: this playground calls it to show an outcome without waiting, and the
+              inspector marks it so.
             </p>
             <p>
               Since v6.41.0, card installments for Sessions belong in the request-level
@@ -97,15 +109,85 @@ export default define.page(function WikiPage() {
           <section id="lifecycle">
             <h2>Capture, cancellation & refund</h2>
             <p>
-              Capture is possible only for authorised, uncaptured methods that support separate
-              capture. Cancellation applies before capture; refund applies after capture. Disabled
-              actions remain visible with a reason in the Back Office.
+              Two different things decide what can be done with a payment, and integrations go wrong
+              when they are confused: what Adyen supports for the payment method, and how the
+              merchant account is set up to capture it.
             </p>
-            <p>
-              iDEAL and MB WAY do not support separate capture. They support refunds. PayPal is
-              intentionally configured as settlement-only in this playground, even though other
-              merchant configurations can support separate/partial capture.
+            <Callout title="This playground's merchant account">
+              OGAccountECOM captures cards, wallets and the other methods with separate capture
+              manually: they stay authorised until captured in the Back Office or the Customer Area.
+              PayPal supports separate capture too, but is set to capture on authorisation here.
+              Check that the setup you test matches yours; capture can be made immediate in the
+              Customer Area (capture delay, for the account or per payment method), or per payment
+              with <code>captureDelayHours</code>.
+            </Callout>
+            <div class="wiki-table-wrap">
+              <table class="wiki-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Method</th>
+                    <th scope="col">Separate capture</th>
+                    <th scope="col">Partial capture</th>
+                    <th scope="col">Multiple partial captures</th>
+                    <th scope="col">Partial refund</th>
+                    <th scope="col">Multiple partial refunds</th>
+                    <th scope="col">On this account</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.values(PAYMENT_METHOD_CAPABILITIES).map((method) => (
+                    <tr key={method.paymentMethod}>
+                      <th scope="row">
+                        <a href={method.sourceUrl} target="_blank" rel="noopener noreferrer">
+                          <code>{method.paymentMethod}</code>
+                        </a>
+                      </th>
+                      <td>{method.separateCapture ? "✓" : "✗"}</td>
+                      <td>{method.partialCapture ? "✓" : "✗"}</td>
+                      <td>{method.multiplePartialCaptures ? "✓" : "✗"}</td>
+                      <td>{method.partialRefund ? "✓" : "✗"}</td>
+                      <td>{method.multiplePartialRefunds ? "✓" : "✗"}</td>
+                      <td>{method.automaticCapture ? "On authorisation" : "Manual capture"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p class="wiki-source">
+              From Adyen's feature table on{" "}
+              <a href={CAPABILITIES_SOURCE} target="_blank" rel="noopener noreferrer">
+                docs.adyen.com/payment-methods
+              </a>, checked{" "}
+              {CAPABILITIES_REVIEWED_ON}. Re-checked every three months
+              (packages/platform/lifecycle.ts).
             </p>
+            <ul>
+              <li>
+                <strong>Multiple partial captures</strong>{" "}
+                also need Adyen Support to enable them on the merchant account. Without that, a
+                partial capture is the only one: Adyen cancels what is left.
+              </li>
+              <li>
+                <strong>Refunds</strong>{" "}
+                apply to what is captured, and their total never exceeds it. Cancel releases an
+                authorisation nothing was captured from.
+              </li>
+              <li>
+                <strong>Every modification is asynchronous.</strong> <code>/captures</code>,{" "}
+                <code>/cancels</code> and <code>/refunds</code> answer{" "}
+                <code>received</code>; the CAPTURE, CANCELLATION and REFUND webhooks are the
+                outcome, and CAPTURE_FAILED, REFUND_FAILED or REFUNDED_REVERSED can overturn a
+                success days later. The Back Office keeps a button disabled while its webhook is
+                awaited.
+              </li>
+              <li>
+                <strong>Idempotency.</strong> Each request carries an <code>Idempotency-Key</code>
+                {" "}
+                (a UUID v4, at most 64 characters) minted for that intent and reused on a retry.
+                Adyen keeps keys 7 to 14 days and answers a repeat with the first response; a repeat
+                still in flight gets HTTP 409 or 422 with error code 704.
+              </li>
+            </ul>
           </section>
           <section id="partial">
             <h2>Partial payments and multiple attempts</h2>

@@ -25,7 +25,8 @@ a demo into real money movement.
 `(checkout|pal|device-api|terminal-api)-live` host, any environment other than `test`, and any
 client key starting with `live_`. `profileIsTestOnly` runs on every profile, including those added
 in Settings. The browser only ever receives a client key that starts with `test_`. The UI carries a
-permanent TEST banner.
+permanent TEST marker (a header pill since
+[ADR-010](ADR-010-one-theme-attribute-and-token-sets.md)).
 
 **Consequences.** There is no switch to point the code at LIVE, and none must be added. The guard is
 a seatbelt, not a policy: [SECURITY.md](../../docs/SECURITY.md) still tells forkers never to use

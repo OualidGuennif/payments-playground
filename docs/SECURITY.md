@@ -52,7 +52,8 @@ stored or logged. That is a backstop for a mistake, not a licence to send card d
 **Credentials and configuration**
 
 - LIVE endpoints and non-`test_` client keys rejected outright
-- a permanent TEST badge and banner in the UI, so a screenshot is never ambiguous
+- a permanent TEST pill on every page (header, or footer on digital), mobile included, so a
+  screenshot is never ambiguous
 - profiles encrypted with AES-256-GCM in SQLite
 - the default profile comes only from environment variables and cannot be deleted from the UI
 - the profile menu reports `configured` or which fields are missing, never the values

@@ -264,7 +264,9 @@ export default function FlowWorkbench(
   const [correlationIds, setCorrelationIds] = useState<string[]>([]);
   const [callbacks, setCallbacks] = useState<TimelineEntry[]>([]);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  // Open from the start (owner, 2026-10-10): watching Adyen's events is what
+  // this playground is for.
+  const [inspectorOpen, setInspectorOpen] = useState(true);
   const [configOpen, setConfigOpen] = useState(false);
   const [testDataOpen, setTestDataOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -295,6 +297,8 @@ export default function FlowWorkbench(
   // Minted by /paymentMethods and repeated on the /payments call it leads to,
   // so Adyen sees both requests as one checkout conversion.
   const shopperConversionRef = useRef<string | null>(null);
+  const inspectorBody = useRef<HTMLDivElement>(null);
+  const followEvents = useRef(true);
   const { copied, copy } = useCopy();
 
   const amountText = formatMinorAmount(Number.isFinite(amount) ? amount : 0, currency);
@@ -663,7 +667,6 @@ export default function FlowWorkbench(
     }, profileId);
     if (stale()) return;
     updateCorrelation(data.correlationId);
-    addCallback("sessionCreated", { id: data.session.id }, data.correlationId);
     const configuration = commonConfiguration({
       session: data.session,
       beforeSubmit: (state: unknown, _component: unknown, actions: CallbackActions) => {
@@ -729,7 +732,6 @@ export default function FlowWorkbench(
             method: field(stateData.paymentMethod, "brand") ??
               field(stateData.paymentMethod, "type"),
           };
-          addCallback("backendPaymentResponse", response.result, response.correlationId);
           actions.resolve(response.result);
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : "Payment request failed.");
@@ -785,7 +787,6 @@ export default function FlowWorkbench(
     updateCorrelation(response.correlationId);
     setLink(response.paymentLink);
     setLinkState(field(response.paymentLink, "status") ?? "active");
-    addCallback("paymentLinkCreated", response.paymentLink, response.correlationId);
   }
 
   async function refreshLink() {
@@ -824,11 +825,8 @@ export default function FlowWorkbench(
       pspReference: field(response.result, "pspReference"),
       method: stored?.brand ?? stored?.name,
     });
-    addCallback("mitResponse", response.result, response.correlationId);
   }
 
-  // The inspector never opens itself: it is a debugging surface, and popping
-  // it over the checkout on every (re)start is the opposite of a demo.
   async function start() {
     setError(null);
     setOutcome(null);
@@ -861,10 +859,20 @@ export default function FlowWorkbench(
     ...timeline.filter((entry) => entry.kind !== "frontend_callback"),
   ].sort((left, right) => left.occurredAt.localeCompare(right.occurredAt));
   const names = new Set(events.map((entry) => entry.name));
+
+  // Follow new events like a console does, unless the reader scrolled up to
+  // look at an earlier one.
+  useEffect(() => {
+    const body = inspectorBody.current;
+    if (body && followEvents.current) body.scrollTop = body.scrollHeight;
+  }, [events.length, inspectorOpen]);
   const steps: Array<[string, boolean]> = [
     [
       "Checkout ready",
-      names.has("sessionCreated") || events.some((entry) => entry.name.includes("paymentMethods")),
+      events.some((entry) =>
+        entry.kind === "api_call" &&
+        (entry.name.endsWith("/sessions") || entry.name.includes("paymentMethods"))
+      ),
     ],
     ["Submitted", names.has("onSubmit") || names.has("beforeSubmit")],
     ["Result", Boolean(outcome)],
@@ -1130,7 +1138,7 @@ export default function FlowWorkbench(
   }
 
   return (
-    <div class="checkout-page">
+    <div class={`checkout-page${inspectorOpen ? " is-inspecting" : ""}`}>
       <div class="scenario-bar">
         <div class="scenario-bar__start">
           <h1 class="flow-badge" title={info.description}>
@@ -1209,21 +1217,6 @@ export default function FlowWorkbench(
 
       <div class={`checkout-workspace${inspectorOpen ? " has-inspector" : ""}`}>
         <div class="checkout-card">
-          <aside class="checkout-summary" aria-label="Order summary">
-            <span class="checkout-summary__label">Order</span>
-            <div class="summary-line">
-              <span class="summary-line__thumb" aria-hidden="true">🛍️</span>
-              <span class="summary-line__name">
-                Playground order
-                <small>1 item · TEST</small>
-              </span>
-              <strong>{amountText}</strong>
-            </div>
-            <div class="summary-total">
-              <span>Total</span>
-              <strong>{amountText}</strong>
-            </div>
-          </aside>
           <section class="checkout-pay" aria-busy={loading}>
             <div class="checkout-pay__head">
               <h2>{flow === "pay-by-link" ? "Payment link" : "Payment"}</h2>
@@ -1251,10 +1244,10 @@ export default function FlowWorkbench(
           ? (
             <aside class="inspector-panel" aria-label="Inspector">
               <header class="inspector-panel__head">
-                <div>
-                  <h2>Inspector</h2>
-                  <p>Everything this checkout did, in order.</p>
-                </div>
+                <h2>
+                  Inspector
+                  <span class="live" title="Refreshed every few seconds">Live</span>
+                </h2>
                 <button
                   type="button"
                   class="icon-button"
@@ -1276,7 +1269,15 @@ export default function FlowWorkbench(
                   <li key={label} class={done ? "is-done" : undefined}>{label}</li>
                 ))}
               </ol>
-              <div class="inspector-panel__body">
+              <div
+                class="inspector-panel__body"
+                ref={inspectorBody}
+                onScroll={(event) => {
+                  const body = event.currentTarget;
+                  followEvents.current =
+                    body.scrollHeight - body.scrollTop - body.clientHeight < 48;
+                }}
+              >
                 <Timeline
                   entries={events}
                   empty="Events land here as the checkout runs: Adyen Web callbacks, the API calls this server makes, and the webhooks Adyen sends back."

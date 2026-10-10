@@ -7,7 +7,7 @@ status: stable
 scope: data-model
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-10-10T13:00:00Z
 sources:
   - id: schema
     resource: packages/platform/migrations/001_initial.sql
@@ -56,10 +56,11 @@ not purged. It is a playground: nothing here is a record of anything.
 
 ## The timeline
 
-`timeline(correlationId)` merges API calls, frontend callbacks, webhooks and lifecycle actions for
-one correlation id, oldest first. The inspector polls it every 2.5 s while open; the Back Office
-shows it per order. The Advanced flow mints one correlation id for `/paymentMethods` and another for
-the order created by `/payments`, so the inspector polls and merges both.
+`timeline(correlationId)` merges API calls (with their method and endpoint), frontend callbacks,
+webhooks and lifecycle actions for one correlation id, oldest first. The inspector polls it every
+2.5 s while open; the Back Office shows it per order. The Advanced flow mints one correlation id for
+`/paymentMethods` and another for the order created by `/payments`, so the inspector polls and
+merges both.
 
 ## Profiles
 

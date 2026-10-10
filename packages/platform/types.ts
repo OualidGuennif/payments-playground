@@ -79,6 +79,9 @@ export interface TimelineEntry {
   durationMs?: number;
   payload: JsonValue;
   hmacValid?: boolean;
+  /** API calls only: what the inspector shows and copies as cURL. */
+  method?: string;
+  endpoint?: string;
 }
 
 export interface PublicProfile {

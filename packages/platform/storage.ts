@@ -492,6 +492,8 @@ export class Repository {
       id: string;
       correlation_id: string;
       name: string;
+      method: string;
+      endpoint: string;
       status: number;
       occurred_at: string;
       duration_ms: number;
@@ -508,6 +510,8 @@ export class Repository {
         status: String(row.status),
         occurredAt: row.occurred_at,
         durationMs: row.duration_ms,
+        method: row.method,
+        endpoint: row.endpoint,
         payload: {
           request: parseJson(row.request_payload),
           response: parseJson(row.response_payload),

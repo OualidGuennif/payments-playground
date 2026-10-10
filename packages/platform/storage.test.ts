@@ -39,6 +39,28 @@ Deno.test("webhooks and lifecycle actions are deduplicated idempotently", () => 
   }
 });
 
+Deno.test("the timeline gives each API call its method and endpoint", () => {
+  const repository = new Repository(":memory:");
+  try {
+    repository.recordApiCall({
+      appId: "digital",
+      correlationId: "order-2",
+      name: "Checkout API /payments",
+      method: "POST",
+      endpoint: "https://checkout-test.adyen.com/v72/payments",
+      status: 200,
+      durationMs: 412,
+      request: { amount: { value: 1000, currency: "EUR" } },
+      response: { resultCode: "Authorised" },
+    });
+    const [entry] = repository.timeline("order-2");
+    assertEquals(entry.method, "POST");
+    assertEquals(entry.endpoint, "https://checkout-test.adyen.com/v72/payments");
+  } finally {
+    repository.close();
+  }
+});
+
 Deno.test("orders beyond the retained cap are purged per app on creation", () => {
   const repository = new Repository(":memory:");
   try {

@@ -1,6 +1,10 @@
-import { prettyJson } from "@suite/ui/client.ts";
+import { formatMinorAmount, prettyJson } from "@suite/ui/client.ts";
 import { useCopy } from "@suite/ui/useCopy.ts";
+import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
+import { type Change, diff, onChangeSummary, plain } from "./onChangeDiff.ts";
+import { asCurl } from "./curl.ts";
+import { clip, field, text } from "./read.ts";
 
 export interface TimelineEntry {
   id: string;
@@ -11,20 +15,46 @@ export interface TimelineEntry {
   payload: unknown;
   durationMs?: number;
   hmacValid?: boolean;
+  method?: string;
+  endpoint?: string;
 }
 
-type CallbackRank = "required" | "recommended" | "optional" | "app";
+type Source = "sdk" | "api" | "webhook";
 
-interface CallbackMeta {
-  rank: CallbackRank;
-  hint: string;
-}
+const SOURCES: Array<{ id: Source; label: string; tag: string }> = [
+  { id: "sdk", label: "Adyen Web", tag: "SDK" },
+  { id: "api", label: "API", tag: "API" },
+  { id: "webhook", label: "Webhooks", tag: "Webhook" },
+];
 
 /**
- * What each callback row actually is. `app` marks this playground's own
- * backend responses, so they are never mistaken for Adyen Web events.
+ * Callbacks this playground used to record about itself: its own /sessions,
+ * /payments, /paymentLinks and MIT responses, posted as if Adyen Web had
+ * fired them. Each repeated an API call already in the list, so they are no
+ * longer recorded (2026-10-10) and older rows are left out here.
  */
-const CALLBACK_CATALOG: Record<string, CallbackMeta> = {
+const PLAYGROUND_EVENTS = new Set([
+  "sessionCreated",
+  "backendPaymentResponse",
+  "paymentLinkCreated",
+  "mitResponse",
+]);
+
+/**
+ * Only what Adyen produced: Adyen Web callbacks, Checkout API calls and
+ * webhooks. Back Office action rows are the playground's own bookkeeping;
+ * the Adyen call each one made is already an API row.
+ */
+function sourceOf(entry: TimelineEntry): Source | null {
+  if (entry.kind === "api_call") return "api";
+  if (entry.kind === "webhook") return "webhook";
+  if (entry.kind === "frontend_callback" && !PLAYGROUND_EVENTS.has(entry.name)) return "sdk";
+  return null;
+}
+
+type CallbackRank = "required" | "recommended" | "optional";
+
+const CALLBACK_CATALOG: Record<string, { rank: CallbackRank; hint: string }> = {
   onSubmit: {
     rank: "required",
     hint: "You must call /payments with this state and resolve with its response.",
@@ -59,7 +89,7 @@ const CALLBACK_CATALOG: Record<string, CallbackMeta> = {
   },
   onChange: {
     rank: "optional",
-    hint: "Fires on every field edit. Diagnostics only, never a payment decision.",
+    hint: "Fires on every field edit with the whole state. Diagnostics only, never a decision.",
   },
   onBinLookup: {
     rank: "optional",
@@ -70,38 +100,7 @@ const CALLBACK_CATALOG: Record<string, CallbackMeta> = {
     rank: "optional",
     hint: "Network detected inside the secured fields. Diagnostics only.",
   },
-  sessionCreated: {
-    rank: "app",
-    hint: "Not an Adyen Web callback: the /sessions response from this playground.",
-  },
-  backendPaymentResponse: {
-    rank: "app",
-    hint: "Not an Adyen Web callback: this playground's /payments response, before resolve().",
-  },
-  paymentLinkCreated: {
-    rank: "app",
-    hint: "Not an Adyen Web callback: the /paymentLinks response from this playground.",
-  },
-  mitResponse: {
-    rank: "app",
-    hint: "Not an Adyen Web callback: the merchant-initiated /payments response.",
-  },
 };
-
-const UNLISTED_CALLBACK: CallbackMeta = {
-  rank: "optional",
-  hint: "Not in this playground's reference list; check the Adyen Web changelog.",
-};
-
-const RANK_LABEL: Record<CallbackRank, string> = {
-  required: "required",
-  recommended: "recommended",
-  optional: "optional",
-  app: "playground",
-};
-
-// Callbacks that fire on every keystroke: shown once per run of repeats.
-const CHATTY = new Set(["onChange", "onBinValue", "onBinLookup", "onBrand"]);
 
 const API_HINTS: Array<[string, string]> = [
   ["GET /sessions", "The session's outcome, fetched with Adyen Web's sessionResult."],
@@ -114,89 +113,116 @@ const API_HINTS: Array<[string, string]> = [
   ["/payments", "Authorisation attempt for the submitted payment method."],
 ];
 
-function callbackMeta(name: string): CallbackMeta {
-  return CALLBACK_CATALOG[name] ?? UNLISTED_CALLBACK;
-}
-
-function apiHint(name: string): string {
-  return API_HINTS.find(([endpoint]) => name.includes(endpoint))?.[1] ??
-    "Adyen Checkout API call.";
-}
-
-function field(value: unknown, path: string): unknown {
-  let current = value;
-  for (const key of path.split(".")) {
-    if (!current || typeof current !== "object") return undefined;
-    current = (current as Record<string, unknown>)[key];
-  }
-  return current;
-}
-
-function text(value: unknown): string | undefined {
-  return typeof value === "string" && value ? value : undefined;
-}
-
-type Family = "callbacks" | "api" | "webhooks" | "actions";
-
-function family(entry: TimelineEntry): Family {
-  if (entry.kind === "api_call") return "api";
-  if (entry.kind === "webhook") return "webhooks";
-  if (entry.kind === "action" || entry.kind === "state") return "actions";
-  return "callbacks";
-}
+// ---------- One row per event ----------
 
 interface Row {
+  source: Source;
   title: string;
-  source: string;
-  summary?: string;
-  tone: "neutral" | "ok" | "error" | "info";
-  badge?: string;
+  status?: string;
+  tone: "neutral" | "ok" | "error";
+  summary: string[];
 }
 
-function describe(entry: TimelineEntry): Row {
-  if (entry.kind === "api_call") {
+function apiPath(entry: TimelineEntry): string {
+  if (entry.endpoint) {
+    try {
+      return new URL(entry.endpoint).pathname.replace(/^\/v\d+/, "");
+    } catch {
+      // Fall through to the name.
+    }
+  }
+  return entry.name.replace(/^(MIT )?Checkout API\s*(GET|POST)?\s*/, "");
+}
+
+function apiMethod(entry: TimelineEntry): string {
+  return entry.method ?? (/\bGET\b/.test(entry.name) ? "GET" : "POST");
+}
+
+function formatAmount(value: unknown): string | undefined {
+  const minor = field(value, "value");
+  const currency = text(field(value, "currency"));
+  if (typeof minor !== "number" || !currency) return undefined;
+  return formatMinorAmount(minor, currency);
+}
+
+function describe(entry: TimelineEntry, source: Source, changes: Change[] | null): Row {
+  if (source === "api") {
     const api = entry.payload as { response?: unknown; error?: string };
-    const endpoint = entry.name.replace(/^(MIT )?Checkout API\s*/, "");
-    const method = /^GET\b/.test(endpoint) ? "" : "POST ";
-    const failed = Boolean(api?.error) || Number(entry.status) >= 400;
+    const code = Number(entry.status);
+    const failed = Boolean(api?.error) || code >= 400;
     const outcome = text(field(api?.response, "resultCode")) ??
       text(field(api?.response, "status")) ?? (failed ? api?.error : undefined);
     return {
-      title: `${method}${endpoint}`,
-      source: "API",
-      summary: [outcome, entry.durationMs ? `${entry.durationMs} ms` : undefined]
-        .filter(Boolean).join(" · "),
+      source,
+      title: `${apiMethod(entry)} ${apiPath(entry)}`,
+      status: Number.isFinite(code) && code > 0 ? String(code) : undefined,
       tone: failed ? "error" : "ok",
-      badge: failed ? String(entry.status) : undefined,
+      summary: [
+        outcome ? clip(outcome, 40) : undefined,
+        entry.durationMs !== undefined ? `${entry.durationMs} ms` : undefined,
+      ].filter((part): part is string => Boolean(part)),
     };
   }
-  if (entry.kind === "webhook") {
+  if (source === "webhook") {
     const success = String(field(entry.payload, "success")) === "true";
     return {
+      source,
       title: entry.name,
-      source: "Webhook",
-      summary: `${success ? "success" : "failure"} · HMAC ${entry.hmacValid ? "valid" : "invalid"}`,
+      status: entry.hmacValid ? "HMAC ✓" : "HMAC ✗",
       tone: entry.hmacValid && success ? "ok" : "error",
+      summary: [
+        success ? "success" : "failure",
+        text(field(entry.payload, "pspReference")),
+        formatAmount(field(entry.payload, "amount")),
+      ].filter((part): part is string => Boolean(part)),
     };
   }
-  if (entry.kind === "action" || entry.kind === "state") {
-    return { title: entry.name, source: "Back Office", summary: entry.status, tone: "info" };
+  const payload = entry.payload;
+  let summary: string[];
+  switch (entry.name) {
+    case "onChange":
+      summary = onChangeSummary(payload, changes);
+      break;
+    case "onSubmit":
+    case "beforeSubmit":
+      // onSubmit wraps the payment data in `data`; beforeSubmit gets it bare.
+      summary = [
+        text(field(payload, "data.paymentMethod.type") ?? field(payload, "paymentMethod.type")),
+        text(field(payload, "data.paymentMethod.brand") ?? field(payload, "paymentMethod.brand")),
+        field(payload, "isValid") === false ? "form incomplete" : undefined,
+      ].filter((part): part is string => Boolean(part));
+      break;
+    case "onAdditionalDetails":
+      summary = Object.keys(
+        (field(payload, "data.details") ?? {}) as Record<string, unknown>,
+      );
+      break;
+    case "onBinLookup":
+      summary = [
+        ...((field(payload, "detectedBrands") ?? field(payload, "supportedBrands") ??
+          []) as string[]),
+      ].map(String);
+      break;
+    default:
+      summary = [
+        text(field(payload, "resultCode")),
+        text(field(payload, "brand")),
+        text(field(payload, "binValue")),
+        text(field(payload, "name")),
+        text(field(payload, "message")),
+      ].filter((part): part is string => Boolean(part)).map((part) => clip(part, 40));
   }
-  const meta = callbackMeta(entry.name);
-  const summary = text(field(entry.payload, "resultCode")) ??
-    text(field(entry.payload, "data.paymentMethod.type")) ??
-    text(field(entry.payload, "paymentMethod.type")) ??
-    text(field(entry.payload, "brand")) ??
-    text(field(entry.payload, "message")) ??
-    text(field(entry.payload, "id"));
+  const failed = entry.name === "onPaymentFailed" || entry.name === "onError";
+  const done = entry.name === "onPaymentCompleted";
   return {
+    source,
     title: entry.name,
-    source: meta.rank === "app" ? "Playground" : "Adyen Web",
+    tone: failed ? "error" : done ? "ok" : "neutral",
     summary,
-    tone: entry.name === "onPaymentFailed" || entry.name === "onError" ? "error" : "neutral",
-    badge: RANK_LABEL[meta.rank],
   };
 }
+
+// ---------- JSON with colours and folds ----------
 
 const LONG_VALUE_LIMIT = 120;
 
@@ -239,39 +265,61 @@ function foldLongValues(
   return value;
 }
 
+const JSON_TOKEN =
+  /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+
 export function JsonBlock(props: { value: unknown; entryKey: string }) {
   const [expandedValues, setExpandedValues] = useState<Set<string>>(new Set());
   const folds: Fold[] = [];
   const rendered = prettyJson(foldLongValues(props.value, expandedValues, props.entryKey, folds)) ||
     "null";
-  const parts = rendered.split(/@@FOLD:(\d+)@@/);
   const toggle = (key: string) =>
     setExpandedValues((current) => {
       const next = new Set(current);
       if (!next.delete(key)) next.add(key);
       return next;
     });
-  return (
-    <pre class="json">
-      {parts.map((part, index) => {
-        if (index % 2 === 0) return part;
-        const fold = folds[Number(part)];
-        if (!fold) return null;
-        return (
-          <button
-            type="button"
-            class="json__fold"
-            key={fold.key}
-            title={fold.expanded ? "Collapse this value" : "Show the full value"}
-            onClick={() => toggle(fold.key)}
-          >
-            {fold.expanded ? "collapse" : "…"}
-          </button>
-        );
-      })}
-    </pre>
-  );
+
+  const withFolds = (value: string): ComponentChildren[] =>
+    value.split(/@@FOLD:(\d+)@@/).map((part, index) => {
+      if (index % 2 === 0) return part;
+      const fold = folds[Number(part)];
+      if (!fold) return null;
+      return (
+        <button
+          type="button"
+          class="json__fold"
+          key={fold.key}
+          title={fold.expanded ? "Collapse this value" : "Show the full value"}
+          onClick={() => toggle(fold.key)}
+        >
+          {fold.expanded ? "collapse" : "…"}
+        </button>
+      );
+    });
+
+  const nodes: ComponentChildren[] = [];
+  let last = 0;
+  for (const match of rendered.matchAll(JSON_TOKEN)) {
+    const index = match.index ?? 0;
+    if (index > last) nodes.push(rendered.slice(last, index));
+    if (match[1]) {
+      nodes.push(
+        <span class={match[2] ? "json__key" : "json__string"}>{withFolds(match[1])}</span>,
+      );
+      if (match[2]) nodes.push(match[2]);
+    } else if (match[3]) {
+      nodes.push(<span class={match[3] === "null" ? "json__null" : "json__bool"}>{match[3]}</span>);
+    } else {
+      nodes.push(<span class="json__number">{match[4]}</span>);
+    }
+    last = index + match[0].length;
+  }
+  nodes.push(rendered.slice(last));
+  return <pre class="json">{nodes}</pre>;
 }
+
+// ---------- Detail ----------
 
 function splitAdditionalData(value: unknown): { rest: unknown; additionalData: unknown } {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -281,119 +329,204 @@ function splitAdditionalData(value: unknown): { rest: unknown; additionalData: u
   return { rest, additionalData: additionalData ?? null };
 }
 
-function EntryDetail(props: { entry: TimelineEntry; repeats: number }) {
-  const { entry } = props;
-  const api = entry.kind === "api_call"
+type Tab = "response" | "request" | "changes" | "payload";
+
+function EntryDetail(props: { entry: TimelineEntry; source: Source; changes: Change[] | null }) {
+  const { entry, source } = props;
+  const api = source === "api"
     ? entry.payload as { request?: unknown; response?: unknown; error?: string }
     : null;
-  const [tab, setTab] = useState<"response" | "request">("response");
+  const tabs: Tab[] = api
+    ? ["response", "request"]
+    : props.changes
+    ? ["changes", "payload"]
+    : ["payload"];
+  const [tab, setTab] = useState<Tab>(tabs[0]);
   const [showAdditional, setShowAdditional] = useState(false);
   const { copied, copy } = useCopy();
-  const source = api
+
+  const shown = api
     ? (tab === "request" ? api.request : api.error ? { error: api.error } : api.response)
     : entry.payload;
-  const { rest, additionalData } = splitAdditionalData(source);
-  const hint = entry.kind === "frontend_callback"
-    ? callbackMeta(entry.name).hint
-    : api
-    ? apiHint(entry.name)
-    : entry.kind === "webhook"
-    ? "Sent by Adyen to this server; the HMAC signature is checked before anything is processed."
-    : "Recorded by this playground.";
-  const json = prettyJson(source);
+  const { rest, additionalData } = splitAdditionalData(shown);
+  const json = prettyJson(shown);
+  const curl = api && entry.endpoint ? asCurl(apiMethod(entry), entry.endpoint, api.request) : null;
+  const meta = source === "sdk" ? CALLBACK_CATALOG[entry.name] : undefined;
+  const hint = source === "sdk"
+    ? meta?.hint ?? "Not in this playground's reference list; check the Adyen Web changelog."
+    : source === "api"
+    ? API_HINTS.find(([endpoint]) => entry.name.includes(endpoint))?.[1] ??
+      "Adyen Checkout API call."
+    : "Sent by Adyen to this server; the HMAC signature is checked before anything is processed.";
+
   return (
-    <div class="entry__detail">
-      <p class="entry__hint">
-        {hint}
-        {props.repeats > 1 ? ` Showing the latest of ${props.repeats}.` : ""}
-      </p>
-      <div class="entry__toolbar">
-        {api
-          ? (
-            <div class="mini-tabs" role="tablist">
-              {(["response", "request"] as const).map((value) => (
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === value}
-                  onClick={() => setTab(value)}
-                >
-                  {value === "response" ? "Response" : "Request"}
-                </button>
-              ))}
-            </div>
-          )
-          : <span class="entry__label">Payload</span>}
-        <button type="button" class="text-button" onClick={() => copy(json, { raw: true })}>
-          {copied === json ? "Copied" : "Copy JSON"}
-        </button>
-      </div>
-      <JsonBlock value={rest} entryKey={`${entry.id}:${tab}`} />
-      {additionalData
+    <div class="ev__detail">
+      {api
         ? (
-          <div class="entry__extra">
-            <button
-              type="button"
-              class="text-button"
-              aria-expanded={showAdditional}
-              onClick={() => setShowAdditional(!showAdditional)}
-            >
-              {showAdditional ? "Hide additionalData" : "Show additionalData"}
-            </button>
-            {showAdditional
-              ? <JsonBlock value={additionalData} entryKey={`${entry.id}:additional`} />
-              : null}
-          </div>
+          <p class="ev__endpoint">
+            <span class="ev__verb">{apiMethod(entry)}</span>
+            <span class="mono">{entry.endpoint ?? entry.name}</span>
+          </p>
         )
         : null}
+      <p class="ev__hint">
+        {meta ? <span class={`ev__rank ev__rank--${meta.rank}`}>{meta.rank}</span> : null}
+        {hint}
+      </p>
+      <div class="ev__toolbar">
+        <div class="mini-tabs" role="tablist">
+          {tabs.map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={tab === value}
+              onClick={() => setTab(value)}
+            >
+              {value === "changes"
+                ? `Changes ${props.changes?.length ?? 0}`
+                : value[0].toUpperCase() + value.slice(1)}
+            </button>
+          ))}
+        </div>
+        <span class="ev__actions">
+          {curl
+            ? (
+              <button type="button" class="text-button" onClick={() => copy(curl, { raw: true })}>
+                {copied === curl ? "Copied" : "Copy cURL"}
+              </button>
+            )
+            : null}
+          <button type="button" class="text-button" onClick={() => copy(json, { raw: true })}>
+            {copied === json ? "Copied" : "Copy JSON"}
+          </button>
+        </span>
+      </div>
+      {tab === "changes"
+        ? (
+          props.changes?.length
+            ? (
+              <table class="changes">
+                <tbody>
+                  {props.changes.map((change) => (
+                    <tr key={change.path}>
+                      <th scope="row">{change.path}</th>
+                      <td class="changes__before">{plain(change.before)}</td>
+                      <td class="changes__after">{plain(change.after)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+            : <p class="ev__hint">Same state as the previous onChange.</p>
+        )
+        : (
+          <>
+            <JsonBlock value={rest} entryKey={`${entry.id}:${tab}`} />
+            {additionalData
+              ? (
+                <div class="ev__extra">
+                  <button
+                    type="button"
+                    class="text-button"
+                    aria-expanded={showAdditional}
+                    onClick={() => setShowAdditional(!showAdditional)}
+                  >
+                    {showAdditional ? "Hide additionalData" : "Show additionalData"}
+                  </button>
+                  {showAdditional
+                    ? <JsonBlock value={additionalData} entryKey={`${entry.id}:additional`} />
+                    : null}
+                </div>
+              )
+              : null}
+          </>
+        )}
     </div>
   );
 }
 
-interface Group {
+// ---------- The list ----------
+
+function relativeTime(milliseconds: number): string {
+  if (milliseconds < 60_000) return `+${(milliseconds / 1000).toFixed(2)}s`;
+  const minutes = Math.floor(milliseconds / 60_000);
+  const seconds = Math.floor((milliseconds % 60_000) / 1000);
+  return `+${minutes}m${String(seconds).padStart(2, "0")}s`;
+}
+
+function clockTime(iso: string): string {
+  const date = new Date(iso);
+  return `${date.toLocaleTimeString([], { hour12: false })}.${
+    String(date.getMilliseconds()).padStart(3, "0")
+  }`;
+}
+
+function download(name: string, content: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+interface Item {
   entry: TimelineEntry;
-  repeats: number;
+  source: Source;
+  changes: Change[] | null;
+  row: Row;
 }
-
-/** Consecutive chatty callbacks of the same name collapse into one row. */
-function groupEntries(entries: TimelineEntry[]): Group[] {
-  const groups: Group[] = [];
-  for (const entry of entries) {
-    const last = groups.at(-1);
-    if (
-      last && entry.kind === "frontend_callback" && CHATTY.has(entry.name) &&
-      last.entry.kind === "frontend_callback" && last.entry.name === entry.name
-    ) {
-      groups[groups.length - 1] = { entry, repeats: last.repeats + 1 };
-    } else {
-      groups.push({ entry, repeats: 1 });
-    }
-  }
-  return groups;
-}
-
-const FILTERS: Array<{ id: "all" | Family; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "callbacks", label: "Adyen Web" },
-  { id: "api", label: "API" },
-  { id: "webhooks", label: "Webhooks" },
-  { id: "actions", label: "Actions" },
-];
 
 /**
- * One chronological list of everything a checkout did: Adyen Web callbacks,
- * the Checkout API calls this server made, the webhooks Adyen sent back, and
- * Back Office actions. Shared by the checkout's inspector and the Back Office.
+ * Every event Adyen produced for a checkout, in order: Adyen Web callbacks,
+ * the Checkout API calls this server made and the webhooks Adyen sent back.
+ * Each onChange is its own row, summarised by what moved since the previous
+ * one. Shared by the checkout's inspector and the Back Office.
  */
 export function Timeline(props: { entries: TimelineEntry[]; empty: string }) {
-  const [filter, setFilter] = useState<"all" | Family>("all");
+  const [filter, setFilter] = useState<"all" | Source>("all");
+  const [query, setQuery] = useState("");
+  const [clearedAt, setClearedAt] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
-  const counts = new Map<string, number>();
+  const { copied, copy } = useCopy();
+
+  const items: Item[] = [];
+  let previousChange: unknown;
   for (const entry of props.entries) {
-    counts.set(family(entry), (counts.get(family(entry)) ?? 0) + 1);
+    const source = sourceOf(entry);
+    if (!source) continue;
+    let changes: Change[] | null = null;
+    if (source === "sdk" && entry.name === "onChange") {
+      changes = previousChange === undefined ? null : diff(previousChange, entry.payload);
+      previousChange = entry.payload;
+    }
+    items.push({ entry, source, changes, row: describe(entry, source, changes) });
   }
-  const visible = groupEntries(
-    props.entries.filter((entry) => filter === "all" || family(entry) === filter),
+  const live = clearedAt ? items.filter((item) => item.entry.occurredAt > clearedAt) : items;
+  const hidden = items.length - live.length;
+  const origin = live.length ? Date.parse(live[0].entry.occurredAt) : 0;
+  const counts = new Map<Source, number>();
+  for (const item of live) counts.set(item.source, (counts.get(item.source) ?? 0) + 1);
+  const needle = query.trim().toLowerCase();
+  const visible = live.filter((item) =>
+    (filter === "all" || item.source === filter) &&
+    (!needle ||
+      `${item.row.title} ${item.row.summary.join(" ")} ${JSON.stringify(item.entry.payload)}`
+        .toLowerCase().includes(needle))
+  );
+  const exported = JSON.stringify(
+    visible.map(({ entry, source }) => ({
+      at: entry.occurredAt,
+      source,
+      name: entry.name,
+      ...(entry.method ? { method: entry.method, endpoint: entry.endpoint } : {}),
+      status: entry.status,
+      ...(entry.durationMs !== undefined ? { durationMs: entry.durationMs } : {}),
+      payload: entry.payload,
+    })),
+    null,
+    2,
   );
   const toggle = (id: string) =>
     setOpen((current) => {
@@ -404,59 +537,122 @@ export function Timeline(props: { entries: TimelineEntry[]; empty: string }) {
 
   return (
     <div class="timeline-view">
-      <div class="chips" role="tablist" aria-label="Filter events">
-        {FILTERS.filter((item) => item.id === "all" || counts.get(item.id)).map((item) => (
+      <div class="tl-toolbar">
+        <div class="tl-filters" role="tablist" aria-label="Filter events">
+          {[{ id: "all" as const, label: "All" }, ...SOURCES].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              class="tl-filter"
+              aria-selected={filter === item.id}
+              onClick={() => setFilter(item.id)}
+            >
+              {item.label}
+              <span class="tl-filter__count">
+                {item.id === "all" ? live.length : counts.get(item.id) ?? 0}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div class="tl-tools">
+          <input
+            type="search"
+            class="tl-search"
+            placeholder="Search events and payloads"
+            aria-label="Search events"
+            value={query}
+            onInput={(event) => setQuery(event.currentTarget.value)}
+          />
           <button
             type="button"
-            role="tab"
-            class="chip"
-            aria-selected={filter === item.id}
-            onClick={() => setFilter(item.id)}
+            class="tl-tool"
+            disabled={!visible.length}
+            onClick={() => copy(exported, { raw: true })}
           >
-            {item.label}
-            <span class="chip__count">
-              {item.id === "all" ? props.entries.length : counts.get(item.id) ?? 0}
-            </span>
+            {copied === exported ? "Copied" : "Copy all"}
           </button>
-        ))}
+          <button
+            type="button"
+            class="tl-tool"
+            disabled={!visible.length}
+            onClick={() =>
+              download(
+                `adyen-events-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.json`,
+                exported,
+              )}
+          >
+            Export
+          </button>
+          <button
+            type="button"
+            class="tl-tool"
+            disabled={!live.length}
+            onClick={() => setClearedAt(new Date().toISOString())}
+          >
+            Clear
+          </button>
+        </div>
       </div>
+      {hidden
+        ? (
+          <p class="tl-note">
+            {hidden} earlier {hidden === 1 ? "event" : "events"} cleared.{" "}
+            <button type="button" class="text-button" onClick={() => setClearedAt(null)}>
+              Show them
+            </button>
+          </p>
+        )
+        : null}
       {visible.length
         ? (
-          <ol class="entries">
-            {visible.map(({ entry, repeats }) => {
-              const row = describe(entry);
+          <ol class="tl-list">
+            {visible.map(({ entry, source, changes, row }) => {
               const expanded = open.has(entry.id);
+              const summary = row.summary.slice(0, 4);
+              const more = row.summary.length - summary.length;
               return (
-                <li class={`entry entry--${row.tone}`} key={entry.id}>
+                <li class={`ev ev--${row.tone}${expanded ? " is-open" : ""}`} key={entry.id}>
                   <button
                     type="button"
-                    class="entry__row"
+                    class="ev__row"
                     aria-expanded={expanded}
                     onClick={() => toggle(entry.id)}
                   >
-                    <span class={`entry__dot entry__dot--${family(entry)}`} aria-hidden="true" />
-                    <span class="entry__main">
-                      <span class="entry__title">
-                        {row.title}
-                        {repeats > 1 ? <span class="entry__repeat">×{repeats}</span> : null}
-                      </span>
-                      <span class="entry__meta">
-                        <span>{row.source}</span>
-                        {row.badge ? <span class="entry__badge">{row.badge}</span> : null}
-                        {row.summary ? <span class="entry__summary">{row.summary}</span> : null}
-                      </span>
+                    <span class={`ev__src ev__src--${source}`}>
+                      {SOURCES.find((item) => item.id === source)?.tag}
                     </span>
-                    <time class="entry__time" datetime={entry.occurredAt}>
-                      {new Date(entry.occurredAt).toLocaleTimeString()}
+                    <span class="ev__name">{row.title}</span>
+                    {row.status
+                      ? <span class={`ev__status ev__status--${row.tone}`}>{row.status}</span>
+                      : null}
+                    <time
+                      class="ev__time"
+                      datetime={entry.occurredAt}
+                      title={clockTime(entry.occurredAt)}
+                    >
+                      {relativeTime(Date.parse(entry.occurredAt) - origin)}
                     </time>
+                    {summary.length
+                      ? (
+                        <span class="ev__summary">
+                          {summary.map((part, index) => (
+                            <span class="ev__chip" key={`${part}-${index}`}>{part}</span>
+                          ))}
+                          {more > 0 ? <span class="ev__chip ev__chip--more">+{more}</span> : null}
+                        </span>
+                      )
+                      : null}
                   </button>
-                  {expanded ? <EntryDetail entry={entry} repeats={repeats} /> : null}
+                  {expanded
+                    ? <EntryDetail entry={entry} source={source} changes={changes} />
+                    : null}
                 </li>
               );
             })}
           </ol>
         )
-        : <p class="entries__empty">{props.empty}</p>}
+        : <p class="tl-empty">{live.length ? "No event matches." : props.empty}</p>}
     </div>
   );
 }

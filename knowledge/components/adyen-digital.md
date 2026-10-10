@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-10T06:30:00Z
+  at: 2026-10-10T13:00:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -76,14 +76,16 @@ same-host Origin ([ADR-008](../decisions/ADR-008-redirects-follow-the-browser-or
 
 - **`FlowWorkbench.tsx`**: one row on top: the flow as a rounded badge (the page's `h1`) and a
   scenario chip (flag, market, amount, integration) that opens the configuration sheet; then the
-  order summary and the checkout. Switching flow goes through Home. Mounts Drop-in, a single
-  Component or the API-only Custom Card; starts on load and restarts 500 ms after any scenario or
-  theme change. A run counter stops a slow, superseded start from mounting a second checkout.
-  Callbacks are reported under the current run's correlation id (a ref, not render state). Card
-  callbacks (`onBinLookup`, `onBinValue`, `onBrand`) are set on the `card`/`scheme` configuration,
-  where Adyen Web reads them. The result card replaces the checkout once a payment ends. Test cards
-  and the inspector open in sheets (right on desktop, bottom on mobile); the inspector never opens
-  on its own.
+  checkout, with the inspector beside it (under it on a phone). Switching flow goes through Home.
+  Mounts Drop-in, a single Component or the API-only Custom Card; starts on load and restarts 500 ms
+  after any scenario or theme change. A run counter stops a slow, superseded start from mounting a
+  second checkout. Callbacks are reported under the current run's correlation id (a ref, not render
+  state). Card callbacks (`onBinLookup`, `onBinValue`, `onBrand`) are set on the `card`/`scheme`
+  configuration, where Adyen Web reads them. The result card replaces the checkout once a payment
+  ends. Test cards open in a sheet. The inspector is open from the start (owner, 2026-10-10), polls
+  the timeline every 2.5 s ("Live") and follows new events unless the reader scrolled up. Only Adyen
+  Web callbacks are recorded from the browser: the playground no longer posts its own responses
+  (`sessionCreated`, `backendPaymentResponse`, `paymentLinkCreated`, `mitResponse`) as callbacks.
 - **`BackOffice.tsx`**: metrics (Authorised, Captured, Refused, Not paid), search by reference or
   PSP reference, state filters, orders nobody tried to pay hidden by default, 12 per page with "Show
   more", refresh every 4 s. The detail shows the allowed actions first and why the others are
@@ -96,8 +98,14 @@ same-host Origin ([ADR-008](../decisions/ADR-008-redirects-follow-the-browser-or
 - `status.ts`: plain-language labels for order and attempt states. `payment_pending` reads
   "Authorised, awaiting capture", or "Captured" when the method captures on authorisation (refund
   already allowed).
-- `Timeline.tsx`: the inspector and Back Office timeline: one-line summaries, consecutive `onChange`
-  grouped, filter chips, request and response with copy.
+- `Timeline.tsx`: the inspector and Back Office timeline. Only what Adyen produced: Adyen Web
+  callbacks (SDK), Checkout API calls and webhooks; Back Office action rows and older playground
+  rows are left out. Every `onChange` is its own row, summarised by what moved since the previous
+  one (`onChangeDiff.ts`). Rows carry the time since the first event, HTTP status, duration and
+  result; filters with counts, search over names and payloads, Copy all, Export as JSON, Clear. The
+  detail has Response/Request (API), Changes/Payload (`onChange`), coloured JSON with long values
+  folded, Copy JSON and Copy cURL (`curl.ts`, API key left to `$ADYEN_API_KEY`).
+- `onChangeDiff.ts`, `curl.ts`, `read.ts`: the pure parts of the timeline, with tests.
 - `Sheet.tsx`, `ResultCard.tsx`, `TestData.tsx`, `FlowIcon.tsx` (one icon per flow, for the checkout
   badge), `flows.ts`.
 

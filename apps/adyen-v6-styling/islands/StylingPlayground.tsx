@@ -1,7 +1,7 @@
 import { AdyenCheckout, Dropin } from "@adyen/adyen-web";
 import type { Core } from "@adyen/adyen-web";
 import { apiFetch } from "@suite/ui/client.ts";
-import { Field, PlaygroundWordmark, ThemeToggle } from "@suite/ui/components.tsx";
+import { Field, ThemeToggle } from "@suite/ui/components.tsx";
 import {
   detectCountryFromLanguages,
   FALLBACK_COUNTRY,
@@ -831,60 +831,6 @@ export default function StylingPlayground() {
   return (
     <>
       <style>{generatedCss}</style>
-      <div class="styling-toolbar">
-        <div class="styling-brand">
-          <PlaygroundWordmark label="Drop-in Styling" />
-          <small class="styling-brand__sdk">Adyen Web SDK {ADYEN_WEB_VERSION}</small>
-        </div>
-        <div class="toolbar-markets">
-          <div class="toolbar-country">
-            <select
-              id="preview-country"
-              aria-label="Checkout market"
-              value={country}
-              onChange={(event) => updateCountry(event.currentTarget.value)}
-            >
-              {COUNTRIES.map(([code, name]) => (
-                <option value={code}>
-                  {flagEmoji(code)} {name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div class="toolbar-country">
-            <select
-              id="preview-locale"
-              aria-label="Shopper locale"
-              value={locale}
-              onChange={(event) => updateLocale(event.currentTarget.value)}
-            >
-              {LOCALES.map(([code, name]) => (
-                <option key={code} value={code}>{name} ({code})</option>
-              ))}
-            </select>
-          </div>
-          <div class="toolbar-country">
-            <select
-              id="preview-theme"
-              aria-label="Theme preset"
-              title={THEME_PRESETS.find((preset) => preset.id === activeTheme)?.description ??
-                "Your own combination."}
-              value={activeTheme}
-              onChange={(event) => applyTheme(event.currentTarget.value)}
-            >
-              {THEME_PRESETS.map((preset) => (
-                <option key={preset.id} value={preset.id}>{preset.label}</option>
-              ))}
-              {
-                /* Only offered once you have edited something: it is a state
-                  you can be in, not a theme you can pick. */
-              }
-              {activeTheme === "custom" ? <option value="custom">Custom</option> : null}
-            </select>
-          </div>
-          <ThemeToggle />
-        </div>
-      </div>
       {error
         ? (
           <div class="callout callout--danger" role="alert">
@@ -895,11 +841,72 @@ export default function StylingPlayground() {
         : null}
       <div class="styling-layout">
         {
-          /* keep-light: dark mode restyles the tool, never the preview, which
-            must show exactly what the merchant configured. */
+          /* Dark mode darkens the tool around the checkout: this canvas and the
+            test data. The Drop-in column alone keeps the light tokens, so the
+            checkout shows exactly what the merchant configured. */
         }
-        <section class="styling-preview keep-light" style={previewVariables}>
-          <div class="dropin-column">
+        <section class="styling-preview" style={previewVariables}>
+          {
+            /* Four blocks of one height: the shopper's country and locale, the
+              theme preset, and the light/dark switch. They sit in the preview
+              column so their edges are the checkout's and the test data's; the
+              name and SDK version moved to the footer (owner, 2026-10-10). */
+          }
+          <div class="styling-toolbar">
+            <label class="toolbar-field">
+              <span class="toolbar-field__label">Country</span>
+              <select
+                id="preview-country"
+                aria-label="Checkout market"
+                value={country}
+                onChange={(event) => updateCountry(event.currentTarget.value)}
+              >
+                {COUNTRIES.map(([code, name]) => (
+                  <option value={code}>
+                    {flagEmoji(code)} {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label class="toolbar-field">
+              <span class="toolbar-field__label">Locale</span>
+              <select
+                id="preview-locale"
+                aria-label="Shopper locale"
+                value={locale}
+                onChange={(event) => updateLocale(event.currentTarget.value)}
+              >
+                {LOCALES.map(([code, name]) => (
+                  <option key={code} value={code}>{name} ({code})</option>
+                ))}
+              </select>
+            </label>
+            <label class="toolbar-field">
+              <span class="toolbar-field__label">Theme</span>
+              <select
+                id="preview-theme"
+                aria-label="Theme preset"
+                title={THEME_PRESETS.find((preset) => preset.id === activeTheme)?.description ??
+                  "Your own combination."}
+                value={activeTheme}
+                onChange={(event) => applyTheme(event.currentTarget.value)}
+              >
+                {THEME_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>{preset.label}</option>
+                ))}
+                {
+                  /* Only offered once you have edited something: it is a state
+                    you can be in, not a theme you can pick. */
+                }
+                {activeTheme === "custom" ? <option value="custom">Custom</option> : null}
+              </select>
+            </label>
+            <div class="toolbar-field toolbar-field--mode">
+              <span class="toolbar-field__mode">Dark mode</span>
+              <ThemeToggle />
+            </div>
+          </div>
+          <div class="dropin-column keep-light">
             {
               /* A sibling of the host, never a child: Adyen owns that node and
                 calls replaceChildren on it, so anything Preact renders inside

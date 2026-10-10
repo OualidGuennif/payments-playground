@@ -1106,14 +1106,6 @@ p {
   font-size: 0.8rem;
 }
 
-/* Sits inline with the market selectors rather than in the header nav. */
-.toolbar-markets .header-tools__toggle {
-  min-height: 38px;
-  white-space: nowrap;
-}
-
-/* Not the rightmost element here, so anchor the dropdown to its left edge. */
-
 .inspector {
   position: relative;
   width: var(--inspector-width, 390px);

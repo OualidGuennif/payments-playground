@@ -24,46 +24,112 @@ body {
   padding: 0;
 }
 
+/* Four glass blocks of one height at the top of the preview column, so their
+   edges are the checkout's and the test data's. Two rows of two until the
+   column is wide enough for the Drop-in and the test data side by side;
+   then one row. Sticky inside the column, floating 10px under the top. */
 .styling-toolbar {
   position: sticky;
-  z-index: 20;
-  top: 0;
+  z-index: 5;
+  top: 10px;
+  display: grid;
+  order: -2;
+  width: 100%;
+  max-width: 650px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.toolbar-field {
+  position: relative;
   display: flex;
-  min-height: 70px;
+  min-width: 0;
+  min-height: 56px;
+  align-items: center;
+  border: 1px solid var(--glass-edge);
+  border-radius: 18px;
+  background: var(--glass-fill);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* The name sits over the select and lets clicks through, so the whole block
+   opens the list. */
+.toolbar-field__label {
+  position: absolute;
+  top: 9px;
+  left: 14px;
+  color: var(--color-ink-subtle);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.toolbar-field select {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 56px;
+  padding: 22px 34px 7px 14px;
+  border: 0;
+  border-radius: inherit;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%238d95a3' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right 14px center;
+  background-repeat: no-repeat;
+  background-size: 10px 7px;
+  color: var(--color-ink);
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  appearance: none;
+}
+
+.toolbar-field:hover {
+  border-color: var(--color-border-control-hover);
+}
+
+.toolbar-field select:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.toolbar-field--mode {
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 6px 0 14px;
+}
+
+.toolbar-field__mode {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+/* The disclaimer page has no preview: a back link and the switch. */
+.legal-toolbar {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 12px;
   padding: 10px clamp(16px, 3vw, 34px);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface-glass);
 }
 
-.styling-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--color-green);
-}
-
-.styling-brand__sdk {
-  padding-left: 10px;
-  border-left: 1px solid var(--color-border);
-  color: var(--color-ink-subtle);
-  font-size: 0.66rem;
-  font-style: italic;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.toolbar-markets {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+.styling-back {
+  min-height: 52px;
+  padding: 0 20px;
+  color: var(--color-ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .styling-layout {
   display: grid;
-  min-height: calc(100vh - 102px);
+  min-height: 100vh;
   grid-template-columns: minmax(420px, 1fr) minmax(360px, 480px);
 }
 
@@ -74,36 +140,11 @@ body {
 .styling-preview {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 18px;
+  container: preview / inline-size;
   padding: clamp(20px, 2.4vw, 36px) clamp(20px, 5vw, 68px);
   background: var(--adyen-sdk-color-background-secondary, var(--color-surface-muted));
-}
-
-.toolbar-country {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.72rem;
-}
-
-.toolbar-country label {
-  color: var(--color-ink-muted);
-  font-weight: 700;
-}
-
-.toolbar-country select {
-  min-height: unset;
-  padding: 6px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 0;
-  background: transparent;
-  font-size: 0.75rem;
-}
-
-.toolbar-country__auto {
-  color: var(--color-green);
-  font-style: italic;
 }
 
 /* Translucent tiles, Wallet-style: the PAN is the point, so it is the only
@@ -299,6 +340,31 @@ body {
   color: var(--color-ink-muted);
 }
 
+/* In dark mode the canvas is the tool's, not the merchant's page: its
+   background-secondary only frames the checkout in light mode. */
+:root[data-theme="dark"] .styling-preview {
+  background: var(--color-surface-muted);
+}
+
+:root[data-theme="dark"] .test-cards__toggle {
+  background: var(--color-surface);
+}
+
+:root[data-theme="dark"] .test-card {
+  border-color: var(--glass-edge);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+:root[data-theme="dark"] .test-card:hover {
+  border-color: var(--color-green);
+}
+
+:root[data-theme="dark"] .test-card--static:hover {
+  border-color: var(--glass-edge);
+  box-shadow: var(--shadow-card);
+}
+
 /* Wraps the host with anything that has to sit alongside it, the spent-session
    notice, so the preview row still has exactly two flex items. */
 .dropin-column {
@@ -437,8 +503,8 @@ body {
 
 .styling-panel {
   position: sticky;
-  top: 70px;
-  height: calc(100vh - 102px);
+  top: 0;
+  height: 100vh;
   border-left: 1px solid var(--color-border);
   background: var(--color-surface);
   overflow: auto;
@@ -974,6 +1040,13 @@ body {
     gap: 28px;
   }
 
+  /* Its own row, as wide as the pair below it at most (400 + 28 + 650). */
+  .styling-toolbar {
+    flex: 0 0 100%;
+    max-width: 1078px;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  }
+
   .styling-preview .dropin-column {
     flex: 1 1 460px;
     min-width: 440px;
@@ -1010,11 +1083,34 @@ body {
   }
 }
 
+/* Below 840px of column the pair cannot sit side by side and wraps; every
+   block then takes the single 650px column the narrower layouts use, so the
+   toolbar, the test data and the checkout share both edges. */
+@media (min-width: 1180px) {
+  @container preview (max-width: 839.98px) {
+    .styling-toolbar {
+      max-width: 650px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .test-data {
+      flex: 0 0 100%;
+      min-width: 0;
+      max-width: 650px;
+    }
+
+    .styling-preview .dropin-column {
+      flex: 0 0 100%;
+      min-width: 0;
+      max-width: 650px;
+    }
+  }
+}
+
 @media (max-width: 900px) {
   /* The checkout is the page on a phone: the tiles go above it, folded. */
   .test-data {
     order: -1;
-    max-width: none;
   }
 
   /* A 3DS challenge replaces the method list with a shorter iframe; without a
@@ -1029,8 +1125,14 @@ body {
     min-height: 0;
   }
 
+  /* minmax(0, ...): a plain 1fr sized itself to the options panel's widest
+     row, 400px on a 375px phone, and pushed the page past the right edge. */
   .styling-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .styling-tabs__list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .styling-panel {
@@ -1051,53 +1153,27 @@ body {
 
 @media (max-width: 640px) {
   .styling-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 10px;
-    padding: 10px 14px;
+    top: 8px;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 6px;
   }
 
-  /* The wordmark is fixed-width and the SDK label can't wrap, so on a narrow
-     phone they overflow the row unless the label is allowed to shrink. */
-  .styling-brand {
-    min-width: 0;
-    gap: 8px;
+  .toolbar-field__label {
+    left: 12px;
   }
 
-  .styling-brand__sdk {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* Two selects side by side don't fit; give each half the row and let them
-     shrink instead of pushing the toolbar wider than the viewport. The
-     dataset menu is a full-width row under them: as the first child of the
-     grid it used to land alone in the top-left corner, reading as a stray
-     button rather than a control belonging to this toolbar. */
-  .toolbar-markets {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-
-  /* Three selects in a two-column grid strand the last one on the left. The
-     odd one out takes the whole row, the same way the tile grid handles it. */
-  .toolbar-markets > :last-child:nth-child(odd) {
-    grid-column: 1 / -1;
-  }
-
-  .toolbar-country {
-    min-width: 0;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 3px;
-  }
-
-  .toolbar-country select {
-    width: 100%;
-    min-width: 0;
+  .toolbar-field select {
+    padding: 22px 26px 7px 12px;
+    background-position: right 12px center;
     /* Safari zooms the page in on focus for any control under 16px. */
+    font-size: 16px;
+  }
+
+  .toolbar-field--mode {
+    padding-left: 12px;
+  }
+
+  .toolbar-field__mode {
     font-size: 16px;
   }
 
@@ -1130,11 +1206,24 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 16px clamp(20px, 5vw, 68px);
-  border-top: 1px solid var(--color-border);
-  background: var(--color-surface);
+  padding: 18px clamp(16px, 3vw, 34px) 24px;
   color: var(--color-ink-subtle);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
+}
+
+.styling-footer__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.styling-footer a {
+  color: var(--color-ink-muted);
+  text-decoration: none;
+}
+
+.styling-footer a:hover {
+  color: var(--color-ink);
 }
 
 .legal-shell {

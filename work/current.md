@@ -10,7 +10,8 @@ Task state only. Durable facts belong in `knowledge/`; history belongs in `git l
 - **Just shipped**: the digital redesign (glass header, tiles-only home, checkout with scenario
   sheet, inspector timeline, Back Office in plain words, settings), dark mode
   ([ADR-010](../knowledge/decisions/ADR-010-one-theme-attribute-and-token-sets.md)), redirect
-  returns settled through `/result`.
+  returns settled through `/result`. Styling's chrome follows (glass toolbar, footer, dark mode
+  around an unchanged Drop-in).
 - **Waiting on the owner**: check production after the deploy; confirm Drop-in in Firefox with
   Adblock Plus.
 - **Next candidates** (from [current/digital-status.md](../knowledge/current/digital-status.md)):

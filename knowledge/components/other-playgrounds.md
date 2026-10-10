@@ -7,7 +7,7 @@ status: stable
 scope: component-other-playgrounds
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-10-10T09:10:00Z
 sources:
   - id: readme
     resource: README.md
@@ -30,7 +30,11 @@ sources:
   It creates a session and mounts a Drop-in; it stores nothing but panel settings in `localStorage`.
   Its token audit (`components/adyenOptions.test.ts`) fetches the real `adyen.css` for the pinned
   version and fails on drift, so an Adyen Web bump has to be looked at. It uses the dev bundle
-  plugin, like digital; its production build is unchanged by it (verified byte-identical).
+  plugin, like digital; its production build is unchanged by it (verified byte-identical). Its
+  toolbar is four glass blocks (Country, Locale, Theme, Dark mode) at the top of the preview column,
+  sharing the checkout's edges; the TEST pill and the SDK version sit in the footer. Dark mode
+  darkens everything but the Drop-in
+  ([ADR-010](../decisions/ADR-010-one-theme-attribute-and-token-sets.md)).
   [README](../../apps/adyen-v6-styling/README.md).
 - **`adyen-ipp-endless-aisle` (in progress, port 8002).** In-person cart paid on a TEST terminal
   through Terminal API Cloud (device API). Mock mode calls Adyen not at all.

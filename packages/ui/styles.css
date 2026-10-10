@@ -37,15 +37,17 @@
   --shadow-raised: 0 12px 36px rgba(0, 17, 44, 0.1);
   --shadow-focus: 0 0 0 3px rgba(23, 105, 224, 0.18);
   --backdrop: rgba(0, 17, 44, 0.32);
-  --glass-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.52));
-  --glass-edge: rgba(0, 17, 44, 0.07);
+  /* Liquid glass: a translucent fill brighter at the top-left, a blurred and
+     saturated backdrop, a specular rim along the top edge and a soft shadow
+     that lifts the pane off the page. The fill stays dense enough to keep its
+     own tint over anything scrolling under it: lighter, a white card under
+     the dark glass washed out its light text. */
+  --glass-fill: linear-gradient(140deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.62));
+  --glass-edge: rgba(255, 255, 255, 0.6);
   --glass-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 17, 44, 0.04), 0 12px 32px rgba(
-    0,
-    17,
-    44,
-    0.08
-  );
+    inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(255, 255, 255, 0.3), 0 0 0 1px
+    rgba(0, 17, 44, 0.06), 0 2px 6px rgba(0, 17, 44, 0.05), 0 18px 40px -10px rgba(0, 17, 44, 0.16);
+  --glass-blur: blur(22px) saturate(190%) brightness(1.04);
   --glass-well: rgba(0, 17, 44, 0.045);
   --glass-lens: #ffffff;
   --glass-lens-shadow: 0 1px 2px rgba(0, 17, 44, 0.1), 0 2px 8px rgba(0, 17, 44, 0.06);
@@ -87,15 +89,12 @@
   --shadow-raised: 0 16px 40px rgba(0, 0, 0, 0.5);
   --shadow-focus: 0 0 0 3px rgba(110, 168, 255, 0.3);
   --backdrop: rgba(0, 0, 0, 0.55);
-  --glass-fill: linear-gradient(180deg, rgba(40, 45, 55, 0.64), rgba(24, 27, 34, 0.5));
-  --glass-edge: rgba(255, 255, 255, 0.08);
+  --glass-fill: linear-gradient(140deg, rgba(46, 52, 63, 0.8), rgba(22, 25, 31, 0.72));
+  --glass-edge: rgba(255, 255, 255, 0.14);
   --glass-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 36px rgba(
-    0,
-    0,
-    0,
-    0.45
-  );
+    inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -1px 0 rgba(255, 255, 255, 0.04), 0 0 0 1px
+    rgba(0, 0, 0, 0.4), 0 18px 44px -10px rgba(0, 0, 0, 0.6);
+  --glass-blur: blur(22px) saturate(180%);
   --glass-well: rgba(255, 255, 255, 0.05);
   --glass-lens: rgba(255, 255, 255, 0.13);
   --glass-lens-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 8px rgba(0, 0, 0, 0.35);
@@ -208,8 +207,8 @@ a {
   border-radius: 999px;
   background: var(--glass-fill);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   pointer-events: auto;
 }
 
@@ -366,8 +365,8 @@ a {
   border-radius: 999px;
   background: var(--glass-fill);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   pointer-events: auto;
 }
 

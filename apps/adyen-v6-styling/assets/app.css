@@ -48,10 +48,10 @@ body {
   align-items: center;
   border: 1px solid var(--glass-edge);
   border-radius: 18px;
-  background: var(--canvas-surface);
+  background: var(--glass-fill);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 /* The name sits over the select and lets clicks through, so the whole block
@@ -135,6 +135,8 @@ body {
      tool's theme: translucent white turned a muddy grey whenever what lay
      behind it was dark. */
   --canvas-surface: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  --canvas-glow-a: rgba(10, 191, 83, 0.1);
+  --canvas-glow-b: rgba(23, 105, 224, 0.1);
 
   display: flex;
   flex-direction: column;
@@ -145,8 +147,12 @@ body {
   /* The tool's background in both themes, never the merchant's
      background-secondary: with a dark theme in the light playground (or the
      reverse) that painted half the page in the other theme. The theme shows
-     on the Drop-in card, which is all the export describes. */
-  background: var(--color-surface-muted);
+     on the Drop-in card, which is all the export describes. Two faint glows
+     along the top give the glass toolbar something to refract at rest. */
+  background:
+    radial-gradient(ellipse 60% 260px at 15% 0, var(--canvas-glow-a), transparent 70%),
+    radial-gradient(ellipse 55% 240px at 88% 0, var(--canvas-glow-b), transparent 70%),
+    var(--color-surface-muted);
 }
 
 /* Translucent tiles, Wallet-style: the PAN is the point, so it is the only
@@ -340,6 +346,11 @@ body {
 
 .test-card__disclaimer a {
   color: var(--color-ink-muted);
+}
+
+:root[data-theme="dark"] .styling-preview {
+  --canvas-glow-a: rgba(18, 196, 92, 0.09);
+  --canvas-glow-b: rgba(110, 168, 255, 0.1);
 }
 
 /* The card keeps the light tokens, so its border is a light hairline: a frame

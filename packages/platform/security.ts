@@ -1,5 +1,6 @@
 import { getCookie, setCookie } from "jsr:@hono/hono@4.12.31/cookie";
 import type { Context, MiddlewareHandler } from "hono";
+import { isIP } from "node:net";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -129,6 +130,26 @@ export function requestOrigin(request: Request, publicOrigin: string): string {
   return origin && sameOriginHost(request, publicOrigin, origin)
     ? new URL(origin).origin
     : publicOrigin;
+}
+
+/**
+ * The shopper's IP, for Adyen's risk checks (`shopperIP` on /payments).
+ * Behind Render the connection is the proxy's, so the first X-Forwarded-For
+ * entry wins, as in rateLimit. A shopper can forge it, which on this TEST
+ * playground only misleads the risk checks on their own payment. Without the
+ * header (the Docker image run locally) the connection's address is used.
+ */
+export function shopperIp(request: Request, info?: Deno.ServeHandlerInfo): string | undefined {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const remote = info?.remoteAddr && "hostname" in info.remoteAddr
+    ? info.remoteAddr.hostname
+    : undefined;
+  for (const candidate of [forwarded, remote]) {
+    // A dual-stack socket reports an IPv4 shopper as ::ffff:a.b.c.d.
+    const ip = candidate?.replace(/^::ffff:(?=\d{1,3}(\.\d{1,3}){3}$)/i, "");
+    if (ip && isIP(ip)) return ip;
+  }
+  return undefined;
 }
 
 export function csrfProtection(signingSecret: string, publicOrigin: string): MiddlewareHandler {

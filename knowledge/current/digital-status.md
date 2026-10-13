@@ -1,14 +1,14 @@
 ---
 type: Current State
 title: "adyen-digital: what is verified, and what is still open"
-description: "Evidence-backed state of the digital playground as of 2026-10-10: each flow with the verification level it reached, and the open gaps in priority order."
+description: "Evidence-backed state of the digital playground as of 2026-10-13: each flow with the verification level it reached, and the open gaps in priority order."
 tags: [current, digital, verification]
 status: stable
 scope: digital-status
 stale_after: 2026-11-10
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-10T15:00:00Z
+  at: 2026-10-13T06:30:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -24,6 +24,8 @@ verified:
     check: "Every PASS row below, on Adyen TEST, from the dev server at localhost:5173 unless stated."
   - at: 2026-10-10
     check: "Rows dated 2026-10-10: redirect return, Pay by Link, MIT, API only, Components in dark mode, headless Firefox with an analytics block on digital and styling."
+  - at: 2026-10-13
+    check: "Advanced Drop-in on localhost:5173: /payments carries shopperIP and a deliveryAddress without names; Authorised on Adyen TEST."
 ---
 
 # adyen-digital: what is verified, and what is still open
@@ -48,6 +50,7 @@ As of 2026-10-10, Adyen Web 6.46.0, Checkout API v72. Re-verify before 2026-11-1
 | Components integration in dark mode (2026-10-10)                                    | PASS   | BROWSER VERIFIED                  | Card component renders on dark tokens once Click to Pay's fixed white panel is overridden                                                                                                                                                                                                    |
 | Ad blocker, digital and styling after the redesign (2026-10-10)                     | PASS   | BROWSER VERIFIED                  | Headless Firefox, `analytics` blocked: digital Advanced Drop-in ready (13 methods); styling Drop-in ready (13) in light and dark, preview background and ink identical in both themes                                                                                                        |
 | Partial and multiple partial capture, partial refund (2026-10-10)                   | PASS   | WEBHOOK VERIFIED                  | Order `2b5a2f81`: capture 40.00, refund 10.00, capture 20.00, each `received`; their real CAPTURE/REFUND webhooks (HMAC-signed, from webhook.site) replayed locally: ledger 60.00 captured, 10.00 refunded. Same Idempotency-Key replayed: no second Adyen call; new key while pending: 409. |
+| Advanced Drop-in, `shopperIP` sent, `deliveryAddress` without names (2026-10-13)    | PASS   | BROWSER VERIFIED                  | Order `fddfac4a`, stored Visa: `/payments` request has `shopperIP: 127.0.0.1` (dev server, from the socket) and `deliveryAddress` with postal fields only; Authorised `TN9S74RKTVL4C5V5`. On Render the IP comes from `X-Forwarded-For`, not yet observed.                                   |
 
 ## Not observed
 

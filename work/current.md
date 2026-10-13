@@ -2,7 +2,7 @@
 
 Task state only. Durable facts belong in `knowledge/`; history belongs in `git log`.
 
-- **Updated**: 2026-10-10
+- **Updated**: 2026-10-13
 - **Focus**: `apps/adyen-digital` (owner instruction). Styling only when asked; agentic out of
   scope.
 - **Render**: services renamed to the YAML names, Blueprint Auto Sync off, auto-deploy from git on.
@@ -14,6 +14,10 @@ Task state only. Durable facts belong in `knowledge/`; history belongs in `git l
   inspector (Adyen events only, one row per onChange with its diff, cURL, export), and captures,
   cancels and refunds as a webhook-settled ledger (partial and multiple partial, idempotent). All
   pushed; Render deploys from `main`.
+- **2026-10-13**: Advanced `/payments` now sends `shopperIP` (X-Forwarded-For, else the connection;
+  a dev-only Vite plugin supplies it locally) and a `deliveryAddress` without `firstName`/`lastName`
+  (Sessions keeps them). Browser verified on 5173; the IP behind Render's proxy is not observed yet:
+  check one production `/payments` in the inspector after the deploy.
 - **Waiting on the owner**: a look at production after the last deploy (styling on a phone in dark
   mode especially); confirm Drop-in in Firefox with Adblock Plus.
 - **Open from this session**: a webhook row in the new inspector is not observed in a browser yet

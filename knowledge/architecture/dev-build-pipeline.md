@@ -1,17 +1,17 @@
 ---
 type: Architecture
-title: "Dev and build pipeline: Vite, Fresh's plugin, the Deno loader, and the three local plugins"
+title: "Dev and build pipeline: Vite, Fresh's plugin, the Deno loader, and the local plugins"
 description: "How Vite resolves modules through Deno, why npm packages reach the dev browser unbundled, what each plugin in scripts/ fixes, the SSR hot-reload caveat, and what a production build emits."
 tags: [architecture, vite, fresh, deno, build]
 status: stable
 scope: dev-build-pipeline
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-10-13T06:30:00Z
 sources:
   - id: vite-config
     resource: apps/adyen-digital/vite.config.ts
-    title: The digital app's Vite configuration (styling's is the same)
+    title: The digital app's Vite configuration (styling's is the same, without devClientAddress)
   - id: dev-bundle
     resource: scripts/adyen-web-dev-bundle.ts
     title: Adyen Web served as one bundle in dev
@@ -21,6 +21,9 @@ sources:
   - id: sqlite-hotfix
     resource: scripts/sqlite-vite-hotfix.ts
     title: SQLite FFI import.meta.url rewrite
+  - id: client-address
+    resource: scripts/dev-client-address.ts
+    title: X-Forwarded-For from the socket in dev, for shopperIP
   - id: fresh-plugin
     resource: https://jsr.io/@fresh/plugin-vite/1.1.2/src/mod.ts
     title: "@fresh/plugin-vite 1.1.2: optimizeDeps.noDiscovery and the build environments"
@@ -51,6 +54,10 @@ Vite's own `vite:resolve`, and passes any `\0`-prefixed id through untouched.
   import with `debug_1.default is not a function`.
 - **`sqliteViteHotfix`** replaces `import.meta.url` in the SQLite FFI module with its URL literal;
   the Deno bridge and Vite's SSR transform otherwise both rewrite it and Vite throws.
+- **`devClientAddress` (digital, dev only)** sets `X-Forwarded-For` from the socket. Fresh's dev
+  server calls the app with a stub connection (`remoteAddr.hostname: "localhost"`), so without it
+  `/payments` had no `shopperIP` locally. Fresh rebuilds the `Request` from `rawHeaders`, which
+  under Deno is a getter returning a copy: a `push` is lost, the property is redefined instead.
 - **`server.fs.allow: ["../.."]`**: with no root `package.json`, Vite cannot find the monorepo's
   `node_modules`, and deep imports outside the default allow-list 403 silently.
 
@@ -66,5 +73,5 @@ is enough; Vite restarts on a config change).
 `deno task build:<app>` builds the client first (`_fresh/client/assets/`, hashed chunks such as
 `fresh-island__FlowWorkbench-<hash>.js`, with Adyen Web inside) and then the server
 (`_fresh/server/server-entry.mjs`). `scripts/assert-built-ssr.ts` boots the built server and checks
-the page renders and still names the app. The dev-only plugin has `apply: "serve"` and never touches
+the page renders and still names the app. The dev-only plugins have `apply: "serve"` and never touch
 a build.

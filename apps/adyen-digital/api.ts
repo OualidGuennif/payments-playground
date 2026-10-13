@@ -11,7 +11,7 @@ import {
 } from "@suite/platform/lifecycle.ts";
 import { PAYMENT_METHOD_RULES } from "@suite/platform/payment-methods.ts";
 import { rejectRawCardData, sanitize } from "@suite/platform/sanitize.ts";
-import { requestOrigin } from "@suite/platform/security.ts";
+import { requestOrigin, shopperIp } from "@suite/platform/security.ts";
 import {
   buildLineItems,
   paymentsRiskFields,
@@ -263,15 +263,20 @@ function requestBase(input: {
     deliveryAddress: input.body.deliveryAddress,
   });
   const billingAddress = addresses.billingAddress;
-  // /sessions and /payments accept a recipient name inside deliveryAddress;
-  // /paymentLinks validates it against a plain address schema and rejects
-  // them ("Structure of address contains the following unknown fields:
-  // [firstName, lastName]"), so it only gets the postal fields.
-  const deliveryAddress = input.context === "paymentLinks" ? addresses.deliveryAddress : {
-    ...addresses.deliveryAddress,
-    firstName: String(input.body.firstName ?? "Test"),
-    lastName: String(input.body.lastName ?? "Shopper"),
-  };
+  // Only /sessions gets a recipient name inside deliveryAddress. /payments
+  // sends the postal fields only, by the owner's choice (2026-10-13), even
+  // when Adyen Web's state.data supplied names. /paymentLinks validates a
+  // plain address schema and rejects them ("Structure of address contains
+  // the following unknown fields: [firstName, lastName]").
+  const { firstName: _firstName, lastName: _lastName, ...postalDelivery } =
+    addresses.deliveryAddress;
+  const deliveryAddress = input.context === "sessions"
+    ? {
+      ...postalDelivery,
+      firstName: String(input.body.firstName ?? "Test"),
+      lastName: String(input.body.lastName ?? "Shopper"),
+    }
+    : postalDelivery;
   return {
     amount: input.order.amount,
     reference: input.order.reference,
@@ -521,12 +526,16 @@ api.post("/api/digital/payments", async (c) => {
   });
   const idempotencyKey = crypto.randomUUID();
   const origin = requestOrigin(c.req.raw, context.config.publicOrigin);
+  // Used by Adyen's risk checks, and required for Visa and JCB 3DS2 when
+  // shopperEmail is missing. Taken from the connection, never the body.
+  const ip = shopperIp(c.req.raw, c.env as Deno.ServeHandlerInfo | undefined);
   const request = {
     ...requestBase({ body, secrets, order, origin, context: "payments" }),
     ...forwardedStateData(body),
     paymentMethod,
     browserInfo: body.browserInfo,
     origin,
+    ...(ip ? { shopperIP: ip } : {}),
     // Paying with a token, or asking to store one, is a card-on-file
     // transaction, the legacy playground derived both fields from the payload
     // instead of trusting the client to label it correctly.
@@ -807,7 +816,7 @@ api.post("/api/digital/api-only", async (c) => {
     headers: clonedHeaders,
     body: JSON.stringify({ ...body, flow: "api-only-pci" }),
   });
-  return await api.fetch(proxied);
+  return await api.fetch(proxied, c.env);
 });
 
 // Capture, cancel or refund. Each request carries the Idempotency-Key the

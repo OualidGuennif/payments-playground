@@ -6,7 +6,7 @@ tags: [reference, adyen, checkout-api]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-10-13T06:30:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -30,17 +30,18 @@ depends on; most were learned from a rejected request.
 anything outside their schema. The field lists in `@adyen/api-library`'s typings (`PaymentRequest`,
 `CreateCheckoutSessionRequest`, `PaymentLinkRequest`) are the quickest check.
 
-| Field                                                                                               | `/sessions` | `/payments`  | `/paymentLinks` | Notes                                                        |
-| --------------------------------------------------------------------------------------------------- | ----------- | ------------ | --------------- | ------------------------------------------------------------ |
-| `channel: "Web"`                                                                                    | required    | required     | rejected        | `/payments` fails without it, MIT included                   |
-| `merchantRiskIndicator`                                                                             | rejected    | accepted     | rejected        |                                                              |
-| `deliveryAddress.firstName/lastName`                                                                | accepted    | accepted     | rejected        | Payment links take a plain postal address                    |
-| `shopperConversionId`                                                                               | rejected    | accepted     | rejected        | Also on `/paymentMethods`; repeat the same id on `/payments` |
-| `storePaymentMethodMode`                                                                            | accepted    | n/a          | n/a             | Advanced uses `enableStoreDetails` + `storePaymentMethod`    |
-| `lineItems`                                                                                         | accepted    | accepted     | accepted        | Without them BNPL methods (Klarna...) are excluded           |
-| `riskData`, `installments`, `socialSecurityNumber`, `shopperName`, `telephoneNumber`, `dateOfBirth` |             | accepted     |                 | From Adyen Web `state.data`; forward them                    |
-| `clientStateDataIndicator`                                                                          |             | **rejected** |                 | Not in `PaymentRequest` 32; never forward it                 |
-| `checkoutAttemptId` as a sibling field                                                              |             | duplicate    |                 | Already inside `sdkData`; stripped from `paymentMethod`      |
+| Field                                                                                               | `/sessions` | `/payments`  | `/paymentLinks` | Notes                                                         |
+| --------------------------------------------------------------------------------------------------- | ----------- | ------------ | --------------- | ------------------------------------------------------------- |
+| `channel: "Web"`                                                                                    | required    | required     | rejected        | `/payments` fails without it, MIT included                    |
+| `merchantRiskIndicator`                                                                             | rejected    | accepted     | rejected        |                                                               |
+| `deliveryAddress.firstName/lastName`                                                                | accepted    | accepted     | rejected        | Sent on `/sessions` only; owner's choice for `/payments`      |
+| `shopperConversionId`                                                                               | rejected    | accepted     | rejected        | Also on `/paymentMethods`; repeat the same id on `/payments`  |
+| `shopperIP`                                                                                         | in typings  | accepted     | not in typings  | Sent on `/payments` only, from the connection, never the body |
+| `storePaymentMethodMode`                                                                            | accepted    | n/a          | n/a             | Advanced uses `enableStoreDetails` + `storePaymentMethod`     |
+| `lineItems`                                                                                         | accepted    | accepted     | accepted        | Without them BNPL methods (Klarna...) are excluded            |
+| `riskData`, `installments`, `socialSecurityNumber`, `shopperName`, `telephoneNumber`, `dateOfBirth` |             | accepted     |                 | From Adyen Web `state.data`; forward them                     |
+| `clientStateDataIndicator`                                                                          |             | **rejected** |                 | Not in `PaymentRequest` 32; never forward it                  |
+| `checkoutAttemptId` as a sibling field                                                              |             | duplicate    |                 | Already inside `sdkData`; stripped from `paymentMethod`       |
 
 ## Sessions results
 

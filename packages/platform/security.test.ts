@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { Hono } from "hono";
-import { basicAuthChallenge, csrfProtection, requestOrigin } from "./security.ts";
+import { basicAuthChallenge, csrfProtection, requestOrigin, shopperIp } from "./security.ts";
 
 const PUBLIC_ORIGIN = "http://127.0.0.1:8001";
 
@@ -30,6 +30,43 @@ Deno.test("requestOrigin falls back to PUBLIC_ORIGIN for a foreign or missing Or
     requestOrigin(request("http://localhost:5173/api/x", "null"), PUBLIC_ORIGIN),
     PUBLIC_ORIGIN,
   );
+});
+
+function connection(hostname: string): Deno.ServeHandlerInfo {
+  return {
+    remoteAddr: { transport: "tcp", hostname, port: 1234 },
+    completed: Promise.resolve(),
+  };
+}
+
+function forwardedFor(value: string): Request {
+  return new Request("http://localhost:5173/api/x", { headers: { "x-forwarded-for": value } });
+}
+
+Deno.test("shopperIp takes the first X-Forwarded-For entry over the proxy's connection", () => {
+  assertEquals(
+    shopperIp(forwardedFor("203.0.113.7, 10.0.0.2"), connection("10.0.0.9")),
+    "203.0.113.7",
+  );
+  assertEquals(shopperIp(forwardedFor("2001:db8::1")), "2001:db8::1");
+});
+
+Deno.test("shopperIp falls back to the connection, unwrapping IPv4-mapped addresses", () => {
+  assertEquals(
+    shopperIp(request("http://localhost:5173/api/x"), connection("192.0.2.4")),
+    "192.0.2.4",
+  );
+  assertEquals(shopperIp(forwardedFor("::ffff:192.0.2.5")), "192.0.2.5");
+  assertEquals(shopperIp(forwardedFor("not-an-ip"), connection("::1")), "::1");
+});
+
+Deno.test("shopperIp gives nothing for Fresh's dev stub or a forged non-IP", () => {
+  assertEquals(
+    shopperIp(request("http://localhost:5173/api/x"), connection("localhost")),
+    undefined,
+  );
+  assertEquals(shopperIp(forwardedFor("<script>")), undefined);
+  assertEquals(shopperIp(request("http://localhost:5173/api/x")), undefined);
 });
 
 Deno.test("CSRF still rejects a cross-origin POST that carries a valid token", async () => {

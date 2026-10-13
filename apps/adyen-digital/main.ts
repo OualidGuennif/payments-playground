@@ -16,7 +16,9 @@ app.use(define.middleware(async (ctx) => {
   ctx.state.requestId = crypto.randomUUID();
   const path = new URL(ctx.req.url).pathname;
   if (path.startsWith("/api/") || path === "/healthz" || path === "/webhook") {
-    const apiResponse = await api.fetch(ctx.req);
+    // The connection info becomes Hono's env: /payments reads the shopper's
+    // address from it when no proxy set X-Forwarded-For.
+    const apiResponse = await api.fetch(ctx.req, ctx.info);
     applySecurityHeaders(apiResponse.headers);
     return apiResponse;
   }

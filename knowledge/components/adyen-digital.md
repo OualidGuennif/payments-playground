@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-10T15:00:00Z
+  at: 2026-10-13T07:30:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -106,8 +106,10 @@ same-host Origin ([ADR-008](../decisions/ADR-008-redirects-follow-the-browser-or
   rows are left out. Every `onChange` is its own row, summarised by what moved since the previous
   one (`onChangeDiff.ts`). Rows carry the time since the first event, HTTP status, duration and
   result; filters with counts, search over names and payloads, Copy all, Export as JSON, Clear. The
-  detail has Response/Request (API), Changes/Payload (`onChange`), coloured JSON with long values
-  folded, Copy JSON and Copy cURL (`curl.ts`, API key left to `$ADYEN_API_KEY`).
+  detail has Request/Response (API; Response opens first), each in its own colour (request blue,
+  response green, red on an error) with a header naming the direction and HTTP status,
+  Changes/Payload (`onChange`), coloured JSON with long values folded, Copy JSON and Copy cURL
+  (`curl.ts`, API key left to `$ADYEN_API_KEY`).
 - `onChangeDiff.ts`, `curl.ts`, `read.ts`: the pure parts of the timeline, with tests.
 - `status.ts` labels an authorised payment from its ledger: Authorised, Capture requested, Partially
   captured, Captured, Refund requested, Partially refunded, Refunded, Cancelled.

@@ -1286,6 +1286,63 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
+/* Request and response share one JSON view; colour says which is open. */
+.mini-tabs button.mini-tabs__tab--request[aria-selected="true"] {
+  background: var(--color-blue-soft);
+  color: var(--color-blue);
+}
+
+.mini-tabs button.mini-tabs__tab--response[aria-selected="true"] {
+  background: var(--color-green-soft);
+  color: var(--color-green-dark);
+}
+
+.mini-tabs button.mini-tabs__tab--error[aria-selected="true"] {
+  background: var(--color-red-soft);
+  color: var(--color-red);
+}
+
+.ev__payload {
+  --payload-tone: var(--color-blue);
+  --payload-soft: var(--color-blue-soft);
+  min-width: 0;
+  overflow: hidden;
+  border-left: 3px solid var(--payload-tone);
+  border-radius: 10px;
+}
+
+.ev__payload--response {
+  --payload-tone: var(--color-green-dark);
+  --payload-soft: var(--color-green-soft);
+}
+
+.ev__payload--error {
+  --payload-tone: var(--color-red);
+  --payload-soft: var(--color-red-soft);
+}
+
+.ev__payload .json {
+  border-radius: 0;
+}
+
+.ev__direction {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 12px;
+  background: var(--payload-soft);
+  color: var(--color-ink-muted);
+  font-size: 0.68rem;
+}
+
+.ev__direction strong {
+  color: var(--payload-tone);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 /* What one onChange moved: path, before, after. */
 .changes {
   width: 100%;

@@ -342,12 +342,20 @@ function EntryDetail(props: { entry: TimelineEntry; source: Source; changes: Cha
   const api = source === "api"
     ? entry.payload as { request?: unknown; response?: unknown; error?: string }
     : null;
+  // Request before response, in the order they happened; the response stays
+  // the tab that opens, it is what the row summarises.
   const tabs: Tab[] = api
-    ? ["response", "request"]
+    ? ["request", "response"]
     : props.changes
     ? ["changes", "payload"]
     : ["payload"];
-  const [tab, setTab] = useState<Tab>(tabs[0]);
+  const [tab, setTab] = useState<Tab>(api ? "response" : tabs[0]);
+  // The two JSON blocks look alike; each direction gets its own colour and
+  // header so the one on screen is never ambiguous.
+  const failed = Boolean(api?.error) || Number(entry.status) >= 400;
+  const toneOf = (value: Tab) =>
+    value === "request" ? "request" : value === "response" ? (failed ? "error" : "response") : "";
+  const direction = api && (tab === "request" || tab === "response") ? tab : null;
   const [showAdditional, setShowAdditional] = useState(false);
   const { copied, copy } = useCopy();
 
@@ -386,6 +394,7 @@ function EntryDetail(props: { entry: TimelineEntry; source: Source; changes: Cha
               key={value}
               type="button"
               role="tab"
+              class={toneOf(value) ? `mini-tabs__tab--${toneOf(value)}` : undefined}
               aria-selected={tab === value}
               onClick={() => setTab(value)}
             >
@@ -428,7 +437,23 @@ function EntryDetail(props: { entry: TimelineEntry; source: Source; changes: Cha
         )
         : (
           <>
-            <JsonBlock value={rest} entryKey={`${entry.id}:${tab}`} />
+            {direction
+              ? (
+                <div class={`ev__payload ev__payload--${toneOf(direction)}`}>
+                  <p class="ev__direction">
+                    <strong>{direction === "request" ? "Request" : "Response"}</strong>
+                    <span>
+                      {direction === "request"
+                        ? "this server → Adyen"
+                        : `Adyen → this server${
+                          Number(entry.status) > 0 ? ` · HTTP ${entry.status}` : ""
+                        }`}
+                    </span>
+                  </p>
+                  <JsonBlock value={rest} entryKey={`${entry.id}:${tab}`} />
+                </div>
+              )
+              : <JsonBlock value={rest} entryKey={`${entry.id}:${tab}`} />}
             {additionalData
               ? (
                 <div class="ev__extra">

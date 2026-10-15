@@ -7,7 +7,7 @@ status: stable
 scope: component-platform
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-10-15T08:00:00Z
 sources:
   - id: platform
     resource: packages/platform
@@ -21,7 +21,7 @@ tests next to it (`*.test.ts`).
 
 | Module                                            | Responsibility                                                                                                                                                                                                                                                                                                 |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `adyen.ts`                                        | The only path to Adyen. Wraps `@adyen/api-library` 32, refuses non-TEST endpoints, supports query params (`getSessionResult`), maps library errors to `AdyenRequestError` with the upstream status. Carries two harmless workarounds for Deno < 2.8.                                                           |
+| `adyen.ts`                                        | The only path to Adyen. Wraps `@adyen/api-library` 32, refuses non-TEST endpoints, supports query params (unused since `GET /sessions` was dropped), maps library errors to `AdyenRequestError` with the upstream status. Carries two harmless workarounds for Deno < 2.8.                                     |
 | `base-api.ts`                                     | `createPlatformContext(appId)`: config, repository, profiles and the Hono app with security headers, Basic Auth, rate limiting and CSRF; shared routes (health, bootstrap, profiles, callbacks, timeline).                                                                                                     |
 | `config.ts`                                       | Reads env vars, then `.env` files as fallback; strips quotes Docker leaves on `--env-file` values; derives `PUBLIC_ORIGIN`, the database path and the default profile.                                                                                                                                         |
 | `profiles.ts`                                     | Default profile from env; extra profiles encrypted with AES-256-GCM.                                                                                                                                                                                                                                           |

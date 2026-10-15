@@ -147,7 +147,7 @@ Deno.test("one PSP reference records one payment part, however often it is repor
   }
 });
 
-Deno.test("an order is found from an attempt's PSP reference and its Adyen session", () => {
+Deno.test("an order is found from an attempt's PSP reference", () => {
   const repository = new Repository(":memory:");
   try {
     const order = repository.createOrder({
@@ -165,7 +165,6 @@ Deno.test("an order is found from an attempt's PSP reference and its Adyen sessi
 
     assertEquals(repository.findOrderByPspReference("PSP-1")?.id, order.id);
     assertEquals(repository.findOrderByPspReference("PSP-unknown"), undefined);
-    assertEquals(repository.findAdyenSessionId(order.id), "CS1");
   } finally {
     repository.close();
   }

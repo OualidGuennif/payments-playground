@@ -202,14 +202,6 @@ export class Repository {
     return row ? mapOrder(row) : undefined;
   }
 
-  findAdyenSessionId(orderId: string): string | undefined {
-    const row = this.database.prepare<{ adyen_session_id: string | null }>(
-      `SELECT adyen_session_id FROM payment_sessions
-       WHERE order_id = ? ORDER BY created_at DESC LIMIT 1`,
-    ).get(orderId);
-    return row?.adyen_session_id || undefined;
-  }
-
   listOrders(appId: AppId, limit = 100): OrderAggregate[] {
     return this.database.prepare<OrderRow>(
       "SELECT * FROM orders WHERE app_id = ? ORDER BY updated_at DESC LIMIT ?",

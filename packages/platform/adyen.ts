@@ -269,17 +269,6 @@ export class AdyenTestClient {
     });
   }
 
-  /** The authoritative outcome of a Sessions-flow checkout, keyed by the result Adyen Web returns. */
-  async getSessionResult(sessionId: string, sessionResult: string): Promise<unknown> {
-    return await adyenRequest({
-      apiKey: this.#secrets.apiKey!,
-      endpoint: `${CHECKOUT_BASE_URL}/sessions/${encodeURIComponent(sessionId)}`,
-      method: "GET",
-      params: { sessionResult },
-      httpClient: this.#httpClient,
-    });
-  }
-
   async paymentMethods(payload: Payload): Promise<unknown> {
     return await adyenRequest({
       apiKey: this.#secrets.apiKey!,

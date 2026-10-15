@@ -135,4 +135,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
   occurred_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS audit_log_correlation_idx ON audit_log(correlation_id, occurred_at);
+
+-- The playground no longer calls GET /sessions/{id}: Adyen does not update
+-- the status it returns. Runs at every start, so old rows go everywhere.
+DELETE FROM api_calls WHERE name = 'Checkout API GET /sessions/{id}';
 `;

@@ -10,9 +10,9 @@ generated:
 
 # References
 
-| Concept                                                               | Status | Notes                                                         |
-| --------------------------------------------------------------------- | ------ | ------------------------------------------------------------- |
-| [Checkout API v72 notes](adyen-checkout-api-notes.md)                 | stable | Field acceptance per endpoint, session results, modifications |
-| [Adyen Web v6 notes](adyen-web-v6-notes.md)                           | stable | Callback levels and semantics, package layout, versions       |
-| [Capture and refund capabilities](capture-and-refund-capabilities.md) | stable | Per method, this account's capture setup, idempotency         |
-| [Open Knowledge Format v0.2](open-knowledge-format.md)                | stable | The format and the local extensions                           |
+| Concept                                                               | Status | Notes                                                                  |
+| --------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------- |
+| [Checkout API v72 notes](adyen-checkout-api-notes.md)                 | stable | Field acceptance per endpoint, GET /sessions not polled, modifications |
+| [Adyen Web v6 notes](adyen-web-v6-notes.md)                           | stable | Callback levels and semantics, package layout, versions                |
+| [Capture and refund capabilities](capture-and-refund-capabilities.md) | stable | Per method, this account's capture setup, idempotency                  |
+| [Open Knowledge Format v0.2](open-knowledge-format.md)                | stable | The format and the local extensions                                    |

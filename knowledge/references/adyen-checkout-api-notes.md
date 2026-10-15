@@ -1,12 +1,12 @@
 ---
 type: Reference
 title: "Checkout API v72: what each endpoint accepts, and other facts this repo relies on"
-description: "Per-endpoint field acceptance learned from rejections, session results, modification references in webhooks, the Node library's query-string quirk, and the fields that tie a checkout together."
+description: "Per-endpoint field acceptance learned from rejections, why GET /sessions is not polled, modification references in webhooks, the Node library's query-string quirk, and the fields that tie a checkout together."
 tags: [reference, adyen, checkout-api]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-13T06:30:00Z
+  at: 2026-10-15T08:00:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -46,14 +46,16 @@ anything outside their schema. The field lists in `@adyen/api-library`'s typings
 ## Sessions results
 
 Adyen Web's `onPaymentCompleted` and `onPaymentFailed` receive a `sessionResult` in the Sessions
-flow. `GET /sessions/{id}?sessionResult=<it>` returns `status` (`active`, `canceled`, `completed`,
-`expired`, `paymentPending`, `refused`) and `payments[]` with `pspReference`, `resultCode`, `amount`
-and `paymentMethod.type`.
+flow. `GET /sessions/{id}?sessionResult=<it>` exists, but Adyen's reference for it (as quoted by the
+owner on 2026-10-15) says the status in its response is not updated and the request must not be made
+again to follow the payment: use webhooks or the Customer Area's Transactions list. This playground
+does not call it (owner, 2026-10-15); the AUTHORISATION webhook writes a Sessions attempt.
 
 ## The Node library drops query strings
 
 `HttpURLConnectionClient.createRequest` builds the path from `url.pathname` only. A query string in
-the endpoint disappears silently; pass `requestOptions.params` instead (`adyen.ts` does).
+the endpoint disappears silently; pass `requestOptions.params` instead (`adyen.ts` supports it; no
+call uses it today).
 
 ## Modifications and their webhooks
 

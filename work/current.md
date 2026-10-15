@@ -2,7 +2,7 @@
 
 Task state only. Durable facts belong in `knowledge/`; history belongs in `git log`.
 
-- **Updated**: 2026-10-13
+- **Updated**: 2026-10-15
 - **Focus**: `apps/adyen-digital` (owner instruction). Styling only when asked; agentic out of
   scope.
 - **Render**: services renamed to the YAML names, Blueprint Auto Sync off, auto-deploy from git on.
@@ -14,6 +14,12 @@ Task state only. Durable facts belong in `knowledge/`; history belongs in `git l
   inspector (Adyen events only, one row per onChange with its diff, cURL, export), and captures,
   cancels and refunds as a webhook-settled ledger (partial and multiple partial, idempotent). All
   pushed; Render deploys from `main`.
+- **2026-10-15**: Sessions no longer calls `GET /sessions/{id}` (its status is not updated, per
+  Adyen's reference as quoted by the owner); the route, client sync and cURL/inspector special cases
+  are gone, and a statement in `SCHEMA_SQL` deletes the recorded calls at every start, so
+  production's database is cleaned on deploy. A Sessions order is now settled only by its
+  AUTHORISATION webhook (or `/payments/details` after a redirect): locally, without webhooks, it
+  stays `open`.
 - **2026-10-13**: Advanced `/payments` now sends `shopperIP` (X-Forwarded-For, else the connection;
   a dev-only Vite plugin supplies it locally) and a `deliveryAddress` without `firstName`/`lastName`
   (Sessions keeps them). Browser verified on 5173; the IP behind Render's proxy is not observed yet:

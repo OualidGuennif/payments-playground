@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-13T07:30:00Z
+  at: 2026-10-15T08:00:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -53,7 +53,6 @@ Shared routes from `base-api.ts`: `GET /api/health`, `GET /healthz`, `GET /api/b
 | Route                                                                 | Calls Adyen                                      | Notes                                                                                                                                          |
 | --------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /api/digital/sessions`                                          | `/sessions`                                      | Creates the order and its session row                                                                                                          |
-| `POST /api/digital/sessions/:orderId/result`                          | `GET /sessions/{id}?sessionResult=`              | Writes the Sessions outcome                                                                                                                    |
 | `POST /api/digital/payment-methods`                                   | `/paymentMethods`                                | Mints `shopperConversionId`                                                                                                                    |
 | `POST /api/digital/payments`                                          | `/payments`                                      | Creates order and attempt; forwards selected `state.data`                                                                                      |
 | `POST /api/digital/payments/details`                                  | `/payments/details`                              | Settles the pending attempt                                                                                                                    |

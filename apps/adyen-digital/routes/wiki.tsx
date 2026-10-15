@@ -47,10 +47,10 @@ export default define.page(function WikiPage() {
             </p>
             <p>
               Move the shopper to the confirmation page on <code>onPaymentCompleted</code>{" "}
-              and let the webhook be the only source of truth for the order.{" "}
-              <code>GET /sessions/{"{id}"}</code> with the <code>sessionResult</code>{" "}
-              is optional: this playground calls it to show an outcome without waiting, and the
-              inspector marks it so.
+              and let the webhook be the only source of truth for the order. This playground never
+              calls{" "}
+              <code>GET /sessions/{"{id}"}</code>: Adyen documents that the status it returns is not
+              updated, so it must not be polled for the payment's outcome.
             </p>
             <p>
               Since v6.41.0, card installments for Sessions belong in the request-level

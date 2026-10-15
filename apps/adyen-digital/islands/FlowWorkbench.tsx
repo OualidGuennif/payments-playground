@@ -474,7 +474,6 @@ export default function FlowWorkbench(
       ...lastPaymentRef.current,
       resultCode: field(result, "resultCode") ?? lastPaymentRef.current.resultCode,
     });
-    syncSessionResult(result);
   }
 
   function commonConfiguration(extra: Record<string, unknown>) {
@@ -502,32 +501,6 @@ export default function FlowWorkbench(
       },
       ...extra,
     };
-  }
-
-  // Sessions only: Adyen Web ran the payment, so the server asks Adyen how it
-  // ended, which is what lets the Back Office show it without a webhook.
-  function syncSessionResult(result: unknown) {
-    const sessionResult = field(result, "sessionResult");
-    const orderId = correlationRef.current;
-    if (flow !== "sessions" || !sessionResult || !orderId) return;
-    apiFetch<{ result: { payments?: Array<Record<string, unknown>> } }>(
-      `/api/digital/sessions/${orderId}/result`,
-      { method: "POST", body: JSON.stringify({ sessionResult }) },
-      profileId,
-    )
-      .then((response) => {
-        const payment = response.result.payments?.[0];
-        if (!payment) return;
-        const method = payment.paymentMethod as Record<string, unknown> | undefined;
-        setOutcome((current) =>
-          current && {
-            ...current,
-            pspReference: field(payment, "pspReference") ?? current.pspReference,
-            method: field(method, "brand") ?? field(method, "type") ?? current.method,
-          }
-        );
-      })
-      .catch(() => undefined);
   }
 
   // Card-only settings. Adyen Web reads these from the card's own

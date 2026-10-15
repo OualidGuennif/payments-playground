@@ -14,11 +14,10 @@ Deno.test("a POST replays its body and leaves the API key to the environment", (
   assertStringIncludes(command, `"reference": "o'\\''brien"`);
 });
 
-Deno.test("GET /sessions/{id} carries sessionResult in the query, with no body", () => {
-  const command = asCurl("GET", "https://checkout-test.adyen.com/v72/sessions/CS123", {
-    sessionId: "CS123",
-    sessionResult: "a+b/c=",
+Deno.test("a GET sends no body", () => {
+  const command = asCurl("GET", "https://checkout-test.adyen.com/v72/paymentLinks/PL123", {
+    linkId: "PL123",
   });
-  assertStringIncludes(command, "/sessions/CS123?sessionResult=a%2Bb%2Fc%3D'");
+  assertStringIncludes(command, "/paymentLinks/PL123'");
   assertEquals(command.includes(" -d "), false);
 });

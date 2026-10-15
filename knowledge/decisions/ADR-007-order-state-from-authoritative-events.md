@@ -1,12 +1,12 @@
 ---
 type: Decision
 title: "ADR-007: An order's state comes only from authoritative events"
-description: "Order state is re-derived from attempts plus Adyen's own answers (API results, session results, webhooks); a refusal never closes an order; paid and cancelled are settled and never reopened."
+description: "Order state is re-derived from attempts plus Adyen's own answers (API results, webhooks); a refusal never closes an order; paid and cancelled are settled and never reopened."
 tags: [decision, state-machine, lifecycle]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-10-15T08:00:00Z
 sources:
   - id: state-machine
     resource: packages/platform/state-machine.ts
@@ -16,7 +16,7 @@ sources:
     title: Invariant tests
   - id: api
     resource: apps/adyen-digital/api.ts
-    title: settleAttempt, resolveAndStore, session result, webhook handler
+    title: settleAttempt, resolveAndStore, webhook handler
 ---
 
 # ADR-007: An order's state comes only from authoritative events
@@ -28,8 +28,11 @@ Sessions outcomes and CAPTURE/CANCELLATION webhooks never reached the order, so 
 **Decision.**
 
 - The browser never decides an outcome. Outcomes come from `/payments`, `/payments/details`,
-  `GET /sessions/{id}` (keyed by the `sessionResult` Adyen Web returns), `GET /paymentLinks/{id}`
-  and HMAC-valid webhooks.
+  `GET /paymentLinks/{id}` and HMAC-valid webhooks.
+- Amended 2026-10-15 (owner): `GET /sessions/{id}` is no longer a source and is never called. Adyen
+  documents that the status it returns is not updated after the first answer and must not be polled;
+  a Sessions order is settled by its AUTHORISATION webhook (or `/payments/details` after a
+  redirect).
 - `resolveOrder` re-derives the state from attempts and at most one terminal event each time.
 - A refusal ends an attempt, never an order.
 - `paid` and `cancelled` are settled: a later event (a REFUND after a CAPTURE) never reopens them.

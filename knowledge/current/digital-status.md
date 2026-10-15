@@ -1,14 +1,14 @@
 ---
 type: Current State
 title: "adyen-digital: what is verified, and what is still open"
-description: "Evidence-backed state of the digital playground as of 2026-10-13: each flow with the verification level it reached, and the open gaps in priority order."
+description: "Evidence-backed state of the digital playground as of 2026-10-15: each flow with the verification level it reached, and the open gaps in priority order."
 tags: [current, digital, verification]
 status: stable
 scope: digital-status
 stale_after: 2026-11-10
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-13T06:30:00Z
+  at: 2026-10-15T08:00:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -37,7 +37,7 @@ As of 2026-10-10, Adyen Web 6.46.0, Checkout API v72. Re-verify before 2026-11-1
 | What                                                                                | Status | Level                             | Evidence                                                                                                                                                                                                                                                                                     |
 | ----------------------------------------------------------------------------------- | ------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Drop-in loads with an ad blocker (Firefox, dev server)                              | PASS   | BROWSER VERIFIED                  | Headless Firefox 157 with an `analytics` request block: Drop-in ready, 13 methods. Before the fix: placeholder only, the user's HAR showed `core/Analytics/*.js` blocked.                                                                                                                    |
-| Sessions Drop-in, stored card                                                       | PASS   | BROWSER VERIFIED                  | Order `d13195db`: `GET /sessions/{id}` 200, attempt authorised `HC9HHTMGTVL4C5V5`, order `payment_pending`, 10 999 paid                                                                                                                                                                      |
+| Sessions Drop-in, stored card                                                       | PASS   | BROWSER VERIFIED                  | Order `d13195db` (2026-10-09, through `GET /sessions/{id}`, removed 2026-10-15): attempt authorised `HC9HHTMGTVL4C5V5`. Since then a Sessions order is settled by its AUTHORISATION webhook only                                                                                             |
 | Advanced Drop-in, 3DS2 challenge                                                    | PASS   | BROWSER VERIFIED                  | Order `ee0fbff7`: `/payments` IdentifyShopper with `returnUrl` on `localhost:5173`, `/payments/details` Authorised, attempt `TZVGV9DFXNTZJMV5` authorised                                                                                                                                    |
 | Advanced Drop-in, stored card, `riskData` forwarded                                 | PASS   | TEST API VERIFIED                 | `/payments` request carries `riskData.clientData`; Authorised                                                                                                                                                                                                                                |
 | Capture from the Back Office API                                                    | PASS   | TEST API VERIFIED                 | `202`, `status: received`, modification `S72X6VJX9H7VJT65` on `TZVGV9DFXNTZJMV5`                                                                                                                                                                                                             |

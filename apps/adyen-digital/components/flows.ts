@@ -3,7 +3,9 @@ export type Flow = "sessions" | "advanced" | "api-only" | "pay-by-link" | "mit";
 
 export interface FlowInfo {
   id: Flow;
+  /** Card title on the home page. */
   label: string;
+  /** Name in the checkout page's flow badge. */
   title: string;
   description: string;
   /** Group on the home page. */
@@ -16,7 +18,7 @@ export interface FlowInfo {
 export const FLOWS: FlowInfo[] = [
   {
     id: "sessions",
-    label: "Sessions",
+    label: "Sessions Flow",
     title: "Sessions",
     description: "One /sessions call; Adyen Web runs the payment, 3DS included.",
     group: "checkout",
@@ -25,7 +27,7 @@ export const FLOWS: FlowInfo[] = [
   },
   {
     id: "advanced",
-    label: "Advanced",
+    label: "Advanced Flow",
     title: "Advanced",
     description: "Your server calls /paymentMethods, /payments and /payments/details.",
     group: "checkout",
@@ -49,7 +51,7 @@ export const FLOWS: FlowInfo[] = [
   },
   {
     id: "mit",
-    label: "MIT",
+    label: "Merchant-initiated",
     title: "Merchant-initiated",
     description: "Charge a saved card without the shopper, with a stored payment method.",
     group: "beyond",

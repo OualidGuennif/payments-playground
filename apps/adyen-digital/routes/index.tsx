@@ -37,7 +37,7 @@ export default define.page(function Home() {
               <Card
                 key={flow.id}
                 href={flowHref(flow)}
-                title={flow.title}
+                title={flow.label}
                 badge={flow.recommended ? "Recommended" : undefined}
               >
                 {flow.description}
@@ -50,7 +50,7 @@ export default define.page(function Home() {
           <h2>Beyond checkout</h2>
           <div class="home-grid">
             {beyond.map((flow) => (
-              <Card key={flow.id} href={flowHref(flow)} title={flow.title}>
+              <Card key={flow.id} href={flowHref(flow)} title={flow.label}>
                 {flow.description}
               </Card>
             ))}

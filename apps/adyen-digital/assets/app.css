@@ -482,11 +482,13 @@
   border-radius: var(--radius-m);
 }
 
-.pay-form .switch-row span {
+.pay-form .switch-row span,
+.config-group .switch-row span {
   display: grid;
 }
 
-.pay-form .switch-row small {
+.pay-form .switch-row small,
+.config-group .switch-row small {
   color: var(--color-ink-muted);
   font-size: 0.74rem;
 }

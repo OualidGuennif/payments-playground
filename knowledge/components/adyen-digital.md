@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-15T08:00:00Z
+  at: 2026-10-15T20:45:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -81,9 +81,11 @@ same-host Origin ([ADR-008](../decisions/ADR-008-redirects-follow-the-browser-or
   second checkout. Callbacks are reported under the current run's correlation id (a ref, not render
   state). Card callbacks (`onBinLookup`, `onBinValue`, `onBrand`) are set on the `card`/`scheme`
   configuration, where Adyen Web reads them. The result card replaces the checkout once a payment
-  ends. Test cards open in a sheet. The inspector is open from the start (owner, 2026-10-10), polls
-  the timeline every 2.5 s ("Live") and follows new events unless the reader scrolled up. Only Adyen
-  Web callbacks are recorded from the browser: the playground no longer posts its own responses
+  ends. Test cards open in a sheet. The settings sheet has a "Native 3DS" switch for Sessions and
+  Advanced, on by default; off sends `nativeThreeDS: "disabled"` and the scenario chip adds "3DS
+  redirect" (owner, 2026-10-15). The inspector is open from the start (owner, 2026-10-10), polls the
+  timeline every 2.5 s ("Live") and follows new events unless the reader scrolled up. Only Adyen Web
+  callbacks are recorded from the browser: the playground no longer posts its own responses
   (`sessionCreated`, `backendPaymentResponse`, `paymentLinkCreated`, `mitResponse`) as callbacks.
 - **`BackOffice.tsx`**: metrics (Authorised, Captured, Refused, Not paid), search by reference or
   PSP reference, state filters, orders nobody tried to pay hidden by default, 12 per page with "Show

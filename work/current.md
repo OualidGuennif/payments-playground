@@ -14,6 +14,9 @@ Task state only. Durable facts belong in `knowledge/`; history belongs in `git l
   inspector (Adyen events only, one row per onChange with its diff, cURL, export), and captures,
   cancels and refunds as a webhook-settled ledger (partial and multiple partial, idempotent). All
   pushed; Render deploys from `main`.
+- **2026-10-15**: "Native 3DS" switch in the settings sheet (Sessions, Advanced; on by default), off
+  sends `nativeThreeDS: "disabled"`; redirect 3DS browser verified for both flows. Home cards read
+  "Sessions Flow" and "Advanced Flow".
 - **2026-10-15**: Sessions no longer calls `GET /sessions/{id}` (its status is not updated, per
   Adyen's reference as quoted by the owner); the route, client sync and cURL/inspector special cases
   are gone, and a statement in `SCHEMA_SQL` deletes the recorded calls at every start, so

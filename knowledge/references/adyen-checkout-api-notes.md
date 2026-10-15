@@ -6,7 +6,7 @@ tags: [reference, adyen, checkout-api]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-15T08:00:00Z
+  at: 2026-10-15T20:45:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -70,6 +70,14 @@ reference. The outcome arrives as a CAPTURE, CANCELLATION or REFUND notification
 `returnUrl` must be an origin the shopper's browser can reach. The `origin` field on `/payments` is
 the page's origin, used by the native 3DS2 flow. Both follow the request's own origin here
 ([ADR-008](../decisions/ADR-008-redirects-follow-the-browser-origin.md)).
+
+`authenticationData.threeDSRequestData.nativeThreeDS` (`preferred` or `disabled`, accepted by
+`/sessions` and `/payments`) picks the 3DS2 experience. With the challenge card
+`4917 6100 0000
+0000`: `preferred` answers `IdentifyShopper` with a `threeDS2` action rendered
+inside the checkout; `disabled` answers `RedirectShopper` with a `redirect` action to Adyen's
+full-page simulator, and the return to `/result` settles through `/payments/details`. Seen for both
+flows on 2026-10-15.
 
 ## Idempotency
 

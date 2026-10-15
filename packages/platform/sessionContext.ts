@@ -60,7 +60,7 @@ export function splitsCardFundingSources(countryCode: string): boolean {
  * (payments-only) are added by `sessionRiskFields()`/`paymentsRiskFields()`
  * respectively rather than living in this shared base.
  */
-function commonRiskFields(): Record<string, unknown> {
+function commonRiskFields(nativeThreeDS: boolean): Record<string, unknown> {
   return {
     shopperInteraction: "Ecommerce",
     shopperName: { firstName: "Test", lastName: "Shopper" },
@@ -69,8 +69,10 @@ function commonRiskFields(): Record<string, unknown> {
       "riskdata.isGuest": "true",
       "riskdata.loyaltyPoints": "237",
     },
+    // "disabled" makes the 3DS2 challenge a redirect to the issuer's page
+    // instead of rendering inside the checkout; merchants ask to see both.
     authenticationData: {
-      threeDSRequestData: { nativeThreeDS: "preferred" },
+      threeDSRequestData: { nativeThreeDS: nativeThreeDS ? "preferred" : "disabled" },
     },
     accountInfo: {
       accountAgeIndicator: "from30To60Days",
@@ -81,9 +83,12 @@ function commonRiskFields(): Record<string, unknown> {
 }
 
 /** For /sessions requests: common fields plus splitCardFundingSources. */
-export function sessionRiskFields(countryCode: string): Record<string, unknown> {
+export function sessionRiskFields(
+  countryCode: string,
+  nativeThreeDS = true,
+): Record<string, unknown> {
   return {
-    ...commonRiskFields(),
+    ...commonRiskFields(nativeThreeDS),
     splitCardFundingSources: SPLIT_CARD_FUNDING_COUNTRIES.has(countryCode.toUpperCase()),
   };
 }
@@ -92,10 +97,11 @@ export function sessionRiskFields(countryCode: string): Record<string, unknown> 
 export function paymentsRiskFields(
   billingAddress: Address,
   deliveryAddress: Address,
+  nativeThreeDS = true,
 ): Record<string, unknown> {
   const addressMatch = addressesAreEqual(billingAddress, deliveryAddress);
   return {
-    ...commonRiskFields(),
+    ...commonRiskFields(nativeThreeDS),
     merchantRiskIndicator: {
       addressMatch,
       deliveryAddressIndicator: addressMatch ? "shipToBillingAddress" : "shipToNewAddress",

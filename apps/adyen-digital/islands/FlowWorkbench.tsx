@@ -257,6 +257,10 @@ export default function FlowWorkbench(
   // Whether installments are offered is a property of the market, not a
   // manual preference: always derived from the country.
   const installments = INSTALLMENT_COUNTRIES.includes(country.toUpperCase());
+  // Off sends nativeThreeDS "disabled": the 3DS2 challenge becomes a redirect
+  // to the issuer's page. Sessions and Advanced only.
+  const hasThreeDSChoice = flow === "sessions" || flow === "advanced";
+  const [nativeThreeDS, setNativeThreeDS] = useState(true);
   const [correlationId, setCorrelationId] = useState<string | null>(null);
   // The Advanced flow mints a new correlation id at /payments, so keeping only
   // the current one made the /paymentMethods call vanish from the inspector
@@ -346,7 +350,7 @@ export default function FlowWorkbench(
     }
     const timeout = setTimeout(() => start(), 500);
     return () => clearTimeout(timeout);
-  }, [amount, currency, country, locale, integration, profileId, theme]);
+  }, [amount, currency, country, locale, integration, profileId, theme, nativeThreeDS]);
 
   // MIT charges a card saved earlier: list the ones Adyen holds for this
   // week's shopper, instead of asking for a token by hand.
@@ -636,6 +640,7 @@ export default function FlowWorkbench(
         countryCode: country,
         shopperLocale: locale,
         installments,
+        nativeThreeDS,
       }),
     }, profileId);
     if (stale()) return;
@@ -695,6 +700,7 @@ export default function FlowWorkbench(
               countryCode: country,
               shopperLocale: locale,
               shopperConversionId: shopperConversionRef.current,
+              nativeThreeDS,
               ...stateData,
             }),
           }, profileId);
@@ -1132,6 +1138,7 @@ export default function FlowWorkbench(
                 {info.hasIntegration
                   ? ` · ${integration === "dropin" ? "Drop-in" : "Components"}`
                   : ""}
+                {hasThreeDSChoice && !nativeThreeDS ? " · 3DS redirect" : ""}
               </span>
             </span>
             <span class="scenario-chip__edit">Edit</span>
@@ -1363,6 +1370,28 @@ export default function FlowWorkbench(
                   ? "Every payment method in one list."
                   : "One payment method at a time; pick it above the payment form."}
               </p>
+            </section>
+          )
+          : null}
+        {hasThreeDSChoice
+          ? (
+            <section class="config-group">
+              <h3>3D Secure</h3>
+              <label class="switch-row">
+                <span>
+                  <strong>Native 3DS</strong>
+                  <small>
+                    {nativeThreeDS
+                      ? "The challenge opens inside the checkout (nativeThreeDS: preferred)."
+                      : "The shopper is redirected to the issuer's page (nativeThreeDS: disabled)."}
+                  </small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={nativeThreeDS}
+                  onChange={(event) => setNativeThreeDS(event.currentTarget.checked)}
+                />
+              </label>
             </section>
           )
           : null}

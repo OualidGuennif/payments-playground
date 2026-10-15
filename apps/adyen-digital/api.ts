@@ -263,6 +263,8 @@ function requestBase(input: {
     deliveryAddress: input.body.deliveryAddress,
   });
   const billingAddress = addresses.billingAddress;
+  // The playground's "Native 3DS" switch; only an explicit false turns it off.
+  const nativeThreeDS = input.body.nativeThreeDS !== false;
   // Only /sessions gets a recipient name inside deliveryAddress. /payments
   // sends the postal fields only, by the owner's choice (2026-10-13), even
   // when Adyen Web's state.data supplied names. /paymentLinks validates a
@@ -304,8 +306,8 @@ function requestBase(input: {
       ? { storePaymentMethodMode: "askForConsent", recurringProcessingModel: "CardOnFile" }
       : {}),
     ...(input.context === "payments"
-      ? paymentsRiskFields(billingAddress, deliveryAddress)
-      : sessionRiskFields(countryCode)),
+      ? paymentsRiskFields(billingAddress, deliveryAddress, nativeThreeDS)
+      : sessionRiskFields(countryCode, nativeThreeDS)),
   };
 }
 

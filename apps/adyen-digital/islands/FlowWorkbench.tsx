@@ -559,6 +559,22 @@ export default function FlowWorkbench(
     for (const type of ["card", "scheme", "storedCard"]) {
       configuration[type] = { ...configuration[type] as Record<string, unknown>, ...cardOptions };
     }
+    // Gift cards, meal vouchers and Bancontact type into the same secured
+    // field iframes: without these colours their digits stay dark on the
+    // dark theme. Giftcard hands its props to the iframes, styles included.
+    if (styles) {
+      for (
+        const type of [
+          "giftcard",
+          "bcmc",
+          "mealVoucher_FR_groupeup",
+          "mealVoucher_FR_natixis",
+          "mealVoucher_FR_sodexo",
+        ]
+      ) {
+        configuration[type] = { ...configuration[type] as Record<string, unknown>, styles };
+      }
+    }
     return configuration;
   }
 

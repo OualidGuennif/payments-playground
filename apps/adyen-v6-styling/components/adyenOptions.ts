@@ -974,6 +974,20 @@ export function storedCardConfigObject(styles: SecureStyles, card: CardOptions) 
   return sharedFieldOptions(styles, card);
 }
 
+/**
+ * Gift cards and Bancontact type into the same secured-field iframes as the
+ * card. Without the same styles their digits keep Adyen's dark default,
+ * unreadable on a dark theme. Giftcard hands its props, styles included, to
+ * the iframes even though GiftCardConfiguration does not declare them.
+ */
+export function securedFieldMethodConfigObjects(styles: SecureStyles) {
+  const objectStyles = secureStyleObject(styles);
+  if (Object.keys(objectStyles).length === 0) return {};
+  // Widened on purpose: the type would reject the one prop that matters here.
+  const giftcard: Record<string, unknown> = { styles: objectStyles };
+  return { giftcard, bcmc: { styles: objectStyles } };
+}
+
 /* -------------------------------------------------------------------------- */
 /* Wallets: the buttons Apple, Google and PayPal render themselves            */
 /* -------------------------------------------------------------------------- */
@@ -1461,6 +1475,7 @@ export function dropinProps(
     paymentMethodsConfiguration: {
       card: cardConfigObject(styles, card, country),
       storedCard: storedCardConfigObject(styles, card),
+      ...securedFieldMethodConfigObjects(styles),
       ...walletConfigObjects(wallets),
     },
   };

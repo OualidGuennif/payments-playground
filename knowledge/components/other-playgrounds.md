@@ -7,7 +7,7 @@ status: stable
 scope: component-other-playgrounds
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-10T09:10:00Z
+  at: 2026-10-16T15:45:00Z
 sources:
   - id: readme
     resource: README.md
@@ -27,7 +27,9 @@ sources:
 
 - **`adyen-v6-styling` (Drop-in Styling, Ready, port 8004).** A theming workbench: secured-field
   `styles`, Card and Drop-in options, and every `--adyen-sdk-*` token Adyen Web reads, with export.
-  It creates a session and mounts a Drop-in; it stores nothing but panel settings in `localStorage`.
+  The field styles also go to `giftcard` and `bcmc` (preview and the Field styles export alike):
+  their numbers are typed into the same iframes, and stayed dark on the Dark preset (2026-10-16). It
+  creates a session and mounts a Drop-in; it stores nothing but panel settings in `localStorage`.
   Its token audit (`components/adyenOptions.test.ts`) fetches the real `adyen.css` for the pinned
   version and fails on drift, so an Adyen Web bump has to be looked at. It uses the dev bundle
   plugin, like digital; its production build is unchanged by it (verified byte-identical). Its

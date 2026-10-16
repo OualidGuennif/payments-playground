@@ -55,6 +55,7 @@ import {
   SECURE_PROPERTY_SPECS,
   SECURE_STATE_META,
   SECURE_STATES,
+  securedFieldMethodConfigObjects,
   secureSetCount,
   storedCardConfigObject,
   THEME_PRESETS,
@@ -1077,6 +1078,7 @@ export default function StylingPlayground() {
                       {
                         card: cardConfigObject(secureStyles, cardOptions, country),
                         storedCard: storedCardConfigObject(secureStyles, cardOptions),
+                        ...securedFieldMethodConfigObjects(secureStyles),
                       },
                       null,
                       2,

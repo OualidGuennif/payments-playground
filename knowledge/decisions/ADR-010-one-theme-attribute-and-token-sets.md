@@ -6,7 +6,7 @@ tags: [decision, ui, theme, dark-mode]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-10T11:00:00Z
+  at: 2026-10-16T15:45:00Z
 sources:
   - id: theme
     resource: packages/ui/theme.ts
@@ -39,6 +39,9 @@ Adyen's secured-field iframes take their colours only when they mount.
   (`:root[data-theme="dark"]`). Light values are the ones the playground had before.
 - Digital's checkout follows the theme: dark `--adyen-sdk-*` tokens on `.checkout-pay`,
   secured-field `styles` from `securedFieldStyles(theme)`, and a remount when the theme changes.
+  Amended 2026-10-16: those `styles` go to every method typed into secured fields (card, stored
+  card, gift card, Bancontact, French meal vouchers); with only the card, gift card digits stayed
+  dark on the dark theme.
 - Styling's Drop-in column opts out with `.keep-light` (the light token set) and
   `color-scheme: light`: the checkout and the export look the same in both themes. Everything around
   it is the tool's and follows the switch: toolbar, test data, options panel and the canvas, which

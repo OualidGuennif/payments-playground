@@ -322,7 +322,7 @@ export function AppShell(props: {
           <footer class={props.minimal ? "app-footer app-footer--wide" : "app-footer"}>
             <span class="app-footer__meta">
               {props.minimal ? <TestPill /> : null}
-              Adyen Web 6.46.0 · Checkout API v72
+              Adyen Web 6.47.0 · Checkout API v72
             </span>
             <nav class="app-footer__links" aria-label="Footer">
               <a href="/wiki" aria-current={current("/wiki")}>Wiki</a>

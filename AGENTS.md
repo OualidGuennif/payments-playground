@@ -1,6 +1,6 @@
 # Payments Playground: agent instructions
 
-Four Adyen **TEST** playgrounds in one Deno workspace (Fresh 2 + Hono, Adyen Web 6.46.0, Checkout
+Four Adyen **TEST** playgrounds in one Deno workspace (Fresh 2 + Hono, Adyen Web 6.47.0, Checkout
 API v72). Current focus: `apps/adyen-digital`. Owner and final say: Oualid (OualidGuennif).
 
 Read this file in full; it is short on purpose. Everything else is in `knowledge/`, loaded

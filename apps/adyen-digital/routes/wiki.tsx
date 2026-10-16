@@ -26,7 +26,7 @@ export default define.page(function WikiPage() {
       <PageHeader
         eyebrow="Living reference"
         title="Digital integration wiki"
-        description="Maintained against Adyen Web 6.46.0 and Checkout API v72. The supplied callback PDF (v6.40.2) is used as a reviewed secondary source."
+        description="Maintained against Adyen Web 6.47.0 and Checkout API v72. The supplied callback PDF (v6.40.2) is used as a reviewed secondary source."
       />
       <Callout title="Source policy">
         The callback PDF is useful for callback signatures and ordering, but official Adyen
@@ -90,7 +90,9 @@ export default define.page(function WikiPage() {
               <code>openFirstPaymentMethod=false</code>. Up to 6.46.0 it then let the 3DS2 iframe
               run WebAuthn and SPC challenges, added a Sessions <code>onReview</code>{" "}
               callback, kept a Drop-in method's state when another is selected, and allowed a
-              disclaimer above the Pay button.
+              disclaimer above the Pay button. 6.47.0 shows a failed gift card balance check to the
+              shopper instead of failing silently, and warns when several checkouts are created on
+              one page.
             </p>
           </section>
           <section id="webhooks">

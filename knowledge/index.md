@@ -5,7 +5,7 @@ okf_version: "0.2"
 # Payments Playground knowledge base
 
 Four Adyen TEST playgrounds in one Deno workspace: Fresh 2 pages, a Hono API in the same process,
-Adyen Web 6.46.0 in the browser, Checkout API v72 on the server. Current focus: `adyen-digital`.
+Adyen Web 6.47.0 in the browser, Checkout API v72 on the server. Current focus: `adyen-digital`.
 This bundle is the canonical engineering knowledge. Open only what your task needs.
 
 | Area                                | One line                                                                   | Start with                                     |

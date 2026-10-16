@@ -86,7 +86,7 @@ same model on PostgreSQL plus a webhook queue.
 | Fresh                | 2.3.3   | SSR and islands                                   |
 | Hono                 | 4.12.31 | API router inside each Fresh server               |
 | Vite                 | 7.1.4   | Build and HMR (version linked to Fresh version)   |
-| Adyen Web            | 6.46.0  | Client-side components                            |
+| Adyen Web            | 6.47.0  | Client-side components                            |
 | `@adyen/api-library` | 32.0.0  | Server-side calls, over its own node:https client |
 | Checkout API         | v72     | Explicit TEST endpoints                           |
 

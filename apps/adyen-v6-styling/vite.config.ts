@@ -12,5 +12,9 @@ export default defineConfig({
   // detection can't find the monorepo's node_modules, explicitly allow it.
   // A production build (deno task check, build:styling) rewrites _fresh/;
   // watched, that reloaded every open dev page during each build.
-  server: { fs: { allow: ["../.."] }, watch: { ignored: ["**/_fresh/**"] } },
+  // @fresh/plugin-vite 1.1.2 sends a full page reload for any watched file
+  // that changes outside an island's imports. The SQLite database (and its
+  // -wal, -shm and .profile-key files) changes on every API call and
+  // callback, so a page reloaded while the shopper was typing.
+  server: { fs: { allow: ["../.."] }, watch: { ignored: ["**/_fresh/**", "**/*.sqlite*"] } },
 });

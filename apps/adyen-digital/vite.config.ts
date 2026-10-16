@@ -23,5 +23,9 @@ export default defineConfig({
   // A production build (deno task check, build:digital) rewrites _fresh/;
   // watched, that reloaded every open dev page several times per build, and
   // each Sessions reload created an empty order.
-  server: { fs: { allow: ["../.."] }, watch: { ignored: ["**/_fresh/**"] } },
+  // @fresh/plugin-vite 1.1.2 sends a full page reload for any watched file
+  // that changes outside an island's imports. The SQLite database (and its
+  // -wal, -shm and .profile-key files) changes on every API call and
+  // callback, so a page reloaded while the shopper was typing.
+  server: { fs: { allow: ["../.."] }, watch: { ignored: ["**/_fresh/**", "**/*.sqlite*"] } },
 });

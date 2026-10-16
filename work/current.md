@@ -17,8 +17,9 @@ Task state only. Durable facts belong in `knowledge/`; history belongs in `git l
 - **2026-10-16**: Adyen Web 6.47.0 (commit kept local until the owner looks at styling: one new
   Motion token, Drop-in 3 px shorter, same computed styles). Gift card partial payments work in
   Sessions and Advanced, Drop-in and Components (onOrderUpdated banner and card; Advanced balance,
-  order, cancel and payment-methods callbacks). Open: twice the browser pane reloaded the page while
-  a gift card was typed, never on demand; the owner should try in Firefox.
+  order, cancel and payment-methods callbacks). The random dev reloads (the owner saw them in
+  Firefox too) were Fresh's plugin reacting to SQLite writes; every app's Vite now ignores
+  `*.sqlite*`.
 - **2026-10-15**: "Native 3DS" switch in the settings sheet (Sessions, Advanced; on by default), off
   sends `nativeThreeDS: "disabled"`; redirect 3DS browser verified for both flows. Home cards read
   "Sessions Flow" and "Advanced Flow".

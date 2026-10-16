@@ -7,7 +7,7 @@ status: stable
 scope: dev-build-pipeline
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-13T06:30:00Z
+  at: 2026-10-16T15:15:00Z
 sources:
   - id: vite-config
     resource: apps/adyen-digital/vite.config.ts
@@ -58,6 +58,11 @@ Vite's own `vite:resolve`, and passes any `\0`-prefixed id through untouched.
   server calls the app with a stub connection (`remoteAddr.hostname: "localhost"`), so without it
   `/payments` had no `shopperIP` locally. Fresh rebuilds the `Request` from `rawHeaders`, which
   under Deno is a getter returning a copy: a `push` is lost, the property is redefined instead.
+- **`server.watch.ignored`** holds `**/*.sqlite*` in every app (and `**/_fresh/**` in digital and
+  styling). `@fresh/plugin-vite` 1.1.2 sends `fresh:reload` (a full page reload) for any watched
+  file that changes outside an island's imports, and the app's SQLite files under `data/` change on
+  every API call and callback: pages reloaded at random, mid-payment. Touching `digital.sqlite-wal`
+  reloaded the page before the fix and no longer does (2026-10-16).
 - **`server.fs.allow: ["../.."]`**: with no root `package.json`, Vite cannot find the monorepo's
   `node_modules`, and deep imports outside the default allow-list 403 silently.
 

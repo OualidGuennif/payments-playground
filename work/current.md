@@ -14,6 +14,8 @@ Task state only. Durable facts belong in `knowledge/`; history belongs in `git l
   inspector (Adyen events only, one row per onChange with its diff, cURL, export), and captures,
   cancels and refunds as a webhook-settled ledger (partial and multiple partial, idempotent). All
   pushed; Render deploys from `main`.
+- **2026-10-16 (later)**: "Try again" after a refusal reuses the checkout (same session, same gift
+  card order); sessions expire after 25 minutes.
 - **2026-10-16**: Adyen Web 6.47.0 (commit kept local until the owner looks at styling: one new
   Motion token, Drop-in 3 px shorter, same computed styles). Gift card partial payments work in
   Sessions and Advanced, Drop-in and Components (onOrderUpdated banner and card; Advanced balance,

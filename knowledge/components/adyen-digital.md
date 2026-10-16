@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T14:30:00Z
+  at: 2026-10-16T17:30:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -52,7 +52,7 @@ Shared routes from `base-api.ts`: `GET /api/health`, `GET /healthz`, `GET /api/b
 
 | Route                                                                 | Calls Adyen                                      | Notes                                                                                                                                          |
 | --------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/digital/sessions`                                          | `/sessions`                                      | Creates the order and its session row                                                                                                          |
+| `POST /api/digital/sessions`                                          | `/sessions`                                      | Creates the order and its session row; both expire after 25 minutes (`expiresAt`, owner 2026-10-16)                                            |
 | `POST /api/digital/payment-methods`                                   | `/paymentMethods`                                | Mints `shopperConversionId`; takes an Adyen `order` (`orderData`, `pspReference`) after a partial payment                                      |
 | `POST /api/digital/payments`                                          | `/payments`                                      | Creates order and attempt; forwards selected `state.data`. With `orderId` and an Adyen `order`, charges the share sent (at most the order)     |
 | `POST /api/digital/payments/details`                                  | `/payments/details`                              | Settles the pending attempt                                                                                                                    |
@@ -89,7 +89,10 @@ same-host Origin ([ADR-008](../decisions/ADR-008-redirects-follow-the-browser-or
   recorded and, with Components, shows a "Partial payment … paid · … left to pay" banner and mounts
   the card for the rest (Drop-in shows its own); Advanced also implements `onBalanceCheck`,
   `onOrderRequest`, `onOrderCancel` and `onPaymentMethodsRequest`, and sends each payment's share
-  (`components/partial.ts`: a gift card pays what its balance covers, the next method the rest). The
+  (`components/partial.ts`: a gift card pays what its balance covers, the next method the rest).
+  After a refused, cancelled or failed payment the result card offers "Try again": it remounts on
+  the same AdyenCheckout instance, so the session (with its latest `sessionData`) and any gift card
+  order survive; "New payment" starts a new session, as does a retry once the session expired. The
   inspector is open from the start (owner, 2026-10-10), polls the timeline every 2.5 s ("Live") and
   follows new events unless the reader scrolled up. Only Adyen Web callbacks are recorded from the
   browser: the playground no longer posts its own responses (`sessionCreated`,

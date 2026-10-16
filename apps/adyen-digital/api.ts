@@ -359,21 +359,28 @@ api.get("/api/digital/orders/:id", (c) => {
   });
 });
 
+// A refused payment leaves the session open: the shopper retries in it until
+// it expires or a payment succeeds. 25 minutes is the owner's choice
+// (2026-10-16); Adyen's default is an hour.
+const SESSION_VALIDITY_MS = 25 * 60 * 1000;
+
 api.post("/api/digital/sessions", async (c) => {
   const body = object(await c.req.json());
   const amount = amountFrom(body.amount);
   const { client, secrets, id: profileId } = await profileClient(c.req.raw);
+  const expiresAt = new Date(Date.now() + SESSION_VALIDITY_MS).toISOString();
   const order = context.repository.createOrder({
     appId: "digital",
     flow: String(body.flow ?? "sessions-dropin"),
     amount,
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    expiresAt,
     metadata: { profileId },
   });
   const idempotencyKey = crypto.randomUUID();
   const origin = requestOrigin(c.req.raw, context.config.publicOrigin);
   const request = {
     ...requestBase({ body, secrets, order, origin, context: "sessions" }),
+    expiresAt,
     ...(body.installments === true
       ? { installmentOptions: { card: { values: [2, 3, 4], preselectedValue: 2 } } }
       : {}),

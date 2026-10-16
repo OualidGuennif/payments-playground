@@ -8,7 +8,7 @@ scope: digital-status
 stale_after: 2026-11-10
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T14:30:00Z
+  at: 2026-10-16T17:30:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -57,6 +57,7 @@ As of 2026-10-16, Adyen Web 6.47.0, Checkout API v72. Re-verify before 2026-11-1
 | 3DS redirect with Native 3DS off, Sessions and Advanced (2026-10-15)                | PASS   | BROWSER VERIFIED                  | Card `4917 6100 0000 0000`. Advanced order `882b4d52`: `/payments` `nativeThreeDS: disabled`, RedirectShopper, simulator, `/payments/details` Authorised `R85BC24NTVL4C5V5`. Sessions order `f912134a`: `/sessions` `disabled`, simulator, `/payments/details` Authorised `N8P8W24NTVL4C5V5`. Switch on: `/payments` `preferred`, `threeDS2` action (order `fc1049cf`, challenge not completed).                                                          |
 | Gift card partial payment, Sessions (2026-10-16, Adyen Web 6.47.0)                  | PASS   | BROWSER VERIFIED                  | Givex 50.00 then card 59.99 on 109.99. Components (order `8656939a`): `beforeSubmit` > `onOrderUpdated` > banner "50,00 € paid · 59,99 € left to pay", card mounted on its own > `onPaymentCompleted`. Drop-in: gift card deducted, stored Visa pays 59.99, Authorised. Order state still waits for webhooks locally.                                                                                                                                     |
 | Gift card partial payment, Advanced (2026-10-16)                                    | PASS   | BROWSER VERIFIED                  | Components, order `6dded2b5`: `/paymentMethods/balance` NotEnoughBalance 5000 > `/orders` > `/payments` giftcard 5000 with `order` Authorised (5999 left) > `/paymentMethods` with `order` > `/payments` scheme 5999 Authorised (0 left); order `payment_pending`. Drop-in, order `bd311783`: « Supprimer » on the paid gift card > `onOrderCancel` > `/orders/cancel` Received, Drop-in back to 109.99. Before the fix: `Refused`, "Not enough balance". |
+| Retry after a refusal keeps the session and the gift card order (2026-10-16)        | PASS   | BROWSER VERIFIED                  | Sessions Drop-in, order `8eb7bb62`: one `/sessions` (`expiresAt` 25 min), Givex 50.00 > `onOrderUpdated` > card `DECLINED` > `onPaymentFailed` > result "59,99 € left to pay" > Try again: Drop-in still lists the paid gift card > stored Visa > `onPaymentCompleted`, no second session. Advanced Drop-in: refused card, Try again remounts with no new Adyen call.                                                                                     |
 | Advanced Drop-in, `shopperIP` sent, `deliveryAddress` without names (2026-10-13)    | PASS   | BROWSER VERIFIED                  | Order `fddfac4a`, stored Visa: `/payments` request has `shopperIP: 127.0.0.1` (dev server, from the socket) and `deliveryAddress` with postal fields only; Authorised `TN9S74RKTVL4C5V5`. On Render the IP comes from `X-Forwarded-For`, not yet observed.                                                                                                                                                                                                |
 
 ## Not observed

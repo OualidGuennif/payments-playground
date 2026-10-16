@@ -15,8 +15,12 @@ export function ResultCard(props: {
   /** The in-page reset, or a link back to the flow when there is no page state to reset. */
   onRestart?: () => void;
   restartHref?: string;
+  /** Another attempt in the same checkout: same session, same order. */
+  onRetry?: () => void;
 }) {
   const status = resultCodeStatus(props.outcome.resultCode);
+  // Only an outcome that is not a payment can be retried.
+  const retry = status.tone === "danger" || status.tone === "neutral" ? props.onRetry : undefined;
   const { copied, copy } = useCopy();
   const icon = status.tone === "positive"
     ? "✓"
@@ -34,6 +38,8 @@ export function ResultCard(props: {
         {status.detail ??
           (status.tone === "positive"
             ? "Follow it in the Back Office, where you can capture, cancel or refund it as the method allows."
+            : retry
+            ? "The checkout stays open, and so does anything already paid: try again with this method or another."
             : "You can start a new payment straight away.")}
       </p>
       <dl class="facts">
@@ -73,9 +79,20 @@ export function ResultCard(props: {
           : null}
       </dl>
       <div class="result__actions">
+        {retry
+          ? (
+            <button class="button button--primary" type="button" onClick={retry}>
+              Try again
+            </button>
+          )
+          : null}
         {props.onRestart
           ? (
-            <button class="button button--primary" type="button" onClick={props.onRestart}>
+            <button
+              class={`button ${retry ? "button--secondary" : "button--primary"}`}
+              type="button"
+              onClick={props.onRestart}
+            >
               New payment
             </button>
           )

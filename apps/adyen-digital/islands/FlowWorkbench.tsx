@@ -311,6 +311,8 @@ export default function FlowWorkbench(
   // of the split goes into, what is left on it, and the balance of the gift
   // card being used, which caps what that payment may charge.
   const partialOrderIdRef = useRef<string | null>(null);
+  // When the current Sessions session stops accepting payments.
+  const sessionExpiresAtRef = useRef<number | null>(null);
   const remainingRef = useRef<number | null>(null);
   const giftCardBalanceRef = useRef<number | null>(null);
   const inspectorBody = useRef<HTMLDivElement>(null);
@@ -607,6 +609,40 @@ export default function FlowWorkbench(
     }
   }
 
+  function mountDropin(checkout: Core) {
+    if (!dropinHost.current) return;
+    const component = new Dropin(checkout, {
+      paymentMethodsConfiguration: methodsConfiguration(),
+      openFirstPaymentMethod: false,
+      instantPaymentTypes: ["applepay", "googlepay"],
+    });
+    component.mount(dropinHost.current);
+    mounted.current = component as MountedComponent;
+    setCheckoutMounted(true);
+  }
+
+  // A refusal ends an attempt, not the checkout. The AdyenCheckout instance
+  // still holds the session, with the sessionData of its last answer, and any
+  // order a gift card opened: remounting on it lets the shopper try again
+  // without losing what was paid. Starting over (a new session) would leave
+  // that order to expire. An expired session can only be replaced.
+  function retry() {
+    const checkout = checkoutRef.current;
+    const expired = sessionExpiresAtRef.current !== null &&
+      Date.now() >= sessionExpiresAtRef.current;
+    if (!checkout || !dropinHost.current || flow === "api-only" || expired) {
+      start();
+      return;
+    }
+    setOutcome(null);
+    setError(null);
+    lastPaymentRef.current = {};
+    mounted.current?.unmount();
+    dropinHost.current.replaceChildren();
+    if (integration === "dropin") mountDropin(checkout);
+    else mountComponentType(componentType);
+  }
+
   async function mountCheckout(configuration: Record<string, unknown>, stale: () => boolean) {
     const checkout = await AdyenCheckout(configuration as never) as Core;
     // A newer run owns the host now; mounting this one too would stack two
@@ -662,14 +698,7 @@ export default function FlowWorkbench(
     setAvailableComponents(methods.map((method) => ({ type: method.type, name: method.name })));
 
     if (integration === "dropin") {
-      const component = new Dropin(checkout, {
-        paymentMethodsConfiguration: methodsConfiguration(),
-        openFirstPaymentMethod: false,
-        instantPaymentTypes: ["applepay", "googlepay"],
-      });
-      component.mount(dropinHost.current);
-      mounted.current = component as MountedComponent;
-      setCheckoutMounted(true);
+      mountDropin(checkout);
       return;
     }
 
@@ -682,7 +711,7 @@ export default function FlowWorkbench(
   async function startSession(stale: () => boolean) {
     const data = await apiFetch<{
       correlationId: string;
-      session: { id: string; sessionData: string };
+      session: { id: string; sessionData: string; expiresAt?: string };
     }>("/api/digital/sessions", {
       method: "POST",
       body: JSON.stringify({
@@ -696,6 +725,9 @@ export default function FlowWorkbench(
     }, profileId);
     if (stale()) return;
     updateCorrelation(data.correlationId);
+    sessionExpiresAtRef.current = data.session.expiresAt
+      ? Date.parse(data.session.expiresAt)
+      : null;
     const configuration = commonConfiguration({
       session: data.session,
       beforeSubmit: (state: unknown, _component: unknown, actions: CallbackActions) => {
@@ -980,6 +1012,7 @@ export default function FlowWorkbench(
     lastPaymentRef.current = {};
     // A conversion id belongs to one checkout; the next one mints its own.
     shopperConversionRef.current = null;
+    sessionExpiresAtRef.current = null;
     resetPartialOrder();
     const run = ++runRef.current;
     const stale = () => run !== runRef.current;
@@ -1252,9 +1285,12 @@ export default function FlowWorkbench(
           ? (
             <ResultCard
               outcome={outcome}
-              amountText={amountText}
+              amountText={partialOrder && outcome.resultCode !== "Authorised"
+                ? `${formatMinorAmount(partialOrder.remaining, partialOrder.currency)} left to pay`
+                : amountText}
               orderId={correlationId}
               onRestart={start}
+              onRetry={flow === "api-only" ? undefined : retry}
             />
           )
           : null}

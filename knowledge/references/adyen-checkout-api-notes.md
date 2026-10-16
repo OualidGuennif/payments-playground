@@ -6,7 +6,7 @@ tags: [reference, adyen, checkout-api]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T14:30:00Z
+  at: 2026-10-16T17:30:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -64,6 +64,15 @@ reference. The outcome arrives as a CAPTURE, CANCELLATION or REFUND notification
 `pspReference` is the modification's, `originalReference` the payment's, and `merchantReference` the
 `reference` sent with the modification (here `capture-<order reference>`). Correlate on
 `originalReference`.
+
+## A session outlives a refusal
+
+A refused payment leaves the session usable until its `expiresAt` (1 hour by default, at most 24
+hours) or until a payment succeeds. Seen on TEST on 2026-10-16: one session, gift card 50.00 into an
+order, a card refused (holder name `DECLINED`), then a retry in the same AdyenCheckout instance paid
+the remaining 59.99, `onPaymentCompleted`. Starting a new session instead leaves the first order,
+and what the gift card paid into it, to expire. Adyen's test holder names: `DECLINED` (Refused),
+`CVC_DECLINED`, `NOT_ENOUGH_BALANCE`, `CARD_EXPIRED`.
 
 ## Gift cards and orders (partial payments)
 

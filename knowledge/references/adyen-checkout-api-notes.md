@@ -6,7 +6,7 @@ tags: [reference, adyen, checkout-api]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T18:20:00Z
+  at: 2026-10-16T18:40:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -80,7 +80,9 @@ session answered `200 Refused`; the sixth, with a valid card, answered HTTP 422,
 and `onPaymentFailed` as `{ name: "NETWORK_ERROR", cause: { status: 422, errorCode:
 "14_0422" } }`,
 with no `resultCode`. After the fifth refusal, or on `14_0422`/`14_0423` (expired), only a new
-session can pay.
+session can pay. Only refusals count: in one session a gift card paid 50.00 (`Authorised`,
+`remainingAmount` 5999) and the card was then refused five times, each answering `200 Refused`
+(2026-10-16); a counted success would have made the fifth refusal a 422.
 
 ## Gift cards and orders (partial payments)
 

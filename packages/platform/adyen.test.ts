@@ -44,6 +44,20 @@ Deno.test("sessions uses the exact Checkout v72 TEST endpoint and TEST credentia
   assertEquals(response, { id: "CS_TEST", sessionData: "session-data" });
 });
 
+Deno.test("a gift card balance is a POST to /paymentMethods/balance", async () => {
+  const { calls, httpClient } = recordingHttpClient(() =>
+    Promise.resolve(JSON.stringify({ resultCode: "NotEnoughBalance" }))
+  );
+  const client = new AdyenTestClient({ apiKey: "test-api-key" }, httpClient);
+
+  await client.paymentMethodsBalance({ paymentMethod: { type: "giftcard", brand: "givex" } });
+
+  const [endpoint, json, , , requestOptions] = calls[0];
+  assertEquals(endpoint, "https://checkout-test.adyen.com/v72/paymentMethods/balance");
+  assertEquals(requestOptions.method, "POST");
+  assertEquals(JSON.parse(json).paymentMethod.brand, "givex");
+});
+
 Deno.test("Adyen HTTP errors preserve the upstream status and safe message", async () => {
   const responseBody = JSON.stringify({
     status: 422,

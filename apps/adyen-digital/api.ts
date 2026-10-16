@@ -53,6 +53,18 @@ function sanitizePaymentMethod(paymentMethod: Record<string, unknown>) {
   return rest;
 }
 
+/**
+ * The Adyen order a partial payment pays into, as Adyen Web holds it. Only
+ * EncryptedOrderData's two fields go to /payments and /orders/cancel; the
+ * rest of what the browser sends (amounts, expiry) is not trusted.
+ */
+function orderReference(value: unknown): { orderData: string; pspReference: string } | undefined {
+  const order = object(value);
+  return typeof order.orderData === "string" && typeof order.pspReference === "string"
+    ? { orderData: order.orderData, pspReference: order.pspReference }
+    : undefined;
+}
+
 function amountFrom(value: unknown, defaultCurrency = "EUR"): Amount {
   const candidate = object(value);
   const amount = Number(candidate.value);
@@ -419,6 +431,9 @@ api.post("/api/digital/payment-methods", async (c) => {
     shopperReference: weeklyShopperReference(),
     shopperConversionId,
     splitCardFundingSources: splitsCardFundingSources(countryCode),
+    // After a partial payment Adyen Web asks again with the order, for the
+    // methods that can pay what is left of it.
+    ...(orderReference(body.order) ? { order: orderReference(body.order) } : {}),
   };
   const result = await recordedCall({
     correlationId,
@@ -444,6 +459,15 @@ api.post("/api/digital/payments", async (c) => {
     amount,
     metadata: { profileId },
   });
+  // A payment into an Adyen order charges its share (a gift card's balance,
+  // then the rest), not the whole order, and never more than the order.
+  const adyenOrder = orderReference(body.order);
+  if (
+    adyenOrder &&
+    (amount.currency !== order.amount.currency || amount.value > order.amount.value)
+  ) {
+    return c.json({ error: "A partial payment cannot exceed its order." }, 400);
+  }
   const paymentMethod = sanitizePaymentMethod(object(body.paymentMethod));
   const isStoredPaymentMethod = Boolean(paymentMethod.storedPaymentMethodId);
   const attempt = context.repository.createAttempt({
@@ -476,7 +500,7 @@ api.post("/api/digital/payments", async (c) => {
       : {}),
     // A stored method is already on file; re-storing it is rejected.
     ...(body.storePaymentMethod && !isStoredPaymentMethod ? { storePaymentMethod: true } : {}),
-    ...(body.order && typeof body.order === "object" ? { order: body.order } : {}),
+    ...(adyenOrder ? { order: adyenOrder, amount } : {}),
     // Repeats the id minted by the /paymentMethods call that opened this
     // checkout, which is what links the two requests into one conversion.
     // Absent for flows that never listed payment methods (MIT), where a
@@ -673,6 +697,48 @@ api.post("/api/digital/partial-orders", async (c) => {
     execute: () => client.createOrder(request, crypto.randomUUID()),
   });
   return c.json({ correlationId: order.id, order, adyenOrder: result }, 201);
+});
+
+// Advanced flow only: Adyen Web's onBalanceCheck. With a session Adyen Web
+// asks Adyen itself. The gift card number arrives encrypted.
+api.post("/api/digital/gift-card-balance", async (c) => {
+  const body = object(await c.req.json());
+  rejectRawCardData(body.paymentMethod);
+  const { client, secrets } = await profileClient(c.req.raw);
+  const correlationId = String(body.correlationId ?? crypto.randomUUID());
+  const request = {
+    merchantAccount: secrets.merchantAccount,
+    amount: amountFrom(body.amount),
+    paymentMethod: sanitizePaymentMethod(object(body.paymentMethod)),
+  };
+  const result = await recordedCall({
+    correlationId,
+    name: "Checkout API /paymentMethods/balance",
+    endpoint: "https://checkout-test.adyen.com/v72/paymentMethods/balance",
+    request,
+    execute: () => client.paymentMethodsBalance(request),
+  });
+  return c.json({ correlationId, result });
+});
+
+// Adyen Web's onOrderCancel (Drop-in offers it once part of an order is
+// paid). Adyen then cancels or refunds what was paid into the order, and
+// ORDER_CLOSED success=false settles it here.
+api.post("/api/digital/partial-orders/:id/cancel", async (c) => {
+  const order = context.repository.getOrder(c.req.param("id"));
+  if (!order) return c.json({ error: "Order not found." }, 404);
+  const adyenOrder = orderReference(object(await c.req.json()).order);
+  if (!adyenOrder) return c.json({ error: "orderData and pspReference are required." }, 400);
+  const { client, secrets } = await profileClient(c.req.raw);
+  const request = { merchantAccount: secrets.merchantAccount, order: adyenOrder };
+  const result = await recordedCall({
+    correlationId: order.id,
+    name: "Checkout API /orders/cancel",
+    endpoint: "https://checkout-test.adyen.com/v72/orders/cancel",
+    request,
+    execute: () => client.cancelOrder(request, crypto.randomUUID()),
+  });
+  return c.json({ correlationId: order.id, result });
 });
 
 api.post("/api/digital/mit", async (c) => {

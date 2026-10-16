@@ -6,7 +6,7 @@ tags: [reference, adyen, checkout-api]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-15T20:45:00Z
+  at: 2026-10-16T14:30:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -64,6 +64,23 @@ reference. The outcome arrives as a CAPTURE, CANCELLATION or REFUND notification
 `pspReference` is the modification's, `originalReference` the payment's, and `merchantReference` the
 `reference` sent with the modification (here `capture-<order reference>`). Correlate on
 `originalReference`.
+
+## Gift cards and orders (partial payments)
+
+Seen on TEST on 2026-10-16 with the Givex card `6036 2800 0000 0000 000`, PIN `122222` (balance
+50.00 EUR) on a 109.99 EUR order:
+
+- A gift card sent to `/payments` for more than its balance is `Refused`, "Not enough balance"
+  (refusal code 12). Nothing splits it automatically.
+- `/paymentMethods/balance` answers `NotEnoughBalance` with `balance` (5000) for this card.
+- `/orders` (`amount`, `reference`, `merchantAccount`) answers `Success` with `orderData`,
+  `pspReference` and `remainingAmount`. Each `/payments` into it carries `order` (`orderData`,
+  `pspReference`) and its own `amount`: 5000 for the gift card, then 5999 for the card. Each answer
+  carries `order.remainingAmount` (5999, then 0).
+- `/paymentMethods` accepts the same `order`; `/orders/cancel` (`merchantAccount`, `order`) answers
+  `Received`, the outcome comes as ORDER_CLOSED `success=false`.
+- In the Sessions flow Adyen Web calls `sessions/{id}/paymentMethodBalance`, `sessions/{id}/orders`
+  and `sessions/{id}/payments` itself; the merchant's server is not involved.
 
 ## Redirects and 3DS
 

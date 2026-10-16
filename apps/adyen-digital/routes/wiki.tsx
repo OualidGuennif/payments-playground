@@ -200,6 +200,27 @@ export default define.page(function WikiPage() {
               <code>ORDER_CLOSED success=true</code>. Expired or manually cancelled orders close
               with <code>success=false</code>.
             </p>
+            <p>
+              <strong>Sessions.</strong>{" "}
+              Adyen Web checks the gift card balance, creates the order and pays into it on its own.
+              The merchant implements <code>onOrderUpdated</code>{" "}
+              in the AdyenCheckout configuration: show what is paid and what is left and, with
+              Components, mount the next component (a card). The checkout already carries the order,
+              so that component charges only the rest; <code>onPaymentCompleted</code>{" "}
+              fires once nothing is left. Drop-in does all of this itself.
+            </p>
+            <p>
+              <strong>Advanced.</strong> The merchant's server does that work:{" "}
+              <code>onBalanceCheck</code> calls <code>/paymentMethods/balance</code>,{" "}
+              <code>onOrderRequest</code> calls <code>/orders</code>, and each{" "}
+              <code>/payments</code> carries the <code>order</code>{" "}
+              and its share of it: the gift card pays what its balance covers, the next method the
+              rest. Without{" "}
+              <code>onBalanceCheck</code>, Adyen Web submits the gift card for the whole amount and
+              Adyen refuses it ("Not enough balance"). <code>onPaymentMethodsRequest</code>{" "}
+              lists the methods for what is left, <code>onOrderCancel</code> calls{" "}
+              <code>/orders/cancel</code> when the shopper removes a paid gift card in Drop-in.
+            </p>
           </section>
           <section id="pbl">
             <h2>Pay by Link</h2>

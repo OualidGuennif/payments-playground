@@ -7,7 +7,7 @@ status: stable
 scope: payment-lifecycle
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-15T08:00:00Z
+  at: 2026-10-16T14:30:00Z
 sources:
   - id: state-machine
     resource: packages/platform/state-machine.ts
@@ -66,14 +66,14 @@ Authorised amounts are summed once per PSP reference.
 
 ## Where each flow's outcome is written
 
-| Flow               | Outcome source                                                                                                                                                                                                                                                                    |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sessions           | Adyen Web runs the payment; the island only shows the `resultCode` of `onPaymentCompleted`/`onPaymentFailed`. The AUTHORISATION webhook writes the attempt (a redirect return goes through `/payments/details`). `GET /sessions/{id}` is never called: its status is not updated. |
-| Advanced           | `/payments` response through `settleAttempt`. If it returns an action (3DS, redirect), `onAdditionalDetails` posts to `/api/digital/payments/details`, whose response settles the attempt that was left pending.                                                                  |
-| API only           | Same as Advanced, after an explicit raw-card-data check, by proxying to `/api/digital/payments`.                                                                                                                                                                                  |
-| MIT                | `/payments` with `ContAuth`, through `settleAttempt`.                                                                                                                                                                                                                             |
-| Pay by Link        | `GET /api/digital/payment-links/:orderId` reads the link status; AUTHORISATION webhooks write the attempts.                                                                                                                                                                       |
-| Any, with webhooks | AUTHORISATION creates or updates the attempt by PSP reference. CAPTURE and CANCELLATION settle the order. ORDER_CLOSED closes partial orders. REFUND is recorded only.                                                                                                            |
+| Flow               | Outcome source                                                                                                                                                                                                                                                                                                        |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sessions           | Adyen Web runs the payment; the island only shows the `resultCode` of `onPaymentCompleted`/`onPaymentFailed`. The AUTHORISATION webhook writes the attempt (a redirect return goes through `/payments/details`). `GET /sessions/{id}` is never called: its status is not updated.                                     |
+| Advanced           | `/payments` response through `settleAttempt`. If it returns an action (3DS, redirect), `onAdditionalDetails` posts to `/api/digital/payments/details`, whose response settles the attempt that was left pending. A split payment (gift card, then card) puts one attempt per payment into the order `/orders` opened. |
+| API only           | Same as Advanced, after an explicit raw-card-data check, by proxying to `/api/digital/payments`.                                                                                                                                                                                                                      |
+| MIT                | `/payments` with `ContAuth`, through `settleAttempt`.                                                                                                                                                                                                                                                                 |
+| Pay by Link        | `GET /api/digital/payment-links/:orderId` reads the link status; AUTHORISATION webhooks write the attempts.                                                                                                                                                                                                           |
+| Any, with webhooks | AUTHORISATION creates or updates the attempt by PSP reference. CAPTURE and CANCELLATION settle the order. ORDER_CLOSED closes partial orders. REFUND is recorded only.                                                                                                                                                |
 
 Webhooks only reach a public URL. Locally they need a tunnel or a replay
 ([runbook](../operations/webhooks-without-a-tunnel.md)); everything above except the webhook row

@@ -71,13 +71,30 @@ const CALLBACK_CATALOG: Record<string, { rank: CallbackRank; hint: string }> = {
     rank: "required",
     hint: "Terminal failure (refused, cancelled, expired). The order can still be retried.",
   },
+  onBalanceCheck: {
+    rank: "required",
+    hint:
+      "Advanced partial payments: check the gift card with /paymentMethods/balance and resolve with the response. Sessions does it for you.",
+  },
   onOrderRequest: {
     rank: "required",
-    hint: "Partial payments: create the order via /orders and resolve with it.",
+    hint:
+      "Advanced partial payments: create the order via /orders and resolve with it. Sessions does it for you.",
   },
   onOrderUpdated: {
     rank: "required",
-    hint: "Partial payments: the remaining amount after each partial authorisation.",
+    hint:
+      "Part of the order is paid. Show what is left and, with Components, mount the next method: it charges only the rest.",
+  },
+  onOrderCancel: {
+    rank: "recommended",
+    hint:
+      "Advanced: the shopper removed a paid gift card in Drop-in. Cancel via /orders/cancel, resolve with the full amount.",
+  },
+  onPaymentMethodsRequest: {
+    rank: "optional",
+    hint:
+      "Advanced: after a partial payment, /paymentMethods with the order lists what can pay the rest.",
   },
   onError: {
     rank: "recommended",
@@ -107,9 +124,11 @@ const API_HINTS: Array<[string, string]> = [
     "/sessions",
     "One call; Adyen Web owns 3DS and the rest of the orchestration. The outcome comes from the AUTHORISATION webhook.",
   ],
+  ["/paymentMethods/balance", "Gift card balance, before any money moves."],
   ["/paymentMethods", "Methods available for this amount, country and locale."],
   ["/payments/details", "Second leg of a 3DS or redirect flow."],
   ["/paymentLinks", "Creates or reads the Adyen-hosted payment page."],
+  ["/orders/cancel", "Cancels the order; Adyen reverses what was paid into it."],
   ["/orders", "Partial payments: opens the order the gift card pays into."],
   ["lifecycle", "A modification; its outcome arrives as a webhook."],
   ["/payments", "Authorisation attempt for the submitted payment method."],

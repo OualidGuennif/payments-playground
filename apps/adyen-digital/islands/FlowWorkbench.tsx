@@ -23,6 +23,9 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { FlowIcon } from "../components/FlowIcon.tsx";
 import { type Flow, flowInfo } from "../components/flows.ts";
 import { Sheet } from "../components/Sheet.tsx";
+import { type OrderProgress, orderProgress, partialAmount } from "../components/partial.ts";
+// field() below reads strings only; orders and balances are objects and numbers.
+import { field as valueAt } from "../components/read.ts";
 import { type PaymentOutcome, ResultCard } from "../components/ResultCard.tsx";
 import { TestData } from "../components/TestData.tsx";
 import { Timeline, type TimelineEntry } from "../components/Timeline.tsx";
@@ -261,6 +264,9 @@ export default function FlowWorkbench(
   // to the issuer's page. Sessions and Advanced only.
   const hasThreeDSChoice = flow === "sessions" || flow === "advanced";
   const [nativeThreeDS, setNativeThreeDS] = useState(true);
+  // A payment split across methods (a gift card, then a card). Adyen Web
+  // keeps the order itself and only reports it through onOrderUpdated.
+  const [partialOrder, setPartialOrder] = useState<OrderProgress | null>(null);
   const [correlationId, setCorrelationId] = useState<string | null>(null);
   // The Advanced flow mints a new correlation id at /payments, so keeping only
   // the current one made the /paymentMethods call vanish from the inspector
@@ -301,6 +307,12 @@ export default function FlowWorkbench(
   // Minted by /paymentMethods and repeated on the /payments call it leads to,
   // so Adyen sees both requests as one checkout conversion.
   const shopperConversionRef = useRef<string | null>(null);
+  // Advanced flow, partial payments: this server's order that every payment
+  // of the split goes into, what is left on it, and the balance of the gift
+  // card being used, which caps what that payment may charge.
+  const partialOrderIdRef = useRef<string | null>(null);
+  const remainingRef = useRef<number | null>(null);
+  const giftCardBalanceRef = useRef<number | null>(null);
   const inspectorBody = useRef<HTMLDivElement>(null);
   const followEvents = useRef(true);
   const { copied, copy } = useCopy();
@@ -480,6 +492,13 @@ export default function FlowWorkbench(
     });
   }
 
+  function resetPartialOrder() {
+    setPartialOrder(null);
+    partialOrderIdRef.current = null;
+    remainingRef.current = null;
+    giftCardBalanceRef.current = null;
+  }
+
   function commonConfiguration(extra: Record<string, unknown>) {
     if (!bootstrap?.clientKey) throw new Error("A valid TEST client key is required.");
     return {
@@ -497,6 +516,22 @@ export default function FlowWorkbench(
       onPaymentFailed: (result: unknown) => {
         addCallback("onPaymentFailed", result);
         finish(result);
+      },
+      // Part of the order is paid. Adyen Web has already applied the order to
+      // the checkout, so a component mounted now charges only what is left.
+      // A merchant shows that and, with Components, mounts the next method:
+      // left alone, the gift card form just empties.
+      onOrderUpdated: (data: unknown) => {
+        addCallback("onOrderUpdated", data);
+        const progress = orderProgress(valueAt(data, "order"));
+        setPartialOrder(progress);
+        remainingRef.current = progress?.remaining ?? null;
+        giftCardBalanceRef.current = null;
+        const methods = (checkoutRef.current?.paymentMethodsResponse?.paymentMethods ??
+          []) as AvailableComponent[];
+        if (integration === "component" && methods.some((method) => method.type === "scheme")) {
+          mountComponentType("scheme");
+        }
       },
       onError: (cause: unknown) => {
         addCallback("onError", cause);
@@ -696,15 +731,30 @@ export default function FlowWorkbench(
             method: "POST",
             body: JSON.stringify({
               flow: flow === "api-only" ? "api-only-pci" : `advanced-${integration}`,
-              amount: { value: amount, currency },
               countryCode: country,
               shopperLocale: locale,
               shopperConversionId: shopperConversionRef.current,
               nativeThreeDS,
               ...stateData,
+              // Once a gift card opened an order, every payment goes into it and
+              // charges only its share; otherwise the whole amount.
+              ...(partialOrderIdRef.current ? { orderId: partialOrderIdRef.current } : {}),
+              amount: {
+                value: partialAmount({
+                  total: amount,
+                  remaining: remainingRef.current,
+                  giftCardBalance: field(stateData.paymentMethod, "type") === "giftcard"
+                    ? giftCardBalanceRef.current
+                    : null,
+                }),
+                currency,
+              },
             }),
           }, profileId);
           updateCorrelation(response.correlationId);
+          // onPaymentMethodsRequest runs before onOrderUpdated reports this.
+          const progress = orderProgress(valueAt(response.result, "order"));
+          if (progress) remainingRef.current = progress.remaining;
           lastPaymentRef.current = {
             pspReference: field(response.result, "pspReference"),
             resultCode: field(response.result, "resultCode"),
@@ -745,8 +795,107 @@ export default function FlowWorkbench(
           actions.reject();
         }
       },
+      ...(flow === "advanced" ? partialPaymentCallbacks() : {}),
     });
     await mountCheckout(configuration, stale);
+  }
+
+  // Advanced flow: what Adyen Web does on its own with a session, the
+  // merchant's server does here. Without onBalanceCheck a gift card is
+  // submitted for the whole amount and refused ("Not enough balance").
+  function partialPaymentCallbacks(): Record<string, unknown> {
+    const failure = (cause: unknown, fallback: string) =>
+      cause instanceof Error ? cause : new Error(fallback);
+    return {
+      onBalanceCheck: async (
+        resolve: (response: unknown) => void,
+        reject: (error: Error) => void,
+        data: unknown,
+      ) => {
+        addCallback("onBalanceCheck", data);
+        try {
+          const response = await apiFetch<{ result: unknown }>("/api/digital/gift-card-balance", {
+            method: "POST",
+            body: JSON.stringify({
+              correlationId: partialOrderIdRef.current ?? correlationRef.current,
+              amount: { value: remainingRef.current ?? amount, currency },
+              paymentMethod: valueAt(data, "paymentMethod"),
+            }),
+          }, profileId);
+          const balance = valueAt(response.result, "balance.value");
+          giftCardBalanceRef.current = typeof balance === "number" ? balance : null;
+          resolve(response.result);
+        } catch (cause) {
+          reject(failure(cause, "The balance check failed."));
+        }
+      },
+      onOrderRequest: async (
+        resolve: (order: unknown) => void,
+        reject: (error: Error) => void,
+        data: unknown,
+      ) => {
+        addCallback("onOrderRequest", data);
+        try {
+          const response = await apiFetch<{ correlationId: string; adyenOrder: unknown }>(
+            "/api/digital/partial-orders",
+            { method: "POST", body: JSON.stringify({ amount: { value: amount, currency } }) },
+            profileId,
+          );
+          partialOrderIdRef.current = response.correlationId;
+          updateCorrelation(response.correlationId);
+          remainingRef.current = orderProgress(response.adyenOrder)?.remaining ?? null;
+          resolve(response.adyenOrder);
+        } catch (cause) {
+          reject(failure(cause, "The order could not be created."));
+        }
+      },
+      // Drop-in offers to remove a paid gift card, which cancels the order.
+      onOrderCancel: async (
+        data: unknown,
+        actions: { resolve(value: unknown): void; reject(error: string): void },
+      ) => {
+        addCallback("onOrderCancel", data);
+        try {
+          if (partialOrderIdRef.current) {
+            await apiFetch(`/api/digital/partial-orders/${partialOrderIdRef.current}/cancel`, {
+              method: "POST",
+              body: JSON.stringify({ order: valueAt(data, "order") }),
+            }, profileId);
+          }
+          resetPartialOrder();
+          actions.resolve({ amount: { value: amount, currency } });
+        } catch (cause) {
+          actions.reject(failure(cause, "The order could not be cancelled.").message);
+        }
+      },
+      // After a partial payment: the methods that can pay what is left.
+      onPaymentMethodsRequest: async (
+        data: unknown,
+        actions: { resolve(response: unknown): void; reject(): void },
+      ) => {
+        addCallback("onPaymentMethodsRequest", data);
+        try {
+          const response = await apiFetch<{ paymentMethodsResponse: unknown }>(
+            "/api/digital/payment-methods",
+            {
+              method: "POST",
+              body: JSON.stringify({
+                correlationId: partialOrderIdRef.current ?? correlationRef.current,
+                amount: { value: remainingRef.current ?? amount, currency },
+                countryCode: country,
+                shopperLocale: locale,
+                shopperConversionId: shopperConversionRef.current,
+                order: valueAt(data, "order"),
+              }),
+            },
+            profileId,
+          );
+          actions.resolve(response.paymentMethodsResponse);
+        } catch {
+          actions.reject();
+        }
+      },
+    };
   }
 
   async function createPaymentLink() {
@@ -815,6 +964,7 @@ export default function FlowWorkbench(
     lastPaymentRef.current = {};
     // A conversion id belongs to one checkout; the next one mints its own.
     shopperConversionRef.current = null;
+    resetPartialOrder();
     const run = ++runRef.current;
     const stale = () => run !== runRef.current;
     setLoading(true);
@@ -1090,6 +1240,19 @@ export default function FlowWorkbench(
               orderId={correlationId}
               onRestart={start}
             />
+          )
+          : null}
+        {partialOrder && integration === "component" && !outcome
+          ? (
+            // Drop-in lists the paid gift card itself; a lone component shows
+            // nothing, so the page says what is paid and what is left.
+            <p class="partial-banner" role="status">
+              <strong>Partial payment</strong>
+              <span>
+                {formatMinorAmount(partialOrder.paid, partialOrder.currency)} paid ·{" "}
+                {formatMinorAmount(partialOrder.remaining, partialOrder.currency)} left to pay
+              </span>
+            </p>
           )
           : null}
         <div class={`dropin-host${outcome ? " is-hidden" : ""}`} aria-live="polite">

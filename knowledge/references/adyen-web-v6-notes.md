@@ -6,7 +6,7 @@ tags: [reference, adyen-web, drop-in]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T13:00:00Z
+  at: 2026-10-16T14:30:00Z
 sources:
   - id: workbench
     resource: apps/adyen-digital/islands/FlowWorkbench.tsx
@@ -40,6 +40,12 @@ sources:
 - `onSubmit`/`onAdditionalDetails` (Advanced): call the backend, then `actions.resolve(response)` or
   `actions.reject()`.
 - `onPaymentCompleted`/`onPaymentFailed` are terminal. In Sessions they carry `sessionResult`.
+- Partial payments: after a payment whose `order.remainingAmount` is above zero, Adyen Web applies
+  the order to the checkout (`core.update({ order })`, or in Advanced `onPaymentMethodsRequest` then
+  the update) and only then calls `onOrderUpdated({ order })`, never `onPaymentCompleted`. A
+  component mounted from `onOrderUpdated` charges only what is left; a lone Giftcard component just
+  empties. Without a session and without `onBalanceCheck`, Giftcard skips the balance check and
+  submits the full amount. `onOrderCancel(data, { resolve, reject })` expects `resolve({ amount })`.
 - `onError` also receives non-failures: `SCRIPT_ERROR` and `SDK_ERROR` (a wallet SDK that cannot
   load here) and `CANCEL` (the shopper closed a wallet sheet).
 

@@ -317,6 +317,16 @@ export class AdyenTestClient {
     });
   }
 
+  /** A gift card's balance; read-only on Adyen's side, so no idempotency key. */
+  async paymentMethodsBalance(payload: Payload): Promise<unknown> {
+    return await adyenRequest({
+      apiKey: this.#secrets.apiKey!,
+      endpoint: `${CHECKOUT_BASE_URL}/paymentMethods/balance`,
+      payload,
+      httpClient: this.#httpClient,
+    });
+  }
+
   async createOrder(payload: Payload, idempotencyKey: string): Promise<unknown> {
     return await adyenRequest({
       apiKey: this.#secrets.apiKey!,

@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-15T20:45:00Z
+  at: 2026-10-16T14:30:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -53,15 +53,17 @@ Shared routes from `base-api.ts`: `GET /api/health`, `GET /healthz`, `GET /api/b
 | Route                                                                 | Calls Adyen                                      | Notes                                                                                                                                          |
 | --------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /api/digital/sessions`                                          | `/sessions`                                      | Creates the order and its session row                                                                                                          |
-| `POST /api/digital/payment-methods`                                   | `/paymentMethods`                                | Mints `shopperConversionId`                                                                                                                    |
-| `POST /api/digital/payments`                                          | `/payments`                                      | Creates order and attempt; forwards selected `state.data`                                                                                      |
+| `POST /api/digital/payment-methods`                                   | `/paymentMethods`                                | Mints `shopperConversionId`; takes an Adyen `order` (`orderData`, `pspReference`) after a partial payment                                      |
+| `POST /api/digital/payments`                                          | `/payments`                                      | Creates order and attempt; forwards selected `state.data`. With `orderId` and an Adyen `order`, charges the share sent (at most the order)     |
 | `POST /api/digital/payments/details`                                  | `/payments/details`                              | Settles the pending attempt                                                                                                                    |
 | `POST /api/digital/orders/:id/redirect-result`                        | `/payments/details`                              | Redirect return; creates the attempt for Sessions; a reload reads the stored outcome instead of resubmitting                                   |
 | `POST /api/digital/api-only`                                          | via `/api/digital/payments`                      | Rejects raw card data first                                                                                                                    |
 | `POST /api/digital/mit`                                               | `/payments` (`ContAuth`)                         | Needs a `storedPaymentMethodId` and the shopper reference it was stored under                                                                  |
 | `POST /api/digital/payment-links`                                     | `/paymentLinks`                                  | Validity 1 h to 70 days                                                                                                                        |
 | `GET /api/digital/payment-links/:orderId`                             | `GET /paymentLinks/{id}`                         | Re-derives the order from the link status                                                                                                      |
-| `POST /api/digital/partial-orders`                                    | `/orders`                                        | No client flow uses it yet                                                                                                                     |
+| `POST /api/digital/gift-card-balance`                                 | `/paymentMethods/balance`                        | Advanced `onBalanceCheck`; the card number arrives encrypted                                                                                   |
+| `POST /api/digital/partial-orders`                                    | `/orders`                                        | Advanced `onOrderRequest`; creates the server order every payment of the split goes into                                                       |
+| `POST /api/digital/partial-orders/:id/cancel`                         | `/orders/cancel`                                 | Advanced `onOrderCancel` (Drop-in's « Supprimer » on a paid gift card)                                                                         |
 | `POST /api/digital/orders/:id/actions/:action`                        | `/payments/{psp}/captures`, `cancels`, `refunds` | Optional `amount` (partial). `Idempotency-Key` per intent: a known key returns the stored request; 409 while a webhook of that kind is awaited |
 | `GET /api/digital/orders`, `GET /api/digital/orders/:id`              |                                                  | Orders with attempts and permissions                                                                                                           |
 | `POST /webhook`                                                       |                                                  | Standard notifications, HMAC-checked                                                                                                           |
@@ -83,10 +85,15 @@ same-host Origin ([ADR-008](../decisions/ADR-008-redirects-follow-the-browser-or
   configuration, where Adyen Web reads them. The result card replaces the checkout once a payment
   ends. Test cards open in a sheet. The settings sheet has a "Native 3DS" switch for Sessions and
   Advanced, on by default; off sends `nativeThreeDS: "disabled"` and the scenario chip adds "3DS
-  redirect" (owner, 2026-10-15). The inspector is open from the start (owner, 2026-10-10), polls the
-  timeline every 2.5 s ("Live") and follows new events unless the reader scrolled up. Only Adyen Web
-  callbacks are recorded from the browser: the playground no longer posts its own responses
-  (`sessionCreated`, `backendPaymentResponse`, `paymentLinkCreated`, `mitResponse`) as callbacks.
+  redirect" (owner, 2026-10-15). Partial payments (a gift card, then a card): `onOrderUpdated` is
+  recorded and, with Components, shows a "Partial payment … paid · … left to pay" banner and mounts
+  the card for the rest (Drop-in shows its own); Advanced also implements `onBalanceCheck`,
+  `onOrderRequest`, `onOrderCancel` and `onPaymentMethodsRequest`, and sends each payment's share
+  (`components/partial.ts`: a gift card pays what its balance covers, the next method the rest). The
+  inspector is open from the start (owner, 2026-10-10), polls the timeline every 2.5 s ("Live") and
+  follows new events unless the reader scrolled up. Only Adyen Web callbacks are recorded from the
+  browser: the playground no longer posts its own responses (`sessionCreated`,
+  `backendPaymentResponse`, `paymentLinkCreated`, `mitResponse`) as callbacks.
 - **`BackOffice.tsx`**: metrics (Authorised, Captured, Refused, Not paid), search by reference or
   PSP reference, state filters, orders nobody tried to pay hidden by default, 12 per page with "Show
   more", refresh every 4 s. The detail holds `LifecyclePanel.tsx`: a warning when the account

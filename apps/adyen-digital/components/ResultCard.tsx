@@ -17,6 +17,8 @@ export function ResultCard(props: {
   restartHref?: string;
   /** Another attempt in the same checkout: same session, same order. */
   onRetry?: () => void;
+  /** The session takes no more payments (5 refusals, closed or expired): a retry starts a new one. */
+  retryStartsOver?: boolean;
 }) {
   const status = resultCodeStatus(props.outcome.resultCode);
   // Only an outcome that is not a payment can be retried.
@@ -38,6 +40,8 @@ export function ResultCard(props: {
         {status.detail ??
           (status.tone === "positive"
             ? "Follow it in the Back Office, where you can capture, cancel or refund it as the method allows."
+            : retry && props.retryStartsOver
+            ? "Adyen takes no more payments in this session (5 refusals, or it expired): trying again opens a new one."
             : retry
             ? "The checkout stays open, and so does anything already paid: try again with this method or another."
             : "You can start a new payment straight away.")}

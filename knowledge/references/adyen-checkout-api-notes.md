@@ -6,7 +6,7 @@ tags: [reference, adyen, checkout-api]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T17:30:00Z
+  at: 2026-10-16T18:20:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -73,6 +73,14 @@ order, a card refused (holder name `DECLINED`), then a retry in the same AdyenCh
 the remaining 59.99, `onPaymentCompleted`. Starting a new session instead leaves the first order,
 and what the gift card paid into it, to expire. Adyen's test holder names: `DECLINED` (Refused),
 `CVC_DECLINED`, `NOT_ENOUGH_BALANCE`, `CARD_EXPIRED`.
+
+A session takes 5 refused payments. Seen on TEST on 2026-10-16: five `DECLINED` attempts in one
+session answered `200 Refused`; the sixth, with a valid card, answered HTTP 422, `errorCode`
+`14_0422`, "The provided session identifier or data is invalid.". Adyen Web hands that to `onError`
+and `onPaymentFailed` as `{ name: "NETWORK_ERROR", cause: { status: 422, errorCode:
+"14_0422" } }`,
+with no `resultCode`. After the fifth refusal, or on `14_0422`/`14_0423` (expired), only a new
+session can pay.
 
 ## Gift cards and orders (partial payments)
 

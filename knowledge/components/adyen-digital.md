@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T17:30:00Z
+  at: 2026-10-16T18:20:00Z
 sources:
   - id: api
     resource: apps/adyen-digital/api.ts
@@ -92,7 +92,8 @@ same-host Origin ([ADR-008](../decisions/ADR-008-redirects-follow-the-browser-or
   (`components/partial.ts`: a gift card pays what its balance covers, the next method the rest).
   After a refused, cancelled or failed payment the result card offers "Try again": it remounts on
   the same AdyenCheckout instance, so the session (with its latest `sessionData`) and any gift card
-  order survive; "New payment" starts a new session, as does a retry once the session expired. The
+  order survive; "New payment" starts a new session, and so does a retry after the fifth refusal in
+  a session, a `14_0422`/`14_0423` answer, or once the session expired (the card says so). The
   inspector is open from the start (owner, 2026-10-10), polls the timeline every 2.5 s ("Live") and
   follows new events unless the reader scrolled up. Only Adyen Web callbacks are recorded from the
   browser: the playground no longer posts its own responses (`sessionCreated`,

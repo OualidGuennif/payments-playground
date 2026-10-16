@@ -203,6 +203,16 @@ function securedFieldStyles(theme: Theme): Record<string, unknown> | undefined {
   };
 }
 
+// Adyen accepts 5 refused payments in one session; the next payments call
+// answers 422 "14_0422" whatever the card (seen on TEST, 2026-10-16).
+const SESSION_REFUSAL_LIMIT = 5;
+
+/** Adyen's answer when a session takes no more payments: closed (0422) or expired (0423). */
+function closesSession(failure: unknown): boolean {
+  const errorCode = valueAt(failure, "cause.errorCode");
+  return errorCode === "14_0422" || errorCode === "14_0423";
+}
+
 function flagEmoji(countryCode: string): string {
   return String.fromCodePoint(
     ...countryCode.toUpperCase().split("").map((letter) => 127397 + letter.charCodeAt(0)),
@@ -313,6 +323,8 @@ export default function FlowWorkbench(
   const partialOrderIdRef = useRef<string | null>(null);
   // When the current Sessions session stops accepting payments.
   const sessionExpiresAtRef = useRef<number | null>(null);
+  const sessionRefusalsRef = useRef(0);
+  const sessionClosedRef = useRef(false);
   const remainingRef = useRef<number | null>(null);
   const giftCardBalanceRef = useRef<number | null>(null);
   const inspectorBody = useRef<HTMLDivElement>(null);
@@ -490,7 +502,8 @@ export default function FlowWorkbench(
   function finish(result: unknown) {
     setOutcome({
       ...lastPaymentRef.current,
-      resultCode: field(result, "resultCode") ?? lastPaymentRef.current.resultCode,
+      resultCode: field(result, "resultCode") ??
+        (closesSession(result) ? "Error" : lastPaymentRef.current.resultCode),
     });
   }
 
@@ -517,6 +530,8 @@ export default function FlowWorkbench(
       },
       onPaymentFailed: (result: unknown) => {
         addCallback("onPaymentFailed", result);
+        if (field(result, "resultCode") === "Refused") sessionRefusalsRef.current += 1;
+        if (closesSession(result)) sessionClosedRef.current = true;
         finish(result);
       },
       // Part of the order is paid. Adyen Web has already applied the order to
@@ -538,6 +553,11 @@ export default function FlowWorkbench(
       onError: (cause: unknown) => {
         addCallback("onError", cause);
         if (isNonFatalWalletError(cause)) return;
+        // onPaymentFailed reports it too, with a way out; no second banner.
+        if (closesSession(cause)) {
+          sessionClosedRef.current = true;
+          return;
+        }
         setError(cause instanceof Error ? cause.message : "Adyen Web reported an error.");
       },
       ...extra,
@@ -626,11 +646,17 @@ export default function FlowWorkbench(
   // order a gift card opened: remounting on it lets the shopper try again
   // without losing what was paid. Starting over (a new session) would leave
   // that order to expire. An expired session can only be replaced.
-  function retry() {
-    const checkout = checkoutRef.current;
+  function retryNeedsNewSession(): boolean {
+    if (flow !== "sessions") return false;
     const expired = sessionExpiresAtRef.current !== null &&
       Date.now() >= sessionExpiresAtRef.current;
-    if (!checkout || !dropinHost.current || flow === "api-only" || expired) {
+    return expired || sessionClosedRef.current ||
+      sessionRefusalsRef.current >= SESSION_REFUSAL_LIMIT;
+  }
+
+  function retry() {
+    const checkout = checkoutRef.current;
+    if (!checkout || !dropinHost.current || flow === "api-only" || retryNeedsNewSession()) {
       start();
       return;
     }
@@ -1013,6 +1039,8 @@ export default function FlowWorkbench(
     // A conversion id belongs to one checkout; the next one mints its own.
     shopperConversionRef.current = null;
     sessionExpiresAtRef.current = null;
+    sessionRefusalsRef.current = 0;
+    sessionClosedRef.current = false;
     resetPartialOrder();
     const run = ++runRef.current;
     const stale = () => run !== runRef.current;
@@ -1291,6 +1319,7 @@ export default function FlowWorkbench(
               orderId={correlationId}
               onRestart={start}
               onRetry={flow === "api-only" ? undefined : retry}
+              retryStartsOver={retryNeedsNewSession()}
             />
           )
           : null}

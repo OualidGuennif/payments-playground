@@ -18,3 +18,4 @@ generated:
 | [Docker images and the Render deployment](docker-and-render.md)    | stable | Build context, env files, Blueprint, checking a deploy |
 | [Upgrading Adyen Web](adyen-web-upgrade.md)                        | stable | The seven-step checklist                               |
 | [The loops](loops.md)                                              | stable | Inner, middle and outer loops, off by default          |
+| [Graphify and Archify](architecture-maintenance.md)                | stable | Pinned analysis, source anchors, CI refresh            |

@@ -16,3 +16,4 @@ generated:
 | [packages/platform](platform-package.md)      | stable | Server library, module by module                    |
 | [packages/ui](ui-package.md)                  | stable | Browser-safe components and Adyen Web configuration |
 | [The other playgrounds](other-playgrounds.md) | stable | Styling, endless aisle, agentic, landing            |
+| [Code graph queries](graph-queries.md)        | stable | Graphify working graph and exact `ask` queries      |

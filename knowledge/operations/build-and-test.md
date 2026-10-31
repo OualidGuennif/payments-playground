@@ -35,7 +35,7 @@ sources:
 
 ```bash
 deno task check            # everything below, in order, stops at the first failure
-deno task test             # packages, apps and tools tests, in parallel
+deno task test             # packages, apps and tools tests, sequentially
 deno task knowledge:check  # this bundle, AGENTS.md and CLAUDE.md
 deno task docs:links       # knowledge sources and Spec: pointers, both ways
 deno task repo:health      # size, comment and top-level-folder caps
@@ -50,6 +50,8 @@ factory checks (`docs:links`, `repo:health`, `factory:test`) run beside it. CI r
 on pull requests and `main`.
 
 Per app: `deno task --cwd apps/adyen-digital <dev|build|test|start>`; `start` serves the last build.
+The suites run sequentially: the SQLite native library downloads on first use, and parallel workers
+raced that download on the CI runner.
 
 ## The analysis baseline
 

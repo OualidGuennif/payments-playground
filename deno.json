@@ -58,7 +58,7 @@
     "build:agentic": "deno task --cwd apps/adyen-agentic-commerce build",
     "build:styling": "deno task --cwd apps/adyen-v6-styling build",
     "build": "deno task build:digital && deno task build:ipp && deno task build:agentic && deno task build:styling",
-    "test": "deno test -A --parallel packages apps tools/knowledge",
+    "test": "deno test -A packages apps tools/knowledge",
     "fmt": "deno fmt",
     "fmt:check": "deno fmt --check",
     "lint": "deno lint packages apps tools/dev tools/build tools/knowledge",

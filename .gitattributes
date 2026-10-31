@@ -1,4 +1,2 @@
-# Release archives (GitHub's source zip and tar.gz, `git archive`) leave out the demo playground.
-/demo export-ignore
-# Upstream skill resources are versioned passive data, not authored Factory runtime code.
-skills/** linguist-vendored
+# The guide bundle is generated from the chapter files; edit those, not this.
+efficiency/efficiency-bundle.md linguist-generated

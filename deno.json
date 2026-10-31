@@ -71,7 +71,7 @@
     "arch:ask": "tools/architecture/ask",
     "types": "deno check packages/**/*.ts packages/**/*.tsx apps/**/*.ts apps/**/*.tsx tools/dev/**/*.ts tools/build/**/*.ts tools/knowledge/**/*.ts",
     "ssr:assert": "deno run -A tools/build/assert-built-ssr.ts apps/adyen-digital \"Digital Checkout\" && deno run -A tools/build/assert-built-ssr.ts apps/adyen-ipp-endless-aisle \"Endless Aisle\" && deno run -A tools/build/assert-built-ssr.ts apps/adyen-agentic-commerce \"Agentic Commerce\" && deno run -A tools/build/assert-built-ssr.ts apps/adyen-v6-styling \"Drop-in Styling\"",
-    "check": "deno task fmt:check && deno task lint && deno task knowledge:check && deno task types && deno task test && deno task build && deno task ssr:assert",
+    "check": "deno task fmt:check && deno task lint && deno task knowledge:check && deno task docs:links && deno task repo:health && deno task types && deno task test && deno task build && deno task ssr:assert && deno task factory:test",
     "verify": "deno task build && deno run -A tools/dev/verify.ts"
   },
   "fmt": {

@@ -23,7 +23,7 @@ sources:
     title: settleAttempt, resolveAndStore, the session-result route, the webhook handler
 verified:
   - at: 2026-10-10
-    check: "On Adyen TEST, order 2b5a2f81: partial capture 40.00 EUR, partial refund 10.00 EUR and a second partial capture 20.00 EUR all answered received; their real CAPTURE and REFUND webhooks (success=true, HMAC-signed, fetched from webhook.site) replayed locally settled the ledger to 60.00 captured and 10.00 refunded. A replayed Idempotency-Key returned the stored request without a second Adyen call; a new key while a capture was pending got 409."
+    check: "On Adyen TEST, order 2b5a2f81: captures 40.00 + 20.00 and refund 10.00 EUR answered received; replayed signed CAPTURE/REFUND webhooks left 60.00 captured and 10.00 refunded; a replayed Idempotency-Key returned the stored request, a new key while pending got 409."
   - at: 2026-10-09
     check: "Sessions Drop-in, Advanced 3DS2 challenge and a stored-card Advanced payment on Adyen TEST each ended authorised in the Back Office; a capture was accepted; a signed CAPTURE notification settled the order paid. Evidence in current/digital-status.md."
 ---

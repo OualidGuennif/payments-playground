@@ -16,3 +16,4 @@ These concepts describe what was verified at a date, not what is permanently tru
 | Concept                                               | Status | Notes                   |
 | ----------------------------------------------------- | ------ | ----------------------- |
 | [adyen-digital: verified and open](digital-status.md) | stable | stale_after: 2026-11-09 |
+| [Æion Factory adoption](aeion-adoption-status.md)     | stable | stale_after: 2026-12-31 |

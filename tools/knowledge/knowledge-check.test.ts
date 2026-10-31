@@ -129,3 +129,60 @@ Deno.test("deprecated needs an existing superseded_by, and scopes are unique", (
   }));
   assert(errors.some((error) => error.includes('scope "overview"')));
 });
+
+Deno.test("factory caps: description, component sections, verified and work state", () => {
+  const longDescription = CONCEPT.replace(
+    /description: .*\n/,
+    `description: "${"x".repeat(251)}"\n`,
+  );
+  assert(
+    failures(fixture({ "knowledge/architecture/overview.md": longDescription }))
+      .some((error) => error.includes("description over 250 characters")),
+  );
+
+  const component = CONCEPT.replace("type: Architecture", "type: Component");
+  assert(
+    failures(fixture({ "knowledge/architecture/overview.md": component }))
+      .some((error) => error.includes("Component lacks '## Intent'")),
+  );
+
+  const verified = CONCEPT.replace(
+    "\n---\n\n# Overview",
+    `\nverified:\n  - at: 2026-10-31\n    check: "${"y".repeat(301)}"\n---\n\n# Overview`,
+  );
+  assert(
+    failures(fixture({ "knowledge/architecture/overview.md": verified }))
+      .some((error) => error.includes("over 300 characters")),
+  );
+
+  const four = CONCEPT.replace(
+    "\n---\n\n# Overview",
+    "\nverified:\n" +
+      "  - at: 2026-10-31\n    check: a\n".repeat(4) +
+      "---\n\n# Overview",
+  );
+  assert(
+    failures(fixture({ "knowledge/architecture/overview.md": four }))
+      .some((error) => error.includes("4 verified entries")),
+  );
+
+  const fields = [
+    "- Owner decision: x",
+    "- State: x",
+    "- Next: x",
+    "- Blocker: none.",
+    "- Evidence: x",
+  ].join("\n");
+  assertEquals(
+    failures(fixture({ "work/current.md": `## A — ACTIVE\n${fields}\n` })),
+    [],
+  );
+  assert(
+    failures(fixture({ "work/current.md": "## A — ACTIVE\n- State: x\n" }))
+      .some((error) => error.includes("lacks '- Owner decision:'")),
+  );
+  assert(
+    failures(fixture({ "work/current.md": `## A — ACTIVE\n${fields}\n${"- x\n".repeat(6)}` }))
+      .some((error) => error.includes("over 10 lines")),
+  );
+});

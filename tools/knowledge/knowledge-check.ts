@@ -23,6 +23,23 @@ const SOURCED_TYPES = new Set([
 const AGENTS_MAX_LINES = 120;
 const AGENTS_MAX_BYTES = 20 * 1024;
 const STALE_MARKER = /\bSTALE\b/;
+const DESCRIPTION_MAX = 250;
+const BODY_MAX_LINES = 600;
+const VERIFIED_MAX = 3;
+const VERIFIED_TEXT_MAX = 300;
+const COMPONENT_SECTIONS = [
+  "## Intent",
+  "## Data sources",
+  "## Inputs",
+  "## Outputs",
+  "## Invariants",
+  "## Determinism",
+  "## Acceptance checks",
+  "## Out of scope",
+];
+const WORK_MAX_LINES = 150;
+const WORK_ENTRY_MAX_LINES = 10;
+const WORK_FIELDS = ["Owner decision", "State", "Next", "Blocker", "Evidence"];
 
 export interface Report {
   errors: string[];
@@ -145,6 +162,29 @@ function checkConcept(concept: Concept, root: string, report: Report, now: Date)
   if (typeof meta.status === "string" && !VALID_STATUS.has(meta.status)) {
     report.errors.push(`${where}: status must be draft, stable or deprecated`);
   }
+  if (typeof meta.description === "string" && meta.description.length > DESCRIPTION_MAX) {
+    report.errors.push(`${where}: description over ${DESCRIPTION_MAX} characters`);
+  }
+  if (concept.body.split("\n").length > BODY_MAX_LINES) {
+    report.errors.push(`${where}: body over ${BODY_MAX_LINES} lines; split it along its headings`);
+  }
+  const verified = Array.isArray(meta.verified) ? meta.verified as Record<string, unknown>[] : [];
+  if (verified.length > VERIFIED_MAX) {
+    report.errors.push(`${where}: ${verified.length} verified entries (max ${VERIFIED_MAX})`);
+  }
+  for (const entry of verified) {
+    const text = String(entry.what ?? entry.check ?? "");
+    if (text.length > VERIFIED_TEXT_MAX) {
+      report.errors.push(`${where}: a verified entry is over ${VERIFIED_TEXT_MAX} characters`);
+    }
+  }
+  if (meta.type === "Component" && !concept.path.endsWith("/_template.md")) {
+    for (const section of COMPONENT_SECTIONS) {
+      if (!concept.body.includes(section)) {
+        report.errors.push(`${where}: Component lacks '${section}'`);
+      }
+    }
+  }
   const sources = Array.isArray(meta.sources) ? meta.sources as Record<string, unknown>[] : [];
   if (SOURCED_TYPES.has(String(meta.type)) && sources.length === 0) {
     report.errors.push(`${where}: a ${meta.type} concept needs sources`);
@@ -199,6 +239,26 @@ function checkIndexes(files: string[], concepts: Concept[], root: string, report
   }
 }
 
+function checkWork(root: string, report: Report) {
+  const path = join(root, "work/current.md");
+  if (!exists(path)) return;
+  const text = Deno.readTextFileSync(path);
+  if (text.split("\n").length - 1 > WORK_MAX_LINES) {
+    report.errors.push(`work/current.md: over ${WORK_MAX_LINES} lines; delete finished tasks`);
+  }
+  for (const entry of text.split(/^## /m).slice(1)) {
+    const title = entry.split("\n")[0];
+    if (entry.trim().split("\n").length > WORK_ENTRY_MAX_LINES) {
+      report.errors.push(`work/current.md: '${title}' over ${WORK_ENTRY_MAX_LINES} lines`);
+    }
+    for (const field of WORK_FIELDS) {
+      if (!entry.includes(`- ${field}:`)) {
+        report.errors.push(`work/current.md: '${title}' lacks '- ${field}:'`);
+      }
+    }
+  }
+}
+
 export function checkKnowledge(root: string, now = new Date()): Report {
   const report: Report = { errors: [], warnings: [] };
   checkAgentsFiles(root, report);
@@ -218,6 +278,7 @@ export function checkKnowledge(root: string, now = new Date()): Report {
     .filter((concept): concept is Concept => Boolean(concept));
   for (const concept of concepts) checkConcept(concept, root, report, now);
   checkIndexes(files, concepts, root, report);
+  checkWork(root, report);
 
   const scopes = new Map<string, string>();
   for (const concept of concepts) {

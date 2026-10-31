@@ -22,7 +22,7 @@ verified:
   - at: 2026-10-09
     check: "Followed for 6.41.0 to 6.46.0: deno task check green, token audit updated (three new tokens, one changed default), Docker images built from the lock, Drop-in rendered in Firefox with an analytics block."
   - at: 2026-10-16
-    check: "Followed for 6.46.0 to 6.47.0: lockfile edited by hand to the SDK and two dependencies, deno install --frozen green, token audit added animation-duration-slow, deno task check green, styling computed styles and export hash unchanged in dark mode, digital-checkout:6.47.0 built, Drop-in payments authorised on TEST."
+    check: "6.46.0 to 6.47.0: hand-edited lockfile, deno install --frozen green, token audit added animation-duration-slow, deno task check green, styling computed styles and export hash unchanged, digital-checkout:6.47.0 built, Drop-in authorised on TEST."
 ---
 
 # Upgrading Adyen Web

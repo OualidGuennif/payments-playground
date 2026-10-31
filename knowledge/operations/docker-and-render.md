@@ -7,7 +7,7 @@ status: stable
 scope: docker-and-render
 generated:
   by: deepseek-v4.1-flash
-  at: 2026-10-31T19:55:00Z
+  at: 2026-10-31T19:05:00Z
 sources:
   - id: dockerfile
     resource: ../../apps/adyen-digital/Dockerfile

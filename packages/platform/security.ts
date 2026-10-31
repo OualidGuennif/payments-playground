@@ -1,3 +1,4 @@
+// Spec: knowledge/components/platform-package.md
 import { getCookie, setCookie } from "jsr:@hono/hono@4.12.31/cookie";
 import type { Context, MiddlewareHandler } from "hono";
 import { isIP } from "node:net";

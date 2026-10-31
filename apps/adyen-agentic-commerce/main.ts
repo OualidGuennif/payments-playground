@@ -1,3 +1,4 @@
+// Spec: knowledge/components/adyen-agentic-commerce.md
 import { App, staticFiles } from "fresh";
 import { applySecurityHeaders, basicAuthChallenge } from "@suite/platform/security.ts";
 import { api } from "./api.ts";

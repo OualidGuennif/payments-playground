@@ -1,3 +1,4 @@
+// Spec: knowledge/components/platform-package.md
 import type { AttemptState, OrderState } from "./types.ts";
 
 export interface AttemptSnapshot {

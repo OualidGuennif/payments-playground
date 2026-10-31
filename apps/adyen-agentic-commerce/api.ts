@@ -1,3 +1,4 @@
+// Spec: knowledge/components/adyen-agentic-commerce.md
 import { AdyenTestClient } from "@suite/platform/adyen.ts";
 import { buildCheckoutAddresses } from "@suite/platform/addresses.ts";
 import { createPlatformContext, selectedSecrets } from "@suite/platform/base-api.ts";

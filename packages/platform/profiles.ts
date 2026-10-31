@@ -1,3 +1,4 @@
+// Spec: knowledge/components/platform-package.md
 import { dirname } from "@std/path";
 import type { Database } from "@db/sqlite";
 import type { AppId, ProfileSecrets, PublicProfile } from "./types.ts";

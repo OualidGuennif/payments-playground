@@ -9,6 +9,7 @@ generated:
 sources:
   - resource: ../../.claude/hooks/guard-path.py
   - resource: ../../.claude/hooks/guard-bash.py
+  - resource: ../../.claude/hooks/token-feedback.py
   - resource: https://developers.openai.com/api/docs/guides/reasoning-best-practices
     title: "Simple, direct instructions for reasoning models"
   - resource: https://learn.chatgpt.com/docs/agent-configuration/agents-md

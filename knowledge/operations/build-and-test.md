@@ -23,6 +23,12 @@ sources:
     title: The factory test runner
   - resource: ../../tools/git-hooks/pre-commit
     title: The commit gate
+  - resource: ../../.claude/hooks/after-edit.py
+    title: Edit feedback after every write
+  - resource: ../../.claude/hooks/session-start.py
+    title: The session start context
+  - resource: ../../.claude/hooks/sign-off.py
+    title: The stop-time sign-off
 ---
 
 # Build and test

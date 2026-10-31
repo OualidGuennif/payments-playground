@@ -1,3 +1,4 @@
+// Spec: knowledge/components/ui-package.md
 export function readCookie(name: string): string | undefined {
   if (typeof document === "undefined") return undefined;
   return document.cookie.split(";").map((value) => value.trim()).find((value) =>

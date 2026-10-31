@@ -1,3 +1,4 @@
+// Spec: knowledge/components/adyen-v6-styling.md
 import { AdyenTestClient } from "@suite/platform/adyen.ts";
 import { buildCheckoutAddresses, normalizeCountryCode } from "@suite/platform/addresses.ts";
 import { createPlatformContext, selectedSecrets } from "@suite/platform/base-api.ts";

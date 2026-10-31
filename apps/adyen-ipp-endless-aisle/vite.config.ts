@@ -1,3 +1,4 @@
+// Spec: knowledge/components/adyen-ipp-endless-aisle.md
 import { fresh } from "@fresh/plugin-vite";
 import { defineConfig } from "vite";
 import { adyenLibraryExternal } from "../../tools/dev/adyen-library-external.ts";

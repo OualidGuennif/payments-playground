@@ -1,3 +1,4 @@
+// Spec: knowledge/components/ui-package.md
 import { AdyenCheckout, components } from "@adyen/adyen-web";
 
 /**

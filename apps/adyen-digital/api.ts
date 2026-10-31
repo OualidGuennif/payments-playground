@@ -1,3 +1,4 @@
+// Spec: knowledge/components/adyen-digital.md
 import { createPlatformContext, selectedSecrets } from "@suite/platform/base-api.ts";
 import { AdyenTestClient } from "@suite/platform/adyen.ts";
 import { buildCheckoutAddresses, SUPPORTED_COUNTRY_CODES } from "@suite/platform/addresses.ts";

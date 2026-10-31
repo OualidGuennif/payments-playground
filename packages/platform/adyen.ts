@@ -1,3 +1,4 @@
+// Spec: knowledge/components/platform-package.md
 // The package is CommonJS and re-exports its classes through getters, which
 // Deno's CJS named-export detection cannot see, the default import is the
 // whole `module.exports`, so reading the classes off it is the shape that

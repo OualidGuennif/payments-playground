@@ -1,3 +1,4 @@
+// Spec: knowledge/components/adyen-v6-styling.md
 import { fresh } from "@fresh/plugin-vite";
 import { defineConfig } from "vite";
 import { adyenLibraryExternal } from "../../tools/dev/adyen-library-external.ts";

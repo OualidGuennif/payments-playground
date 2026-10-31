@@ -1,3 +1,4 @@
+// Spec: knowledge/components/platform-package.md
 import { parse } from "@std/dotenv";
 import { isAbsolute, join, resolve } from "@std/path";
 import type { AppId, ProfileSecrets, PublicProfile } from "./types.ts";

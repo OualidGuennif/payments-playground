@@ -16,6 +16,8 @@ sources:
   - id: client
     resource: ../../loops/decisions-api/client.sh
     title: "The Decisions API client"
+  - resource: ../../tools/loops/run
+    title: "run, which names this doc as its spec"
 ---
 
 # The loops

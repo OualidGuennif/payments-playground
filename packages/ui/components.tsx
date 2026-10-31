@@ -1,3 +1,4 @@
+// Spec: knowledge/components/ui-package.md
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { THEME_SCRIPT } from "./theme.ts";

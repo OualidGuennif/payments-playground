@@ -13,5 +13,16 @@
 **/_fresh
 **/node_modules
 
+# Æion Factory local state and adopted reference material never enter an image.
+.aeion
+reference
+.claude
+efficiency
+knowledge
+loops
+tech-watch
+docs
+.github
+
 .git
 **/.DS_Store

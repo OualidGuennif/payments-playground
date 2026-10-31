@@ -1,7 +1,8 @@
+// Spec: knowledge/components/adyen-agentic-commerce.md
 import { fresh } from "@fresh/plugin-vite";
 import { defineConfig } from "vite";
-import { adyenLibraryExternal } from "../../scripts/adyen-library-external.ts";
-import { sqliteViteHotfix } from "../../scripts/sqlite-vite-hotfix.ts";
+import { adyenLibraryExternal } from "../../tools/dev/adyen-library-external.ts";
+import { sqliteViteHotfix } from "../../tools/dev/sqlite-vite-hotfix.ts";
 
 export default defineConfig({
   plugins: [fresh(), sqliteViteHotfix(), adyenLibraryExternal()],

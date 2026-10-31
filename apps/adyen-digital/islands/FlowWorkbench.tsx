@@ -5,10 +5,7 @@ import { Field } from "@suite/ui/components.tsx";
 import {
   currencyForCountry,
   defaultAmountForCurrency,
-  detectCountryFromLanguages,
-  FALLBACK_COUNTRY,
   localeForCountry,
-  ZERO_DECIMAL_CURRENCIES,
 } from "@suite/platform/markets.ts";
 import { weeklyShopperReference } from "@suite/platform/shopper.ts";
 import {
@@ -20,40 +17,39 @@ import "@suite/ui/registerPaymentMethods.ts";
 import { currentTheme, type Theme, THEME_CHANGE_EVENT } from "@suite/ui/theme.ts";
 import { useCopy } from "@suite/ui/useCopy.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { FlowIcon } from "../components/FlowIcon.tsx";
 import { type Flow, flowInfo } from "../components/flows.ts";
-import { Sheet } from "../components/Sheet.tsx";
+import {
+  type AvailableComponent,
+  type Bootstrap,
+  closesSession,
+  CUSTOM_CARD_MARKUP,
+  detectInitialCountry,
+  flagEmoji,
+  MARKETS,
+  minorExponent,
+  recordSafe,
+  type RecurringModel,
+  securedFieldStyles,
+  SESSION_REFUSAL_LIMIT,
+  type StoredMethod,
+  VALIDITY_OPTIONS,
+} from "../components/flow-helpers.ts";
+import { FlowIcon } from "../components/FlowIcon.tsx";
+import { FlowInspector } from "../components/FlowInspector.tsx";
+import { FlowSettings } from "../components/FlowSettings.tsx";
 import { type OrderProgress, orderProgress, partialAmount } from "../components/partial.ts";
-// field() below reads strings only; orders and balances are objects and numbers.
 import { field as valueAt } from "../components/read.ts";
 import { type PaymentOutcome, ResultCard } from "../components/ResultCard.tsx";
+import { Sheet } from "../components/Sheet.tsx";
 import { TestData } from "../components/TestData.tsx";
-import { Timeline, type TimelineEntry } from "../components/Timeline.tsx";
+import { type TimelineEntry } from "../components/Timeline.tsx";
 
-interface PublicProfile {
-  id: string;
-  label: string;
-  isConfigured: boolean;
-  missingFields: string[];
-  merchantAccount?: string;
-}
-
-interface AvailableComponent {
-  type: string;
-  name: string;
-}
+export type { Bootstrap };
 
 type ComponentConstructor = new (
   checkout: Core,
   props?: Record<string, unknown>,
 ) => MountedComponent;
-
-export interface Bootstrap {
-  profile: PublicProfile;
-  profiles: PublicProfile[];
-  clientKey: string | null;
-  webhookUrl: string;
-}
 
 interface CallbackActions {
   resolve(value?: unknown): void;
@@ -63,178 +59,6 @@ interface CallbackActions {
 interface MountedComponent {
   mount(el: HTMLElement): void;
   unmount(): void;
-}
-
-interface StoredMethod {
-  id: string;
-  brand?: string;
-  lastFour?: string;
-  expiryMonth?: string;
-  expiryYear?: string;
-  name?: string;
-  supportedRecurringProcessingModels?: string[];
-}
-
-type RecurringModel = "UnscheduledCardOnFile" | "Subscription";
-
-const MARKETS = [
-  ["AE", "United Arab Emirates"],
-  ["AT", "Austria"],
-  ["AU", "Australia"],
-  ["BE", "Belgium"],
-  ["BR", "Brazil"],
-  ["CA", "Canada"],
-  ["CH", "Switzerland"],
-  ["CN", "China"],
-  ["CZ", "Czech Republic"],
-  ["DE", "Germany"],
-  ["DK", "Denmark"],
-  ["ES", "Spain"],
-  ["FI", "Finland"],
-  ["FR", "France"],
-  ["GB", "United Kingdom"],
-  ["HK", "Hong Kong"],
-  ["ID", "Indonesia"],
-  ["IN", "India"],
-  ["IT", "Italy"],
-  ["JP", "Japan"],
-  ["KE", "Kenya"],
-  ["KR", "South Korea"],
-  ["MX", "Mexico"],
-  ["MY", "Malaysia"],
-  ["NL", "Netherlands"],
-  ["NO", "Norway"],
-  ["NZ", "New Zealand"],
-  ["PH", "Philippines"],
-  ["PL", "Poland"],
-  ["PT", "Portugal"],
-  ["SE", "Sweden"],
-  ["SG", "Singapore"],
-  ["TH", "Thailand"],
-  ["US", "United States"],
-  ["VN", "Vietnam"],
-  ["ZA", "South Africa"],
-] as const;
-
-// Every market's own locale/currency, so both dropdowns cover the same set
-// the per-country defaults are actually drawn from.
-const LOCALE_OPTIONS = [...new Set(MARKETS.map(([code]) => localeForCountry(code)))].sort();
-const CURRENCY_OPTIONS = [...new Set(MARKETS.map(([code]) => currencyForCountry(code)))].sort();
-
-const VALIDITY_OPTIONS: Array<[number, string]> = [
-  [1, "1 hour"],
-  [24, "24 hours"],
-  [24 * 7, "7 days"],
-  [24 * 30, "30 days"],
-  [24 * 70, "70 days (maximum)"],
-];
-
-/**
- * Market to open on: pay-by-link keeps its NL default, everything else is
- * guessed from the browser's languages and falls back to a European market.
- * Returns the fallback during SSR, where there is no navigator.
- */
-function detectInitialCountry(flow: Flow): string {
-  if (flow === "pay-by-link" || typeof navigator === "undefined") return FALLBACK_COUNTRY;
-  const languages = navigator.languages?.length
-    ? navigator.languages
-    : [navigator.language].filter(Boolean);
-  const guess = detectCountryFromLanguages(languages, FALLBACK_COUNTRY);
-  return MARKETS.some(([code]) => code === guess) ? guess : FALLBACK_COUNTRY;
-}
-
-// Reuses Adyen's own shipped CSS classes (imported globally as adyen.css) for
-// field box sizing/focus states; only the wrapper, status and hint are ours.
-const CUSTOM_CARD_MARKUP = `
-  <div class="custom-card-form">
-    <div class="adyen-checkout__field">
-      <label class="adyen-checkout__label" for="customCardHolderName">Cardholder name</label>
-      <div class="adyen-checkout__input-wrapper">
-        <input
-          id="customCardHolderName"
-          class="adyen-checkout__input"
-          autocomplete="cc-name"
-          placeholder="John Doe"
-        />
-      </div>
-    </div>
-    <div class="adyen-checkout__field">
-      <label class="adyen-checkout__label">Card number</label>
-      <div class="adyen-checkout__input-wrapper">
-        <span class="adyen-checkout__input" data-cse="encryptedCardNumber"></span>
-      </div>
-    </div>
-    <div class="adyen-checkout__field adyen-checkout__field--two-in-one">
-      <div class="adyen-checkout__field">
-        <label class="adyen-checkout__label">Expiry date</label>
-        <div class="adyen-checkout__input-wrapper">
-          <span class="adyen-checkout__input" data-cse="encryptedExpiryDate"></span>
-        </div>
-      </div>
-      <div class="adyen-checkout__field">
-        <label class="adyen-checkout__label">CVC</label>
-        <div class="adyen-checkout__input-wrapper">
-          <span class="adyen-checkout__input" data-cse="encryptedSecurityCode"></span>
-        </div>
-      </div>
-    </div>
-    <p class="custom-card-status" data-role="status" aria-live="polite"></p>
-    <button
-      type="button"
-      class="adyen-checkout__button adyen-checkout__button--pay custom-card-submit"
-      data-role="submit"
-      disabled
-    >
-      Pay now
-    </button>
-  </div>
-`;
-
-/**
- * Secured fields render inside Adyen's iframes, out of reach of this page's
- * CSS: in dark mode their text colours have to be passed in as `styles`.
- */
-function securedFieldStyles(theme: Theme): Record<string, unknown> | undefined {
-  if (theme !== "dark") return undefined;
-  return {
-    base: { color: "#eef1f6", caretColor: "#eef1f6" },
-    placeholder: { color: "#7b8493" },
-    error: { color: "#ff7b88" },
-  };
-}
-
-// Adyen accepts 5 refused payments in one session; the next payments call
-// answers 422 "14_0422" whatever the card (seen on TEST, 2026-10-16).
-const SESSION_REFUSAL_LIMIT = 5;
-
-/** Adyen's answer when a session takes no more payments: closed (0422) or expired (0423). */
-function closesSession(failure: unknown): boolean {
-  const errorCode = valueAt(failure, "cause.errorCode");
-  return errorCode === "14_0422" || errorCode === "14_0423";
-}
-
-function flagEmoji(countryCode: string): string {
-  return String.fromCodePoint(
-    ...countryCode.toUpperCase().split("").map((letter) => 127397 + letter.charCodeAt(0)),
-  );
-}
-
-function minorExponent(currency: string): number {
-  return ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase()) ? 0 : 2;
-}
-
-// This is a TEST playground: sdkData, sessionData and other frontend callback
-// payloads are shown in full; nothing here is a real credential, and
-// truncating them only hides useful debug information.
-function recordSafe(value: unknown, depth = 0): unknown {
-  if (depth > 5) return "[depth limited]";
-  if (Array.isArray(value)) return value.slice(0, 30).map((entry) => recordSafe(entry, depth + 1));
-  if (!value || typeof value !== "object") return value;
-  const output: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-    output[key] = recordSafe(entry, depth + 1);
-  }
-  return output;
 }
 
 function field(value: unknown, key: string): string | undefined {
@@ -1466,200 +1290,42 @@ export default function FlowWorkbench(
 
         {inspectorOpen
           ? (
-            <aside class="inspector-panel" aria-label="Inspector">
-              <header class="inspector-panel__head">
-                <h2>
-                  Inspector
-                  <span class="live" title="Refreshed every few seconds">Live</span>
-                </h2>
-                <button
-                  type="button"
-                  class="icon-button"
-                  aria-label="Close the inspector"
-                  onClick={() => setInspectorOpen(false)}
-                >
-                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                    <path
-                      d="M6 6l12 12M18 6L6 18"
-                      stroke="currentColor"
-                      stroke-width="1.8"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                </button>
-              </header>
-              <ol class="steps" aria-label="Progress">
-                {steps.map(([label, done]) => (
-                  <li key={label} class={done ? "is-done" : undefined}>{label}</li>
-                ))}
-              </ol>
-              <div
-                class="inspector-panel__body"
-                ref={inspectorBody}
-                onScroll={(event) => {
-                  const body = event.currentTarget;
-                  followEvents.current =
-                    body.scrollHeight - body.scrollTop - body.clientHeight < 48;
-                }}
-              >
-                <Timeline
-                  entries={events}
-                  empty="Events land here as the checkout runs: Adyen Web callbacks, the API calls this server makes, and the webhooks Adyen sends back."
-                />
-              </div>
-              {correlationId
-                ? (
-                  <footer class="inspector-panel__foot">
-                    <span>Correlation</span>
-                    <button
-                      type="button"
-                      class="text-button mono"
-                      onClick={() => copy(correlationId)}
-                    >
-                      {copied === correlationId ? "Copied" : correlationId}
-                    </button>
-                  </footer>
-                )
-                : null}
-            </aside>
+            <FlowInspector
+              entries={events}
+              steps={steps}
+              correlationId={correlationId}
+              body={inspectorBody}
+              follow={followEvents}
+              onClose={() => setInspectorOpen(false)}
+            />
           )
           : null}
       </div>
 
-      <Sheet
+      <FlowSettings
         open={configOpen}
-        title="Checkout settings"
-        subtitle="Changes reload the checkout."
         onClose={() => setConfigOpen(false)}
-        footer={
-          <button
-            class="button button--primary button--block"
-            type="button"
-            onClick={() => setConfigOpen(false)}
-          >
-            Done
-          </button>
-        }
-      >
-        <section class="config-group">
-          <h3>Market</h3>
-          <Field label="Country" htmlFor="config-country">
-            <select
-              id="config-country"
-              value={country}
-              onChange={(event) => selectMarket(event.currentTarget.value)}
-            >
-              {MARKETS.map(([code, name]) => (
-                <option key={code} value={code}>{flagEmoji(code)} {name}</option>
-              ))}
-            </select>
-          </Field>
-          <div class="config-row">
-            <Field label="Language" htmlFor="config-locale">
-              <select
-                id="config-locale"
-                value={locale}
-                onChange={(event) => setLocale(event.currentTarget.value)}
-              >
-                {LOCALE_OPTIONS.map((value) => <option key={value} value={value}>{value}</option>)}
-              </select>
-            </Field>
-            <Field label="Currency" htmlFor="config-currency">
-              <select
-                id="config-currency"
-                value={currency}
-                onChange={(event) => selectCurrency(event.currentTarget.value)}
-              >
-                {CURRENCY_OPTIONS.map((value) => <option key={value} value={value}>{value}
-                </option>)}
-              </select>
-            </Field>
-          </div>
-          <Field
-            label="Amount"
-            htmlFor="config-amount"
-            hint={`Sent to Adyen as ${amount} minor units`}
-          >
-            <input
-              id="config-amount"
-              inputMode="decimal"
-              value={amountDraft ?? (amount / 10 ** exponent).toFixed(exponent)}
-              onInput={(event) => updateAmount(event.currentTarget.value)}
-              onBlur={() => setAmountDraft(null)}
-            />
-          </Field>
-        </section>
-        {info.hasIntegration
-          ? (
-            <section class="config-group">
-              <h3>Integration</h3>
-              <div class="segmented-control" role="group" aria-label="Frontend integration">
-                <button
-                  type="button"
-                  aria-pressed={integration === "dropin"}
-                  onClick={() => setIntegration("dropin")}
-                >
-                  Drop-in
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={integration === "component"}
-                  onClick={() => setIntegration("component")}
-                >
-                  Components
-                </button>
-              </div>
-              <p class="config-hint">
-                {integration === "dropin"
-                  ? "Every payment method in one list."
-                  : "One payment method at a time; pick it above the payment form."}
-              </p>
-            </section>
-          )
-          : null}
-        {hasThreeDSChoice
-          ? (
-            <section class="config-group">
-              <h3>3D Secure</h3>
-              <label class="switch-row">
-                <span>
-                  <strong>Native 3DS</strong>
-                  <small>
-                    {nativeThreeDS
-                      ? "The challenge opens inside the checkout (nativeThreeDS: preferred)."
-                      : "The shopper is redirected to the issuer's page (nativeThreeDS: disabled)."}
-                  </small>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={nativeThreeDS}
-                  onChange={(event) => setNativeThreeDS(event.currentTarget.checked)}
-                />
-              </label>
-            </section>
-          )
-          : null}
-        <section class="config-group">
-          <h3>Server profile</h3>
-          <Field label="TEST credentials" htmlFor="config-profile">
-            <select
-              id="config-profile"
-              value={profileId}
-              onChange={(event) => switchProfile(event.currentTarget.value)}
-            >
-              {bootstrap?.profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.label}
-                  {profile.isConfigured ? "" : " (incomplete)"}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <p class="config-hint">
-            Add or remove profiles in <a href="/settings">Settings</a>.
-          </p>
-        </section>
-      </Sheet>
+        country={country}
+        locale={locale}
+        currency={currency}
+        amount={amount}
+        amountDraft={amountDraft}
+        exponent={exponent}
+        integration={integration}
+        hasIntegration={info.hasIntegration}
+        hasThreeDSChoice={hasThreeDSChoice}
+        nativeThreeDS={nativeThreeDS}
+        profileId={profileId}
+        profiles={bootstrap?.profiles ?? []}
+        onMarket={selectMarket}
+        onLocale={setLocale}
+        onCurrency={selectCurrency}
+        onAmount={updateAmount}
+        onAmountBlur={() => setAmountDraft(null)}
+        onIntegration={setIntegration}
+        onNativeThreeDS={setNativeThreeDS}
+        onProfile={switchProfile}
+      />
 
       <Sheet
         open={testDataOpen}

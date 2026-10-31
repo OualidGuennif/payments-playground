@@ -10,13 +10,13 @@ generated:
   at: 2026-10-09T19:30:00Z
 sources:
   - id: dockerfile
-    resource: apps/adyen-digital/Dockerfile
+    resource: ../../apps/adyen-digital/Dockerfile
     title: Digital image
   - id: dockerignore
-    resource: .dockerignore
+    resource: ../../.dockerignore
     title: Build context exclusions
   - id: render
-    resource: render.yaml
+    resource: ../../render.yaml
     title: Blueprint for the landing page and the four services
 verified:
   - at: 2026-10-09

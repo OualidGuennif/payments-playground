@@ -6,32 +6,62 @@ tags: [runbook, build, test]
 status: stable
 scope: build-and-test
 generated:
-  by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  by: aeion-adoption/1.0
+  at: 2026-10-31
 sources:
   - id: tasks
-    resource: deno.json
+    resource: ../../deno.json
     title: Root tasks
   - id: dockerfile
-    resource: apps/adyen-digital/Dockerfile
+    resource: ../../apps/adyen-digital/Dockerfile
     title: The runtime image and its build-time SSR assertion
+  - resource: ../../.claude/hooks/project_files.py
+    title: The file enumeration shared with doc-links and repo-health
+  - resource: ../../tools/efficiency/bundle
+    title: The guide bundle builder
+  - resource: ../../tools/factory-tests
+    title: The factory test runner
+  - resource: ../../tools/git-hooks/pre-commit
+    title: The commit gate
+  - resource: ../../.claude/hooks/after-edit.py
+    title: Edit feedback after every write
+  - resource: ../../.claude/hooks/session-start.py
+    title: The session start context
+  - resource: ../../.claude/hooks/sign-off.py
+    title: The stop-time sign-off
 ---
 
 # Build and test
 
 ```bash
 deno task check            # everything below, in order, stops at the first failure
-deno task test             # packages, apps and scripts tests, in parallel
+deno task test             # packages, apps and tools tests, sequentially
 deno task knowledge:check  # this bundle, AGENTS.md and CLAUDE.md
+deno task docs:links       # knowledge sources and Spec: pointers, both ways
+deno task repo:health      # size, comment and top-level-folder caps
+deno task factory:test     # the adapted factory checks
 deno task build            # the four production builds
 deno task verify           # build, then start the builds and check /healthz
 ```
 
 `check` runs: `fmt:check`, `lint`, `knowledge:check`, `types` (`deno check` on every package, app
-and script), `test`, `build`, `ssr:assert`. It is the only gate: there is no CI workflow in this
-repository, so run it before every push.
+and tool), `test`, `build`, `ssr:assert`. It is the local gate; run it before every push. The
+factory checks (`docs:links`, `repo:health`, `factory:test`) run beside it. CI repeats the whole set
+on pull requests and `main`.
 
 Per app: `deno task --cwd apps/adyen-digital <dev|build|test|start>`; `start` serves the last build.
+The suites run sequentially: the SQLite native library downloads on first use, and parallel workers
+raced that download on the CI runner.
+
+## The analysis baseline
+
+`deno task arch:setup` installs the pinned Graphify 0.9.97 and Archify v3.2.0 into the ignored
+`.aeion/integrations/`. `deno task arch:refresh` builds and verifies the exact-HEAD graph and the
+three diagrams; a PASS receipt is `.aeion/analysis/<sha>/receipt.json`. CI runs the same refresh on
+`main` and pull requests. The working graph for `tools/architecture/ask` rebuilds on demand.
+
+Python 3.12+ (excluding 3.14.1) and Node 18+ are required for the checks and adapters; the apps
+themselves stay on Deno 2.9.4.
 
 ## Tests that reach the network
 

@@ -1,9 +1,10 @@
+// Spec: knowledge/components/adyen-digital.md
 import { fresh } from "@fresh/plugin-vite";
 import { defineConfig } from "vite";
-import { adyenLibraryExternal } from "../../scripts/adyen-library-external.ts";
-import { adyenWebDevBundle } from "../../scripts/adyen-web-dev-bundle.ts";
-import { devClientAddress } from "../../scripts/dev-client-address.ts";
-import { sqliteViteHotfix } from "../../scripts/sqlite-vite-hotfix.ts";
+import { adyenLibraryExternal } from "../../tools/dev/adyen-library-external.ts";
+import { adyenWebDevBundle } from "../../tools/dev/adyen-web-dev-bundle.ts";
+import { devClientAddress } from "../../tools/dev/dev-client-address.ts";
+import { sqliteViteHotfix } from "../../tools/dev/sqlite-vite-hotfix.ts";
 
 export default defineConfig({
   plugins: [

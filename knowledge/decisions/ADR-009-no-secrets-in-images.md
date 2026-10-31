@@ -9,10 +9,10 @@ generated:
   at: 2026-10-09T19:30:00Z
 sources:
   - id: dockerignore
-    resource: .dockerignore
+    resource: ../../.dockerignore
     title: Build context exclusions
   - id: config
-    resource: packages/platform/config.ts
+    resource: ../../packages/platform/config.ts
     title: unquoteEnvValue
 ---
 

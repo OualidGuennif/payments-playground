@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Architecture diagrams</title>
+    <style>
+    :root {
+      --bg: #fafaf9;
+      --fg: #1c1917;
+      --muted: #57534e;
+      --card: #fff;
+      --line: #e7e5e4;
+      --link: #1d4ed8;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1917;
+        --fg: #f5f5f4;
+        --muted: #a8a29e;
+        --card: #292524;
+        --line: #44403c;
+        --link: #93c5fd;
+      }
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 16px/1.5 system-ui, sans-serif;
+    }
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 16px;
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 1.6rem;
+    }
+    h2 {
+      margin: 28px 0 8px;
+      font-size: 1.15rem;
+    }
+    p,
+    li {
+      color: var(--muted);
+    }
+    ul {
+      padding-left: 1.2rem;
+    }
+    a {
+      color: var(--link);
+    }
+    code {
+      font-size: 0.9em;
+    }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Architecture diagrams</h1>
+      <p>
+        Generated locally from an exact commit by <code>tools/architecture/refresh --target HEAD</code>.
+        The rendered files and the PASS receipt are ignored; only the views are tracked.
+      </p>
+      <h2>All baselines</h2>
+      <ul>
+        <li><a href="../.aeion/analysis/index.html">Analysis index</a> — newest commit first.</li>
+        <li><a href="../.aeion/analysis/">Analysis folders</a> — one per SHA, with the receipt.</li>
+      </ul>
+      <h2>The three maintained views</h2>
+      <ul>
+        <li><strong>architecture.html</strong> — apps, packages, Adyen TEST, SQLite and Render.</li>
+        <li><strong>workflow.html</strong> — owner, agent, checks, review, deploy, Graphify/Archify.</li>
+        <li><strong>lifecycle.html</strong> — open, authorised, refused, captured, refunded.</li>
+      </ul>
+      <p>
+        Method and limits: <a href="../knowledge/operations/architecture-maintenance.md">Graphify and
+        Archify maintenance</a>.
+      </p>
+    </main>
+  </body>
+</html>

@@ -1,3 +1,4 @@
+// Spec: knowledge/components/platform-package.md
 import { Hono } from "hono";
 import type { AppId, ProfileSecrets } from "./types.ts";
 import { loadServerConfig, type ServerConfig } from "./config.ts";

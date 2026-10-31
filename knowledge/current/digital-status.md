@@ -11,25 +11,21 @@ generated:
   at: 2026-10-16T18:20:00Z
 sources:
   - id: api
-    resource: apps/adyen-digital/api.ts
+    resource: ../../apps/adyen-digital/api.ts
     title: Server behaviour verified below
   - id: workbench
-    resource: apps/adyen-digital/islands/FlowWorkbench.tsx
+    resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
     title: Client behaviour verified below
   - id: policy
-    resource: knowledge/policies/verification-and-reporting.md
+    resource: ../policies/verification-and-reporting.md
     title: Meaning of the levels
 verified:
-  - at: 2026-10-09
-    check: "Every PASS row below, on Adyen TEST, from the dev server at localhost:5173 unless stated."
-  - at: 2026-10-10
-    check: "Rows dated 2026-10-10: redirect return, Pay by Link, MIT, API only, Components in dark mode, headless Firefox with an analytics block on digital and styling."
+  - at: 2026-10-16
+    check: "Adyen Web 6.47.0: gift card partial (Givex 50.00 + card 59.99) in Sessions Components/Drop-in and Advanced Components; native 3DS switch on Sessions and Advanced; Advanced Drop-in order cancelled through /orders/cancel."
   - at: 2026-10-13
     check: "Advanced Drop-in on localhost:5173: /payments carries shopperIP and a deliveryAddress without names; Authorised on Adyen TEST."
-  - at: 2026-10-15
-    check: "Native 3DS switch on localhost:5173: redirect 3DS for Sessions and Advanced authorised through /result; native still sends preferred."
-  - at: 2026-10-16
-    check: "Adyen Web 6.47.0 on localhost:5173: gift card partial payment (Givex 50.00 + card 59.99) in Sessions Components and Drop-in, Advanced Components; Advanced Drop-in order cancelled through /orders/cancel."
+  - at: 2026-10-09
+    check: "Rows dated 2026-10-09/10: redirect return, Pay by Link, MIT, API only, Components in dark mode, headless Firefox with analytics blocked on digital and styling."
 ---
 
 # adyen-digital: what is verified, and what is still open

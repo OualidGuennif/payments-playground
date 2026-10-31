@@ -1,3 +1,4 @@
+// Spec: knowledge/components/adyen-ipp-endless-aisle.md
 import { AdyenTestClient } from "@suite/platform/adyen.ts";
 import { createPlatformContext, selectedSecrets } from "@suite/platform/base-api.ts";
 import { verifyHeaderHmac } from "@suite/platform/hmac.ts";

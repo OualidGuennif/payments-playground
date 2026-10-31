@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Spec: knowledge/policies/specs-first.md
+# Canonical executable name for the knowledge checker; the implementation is Deno.
+set -euo pipefail
+exec deno run --allow-read "$(dirname "$0")/knowledge-check.ts" "$@"

@@ -9,10 +9,10 @@ generated:
   at: 2026-10-09T19:30:00Z
 sources:
   - id: guard
-    resource: packages/platform/test-only.ts
+    resource: ../../packages/platform/test-only.ts
     title: assertTestOnly and profileIsTestOnly
   - id: client
-    resource: packages/platform/adyen.ts
+    resource: ../../packages/platform/adyen.ts
     title: Every request passes assertTestOnly
 ---
 

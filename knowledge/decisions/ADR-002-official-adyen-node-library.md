@@ -9,10 +9,10 @@ generated:
   at: 2026-10-09T19:30:00Z
 sources:
   - id: client
-    resource: packages/platform/adyen.ts
+    resource: ../../packages/platform/adyen.ts
     title: The wrapper and its Deno workarounds
   - id: tests
-    resource: packages/platform/adyen.test.ts
+    resource: ../../packages/platform/adyen.test.ts
     title: Endpoint, method, params and error mapping tests
 ---
 

@@ -13,10 +13,10 @@ sources:
     resource: git-history:docs/ARCHITECTURE.md
     title: "Migrated from docs/ARCHITECTURE.md (removed in the commit that introduced this bundle)"
   - id: workspace
-    resource: deno.json
+    resource: ../../deno.json
     title: Workspace members, pinned imports, every root task
   - id: digital-main
-    resource: apps/adyen-digital/main.ts
+    resource: ../../apps/adyen-digital/main.ts
     title: How Fresh, Hono and the security middleware are wired in one app
 ---
 
@@ -37,7 +37,7 @@ payments-playground/
 ├── packages/
 │   ├── platform/                server only: Adyen calls, SQLite, security, state machine
 │   └── ui/                      browser-safe: Preact components, tokens, Adyen Web setup
-├── scripts/                     dev/build/start orchestration, Vite plugins, release checks
+├── tools/                       dev/build/start orchestration, Vite plugins, checks
 ├── knowledge/                   this bundle
 ├── docs/                        public SECURITY.md and KNOWN_LIMITS.md
 └── render.yaml                  one Blueprint for the landing page and the four services

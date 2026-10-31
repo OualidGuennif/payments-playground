@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "adyen-digital",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": ["task", "--cwd", "apps/adyen-digital", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "adyen-styling",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": ["task", "--cwd", "apps/adyen-v6-styling", "dev", "--port", "8004"],
+      "port": 8004
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+// Spec: knowledge/components/platform-package.md
 import { Database } from "@db/sqlite";
 import { dirname } from "@std/path";
 import { SCHEMA_SQL } from "./migrations.ts";

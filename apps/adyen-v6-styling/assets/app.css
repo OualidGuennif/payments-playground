@@ -281,7 +281,7 @@
   white-space: nowrap;
 }
 
-/* Sized so the longest number still sits on one line in the narrowest tile , 
+/* Sized so the longest number still sits on one line in the narrowest tile ,
    the extra tracking and the larger size were costing about ten pixels, which
    was the whole margin. A wrapped PAN is worse than a slightly smaller one:
    you can't read a card number that has been cut in half. */

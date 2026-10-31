@@ -1,3 +1,4 @@
+/* Spec: knowledge/components/landing.md */
 /* The front door. Deliberately quiet: the playgrounds themselves are the
    colourful part, and this page only has to say what they are and let people
    through. Self-contained, no build step, no framework, no fonts to fetch. */

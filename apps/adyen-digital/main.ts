@@ -1,3 +1,4 @@
+// Spec: knowledge/components/adyen-digital.md
 import { App, staticFiles } from "fresh";
 import { applySecurityHeaders, basicAuthChallenge } from "@suite/platform/security.ts";
 import { api } from "./api.ts";

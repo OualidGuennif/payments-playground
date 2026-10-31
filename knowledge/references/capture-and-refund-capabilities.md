@@ -22,7 +22,7 @@ sources:
     resource: https://docs.adyen.com/development-resources/api-idempotency
     title: API idempotency
   - id: table
-    resource: packages/platform/lifecycle.ts
+    resource: ../../packages/platform/lifecycle.ts
     title: PAYMENT_METHOD_CAPABILITIES, CAPABILITIES_REVIEWED_ON
 ---
 

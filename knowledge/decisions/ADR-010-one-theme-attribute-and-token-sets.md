@@ -9,16 +9,16 @@ generated:
   at: 2026-10-16T15:45:00Z
 sources:
   - id: theme
-    resource: packages/ui/theme.ts
+    resource: ../../packages/ui/theme.ts
     title: THEME_SCRIPT, currentTheme, the storage key and change event
   - id: tokens
-    resource: packages/ui/styles.css
+    resource: ../../packages/ui/styles.css
     title: Light and dark token sets
   - id: shell
-    resource: packages/ui/components.tsx
+    resource: ../../packages/ui/components.tsx
     title: ThemeScript, ThemeToggle, TestPill, AppShell
   - id: workbench
-    resource: apps/adyen-digital/islands/FlowWorkbench.tsx
+    resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
     title: securedFieldStyles and the theme-driven remount
 ---
 

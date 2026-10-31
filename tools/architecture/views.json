@@ -1,0 +1,340 @@
+[
+  {
+    "schema_version": 1,
+    "diagram_type": "architecture",
+    "meta": {
+      "title": "Payments Playground: four apps, two packages, one factory",
+      "quality_profile": "showcase",
+      "output": "architecture.html"
+    },
+    "components": [
+      {
+        "id": "owner",
+        "type": "external",
+        "label": "Owner",
+        "sublabel": "Scope, decisions, visual yes",
+        "pos": [40, 300],
+        "size": [190, 74],
+        "sources": [{ "path": "AGENTS.md", "anchor": "Owner and final say" }]
+      },
+      {
+        "id": "apps",
+        "type": "backend",
+        "label": "Four Fresh apps",
+        "sublabel": "Digital, styling, IPP, agentic + landing",
+        "pos": [320, 300],
+        "size": [210, 74],
+        "sources": [
+          {
+            "path": "knowledge/architecture/system-overview.md",
+            "anchor": "## How one app is put together"
+          }
+        ]
+      },
+      {
+        "id": "platform",
+        "type": "backend",
+        "label": "packages/platform",
+        "sublabel": "Adyen client, SQLite, state machine",
+        "pos": [640, 300],
+        "size": [210, 74],
+        "sources": [
+          {
+            "path": "knowledge/architecture/system-overview.md",
+            "anchor": "## The shared packages"
+          }
+        ]
+      },
+      {
+        "id": "adyen",
+        "type": "external",
+        "label": "Adyen TEST",
+        "sublabel": "Checkout API v72",
+        "pos": [960, 180],
+        "size": [190, 74],
+        "sources": [
+          {
+            "path": "knowledge/architecture/system-overview.md",
+            "anchor": "## Talking to Adyen"
+          }
+        ]
+      },
+      {
+        "id": "sqlite",
+        "type": "database",
+        "label": "SQLite",
+        "sublabel": "Profiles, orders, attempts, webhooks",
+        "pos": [960, 420],
+        "size": [190, 74],
+        "sources": [
+          { "path": "knowledge/architecture/data-model.md", "anchor": "## Tables" }
+        ]
+      },
+      {
+        "id": "render",
+        "type": "external",
+        "label": "Render",
+        "sublabel": "Root Blueprint, five services",
+        "pos": [320, 90],
+        "size": [190, 74],
+        "sources": [{ "path": "render.yaml", "anchor": "name: digital-checkout" }]
+      },
+      {
+        "id": "checks",
+        "type": "security",
+        "label": "Factory checks",
+        "sublabel": "Knowledge, links, health, tests",
+        "pos": [320, 520],
+        "size": [190, 74],
+        "sources": [
+          { "path": "tools/knowledge/knowledge-check", "anchor": "#!/usr/bin/env bash" }
+        ]
+      }
+    ],
+    "connections": [
+      { "id": "authorize", "from": "owner", "to": "apps", "label": "authorizes" },
+      { "id": "calls", "from": "apps", "to": "platform", "label": "calls in-process" },
+      { "id": "checkout", "from": "platform", "to": "adyen", "label": "Checkout API v72" },
+      { "id": "persists", "from": "platform", "to": "sqlite", "label": "persists" },
+      { "id": "deploys", "from": "render", "to": "apps", "label": "deploys" },
+      { "id": "verifies", "from": "checks", "to": "apps", "label": "verifies" }
+    ],
+    "cards": [
+      {
+        "dot": "cyan",
+        "title": "Authority",
+        "items": [
+          "Owner instructions and canonical Knowledge govern work",
+          "Adyen answers and HMAC-valid webhooks own order state"
+        ]
+      },
+      {
+        "dot": "rose",
+        "title": "Boundary",
+        "items": [
+          "TEST only, enforced in packages/platform/test-only.ts",
+          "Secrets stay server-side; everything under islands/ is public"
+        ]
+      }
+    ]
+  },
+  {
+    "schema_version": 2,
+    "diagram_type": "workflow",
+    "meta": {
+      "title": "Reviewed delivery and mandatory analysis",
+      "quality_profile": "showcase",
+      "output": "workflow.html"
+    },
+    "lanes": [
+      { "id": "delivery", "label": "Authorized delivery" },
+      { "id": "analysis", "label": "Immutable analysis" }
+    ],
+    "mainPath": ["owner", "agent", "checks", "review", "deploy"],
+    "nodes": [
+      {
+        "id": "owner",
+        "lane": "delivery",
+        "col": 0,
+        "type": "external",
+        "label": "Owner",
+        "sublabel": "approves scope",
+        "sources": [{ "path": "AGENTS.md", "anchor": "Owner and final say" }]
+      },
+      {
+        "id": "agent",
+        "lane": "delivery",
+        "col": 1,
+        "type": "backend",
+        "label": "Coding agent",
+        "sublabel": "plans, edits, verifies",
+        "sources": [{ "path": "AGENTS.md", "anchor": "## Build and test" }]
+      },
+      {
+        "id": "checks",
+        "lane": "delivery",
+        "col": 2,
+        "type": "security",
+        "label": "Checks",
+        "sublabel": "hooks and factory checks",
+        "sources": [
+          {
+            "path": "tools/git-hooks/pre-commit",
+            "anchor": "# The checks every committer gets"
+          }
+        ]
+      },
+      {
+        "id": "review",
+        "lane": "delivery",
+        "col": 3,
+        "type": "security",
+        "label": "Review and CI",
+        "sublabel": "verified, green",
+        "sources": [
+          {
+            "path": "knowledge/policies/engineering.md",
+            "anchor": "## Branch, review, release"
+          }
+        ]
+      },
+      {
+        "id": "deploy",
+        "lane": "delivery",
+        "col": 4,
+        "type": "external",
+        "label": "Render",
+        "sublabel": "deploys main",
+        "sources": [{ "path": "render.yaml", "anchor": "name: digital-checkout" }]
+      },
+      {
+        "id": "analysis",
+        "lane": "analysis",
+        "col": 2,
+        "type": "backend",
+        "label": "Graphify + Archify",
+        "sublabel": "exact SHA baseline",
+        "sources": [{ "path": "tools/architecture/refresh", "anchor": "def refresh(" }]
+      },
+      {
+        "id": "receipt",
+        "lane": "analysis",
+        "col": 3,
+        "type": "database",
+        "label": "PASS receipt",
+        "sublabel": "hashes and target SHA",
+        "sources": [
+          {
+            "path": "knowledge/operations/architecture-maintenance.md",
+            "anchor": "Incomplete attempts have no PASS receipt"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      { "id": "authorize", "from": "owner", "to": "agent", "label": "approves" },
+      { "id": "events", "from": "agent", "to": "checks", "label": "tool events" },
+      { "id": "evidence", "from": "checks", "to": "review", "label": "evidence" },
+      { "id": "merge", "from": "review", "to": "deploy", "label": "merge to main" },
+      { "id": "analyze", "from": "review", "to": "analysis", "label": "main push" },
+      { "id": "pass", "from": "analysis", "to": "receipt", "label": "gates pass" }
+    ],
+    "cards": [
+      {
+        "dot": "cyan",
+        "title": "Every main update",
+        "items": [
+          "One immutable analysis per SHA",
+          "Review and CI run before deployment"
+        ]
+      },
+      {
+        "dot": "rose",
+        "title": "Failure boundary",
+        "items": [
+          "A failed analysis blocks the completion claim",
+          "Render deploys only from main"
+        ]
+      }
+    ]
+  },
+  {
+    "schema_version": 3,
+    "diagram_type": "lifecycle",
+    "meta": {
+      "title": "Payment lifecycle",
+      "quality_profile": "showcase",
+      "output": "lifecycle.html"
+    },
+    "mainPath": ["open", "authorised", "captured", "refunded"],
+    "states": [
+      {
+        "id": "open",
+        "type": "start",
+        "label": "Order open",
+        "sublabel": "session or attempt created",
+        "sources": [
+          {
+            "path": "knowledge/architecture/payment-lifecycle.md",
+            "anchor": "## The model"
+          }
+        ]
+      },
+      {
+        "id": "authorised",
+        "type": "active",
+        "label": "Authorised",
+        "sublabel": "Adyen result or AUTHORISATION webhook",
+        "sources": [
+          {
+            "path": "packages/platform/state-machine.ts",
+            "anchor": "export function mapAdyenResultCode"
+          }
+        ]
+      },
+      {
+        "id": "refused",
+        "type": "active",
+        "label": "Refused",
+        "sublabel": "ends the attempt, not the order",
+        "sources": [
+          { "path": "apps/adyen-digital/api.ts", "anchor": "api.post(\"/api/digital/payments\"" }
+        ]
+      },
+      {
+        "id": "captured",
+        "type": "waiting",
+        "label": "Captured",
+        "sublabel": "CAPTURE webhook settles it",
+        "sources": [
+          {
+            "path": "knowledge/architecture/payment-lifecycle.md",
+            "anchor": "## Capture, cancel and refund"
+          }
+        ]
+      },
+      {
+        "id": "refunded",
+        "type": "active",
+        "label": "Refunded",
+        "sublabel": "REFUND webhook, in parts at most",
+        "sources": [
+          {
+            "path": "knowledge/architecture/payment-lifecycle.md",
+            "anchor": "## Capture, cancel and refund"
+          }
+        ]
+      }
+    ],
+    "transitions": [
+      { "id": "authorise", "from": "open", "to": "authorised", "label": "AUTHORISATION" },
+      {
+        "id": "refuse",
+        "from": "open",
+        "to": "refused",
+        "label": "refusal",
+        "variant": "security"
+      },
+      { "id": "capture", "from": "authorised", "to": "captured", "label": "CAPTURE" },
+      { "id": "refund", "from": "captured", "to": "refunded", "label": "REFUND" }
+    ],
+    "cards": [
+      {
+        "dot": "cyan",
+        "title": "Authority",
+        "items": [
+          "Order state comes from Adyen answers and HMAC-valid webhooks",
+          "The browser never decides a state"
+        ]
+      },
+      {
+        "dot": "rose",
+        "title": "Irreversibility",
+        "items": [
+          "A refusal ends an attempt, not an order",
+          "A later webhook never reopens a settled order"
+        ]
+      }
+    ]
+  }
+]

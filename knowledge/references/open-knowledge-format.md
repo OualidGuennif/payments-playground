@@ -12,7 +12,7 @@ sources:
     resource: https://github.com/GoogleCloudPlatform/open-knowledge-format
     title: Open Knowledge Format (GitHub)
   - id: validator
-    resource: scripts/knowledge-check.ts
+    resource: ../../tools/knowledge/knowledge-check.ts
     title: The local validator
 ---
 
@@ -24,7 +24,7 @@ Markdown concepts with YAML frontmatter (`type`, `title`, `description`, `status
 `sources`), organised by directory, each directory with an `index.md` for progressive disclosure.
 The root `knowledge/index.md` declares `okf_version: "0.2"`.
 
-Local extensions, enforced by `scripts/knowledge-check.ts`:
+Local extensions, enforced by `tools/knowledge/knowledge-check.ts`:
 
 - `stale_after`: past this date a stable concept must be re-verified or carry STALE near its top.
 - `verified`: a list of `{at, check}` entries for checks actually performed.

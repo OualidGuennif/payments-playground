@@ -1,3 +1,4 @@
+// Spec: knowledge/components/ui-package.md
 /**
  * Light/dark theme, shared by every app.
  *

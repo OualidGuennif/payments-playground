@@ -8,6 +8,17 @@ node_modules/
 # Secrets — never commit real credentials, only *.env.example templates
 .env
 .env.local
+env.local
+.env.*
+!.env.example
+
+# Æion Factory local state: reference clone, sessions, analysis, reviews
+.aeion/
+work/handovers/
+
+# Python tooling caches used by the factory checks
+__pycache__/
+*.pyc
 
 # Fresh / Vite build output
 _fresh/

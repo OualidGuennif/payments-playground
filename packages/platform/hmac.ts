@@ -1,3 +1,4 @@
+// Spec: knowledge/components/platform-package.md
 const encoder = new TextEncoder();
 
 export interface StandardWebhookItem {

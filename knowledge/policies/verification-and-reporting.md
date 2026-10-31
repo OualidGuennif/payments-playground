@@ -13,7 +13,7 @@ sources:
     resource: git-history:knowledge/operations/reporting-and-confidence-levels.md
     title: "Adapted from the owner's Oualstreet confidence levels (separate repository)"
   - id: check
-    resource: deno.json
+    resource: ../../deno.json
     title: The check task behind CODE VERIFIED
 ---
 

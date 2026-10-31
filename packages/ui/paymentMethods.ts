@@ -1,3 +1,4 @@
+// Spec: knowledge/components/ui-package.md
 // Adyen Web reports a wallet's SDK failing to load (e.g. Apple Pay outside
 // Safari/HTTPS, Google Pay without domain verification) through the same
 // top-level onError as a real payment failure. Those are expected and

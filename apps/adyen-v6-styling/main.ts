@@ -1,3 +1,4 @@
+// Spec: knowledge/components/adyen-v6-styling.md
 import { App, staticFiles } from "fresh";
 import { applySecurityHeaders, basicAuthChallenge } from "@suite/platform/security.ts";
 import { api } from "./api.ts";

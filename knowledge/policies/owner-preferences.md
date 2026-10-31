@@ -5,7 +5,7 @@ description: "Durable project preferences: Render at the root, TEST only, the fa
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-10-31T19:55:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "Project rules and owner"
@@ -46,8 +46,9 @@ What the owner asked for that a reviewer should not have to ask again.
   `main` and on pull requests.
 - Pi workers use `opencode-go/deepseek-v4.1-flash`, headless, `--thinking max`, one scoped brief per
   worker.
-- Docker images keep the default root user until Render's disk ownership is verified writable by a
-  non-root UID; the missing-user SAST rule is waived inline in the four Dockerfiles (2026-10-31).
+- Docker images start as root only for `tools/docker/entrypoint.sh` to chown the Render disk and
+  `/app/data` to uid 1993, then drop to the `deno` user; the missing-user SAST rules stay waived
+  inline in the four Dockerfiles (2026-10-31, measured disk `root:1000`).
 
 ## Workflow
 

@@ -1,17 +1,20 @@
 ---
 type: Runbook
 title: "Docker images and the Render deployment"
-description: "Building and running an image locally, what the build context excludes, how env files are read, and how the Render Blueprint deploys the landing page and four services."
+description: "Building and running an image locally, what the context excludes, the root chown that drops to the deno user, and how the Render Blueprint deploys five services."
 tags: [runbook, docker, render, deploy]
 status: stable
 scope: docker-and-render
 generated:
-  by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  by: deepseek-v4.1-flash
+  at: 2026-10-31T19:55:00Z
 sources:
   - id: dockerfile
     resource: ../../apps/adyen-digital/Dockerfile
     title: Digital image
+  - id: entrypoint
+    resource: ../../tools/docker/entrypoint.sh
+    title: Root chown, then drop to the deno user
   - id: dockerignore
     resource: ../../.dockerignore
     title: Build context exclusions
@@ -21,6 +24,8 @@ sources:
 verified:
   - at: 2026-10-09
     check: "digital-checkout:6.46.0 built from a clean context holds no .env or .sqlite; run with the quoted local .env it reported a configured profile and listed 14 payment methods from TEST; with quoted Basic Auth credentials every page answered 401 without them and 200 with them."
+  - at: 2026-10-31
+    check: "All four images built; a root:root 644 volume became 1993:1993 and the digital, IPP and agentic apps answered /healthz as uid 1993; styling wrote its disk; Render measured /var/data root:1000 2775 and the SQLite files 644."
 ---
 
 # Docker images and the Render deployment
@@ -41,6 +46,11 @@ The image (`denoland/deno:2.9.4`) builds the app, runs its SSR assertion at buil
 `PORT` (8000) and has a `HEALTHCHECK` on `/healthz`. Inside it, the database is
 `/app/data/digital.sqlite` unless `DATABASE_PATH` says otherwise; without a volume it is lost when
 the container stops.
+
+The image starts as root only in `tools/docker/entrypoint.sh`: it chowns `/var/data` (the Render
+disk) and `/app/data` to uid 1993, then `exec setpriv ...` drops to the image's `deno` user before
+the app starts. A plain `USER deno` would fail because Render mounts `/var/data` as `root:1000` with
+`644` SQLite files.
 
 ## Render
 

@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Run the four containers as the image's `deno` user (uid 1993) after a shared entrypoint chowns the
+  Render disk and `/app/data`; document the measured `root:1000` disk ownership.
 - Adopt the Æion Factory v1.7.0 repository and agent architecture in a nine-folder layout; keep the
   root `render.yaml`, the four apps, TEST-only rules and Adyen versions unchanged.
 - Move the development and build scripts from `scripts/` to `tools/dev/`, `tools/build/` and

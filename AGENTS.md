@@ -18,7 +18,7 @@ apps/adyen-ipp-endless-aisle/, apps/adyen-agentic-commerce/   in progress
 apps/landing/                static front door
 packages/platform/           server only: Adyen client, SQLite, security, state machine
 packages/ui/                 browser-safe: components, tokens, Adyen Web configuration
-tools/                       dev/build/start, checks, hooks, Graphify/Archify, release
+tools/                       dev/build/start, checks, hooks, docker entrypoint, Graphify/Archify, release
 knowledge/                   canonical knowledge (OKF v0.2), loaded from knowledge/index.md
 work/current.md              open task state only; handovers/ is ignored
 efficiency/                   the seven-phase adoption guide

@@ -5,7 +5,7 @@ description: "Durable project preferences: Render at the root, TEST only, the fa
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31T19:55:00Z
+  at: 2026-10-31T19:05:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "Project rules and owner"

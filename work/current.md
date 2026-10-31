@@ -5,20 +5,13 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Æion Factory adoption — ACTIVE
+## Non-root containers and post-deploy verification — ACTIVE
 
-- Owner decision: 2026-10-31, adopt v1.7.0; Render root; Graphify/Archify; git and release flow; pi
-  workers.
-- State: all phases committed; PR #2 is green on CI; specs, hooks, Docker and verify pass.
-- Next: owner merges PR #2, Render deploys `main`, then the production checks.
+- Owner decision: 2026-10-31, switch the four images to `deno` after measuring Render's disk; push
+  `main` when green.
+- State: `task/deno-runtime` ready; local checks and image tests pass; PR open.
+- Next: merge the PR, then check each `/healthz`, the digital logs for permission errors and one
+  browser flow (who: agent, then owner).
 - Blocker: none.
-- Evidence: https://github.com/OualidGuennif/payments-playground/pull/2; `deno task check`;
-  `deno task verify`.
-
-## Production verification after deploy — WAITING-OWNER
-
-- Owner decision: 2026-10-16, check production after the last deploy; Drop-in in Firefox.
-- State: local gates green; Render has not deployed this branch.
-- Next: after the release PR merges, open `/healthz` and one flow in a browser (who: owner).
-- Blocker: deferred until `main` deploys.
-- Evidence: `render.yaml`; the release PR.
+- Evidence: `tools/docker/entrypoint.sh`; `deno task check`; a root-owned named volume became
+  `1993:1993` and the digital, IPP and agentic apps answered `/healthz` as uid 1993.

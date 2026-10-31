@@ -69,7 +69,9 @@ to your host.
 
 ## Container user
 
-The four Docker images keep the image's default root user. Render's persistent-disk ownership is not
-guaranteed writable by a non-root UID, so switching users needs a chowned mount and a deploy test.
-These are TEST-only containers with no untrusted code execution; the SAST missing-user rule is
-waived inline in each Dockerfile with that reason. Revisit before any production use.
+The images start as root only inside `tools/docker/entrypoint.sh`: it chowns the Render disk
+(`/var/data`) and `/app/data` to the image's `deno` user (uid 1993), then `setpriv` drops to that
+user before the app starts. A plain `USER deno` is not enough: on 2026-10-31 the Render disk was
+`root:1000 2775` and its SQLite files were `root:1000 644`, so uid 1993 cannot open the WAL. The
+SAST missing-user rules are waived inline in the four Dockerfiles because the runtime process is not
+root; revisit if Render changes disk ownership or the entrypoint is removed.

@@ -39,7 +39,8 @@ production or Adyen TEST call was made by the adoption itself.
 
 ## Open
 
-- The owner pushes and merges the release pull request; Render then deploys `main`.
+- Pull request [#2](https://github.com/OualidGuennif/payments-playground/pull/2) is green on CI; the
+  owner merges it and Render deploys `main`.
 - After that deploy, the owner checks each `/healthz` and one real browser flow (see
   [work/current.md](../../work/current.md)).
 - Re-verify this page before 2026-12-31 or mark it STALE.

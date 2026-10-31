@@ -9,10 +9,11 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-10-31, adopt v1.7.0; Render root; Graphify/Archify; git and release flow; pi
   workers.
-- State: all phases committed; specs, skills, hooks, CI, splits, Docker and verify green.
-- Next: final analysis, then the owner merges the release PR.
+- State: all phases committed; PR #2 is green on CI; specs, hooks, Docker and verify pass.
+- Next: owner merges PR #2, Render deploys `main`, then the production checks.
 - Blocker: none.
-- Evidence: `deno task check`; `deno task verify`; four Docker builds.
+- Evidence: https://github.com/OualidGuennif/payments-playground/pull/2; `deno task check`;
+  `deno task verify`.
 
 ## Production verification after deploy — WAITING-OWNER
 

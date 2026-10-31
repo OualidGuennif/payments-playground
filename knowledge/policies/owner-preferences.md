@@ -46,6 +46,8 @@ What the owner asked for that a reviewer should not have to ask again.
   `main` and on pull requests.
 - Pi workers use `opencode-go/deepseek-v4.1-flash`, headless, `--thinking max`, one scoped brief per
   worker.
+- Docker images keep the default root user until Render's disk ownership is verified writable by a
+  non-root UID; the missing-user SAST rule is waived inline in the four Dockerfiles (2026-10-31).
 
 ## Workflow
 

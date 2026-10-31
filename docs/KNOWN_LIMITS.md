@@ -66,3 +66,10 @@ PostgreSQL, distributed locking, a webhook queue and a shared rate limiter, none
 
 Backups and retention are not automated. See [SECURITY.md](SECURITY.md) for the rest of what is left
 to your host.
+
+## Container user
+
+The four Docker images keep the image's default root user. Render's persistent-disk ownership is not
+guaranteed writable by a non-root UID, so switching users needs a chowned mount and a deploy test.
+These are TEST-only containers with no untrusted code execution; the SAST missing-user rule is
+waived inline in each Dockerfile with that reason. Revisit before any production use.

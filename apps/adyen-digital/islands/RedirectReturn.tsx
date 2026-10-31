@@ -57,7 +57,7 @@ export default function RedirectReturn(
 
   useEffect(() => {
     let stopped = false;
-    let timer: number | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const orderPath = `/api/digital/orders/${encodeURIComponent(props.orderId)}`;
 
     // Without a redirectResult (Pay by Link, or a reload once it was used)

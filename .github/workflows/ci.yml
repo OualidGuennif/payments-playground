@@ -31,6 +31,8 @@ jobs:
           tools/repo-health/repo-health
       - name: factory suites
         run: tools/factory-tests
+      - name: efficiency bundle is current
+        run: tools/efficiency/bundle && git diff --exit-code efficiency/efficiency-bundle.md
 
   build-and-test:
     name: Deno check

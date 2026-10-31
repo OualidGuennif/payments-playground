@@ -814,8 +814,8 @@ service that was turned on has its cost, its data scope and its off switch writt
   https://github.com/anthropics/claude-plugins-official · https://code.claude.com/docs
 - **Addy Osmani, `agent-skills`** (MIT) — the skill anatomy (overview, when to use, process,
   rationalizations, red flags, verification) and the DEFINE → PLAN → BUILD → VERIFY → REVIEW → SHIP
-  lifecycle that Æion Factory's skills follow. https://github.com/addyosmani/agent-skills ·
-  "Own the Outer Loop" (2026).
+  lifecycle that Æion Factory's skills follow. https://github.com/addyosmani/agent-skills · "Own the
+  Outer Loop" (2026).
 - **Vectorize, Hindsight** (MIT) — agent memory with retain, recall and reflect.
   https://github.com/vectorize-io/hindsight
 - **The language servers:** Microsoft TypeScript 7 (native `tsc --lsp`), Deno's built-in server,
@@ -823,8 +823,8 @@ service that was turned on has its cost, its data scope and its off switch writt
 
 ## Research and practice
 
-- **Jesse Vincent / obra, Superpowers** (MIT) — investigation, evidence before completion,
-  precise plans and verified review feedback inspired the focused Æion Factory skill updates.
+- **Jesse Vincent / obra, Superpowers** (MIT) — investigation, evidence before completion, precise
+  plans and verified review feedback inspired the focused Æion Factory skill updates.
   https://github.com/obra/superpowers · license notice reproduced below.
 - **Mert Koseoğlu, context-mode** (Elastic-2.0) — bounded output and pre-compaction recovery
   informed the context design. No context-mode code or MCP runtime is bundled.
@@ -834,13 +834,13 @@ service that was turned on has its cost, its data scope and its off switch writt
 - **tt-a1i, Archify** (upstream Apache-2.0 / MIT notices) — pinned source-backed diagrams,
   schema/provenance/browser checks. https://github.com/tt-a1i/archify
 
-- Chroma, *Context Rot* (2025) — long inputs degrade every model measured.
+- Chroma, _Context Rot_ (2025) — long inputs degrade every model measured.
 - Gloaguen et al., context files and agent success (arXiv 2602.11988, 2026).
 - Lulla et al., AGENTS.md and agent runtime (arXiv 2601.20404, 2026).
-- Anthropic, *Effective context engineering for AI agents* (2025).
+- Anthropic, _Effective context engineering for AI agents_ (2025).
 - Doc-to-code trace links with LLMs (arXiv 2506.16440, 2025).
 - Microsoft Learn, the developer inner and outer loop.
-- Cyrille Martraire, *Living Documentation*.
+- Cyrille Martraire, _Living Documentation_.
 - OWASP cheat sheets: secrets management, database security.
 - GitHub docs: security policies, CODEOWNERS.
 
@@ -859,9 +859,11 @@ Mistakes in how these ideas are combined here are ours, not theirs.
   specialist workflow references. https://github.com/anthropics/knowledge-work-plugins
 
 The versioned skills/catalog.json records exact source commits, entrypoint fingerprints and license
-files. Native Factory text is selectively adapted, not a wholesale copy of upstream prompts. The separate passive pool contains upstream skill/agent files and supporting resources,
-with three source-hash-bound scanner annotation comments recorded in tools/skills/annotations.json, with license texts under skills/licenses/.
-No upstream agent-launch mandate, model setting or generic threshold is adopted.
+files. Native Factory text is selectively adapted, not a wholesale copy of upstream prompts. The
+separate passive pool contains upstream skill/agent files and supporting resources, with three
+source-hash-bound scanner annotation comments recorded in tools/skills/annotations.json, with
+license texts under skills/licenses/. No upstream agent-launch mandate, model setting or generic
+threshold is adopted.
 
 ## Superpowers license notice
 

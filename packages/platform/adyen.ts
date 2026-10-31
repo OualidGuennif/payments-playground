@@ -75,29 +75,15 @@ type CreateRequest = (
 ) => RequestLike;
 
 /**
- * The library's own node:https transport, adapted to pre-2.8 Deno.
+ * The library's node:https transport, adapted for pre-2.8 Deno. The pinned
+ * runtime is past that; both workarounds are no-ops there and keep older
+ * local Deno suites usable. Neither concerns CORS, TLS or the endpoints.
  *
- * `HttpURLConnectionClient` is written against Node, and two of the details
- * it relies on were missing from Deno's node:http layer until 2.8.0. The
- * pinned runtime is past that now, so neither workaround is load-bearing in
- * CI or in the images; both are no-ops on a runtime that already behaves,
- * and they keep the suite usable on an older local Deno. Neither has
- * anything to do with CORS, TLS or the endpoints, the misdiagnosis that led
- * the suite to drop the library's transport in the first place.
- *
- * 1. `doRequest()` opens every call with `flushHeaders()`, purely to push
- *    the header block out ahead of the body. Before 2.8.0 that call stranded
- *    the request: nothing reached the wire, no error was raised, and the
- *    promise never settled. Dropping it costs nothing, because the `write()`
- *    and `end()` that follow flush the very same headers.
- *
- * 2. At the end of the response `doRequest()` rejects unless `res.complete`
- *    is true. Before 2.8.0 Deno never flipped that flag, so every call ,
- *    including successful ones, failed with "The connection was terminated
- *    while the message was still being sent". Setting it as the message ends
- *    restores Node's meaning; the listener is attached before the library's
- *    own so it wins the ordering, and it is skipped on runtimes that already
- *    set it.
+ * `flushHeaders()` opened every call before 2.8.0 and stranded the request;
+ * dropping it is safe because the following `write()`/`end()` flush the same
+ * headers. `res.complete` was never set before 2.8.0, failing every call;
+ * setting it as the message ends restores Node's meaning, and the listener
+ * runs before the library's.
  */
 function nativeHttpClient(): AdyenHttpClient {
   const client = new (library().HttpURLConnectionClient)();

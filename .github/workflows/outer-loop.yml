@@ -4,13 +4,13 @@
 name: Outer loop
 on:
   schedule:
-    - cron: "15 5 * * *"     # daily health and docs
-    - cron: "0 6 * * 1"      # weekly security
+    - cron: "15 5 * * *" # daily health and docs
+    - cron: "0 6 * * 1" # weekly security
   workflow_dispatch:
 permissions:
   contents: read
   issues: write
-  id-token: write  # claude-code-action's default GitHub App authentication uses OIDC
+  id-token: write # claude-code-action's default GitHub App authentication uses OIDC
 jobs:
   outer:
     if: vars.OUTER_LOOP_ENABLED == 'true'
@@ -24,7 +24,7 @@ jobs:
         run: tools/architecture/setup && tools/architecture/refresh --target HEAD
       - uses: anthropics/claude-code-action@a5a423f75c251dcbff8a74e99f83b2cb03c72bfa # v1
         env:
-          AEION_LOOP_READ_ONLY: '1'
+          AEION_LOOP_READ_ONLY: "1"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: ${{ github.event.schedule == '0 6 * * 1' && 'Follow loops/prompts/security.md.' || 'Follow loops/prompts/outer.md, then loops/prompts/docs.md.' }}

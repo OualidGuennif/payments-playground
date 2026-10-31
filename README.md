@@ -30,7 +30,9 @@ with no build step and no server.
 
 ## Getting started
 
-Requires Deno 2.9.4 or later.
+Requires Deno 2.9.4 for the apps. The repository checks also need Python 3.12+ (excluding 3.14.1)
+and Node 18+; `deno task arch:setup` installs the pinned Graphify/Archify tools into the ignored
+`.aeion/` directory once.
 
 ```bash
 deno task dev:all
@@ -47,14 +49,18 @@ and extra profiles are encrypted at rest.
 ## Tasks
 
 ```bash
-deno task check    # fmt, lint, types, tests and all four builds
-deno task test     # unit and integration tests
-deno task build    # four production builds
-deno task verify   # start the builds and check /healthz
+deno task check         # fmt, lint, knowledge, types, tests and all four builds
+deno task test          # unit and integration tests
+deno task build         # four production builds
+deno task verify        # start the builds and check /healthz
+deno task docs:links    # knowledge sources and Spec: pointers, both ways
+deno task repo:health   # source-size, comment and folder caps
+deno task factory:test  # the adapted factory suites
+deno task arch:refresh  # exact-HEAD Graphify/Archify PASS receipt
 ```
 
 Per app: `deno task --cwd apps/adyen-digital <dev|build|test|start>`. `start` serves the last
-production build, so it needs a `build` first.
+production build, so it needs a `build` first. CI runs the same gates on pull requests and `main`.
 
 ## Deployment
 
@@ -66,10 +72,11 @@ docker run --rm --env-file apps/adyen-digital/.env -p 8000:8000 digital-checkout
 ```
 
 On Render, the root `render.yaml` describes all four services; each app also has its own for an
-isolated deploy. Create a Blueprint from the repo, add TEST credentials in the dashboard, let Render
-generate `PROFILE_ENCRYPTION_KEY` and `SESSION_SIGNING_SECRET`, then add the deployed HTTPS origin
-to the client key's allowed origins and point your TEST webhook at `/webhook`. Set `PUBLIC_ORIGIN`
-if a service name differs from the default.
+isolated deploy. The Blueprint stays at the repository root and is not moved by the agent workflow.
+Create a Blueprint from the repo, add TEST credentials in the dashboard, let Render generate
+`PROFILE_ENCRYPTION_KEY` and `SESSION_SIGNING_SECRET`, then add the deployed HTTPS origin to the
+client key's allowed origins and point your TEST webhook at `/webhook`. Set `PUBLIC_ORIGIN` if a
+service name differs from the default.
 
 ## Storage
 
@@ -135,6 +142,8 @@ entirely at your own risk. See [SECURITY.md](./docs/SECURITY.md) and
 
 - [Knowledge base](./knowledge/index.md): architecture, decisions, runbooks, verified state (start
   there; [AGENTS.md](./AGENTS.md) is the short version for coding agents)
+- [Efficiency guide](./efficiency/00-EFFICIENCY.md) and [command reference](./command.md): the
+  seven-phase adoption method and the agent commands
 - [Security and threat model](./docs/SECURITY.md)
 - [Known limits and simulated features](./docs/KNOWN_LIMITS.md)
 - Built-in wikis at `/wiki` in Digital, IPP and Agentic

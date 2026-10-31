@@ -40,10 +40,20 @@ deno task verify           # build, then start the builds and check /healthz
 
 `check` runs: `fmt:check`, `lint`, `knowledge:check`, `types` (`deno check` on every package, app
 and tool), `test`, `build`, `ssr:assert`. It is the local gate; run it before every push. The
-factory checks (`docs:links`, `repo:health`, `factory:test`) run beside it, and CI repeats the whole
-set once the delivery workflow is enabled.
+factory checks (`docs:links`, `repo:health`, `factory:test`) run beside it. CI repeats the whole set
+on pull requests and `main`.
 
 Per app: `deno task --cwd apps/adyen-digital <dev|build|test|start>`; `start` serves the last build.
+
+## The analysis baseline
+
+`deno task arch:setup` installs the pinned Graphify 0.9.97 and Archify v3.2.0 into the ignored
+`.aeion/integrations/`. `deno task arch:refresh` builds and verifies the exact-HEAD graph and the
+three diagrams; a PASS receipt is `.aeion/analysis/<sha>/receipt.json`. CI runs the same refresh on
+`main` and pull requests. The working graph for `tools/architecture/ask` rebuilds on demand.
+
+Python 3.12+ (excluding 3.14.1) and Node 18+ are required for the checks and adapters; the apps
+themselves stay on Deno 2.9.4.
 
 ## Tests that reach the network
 

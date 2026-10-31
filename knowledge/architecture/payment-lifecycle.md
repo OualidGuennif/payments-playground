@@ -10,16 +10,16 @@ generated:
   at: 2026-10-16T14:30:00Z
 sources:
   - id: state-machine
-    resource: packages/platform/state-machine.ts
+    resource: ../../packages/platform/state-machine.ts
     title: mapAdyenResultCode and resolveOrder
   - id: lifecycle
-    resource: packages/platform/lifecycle.ts
+    resource: ../../packages/platform/lifecycle.ts
     title: Per-method capabilities, actionPermissions, lifecycleSourceAttempt
   - id: modifications
-    resource: packages/platform/modifications.ts
+    resource: ../../packages/platform/modifications.ts
     title: reconcile and ledgerOf
   - id: digital-api
-    resource: apps/adyen-digital/api.ts
+    resource: ../../apps/adyen-digital/api.ts
     title: settleAttempt, resolveAndStore, the session-result route, the webhook handler
 verified:
   - at: 2026-10-10

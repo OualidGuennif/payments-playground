@@ -9,10 +9,10 @@ generated:
   at: 2026-10-09T19:30:00Z
 sources:
   - id: storage
-    resource: packages/platform/storage.ts
+    resource: ../../packages/platform/storage.ts
     title: Repository
   - id: render
-    resource: render.yaml
+    resource: ../../render.yaml
     title: Persistent disks on digital and styling
 ---
 

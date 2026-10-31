@@ -9,10 +9,10 @@ generated:
   at: 2026-10-09T19:30:00Z
 sources:
   - id: plugin
-    resource: scripts/adyen-web-dev-bundle.ts
+    resource: ../../tools/dev/adyen-web-dev-bundle.ts
     title: adyenWebDevBundle
   - id: config
-    resource: apps/adyen-digital/vite.config.ts
+    resource: ../../apps/adyen-digital/vite.config.ts
     title: Wired into digital
 ---
 

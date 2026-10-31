@@ -3,14 +3,14 @@ type: Policy
 title: "Engineering rules: how code is changed in this repository"
 description: "The discipline before changing code, the conventions code must follow, how Adyen request bodies are built, what a commit says, the DO-NOT list and the definition of done."
 tags: [policy, engineering, conventions]
-status: stable
-scope: engineering-rules
+status: deprecated
+superseded_by: engineering.md
 generated:
   by: claude-code/opus-5.5
   at: 2026-10-09T19:30:00Z
 sources:
   - id: fmt-lint
-    resource: deno.json
+    resource: ../../deno.json
     title: fmt (line width 100, double quotes, semicolons), lint (fresh + recommended), tasks
   - id: oualstreet
     resource: git-history:knowledge/policies/engineering-discipline.md
@@ -18,6 +18,8 @@ sources:
 ---
 
 # Engineering rules
+
+> Superseded by [engineering](engineering.md); kept for the history of the project rules it merged.
 
 ## Before changing anything
 

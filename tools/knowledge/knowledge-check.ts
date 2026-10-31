@@ -3,7 +3,7 @@
  * the root agent instructions. No network, no credentials.
  *
  *   deno task knowledge:check
- *   deno run --allow-read scripts/knowledge-check.ts --root <dir>   (tests)
+ *   deno run --allow-read tools/knowledge/knowledge-check.ts --root <dir>   (tests)
  *
  * Exit 0 when every required check passes (warnings may print), 1 otherwise.
  */
@@ -20,7 +20,7 @@ const SOURCED_TYPES = new Set([
   "Runbook",
   "Current State",
 ]);
-const AGENTS_MAX_LINES = 200;
+const AGENTS_MAX_LINES = 120;
 const AGENTS_MAX_BYTES = 20 * 1024;
 const STALE_MARKER = /\bSTALE\b/;
 
@@ -154,7 +154,8 @@ function checkConcept(concept: Concept, root: string, report: Report, now: Date)
     if (!resource) {
       report.errors.push(`${where}: a source has no resource`);
     } else if (
-      !/^[a-z][a-z0-9+.-]*:/i.test(resource) && !exists(join(root, resource.split("#")[0]))
+      !/^[a-z][a-z0-9+.-]*:/i.test(resource) &&
+      !exists(resolve(dirname(concept.path), resource.split("#")[0]))
     ) {
       report.errors.push(`${where}: source path no longer exists -> ${resource}`);
     }
@@ -239,7 +240,7 @@ if (import.meta.main) {
   const rootFlag = Deno.args.indexOf("--root");
   const root = rootFlag >= 0
     ? resolve(Deno.args[rootFlag + 1])
-    : resolve(dirname(new URL(import.meta.url).pathname), "..");
+    : resolve(dirname(new URL(import.meta.url).pathname), "../..");
   const { errors, warnings } = checkKnowledge(root);
   for (const warning of warnings) console.warn(`WARN ${warning}`);
   for (const error of errors) console.error(`FAIL ${error}`);

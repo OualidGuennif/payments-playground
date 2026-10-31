@@ -10,7 +10,7 @@ if (!appDirectory || !expectedText) {
 Deno.env.set("DATABASE_PATH", ":memory:");
 
 const entrypoint = new URL(
-  `../${appDirectory}/_fresh/server.js`,
+  `../../${appDirectory}/_fresh/server.js`,
   import.meta.url,
 );
 const server = (await import(entrypoint.href)).default as {

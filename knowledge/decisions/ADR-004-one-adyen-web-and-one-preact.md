@@ -9,13 +9,13 @@ generated:
   at: 2026-10-09T19:30:00Z
 sources:
   - id: root
-    resource: deno.json
+    resource: ../../deno.json
     title: Root import map
   - id: lock
-    resource: deno.lock
+    resource: ../../deno.lock
     title: Resolved versions
   - id: upgrade
-    resource: knowledge/operations/adyen-web-upgrade.md
+    resource: ../operations/adyen-web-upgrade.md
     title: The upgrade runbook that enforces it
 ---
 

@@ -1,7 +1,7 @@
 ---
 type: Architecture
 title: "Dev and build pipeline: Vite, Fresh's plugin, the Deno loader, and the local plugins"
-description: "How Vite resolves modules through Deno, why npm packages reach the dev browser unbundled, what each plugin in scripts/ fixes, the SSR hot-reload caveat, and what a production build emits."
+description: "How Vite resolves modules through Deno, why npm packages reach the dev browser unbundled, what each plugin in tools/dev/ fixes, the SSR hot-reload caveat, and what a production build emits."
 tags: [architecture, vite, fresh, deno, build]
 status: stable
 scope: dev-build-pipeline
@@ -10,19 +10,19 @@ generated:
   at: 2026-10-16T15:15:00Z
 sources:
   - id: vite-config
-    resource: apps/adyen-digital/vite.config.ts
+    resource: ../../apps/adyen-digital/vite.config.ts
     title: The digital app's Vite configuration (styling's is the same, without devClientAddress)
   - id: dev-bundle
-    resource: scripts/adyen-web-dev-bundle.ts
+    resource: ../../tools/dev/adyen-web-dev-bundle.ts
     title: Adyen Web served as one bundle in dev
   - id: library-external
-    resource: scripts/adyen-library-external.ts
+    resource: ../../tools/dev/adyen-library-external.ts
     title: Adyen Node library kept external in the server build
   - id: sqlite-hotfix
-    resource: scripts/sqlite-vite-hotfix.ts
+    resource: ../../tools/dev/sqlite-vite-hotfix.ts
     title: SQLite FFI import.meta.url rewrite
   - id: client-address
-    resource: scripts/dev-client-address.ts
+    resource: ../../tools/dev/dev-client-address.ts
     title: X-Forwarded-For from the socket in dev, for shopperIP
   - id: fresh-plugin
     resource: https://jsr.io/@fresh/plugin-vite/1.1.2/src/mod.ts
@@ -77,6 +77,6 @@ is enough; Vite restarts on a config change).
 
 `deno task build:<app>` builds the client first (`_fresh/client/assets/`, hashed chunks such as
 `fresh-island__FlowWorkbench-<hash>.js`, with Adyen Web inside) and then the server
-(`_fresh/server/server-entry.mjs`). `scripts/assert-built-ssr.ts` boots the built server and checks
-the page renders and still names the app. The dev-only plugins have `apply: "serve"` and never touch
-a build.
+(`_fresh/server/server-entry.mjs`). `tools/build/assert-built-ssr.ts` boots the built server and
+checks the page renders and still names the app. The dev-only plugins have `apply: "serve"` and
+never touch a build.

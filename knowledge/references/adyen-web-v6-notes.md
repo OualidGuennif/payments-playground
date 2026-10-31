@@ -9,10 +9,10 @@ generated:
   at: 2026-10-16T14:30:00Z
 sources:
   - id: workbench
-    resource: apps/adyen-digital/islands/FlowWorkbench.tsx
+    resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
     title: Callbacks and configuration in use
   - id: methods
-    resource: packages/ui/paymentMethods.ts
+    resource: ../../packages/ui/paymentMethods.ts
     title: Per-method configuration and non-fatal errors
   - id: releases
     resource: https://github.com/Adyen/adyen-web/releases

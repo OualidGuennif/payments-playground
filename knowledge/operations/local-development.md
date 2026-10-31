@@ -10,13 +10,13 @@ generated:
   at: 2026-10-16T15:15:00Z
 sources:
   - id: readme
-    resource: apps/adyen-digital/README.md
+    resource: ../../apps/adyen-digital/README.md
     title: Environment variables
   - id: config
-    resource: packages/platform/config.ts
+    resource: ../../packages/platform/config.ts
     title: How env and .env files are read
   - id: vite
-    resource: apps/adyen-digital/vite.config.ts
+    resource: ../../apps/adyen-digital/vite.config.ts
     title: Dev server plugins
 ---
 

@@ -9,7 +9,7 @@ const directories = [
 const children = directories.map((directory, index) => {
   const port = basePort + index;
   return new Deno.Command(Deno.execPath(), {
-    args: ["run", "-A", "../../scripts/start.ts"],
+    args: ["run", "-A", "../../tools/dev/start.ts"],
     cwd: directory,
     env: {
       ...Deno.env.toObject(),

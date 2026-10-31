@@ -10,13 +10,13 @@ generated:
   at: 2026-10-16T14:30:00Z
 sources:
   - id: root
-    resource: deno.json
+    resource: ../../deno.json
     title: Root import map
   - id: audit
-    resource: apps/adyen-v6-styling/components/adyenOptions.test.ts
+    resource: ../../apps/adyen-v6-styling/components/adyenOptions.test.ts
     title: Token audit against the real adyen.css
   - id: options
-    resource: apps/adyen-v6-styling/components/adyenOptions.ts
+    resource: ../../apps/adyen-v6-styling/components/adyenOptions.ts
     title: ADYEN_WEB_VERSION and the token catalogue
 verified:
   - at: 2026-10-09

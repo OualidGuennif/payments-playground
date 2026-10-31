@@ -10,7 +10,7 @@ generated:
   at: 2026-10-10T11:00:00Z
 sources:
   - id: ui
-    resource: packages/ui
+    resource: ../../packages/ui
     title: The package
 ---
 

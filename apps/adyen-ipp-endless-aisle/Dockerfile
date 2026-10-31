@@ -6,11 +6,12 @@ ENV DATABASE_PATH=/app/data/ipp.sqlite
 
 COPY deno.json deno.lock ./
 COPY packages ./packages
-COPY scripts ./scripts
+COPY tools/dev ./tools/dev
+COPY tools/build ./tools/build
 COPY apps ./apps
 
 RUN deno task build:ipp
-RUN deno run -A scripts/assert-built-ssr.ts apps/adyen-ipp-endless-aisle "Endless Aisle"
+RUN deno run -A tools/build/assert-built-ssr.ts apps/adyen-ipp-endless-aisle "Endless Aisle"
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

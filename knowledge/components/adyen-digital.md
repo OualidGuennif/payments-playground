@@ -10,19 +10,19 @@ generated:
   at: 2026-10-16T18:20:00Z
 sources:
   - id: api
-    resource: apps/adyen-digital/api.ts
+    resource: ../../apps/adyen-digital/api.ts
     title: Every digital API route
   - id: workbench
-    resource: apps/adyen-digital/islands/FlowWorkbench.tsx
+    resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
     title: Checkout and inspector island
   - id: routes
-    resource: apps/adyen-digital/routes
+    resource: ../../apps/adyen-digital/routes
     title: Pages
   - id: components
-    resource: apps/adyen-digital/components
+    resource: ../../apps/adyen-digital/components
     title: Flow list, status wording, sheet, timeline, result card
   - id: readme
-    resource: apps/adyen-digital/README.md
+    resource: ../../apps/adyen-digital/README.md
     title: Environment variables and quick start
 ---
 

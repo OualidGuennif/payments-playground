@@ -77,7 +77,7 @@ async function verifyPages(target: Target): Promise<void> {
 try {
   for (const target of targets) {
     const child = new Deno.Command(Deno.execPath(), {
-      args: ["run", "-A", "../../scripts/start.ts"],
+      args: ["run", "-A", "../../tools/dev/start.ts"],
       cwd: target.directory,
       env: {
         ...Deno.env.toObject(),

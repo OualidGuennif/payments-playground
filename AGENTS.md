@@ -15,7 +15,7 @@ apps/adyen-ipp-endless-aisle/, apps/adyen-agentic-commerce/   in progress
 apps/landing/                static front door
 packages/platform/           server only: Adyen client, SQLite, security, state machine
 packages/ui/                 browser-safe: components, tokens, Adyen Web configuration
-scripts/                     dev/build orchestration, Vite plugins, knowledge-check
+tools/                       dev/build/start orchestration, Vite plugins, knowledge-check
 knowledge/                   canonical knowledge (OKF v0.2)
 work/current.md              current task state, not permanent knowledge
 docs/                        public SECURITY.md and KNOWN_LIMITS.md
@@ -46,7 +46,7 @@ There is no CI: `deno task check` before every push is the gate. Runbooks:
 8. Claim a result only at the verification level you reached, with evidence:
    [knowledge/policies/verification-and-reporting.md](knowledge/policies/verification-and-reporting.md).
 9. Full rules and the DO-NOT list:
-   [knowledge/policies/engineering-rules.md](knowledge/policies/engineering-rules.md).
+   [knowledge/policies/engineering.md](knowledge/policies/engineering.md).
 
 ## Recovery after compaction or unfamiliar files
 

@@ -14,7 +14,7 @@ generated:
   at: 2026-10-09T00:00:00Z
 sources:
   - id: code
-    resource: README.md
+    resource: ../../README.md
     title: Readme
 ---
 
@@ -86,8 +86,8 @@ Deno.test("a factual concept without sources fails", () => {
 Deno.test("a source path that no longer exists fails", () => {
   const errors = failures(fixture({
     "knowledge/architecture/overview.md": CONCEPT.replace(
-      "resource: README.md",
-      "resource: gone.ts",
+      "resource: ../../README.md",
+      "resource: ../../gone.ts",
     ),
   }));
   assert(errors.some((error) => error.includes("gone.ts")));

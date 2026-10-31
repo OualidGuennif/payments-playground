@@ -10,16 +10,16 @@ generated:
   at: 2026-10-16T15:45:00Z
 sources:
   - id: readme
-    resource: README.md
+    resource: ../../README.md
     title: Application table and statuses
   - id: styling
-    resource: apps/adyen-v6-styling/README.md
+    resource: ../../apps/adyen-v6-styling/README.md
     title: Drop-in Styling
   - id: ipp
-    resource: apps/adyen-ipp-endless-aisle/README.md
+    resource: ../../apps/adyen-ipp-endless-aisle/README.md
     title: Endless Aisle
   - id: agentic
-    resource: apps/adyen-agentic-commerce/README.md
+    resource: ../../apps/adyen-agentic-commerce/README.md
     title: Agentic Commerce
 ---
 

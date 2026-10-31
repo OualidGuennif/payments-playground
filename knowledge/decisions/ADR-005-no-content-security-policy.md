@@ -9,7 +9,7 @@ generated:
   at: 2026-10-09T19:30:00Z
 sources:
   - id: headers
-    resource: packages/platform/security.ts
+    resource: ../../packages/platform/security.ts
     title: applySecurityHeaders and its comment
 ---
 

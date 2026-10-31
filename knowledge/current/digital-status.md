@@ -11,13 +11,13 @@ generated:
   at: 2026-10-16T18:20:00Z
 sources:
   - id: api
-    resource: apps/adyen-digital/api.ts
+    resource: ../../apps/adyen-digital/api.ts
     title: Server behaviour verified below
   - id: workbench
-    resource: apps/adyen-digital/islands/FlowWorkbench.tsx
+    resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
     title: Client behaviour verified below
   - id: policy
-    resource: knowledge/policies/verification-and-reporting.md
+    resource: ../policies/verification-and-reporting.md
     title: Meaning of the levels
 verified:
   - at: 2026-10-09

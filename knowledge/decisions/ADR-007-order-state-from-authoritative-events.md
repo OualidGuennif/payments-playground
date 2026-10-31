@@ -9,13 +9,13 @@ generated:
   at: 2026-10-15T08:00:00Z
 sources:
   - id: state-machine
-    resource: packages/platform/state-machine.ts
+    resource: ../../packages/platform/state-machine.ts
     title: resolveOrder
   - id: tests
-    resource: packages/platform/state-machine.test.ts
+    resource: ../../packages/platform/state-machine.test.ts
     title: Invariant tests
   - id: api
-    resource: apps/adyen-digital/api.ts
+    resource: ../../apps/adyen-digital/api.ts
     title: settleAttempt, resolveAndStore, webhook handler
 ---
 

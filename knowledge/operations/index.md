@@ -17,3 +17,4 @@ generated:
 | [Webhooks locally, without a tunnel](webhooks-without-a-tunnel.md) | stable | Signed replay, webhook.site, tunnel; HMAC per endpoint |
 | [Docker images and the Render deployment](docker-and-render.md)    | stable | Build context, env files, Blueprint, checking a deploy |
 | [Upgrading Adyen Web](adyen-web-upgrade.md)                        | stable | The seven-step checklist                               |
+| [The loops](loops.md)                                              | stable | Inner, middle and outer loops, off by default          |

@@ -2,7 +2,7 @@
   "tasks": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "start": "deno run -A ../../scripts/start.ts",
+    "start": "deno run -A ../../tools/dev/start.ts",
     "test": "deno test -A",
     "check": "deno fmt --check . && deno lint . && deno check"
   },

@@ -10,7 +10,7 @@ generated:
   at: 2026-10-15T08:00:00Z
 sources:
   - id: platform
-    resource: packages/platform
+    resource: ../../packages/platform
     title: The package
 ---
 

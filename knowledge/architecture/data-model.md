@@ -10,13 +10,13 @@ generated:
   at: 2026-10-10T13:00:00Z
 sources:
   - id: schema
-    resource: packages/platform/migrations/001_initial.sql
+    resource: ../../packages/platform/migrations/001_initial.sql
     title: The schema
   - id: storage
-    resource: packages/platform/storage.ts
+    resource: ../../packages/platform/storage.ts
     title: Repository, retention cap, timeline
   - id: profiles
-    resource: packages/platform/profiles.ts
+    resource: ../../packages/platform/profiles.ts
     title: Encrypted profiles
 ---
 

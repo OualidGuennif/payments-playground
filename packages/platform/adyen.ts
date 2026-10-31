@@ -26,7 +26,7 @@ export type AdyenHttpClient = Pick<
  * module nests it one level deeper under `default`. Both are accepted here.
  *
  * Doing this lazily matters: every app's `main.ts` reaches this module, so the
- * built `_fresh/server.js` evaluates it, and `scripts/assert-built-ssr.ts`
+ * built `_fresh/server.js` evaluates it, and `tools/build/assert-built-ssr.ts`
  * imports that bundle. Anything thrown while this module initialises would
  * surface there as a bare import failure with no useful message, so importing
  * this file stays free of side effects and the cost is paid on first request.

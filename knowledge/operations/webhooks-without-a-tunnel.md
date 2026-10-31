@@ -10,10 +10,10 @@ generated:
   at: 2026-10-09T19:30:00Z
 sources:
   - id: hmac
-    resource: packages/platform/hmac.ts
+    resource: ../../packages/platform/hmac.ts
     title: calculateStandardHmac and verifyStandardHmac
   - id: handler
-    resource: apps/adyen-digital/api.ts
+    resource: ../../apps/adyen-digital/api.ts
     title: POST /webhook
 verified:
   - at: 2026-10-09

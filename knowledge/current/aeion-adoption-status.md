@@ -27,12 +27,14 @@ production or Adyen TEST call was made by the adoption itself.
 
 | Check                           | Evidence                                                                                                       |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `deno task check`               | fmt, lint, knowledge, links, health, types, 90 tests, four builds and SSR asserts pass                         |
+| `deno task check`               | fmt, lint, knowledge, links, health, types, 91 tests, four builds and SSR asserts pass                         |
 | `tools/factory-tests`           | doc-links 45, knowledge 11, hooks 574, context, health, pre-push, release, architecture 37, agents, loops pass |
 | `tools/repo-health/repo-health` | AGENTS 108 lines, 9 folders, 0 files over 1,500, 0 comment blocks over 20                                      |
-| `tools/knowledge/doc-links`     | 197 links, both directions                                                                                     |
-| Graphify/Archify                | PASS receipt for `046a604`, three diagrams and 214 artifact hashes                                             |
+| `tools/knowledge/doc-links`     | 201 links, both directions                                                                                     |
+| Graphify/Archify                | PASS receipt for the exact HEAD, three diagrams and the artifact hashes                                        |
 | Island split                    | `FlowWorkbench` 1,340 lines; `StylingPlayground` 799 lines                                                     |
+| Docker                          | four images built from the root context with the pinned Deno 2.9.4 image                                       |
+| `deno task verify`              | four apps: `/healthz` plus 18 rendered pages                                                                   |
 | Render                          | root `render.yaml` and its five services unchanged; Dockerfiles copy `tools/dev` and `tools/build`             |
 
 ## Open

@@ -9,11 +9,10 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-10-31, adopt v1.7.0; Render root; Graphify/Archify; git and release flow; pi
   workers.
-- State: phases 0–5 committed; specs, skills, hooks, CI and island splits green; analysis PASS
-  `046a604`.
-- Next: Docker/verify, final status, then the owner merges the release PR.
+- State: all phases committed; specs, skills, hooks, CI, splits, Docker and verify green.
+- Next: final analysis, then the owner merges the release PR.
 - Blocker: none.
-- Evidence: `046a604` receipt; `deno task check`; `deno task factory:test`.
+- Evidence: `deno task check`; `deno task verify`; four Docker builds.
 
 ## Production verification after deploy — WAITING-OWNER
 

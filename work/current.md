@@ -10,13 +10,14 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 - Owner decision: 2026-10-31, adopt Æion Factory v1.7.0 fully; keep `render.yaml` at the root;
   enable Graphify/Archify, git hooks and the full release flow; use pi headless workers on
   `opencode-go/deepseek-v4.1-flash` with thinking max.
-- State: phases 0–2 committed (`3245bd0`, `bd7695c`, `3bc6f1d`, `f041649`); `deno task check` green;
-  three component-spec workers running; Graphify/Archify PASS on `3bc6f1d`.
-- Next: merge the worker specs and update the indexes, then port the 16 skills and the hooks, add
-  CI, split the two large islands, and run the final gate (who: agent, owner reviews the result).
+- State: phases 0–5 committed — nine-folder layout, tools and checks, eight-section specs,
+  skills/hooks/adapters, CI, and both islands split below 1,500 lines; the complete
+  `deno task check` and a fresh exact-HEAD Graphify/Archify receipt are running.
+- Next: Docker/verify the four images, record the final status, create the review receipt and open
+  the release PR `task/aeion-adoption → main` (who: agent, owner merges).
 - Blocker: none.
 - Evidence: `.aeion/analysis/3bc6f1dd355dd4acac19c182662ab13f6c8f3ba6/receipt.json`;
-  `deno task check`; `deno task factory:test`.
+  `deno task check`; `deno task factory:test`; `git log --oneline main..HEAD`.
 
 ## Production verification after deploy — WAITING-OWNER
 

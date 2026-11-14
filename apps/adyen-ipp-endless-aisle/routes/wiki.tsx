@@ -29,7 +29,7 @@ export default define.page(function WikiPage() {
               and in <code>MessageHeader</code>.
             </p>
             <Callout title="Verified library surface">
-              `@adyen/api-library` 32.0.0 exports CloudDeviceAPI and its synchronous, asynchronous,
+              `@adyen/api-library` 32.3.0 exports CloudDeviceAPI and its synchronous, asynchronous,
               device-list and status operations. No API call is made until Real TEST is explicitly
               selected.
             </Callout>

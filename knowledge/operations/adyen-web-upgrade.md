@@ -7,7 +7,7 @@ status: stable
 scope: adyen-web-upgrade
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T14:30:00Z
+  at: 2026-11-15T10:30:00Z
 sources:
   - id: root
     resource: ../../deno.json
@@ -19,10 +19,10 @@ sources:
     resource: ../../apps/adyen-v6-styling/components/adyenOptions.ts
     title: ADYEN_WEB_VERSION and the token catalogue
 verified:
-  - at: 2026-10-09
-    check: "Followed for 6.41.0 to 6.46.0: deno task check green, token audit updated (three new tokens, one changed default), Docker images built from the lock, Drop-in rendered in Firefox with an analytics block."
   - at: 2026-10-16
     check: "6.46.0 to 6.47.0: hand-edited lockfile, deno install --frozen green, token audit added animation-duration-slow, deno task check green, styling computed styles and export hash unchanged, digital-checkout:6.47.0 built, Drop-in authorised on TEST."
+  - at: 2026-11-15
+    check: "6.47.0 to 6.48.1 with api-library 32.3.0: lockfile rebuilt keeping the old Preact keys, deno install --frozen green, token audit unchanged, deno task check green, digital-checkout:6.48.1 built, Sessions Drop-in loaded on TEST (/sessions 200). No payment submitted in this check."
 ---
 
 # Upgrading Adyen Web

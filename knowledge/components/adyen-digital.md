@@ -49,7 +49,7 @@ in the [README](../../README.md) since 2026-10-10 (commit `8678cc9`); what is ve
 | Environment and stored profiles                                                         | TEST credentials, `PUBLIC_ORIGIN`, profile encryption key                                                    | operator   | boot, on profile change  |
 | `packages/platform/markets.ts`                                                          | 36 markets: currency, locale, default amount; zero-decimal currencies                                        | repository | static                   |
 | `packages/platform/payment-methods.ts`, `lifecycle.ts`, `packages/ui/paymentMethods.ts` | per-method capabilities, link and partial-order validity, installment countries                              | repository | static                   |
-| Browser (Adyen Web 6.47.0 and this island)                                              | shopper choices, Adyen Web callbacks, `redirectResult`                                                       | browser    | per event                |
+| Browser (Adyen Web 6.48.1 and this island)                                              | shopper choices, Adyen Web callbacks, `redirectResult`                                                       | browser    | per event                |
 | [current/digital-status.md](../current/digital-status.md)                               | what was verified, at which level                                                                            | docs       | per verification         |
 
 ## Inputs

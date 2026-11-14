@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Move every app to Adyen Web 6.48.1 and `@adyen/api-library` 32.3.0 with a minimal lockfile change
+  (Preact stays 10.29.8, `adyen.css` tokens unchanged); assert the JSON body type in the transport
+  test now that the library's transport also accepts a Buffer.
 - Run the four containers as the image's `deno` user (uid 1993) after a shared entrypoint chowns the
   Render disk and `/app/data`; document the measured `root:1000` disk ownership.
 - Adopt the Æion Factory v1.7.0 repository and agent architecture in a nine-folder layout; keep the

@@ -34,7 +34,7 @@ What the owner asked for that a reviewer should not have to ask again.
 - The 525-folder passive skill pool and the `demo/` playground are deliberately omitted. The 16
   maintained procedures live in `.claude/skills`.
 - At most nine top-level folders, named by role; `tools/` is the one home for scripts and checks.
-- TEST only; never add a LIVE path. Adyen Web 6.47.0 and Checkout API v72 stay pinned.
+- TEST only; never add a LIVE path. Adyen Web 6.48.1 and Checkout API v72 stay pinned.
 - Existing public docs (`README.md`, `docs/SECURITY.md`, `docs/KNOWN_LIMITS.md`) win over factory
   defaults where they differ; record the divergence here.
 

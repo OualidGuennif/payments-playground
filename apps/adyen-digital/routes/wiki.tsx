@@ -26,7 +26,7 @@ export default define.page(function WikiPage() {
       <PageHeader
         eyebrow="Living reference"
         title="Digital integration wiki"
-        description="Maintained against Adyen Web 6.47.0 and Checkout API v72. The supplied callback PDF (v6.40.2) is used as a reviewed secondary source."
+        description="Maintained against Adyen Web 6.48.1 and Checkout API v72. The supplied callback PDF (v6.40.2) is used as a reviewed secondary source."
       />
       <Callout title="Source policy">
         The callback PDF is useful for callback signatures and ordering, but official Adyen

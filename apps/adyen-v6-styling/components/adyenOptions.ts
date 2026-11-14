@@ -5,7 +5,7 @@
  * StyleDefinitions, the card/Drop-in options are CardConfiguration and
  * DropinConfiguration (all of them that a merchant is allowed to set), and the
  * CSS custom properties are the ones actually shipped in adyen.css, all read
- * from @adyen/adyen-web 6.47.0. Re-check them on every SDK bump.
+ * from @adyen/adyen-web 6.48.1. Re-check them on every SDK bump.
  */
 
 import {
@@ -13,7 +13,7 @@ import {
   SOCIAL_SECURITY_NUMBER_COUNTRIES,
 } from "@suite/ui/paymentMethods.ts";
 
-export const ADYEN_WEB_VERSION = "6.47.0";
+export const ADYEN_WEB_VERSION = "6.48.1";
 export const ADYEN_CSS_URL =
   `https://checkoutshopper-live.cdn.adyen.com/checkoutshopper/sdk/${ADYEN_WEB_VERSION}/adyen.css`;
 
@@ -999,7 +999,7 @@ export function securedFieldMethodConfigObjects(styles: SecureStyles) {
  * see, the rest are merchant identifiers and flow callbacks.
  *
  * Values come from ApplePayConfiguration / GooglePayConfiguration /
- * PayPalConfiguration in @adyen/adyen-web 6.47.0.
+ * PayPalConfiguration in @adyen/adyen-web 6.48.1.
  */
 // Spelled out as unions rather than string[]: Adyen's own configuration types
 // are unions, and a plain string here is rejected at the Dropin boundary.

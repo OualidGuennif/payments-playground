@@ -62,7 +62,7 @@ Two boundaries define the package.
 | Same-origin `/api/*`                                       | JSON bodies                                                  | this server         | per call                                    |
 | `localStorage["playground-theme"]`, `prefers-color-scheme` | The stored choice, else the system preference                | browser             | at load, then on toggle and system change   |
 | `<html data-theme>`, `<meta name="theme-color">`           | What the page currently shows                                | this browser        | read and updated by `THEME_SCRIPT`          |
-| Root `deno.json` import map                                | `@adyen/adyen-web` 6.47.0 and `preact` 10.29.8               | this repo           | pinned per release                          |
+| Root `deno.json` import map                                | `@adyen/adyen-web` 6.48.1 and `preact` 10.29.8               | this repo           | pinned per release                          |
 | `packages/platform/markets.ts`                             | `ZERO_DECIMAL_CURRENCIES`                                    | this repo           | static; the only platform import, pure data |
 | Adyen's published TEST credentials                         | Card numbers and alternative-method samples in `testData.ts` | Adyen documentation | copied by hand, so it can drift             |
 | `styles.css`                                               | The token sets and shared shell, form and button styles      | this repo           | static                                      |

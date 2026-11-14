@@ -20,8 +20,8 @@
     "@fresh/plugin-vite": "jsr:@fresh/plugin-vite@1.1.2",
     "preact": "npm:preact@10.29.8",
     "@preact/signals": "npm:@preact/signals@2.9.0",
-    "@adyen/api-library": "npm:@adyen/api-library@32.0.0",
-    "@adyen/adyen-web": "npm:@adyen/adyen-web@6.47.0",
+    "@adyen/api-library": "npm:@adyen/api-library@32.3.0",
+    "@adyen/adyen-web": "npm:@adyen/adyen-web@6.48.1",
     "vite": "npm:vite@7.1.4"
   },
   "compilerOptions": {

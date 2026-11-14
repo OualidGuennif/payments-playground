@@ -65,9 +65,9 @@ export function createPlatformContext(appId: AppId): PlatformContext {
       versions: {
         fresh: "2.3.3",
         hono: "4.12.31",
-        adyenWeb: "6.47.0",
+        adyenWeb: "6.48.1",
         checkoutApi: "v72",
-        adyenNode: "32.0.0",
+        adyenNode: "32.3.0",
       },
       now: new Date().toISOString(),
     });

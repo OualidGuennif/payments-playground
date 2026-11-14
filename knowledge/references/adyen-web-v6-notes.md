@@ -6,7 +6,7 @@ tags: [reference, adyen-web, drop-in]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T14:30:00Z
+  at: 2026-11-15T10:00:00Z
 sources:
   - id: workbench
     resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
@@ -69,7 +69,12 @@ sources:
   6.45.1 is flagged "do not use" upstream (payment action mounting); 6.45.2 fixes it.
 - 6.46.0: configurable disclaimer above the Pay button; Japanese address fields; pins `preact`
   10.29.8; `adyen.css` adds three tokens and changes `color-label-highlight` to `#00112c`.
-- 6.47.0 (pinned): a failed gift card balance check is shown to the shopper; gift cards take
-  per-brand placeholders; `CoreConfiguration.suppressConfigWarnings` silences the new warning about
-  several AdyenCheckout instances on one page; `adyen.css` adds `animation-duration-slow` (`.25s`,
-  the Drop-in expand transition); same `preact` 10.29.8.
+- 6.47.0: a failed gift card balance check is shown to the shopper; gift cards take per-brand
+  placeholders; `CoreConfiguration.suppressConfigWarnings` silences the new warning about several
+  AdyenCheckout instances on one page; `adyen.css` adds `animation-duration-slow` (`.25s`, the
+  Drop-in expand transition); same `preact` 10.29.8.
+- 6.48.0: `onOrderUpdated` also returns the latest `sessionData` in the Sessions flow; a stale 3DS2
+  challenge listener no longer triggers a duplicate `onAdditionalDetails`; Apple Pay rejections are
+  handled.
+- 6.48.1 (pinned): UPI regulatory update, IRIS bank list only on mobile, secured fields accept
+  `checkoutshopper-beta` hosts; same `preact` 10.29.8.

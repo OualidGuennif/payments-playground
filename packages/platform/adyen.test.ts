@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertExists, assertRejects } from "@std/assert";
 import adyenApiLibrary from "@adyen/api-library";
 import { type AdyenHttpClient, AdyenRequestError, AdyenTestClient } from "./adyen.ts";
 
@@ -16,6 +16,12 @@ function recordingHttpClient(respond: () => Promise<string>) {
     },
   };
   return { calls, httpClient };
+}
+
+// Since 32.3.0 the transport may also be handed a Buffer; this client always sends JSON text.
+function jsonText(body: Call[1]): string {
+  if (typeof body !== "string") throw new Error("expected a JSON string body");
+  return body;
 }
 
 Deno.test("sessions uses the exact Checkout v72 TEST endpoint and TEST credentials", async () => {
@@ -38,9 +44,10 @@ Deno.test("sessions uses the exact Checkout v72 TEST endpoint and TEST credentia
   assertEquals(config.apiKey, "test-api-key");
   assertEquals(config.environment, "TEST");
   assertEquals(isApiKeyRequired, true);
+  assertExists(requestOptions);
   assertEquals(requestOptions.method, "POST");
   assertEquals(requestOptions.idempotencyKey, "idem-test");
-  assertEquals(JSON.parse(json).merchantAccount, "TestMerchant");
+  assertEquals(JSON.parse(jsonText(json)).merchantAccount, "TestMerchant");
   assertEquals(response, { id: "CS_TEST", sessionData: "session-data" });
 });
 
@@ -54,8 +61,9 @@ Deno.test("a gift card balance is a POST to /paymentMethods/balance", async () =
 
   const [endpoint, json, , , requestOptions] = calls[0];
   assertEquals(endpoint, "https://checkout-test.adyen.com/v72/paymentMethods/balance");
+  assertExists(requestOptions);
   assertEquals(requestOptions.method, "POST");
-  assertEquals(JSON.parse(json).paymentMethod.brand, "givex");
+  assertEquals(JSON.parse(jsonText(json)).paymentMethod.brand, "givex");
 });
 
 Deno.test("Adyen HTTP errors preserve the upstream status and safe message", async () => {

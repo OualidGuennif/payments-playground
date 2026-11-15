@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record that `main` has no branch protection and no ruleset (read back 2026-11-15), so the
+  checks in the GitHub protection runbook are a procedure until an administrator applies them;
+  the OKF reference names the Bun checker and the 120-line `AGENTS.md` cap.
 - Finish the move off Deno: `deno.json`, `deno.lock`, the Vite plugins and the Fresh start script
   are gone. The knowledge checker, `dev:all`/`start:all` (`tools/dev/run-all.ts`), `verify`, the
   SSR assertion (now on each standalone server) and the legacy env migration run on Bun;

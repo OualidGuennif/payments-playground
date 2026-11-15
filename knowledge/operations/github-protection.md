@@ -5,7 +5,7 @@ description: "Required pull requests and real CI checks on main, including admin
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-15T22:00:00Z
 sources:
   - resource: ../../.github/workflows/ci.yml
     title: "The CI jobs required on main"
@@ -27,7 +27,7 @@ pull request `develop → main` merges with a merge commit so `develop` stays an
 deletion. Preserve stronger existing rules. Pin required checks to their actual GitHub App where
 available; do not invent check names or require disabled optional jobs.
 
-The required checks are the CI jobs "Knowledge, links and repository health", "Bun check",
+The checks to require are the CI jobs "Knowledge, links and repository health", "Bun check",
 secret-scan, dependency-scan and sast-scan; the Graphify/Archify check is gone since 2026-11-15. The
 fresh `Review: OK` comment remains required by the delivery workflow; it is not an approving forge
 review. The solo-owner workflow uses zero required human approvals, rather than making the author
@@ -35,8 +35,9 @@ approve their own PR. This distinction is explicit: CI/PR requirements are serve
 comment verdict is a reviewed procedure.
 
 On 2026-11-15 the job "Deno check" became "Bun check" (`bun install --frozen-lockfile`, then
-`bun run check`). Until the owner swaps that name in the protection of `main`, a release pull request
-waits for a "Deno check" that no longer reports.
+`bun run check`). Read back the same day, `OualidGuennif/payments-playground` has no protection on
+`main` (`protected: false`, the protection endpoint answers 404) and no ruleset (`[]`): nothing is
+server-enforced there yet, so the checks above are a procedure until an administrator applies them.
 
 On 2026-10-25, main protection was applied and re-read for OualidGuennif's aeion-factory,
 aeion-spaceship, aeion-playground, aeion-croa, aeion-ops, aeion-observability and aeion-website.

@@ -5,16 +5,16 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Every playground on Bun + Next.js + Elysia + Eden — WAITING-OWNER
+## Every playground on Bun + Next.js + Elysia + Eden — ACTIVE
 
-- Owner decision: 2026-11-15, drop Deno and Fresh everywhere, port every app like the agentic store,
-  remove IPP, follow Æion Template v4.0.3 without Graphify/Archify, framework mode off.
-- State: done on develop, not pushed: three Next.js apps on Bun, tooling, Docker, CI and docs off
-  Deno (ADR-014); `bun run check` green; three images built and run.
-- Next: swap the required check "Deno check" for "Bun check" on main, review and push develop,
-  release, deploy, TEST webhook on the public origin (who: owner).
+- Owner decision: 2026-11-15, drop Deno and Fresh, port every app; then Claude releases it itself:
+  Biome as formatter/linter, independent review, push, release PR, merge, tag, deploy check.
+- State: port done and green at `3dfefe3`, not pushed; main has no branch protection (nothing to
+  swap); Biome not added yet.
+- Next: Biome, review receipt, push develop, release, verify Render (who: Claude); webhook HMAC key
+  and the ipp Render service deletion (who: owner).
 - Blocker: none.
-- Evidence: work/handovers/a38bcec0-13c5-437d-9c40-1f317f1b63c6.md; CHANGELOG Unreleased.
+- Evidence: work/handovers/a38bcec0-13c5-437d-9c40-1f317f1b63c6.md.
 
 ## Owner browser check after the non-root deploy — WAITING-OWNER
 

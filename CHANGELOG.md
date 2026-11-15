@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Protect `main` on GitHub (pull request, the five CI checks up to date, resolved conversations,
+  administrators included, no force-push or deletion) and delete the three merged `task/*`
+  branches; the protection runbook records the read-back.
 - Record the v0.2.0 deploy check (Next.js build served, Sessions Drop-in on the public origin)
   in the digital status, and the Render clean-up left to the owner in `work/current.md`.
 

@@ -5,7 +5,7 @@ description: "Required pull requests and real CI checks on main, including admin
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15T22:00:00Z
+  at: 2026-11-16T00:30:00Z
 sources:
   - resource: ../../.github/workflows/ci.yml
     title: "The CI jobs required on main"
@@ -13,6 +13,9 @@ sources:
     title: "The delivery flow"
   - resource: ../../render.yaml
     title: "The deployment that main triggers"
+verified:
+  - at: 2026-11-16
+    check: "gh api branches/main/protection read back after the PUT: five checks pinned to app 15368, strict, PR with 0 approvals, conversations, enforce_admins, no force-push or deletion; rulesets []."
 ---
 
 # GitHub main protection
@@ -35,9 +38,12 @@ approve their own PR. This distinction is explicit: CI/PR requirements are serve
 comment verdict is a reviewed procedure.
 
 On 2026-11-15 the job "Deno check" became "Bun check" (`bun install --frozen-lockfile`, then
-`bun run check`). Read back the same day, `OualidGuennif/payments-playground` has no protection on
-`main` (`protected: false`, the protection endpoint answers 404) and no ruleset (`[]`): nothing is
-server-enforced there yet, so the checks above are a procedure until an administrator applies them.
+`bun run check`). `OualidGuennif/payments-playground` had no protection on `main` until 2026-11-16,
+when it was applied at the owner's request and read back: `protected: true`; the five checks above
+required, each pinned to GitHub Actions (app 15368), with `strict` (up to date with main); a pull
+request with zero approvals; resolved conversations; enforced for administrators; no linear-history
+requirement; force-push and deletion refused; still no ruleset (`[]`). `develop` is unprotected and
+`delete_branch_on_merge` stays off, so merging the release pull request keeps `develop`.
 
 On 2026-10-25, main protection was applied and re-read for OualidGuennif's aeion-factory,
 aeion-spaceship, aeion-playground, aeion-croa, aeion-ops, aeion-observability and aeion-website.

@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.2.0 deploy check (Next.js build served, Sessions Drop-in on the public origin)
+  in the digital status, and the Render clean-up left to the owner in `work/current.md`.
+
 ## [0.2.0] - 2026-11-15
 
 - Pass CI's scans: `bunfig.toml` sets `minimumReleaseAge` to one week, Biome is pinned to 2.6.6

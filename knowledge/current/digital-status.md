@@ -8,7 +8,7 @@ scope: digital-status
 stale_after: 2026-12-15
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T20:00:00Z
+  at: 2026-11-15T23:30:00Z
 sources:
   - id: api
     resource: ../../apps/adyen-digital/src/server/api.ts
@@ -21,11 +21,11 @@ sources:
     title: Meaning of the levels
 verified:
   - at: 2026-11-15
+    check: "v0.2.0 on Render (main 940e3b0): digital.payments-playground.com serves the Next.js build, /healthz 200, /sessions mounts Drop-in after one POST /api/digital/sessions (201) with no console error; /api/bootstrap reports webhookHmacConfigured true."
+  - at: 2026-11-15
     check: "Next.js 16 + Elysia + Eden on Bun, dev server :8001: Advanced Components and API only card payments Authorised, Back Office capture received, Pay by Link created and re-read, Sessions Drop-in mounted; every page 200, an unknown flow 404."
   - at: 2026-10-16
     check: "Adyen Web 6.47.0: gift card partial (Givex 50.00 + card 59.99) in Sessions Components/Drop-in and Advanced Components; native 3DS switch on Sessions and Advanced; Advanced Drop-in order cancelled through /orders/cancel."
-  - at: 2026-10-13
-    check: "Advanced Drop-in on localhost:5173: /payments carries shopperIP and a deliveryAddress without names; Authorised on Adyen TEST."
 ---
 
 # adyen-digital: what is verified, and what is still open
@@ -45,6 +45,7 @@ As of 2026-11-15, Adyen Web 6.48.1, Checkout API v72, on Next.js 16 with Elysia 
 | CAPTURE notification settles the order                                              | PASS   | WEBHOOK VERIFIED                  | Adyen's own CAPTURE `ZC55WDCR763KPPT5` (delivered to webhook.site, HMAC-signed with that endpoint's key), replayed unchanged to a dev server holding that key: `hmac_valid = 1`, correlated by `originalReference`, order `5aa671e7` `payment_pending` to `paid`.                                                                                                                                                                                         |
 | Callbacks reported under the right order                                            | PASS   | BROWSER VERIFIED                  | `frontend_callbacks` rows for `d13195db`: onChange ×5, beforeSubmit, onPaymentCompleted                                                                                                                                                                                                                                                                                                                                                                   |
 | Docker image: no secrets inside, runs with a quoted `.env`, Basic Auth covers pages | PASS   | CODE VERIFIED + TEST API VERIFIED | 14 payment methods listed from inside the container; pages 401/200 without/with credentials                                                                                                                                                                                                                                                                                                                                                               |
+| Production after the v0.2.0 deploy (2026-11-15, Next.js on Bun)                     | PASS   | DEPLOYED VERIFIED                 | `main` `940e3b0`: `/healthz` 200 and `/_next/static` assets on digital and styling; Sessions Drop-in mounted on `digital.payments-playground.com` after one `POST /api/digital/sessions` (201), no console error; the bootstrap reports a webhook HMAC key set. No Adyen-delivered webhook observed after this deploy.                                                                                                                                    |
 | Production after the 2026-10-09 deploy                                              | PASS   | DEPLOYED VERIFIED                 | `/api/health` reports Adyen Web 6.46.0 on digital and styling; Advanced and Sessions Drop-in ready (13 methods) in headless Firefox with an `analytics` block on `digital.payments-playground.com`.                                                                                                                                                                                                                                                       |
 | iDEAL redirect round trip through `/result` (2026-10-10)                            | PASS   | BROWSER VERIFIED                  | Order `8c1dd533`: `/payments` RedirectShopper, iDEAL test bank TESTNL2A "Success", back on `/result`: `/payments/details` Authorised `FD7JH26QRZQJH275`, `merchantReference` matches, attempt authorised. Reload with a replayed `redirectResult`: no second Adyen call.                                                                                                                                                                                  |
 | Pay by Link, MIT, API only (2026-10-10)                                             | PASS   | BROWSER VERIFIED                  | Link created and refreshed (ACTIVE); MIT on the stored Amex Authorised; API only Custom Card with 4111 1111 1111 1111 Authorised                                                                                                                                                                                                                                                                                                                          |

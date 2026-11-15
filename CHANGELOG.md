@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-15
+
 - Pass CI's scans: `bunfig.toml` sets `minimumReleaseAge` to one week, Biome is pinned to 2.6.6
   (2.6.7 was four days old), and `.gitleaksignore` names the agentic test preload's fake HMAC key.
 - Agentic store, from the release review: the grant's budget is reserved when a checkout is

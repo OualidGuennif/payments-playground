@@ -5,6 +5,14 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Agentic store, from the release review: the grant's budget is reserved when a checkout is
+  claimed, so completes on several checkouts at once cannot pass the spend limit; an order is
+  placed from the lines its payment was priced from and only when Adyen's amount matches;
+  payments are found by reference, not in the newest 200 rows; a late refusal of an older
+  attempt no longer reopens a pending checkout; the proxy refuses cross-site writes on the
+  shopper paths (the consent decision could be forged); every response carries the security
+  headers. Digital and styling turn React Strict Mode off, which called Adyen twice per mount
+  in dev. `verify` stops the servers that started when another fails.
 - Gate `bun run check` on Biome (`biome:ci`; `fmt` and `lint` scripts). Its 44 lint errors are
   fixed (typed `let`s, lazy initialisers as statements, a renamed `escape`, a test that asserts
   the webhook exists, decorative SVGs hidden, the checkout skeleton a `status`) or justified with

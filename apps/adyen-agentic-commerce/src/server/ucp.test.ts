@@ -12,6 +12,7 @@ import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
 const SOCKS = "velune-rib-socks-oat-one-size"; // 1200 + 495 shipping
 const OXFORD = "velune-oxford-shirt-white-s"; // 5900 + 495 shipping
 const TRENCH = "velune-trench-sand-s"; // 18900, over the default 150 EUR limit
+const BEANIE = "velune-wool-beanie-oat-one-size"; // 2900; with OXFORD 8800 + 495 shipping
 const ALIAS = cardAlias("TEST_STORED_VISA_1111");
 
 let agent: TestAgent;
@@ -217,6 +218,21 @@ describe("agent payment", () => {
     await Promise.all([completeCheckout(loaded, body, auth), completeCheckout(loaded, body, auth)]);
     expect(fake.payments).toHaveLength(1);
     expect(grants()[0]!.spent).toBe(1695);
+  });
+
+  test("completes on two checkouts at once stay within the budget", async () => {
+    await agent.signIn();
+    // 9295 each: either fits the 15000 budget alone, both together do not.
+    const first = await checkout([OXFORD, BEANIE]);
+    const second = await checkout([OXFORD, BEANIE]);
+    const auth = authenticate(`Bearer ${agent.accessToken}`) as Auth;
+    const body = { payment: { instruments: [{ id: ALIAS, handler_id: "saved_card" }] } };
+    await Promise.all([
+      completeCheckout(loadCheckout(first.id, auth), body, auth),
+      completeCheckout(loadCheckout(second.id, auth), body, auth),
+    ]);
+    expect(fake.payments).toHaveLength(1);
+    expect(grants()[0]!.spent).toBe(9295);
   });
 
   test("a refusal ends the attempt, not the checkout; the retry uses a new key", async () => {

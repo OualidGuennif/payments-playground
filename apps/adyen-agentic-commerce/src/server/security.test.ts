@@ -6,8 +6,8 @@ import { hmacValidator } from "@adyen/api-library";
 import { handle } from "./api";
 import type * as commerce from "./commerce";
 import { ConfigError, readConfig } from "./config";
-import { basicAuthAllows } from "../proxy";
-import { list } from "./db";
+import { basicAuthAllows, crossSiteRefused } from "../proxy";
+import { list, put } from "./db";
 import { rateLimited } from "./protocol";
 import { recentTrace, redact } from "./trace";
 import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
@@ -221,6 +221,76 @@ describe("webhooks", () => {
     }
   });
 
+  test("a late refusal of an earlier attempt leaves the pending one alone", async () => {
+    const agent = await TestAgent.start("Late refusal agent");
+    try {
+      await agent.signIn();
+      const { content } = await agent.tool("create_checkout", {
+        checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] },
+      });
+      const pay = () =>
+        agent.tool("complete_checkout", {
+          id: content.id,
+          checkout: { payment: { instruments: [{ id: content.payment.instruments[0].id }] } },
+        });
+      fake.answers.push({ resultCode: "Refused" });
+      await pay();
+      fake.answers.push({ resultCode: "Pending" });
+      expect((await pay()).content.status).toBe("complete_in_progress");
+      expect((await notification(authorisation(`${content.id}-a1`, false))).status).toBe(200);
+      const after = (await agent.tool("get_checkout", { id: content.id })).content;
+      expect(after.status).toBe("complete_in_progress");
+      expect(after.agent_budget.spent.amount).toBe(1695);
+    } finally {
+      agent.stop();
+    }
+  });
+
+  test("an AUTHORISATION for another amount places no order", async () => {
+    const agent = await TestAgent.start("Odd amount agent");
+    try {
+      await agent.signIn();
+      const { content } = await agent.tool("create_checkout", {
+        checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] },
+      });
+      fake.answers.push({ resultCode: "Pending" });
+      await agent.tool("complete_checkout", {
+        id: content.id,
+        checkout: { payment: { instruments: [{ id: content.payment.instruments[0].id }] } },
+      });
+      const odd = {
+        ...authorisation(`${content.id}-a1`, true),
+        amount: { value: 1, currency: "EUR" },
+      };
+      expect((await notification(odd)).status).toBe(200);
+      expect(list<commerce.Order>("orders")).toHaveLength(0);
+    } finally {
+      agent.stop();
+    }
+  });
+
+  test("a webhook finds its payment behind more than 200 newer ones", async () => {
+    const agent = await TestAgent.start("Old payment agent");
+    try {
+      await agent.signIn();
+      const { content } = await agent.tool("create_checkout", {
+        checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] },
+      });
+      fake.answers.push({ resultCode: "Pending" });
+      await agent.tool("complete_checkout", {
+        id: content.id,
+        checkout: { payment: { instruments: [{ id: content.payment.instruments[0].id }] } },
+      });
+      for (let i = 0; i < 205; i += 1) {
+        put("payments", `filler-${i}`, { id: `filler-${i}`, reference: `filler-${i}`, amount: 0 });
+      }
+      expect((await notification(authorisation(`${content.id}-a1`, true))).status).toBe(200);
+      expect(list<commerce.Order>("orders")).toHaveLength(1);
+    } finally {
+      agent.stop();
+    }
+  });
+
   test("a signed refusal reopens a Pending checkout and gives the budget back", async () => {
     const agent = await TestAgent.start("Refused webhook agent");
     try {
@@ -241,6 +311,30 @@ describe("webhooks", () => {
     } finally {
       agent.stop();
     }
+  });
+});
+
+describe("cross-site writes on shopper paths", () => {
+  const OWN = ["https://agentic.example"];
+  const from = (headers: Record<string, string>) => new Headers(headers);
+
+  test("a cross-site or same-site browser POST is refused, a same-origin one passes", () => {
+    expect(crossSiteRefused("POST", from({ "sec-fetch-site": "cross-site" }), OWN)).toBe(true);
+    expect(crossSiteRefused("POST", from({ "sec-fetch-site": "same-site" }), OWN)).toBe(true);
+    expect(crossSiteRefused("POST", from({ "sec-fetch-site": "same-origin" }), OWN)).toBe(false);
+  });
+
+  test("without Sec-Fetch-Site, Origin decides; a request with neither is not a browser's", () => {
+    expect(crossSiteRefused("POST", from({ origin: "https://evil.example" }), OWN)).toBe(true);
+    expect(crossSiteRefused("POST", from({ origin: "null" }), OWN)).toBe(true);
+    expect(crossSiteRefused("DELETE", from({ origin: "https://agentic.example" }), OWN)).toBe(
+      false,
+    );
+    expect(crossSiteRefused("POST", from({}), OWN)).toBe(false);
+  });
+
+  test("reads are never refused", () => {
+    expect(crossSiteRefused("GET", from({ "sec-fetch-site": "cross-site" }), OWN)).toBe(false);
   });
 });
 

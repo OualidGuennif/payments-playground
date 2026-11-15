@@ -4,8 +4,8 @@
 import * as adyen from "./adyen";
 import { productById, variantById } from "./catalog";
 import { config, CURRENCY, paymentsConfigured } from "./config";
-import { get, list, put } from "./db";
-import { type Auth, chargeGrant } from "./oauth";
+import { findBy, get, put } from "./db";
+import { type Auth, chargeGrant, type Grant } from "./oauth";
 import { trace } from "./trace";
 import { isRecord, newId, sha256 } from "./util";
 
@@ -81,6 +81,9 @@ export type PaymentRecord = {
   checkoutId?: string;
   reference: string;
   amount: number;
+  // The lines this amount was priced from: the order is placed from them, not from the checkout,
+  // which stays editable while a Drop-in session is open.
+  lines?: Line[];
   sessionId?: string;
   resultCode?: string;
   pspReference?: string;
@@ -490,12 +493,13 @@ function placeOrder(
   pspReference: string | undefined,
   status: Order["status"],
   auth?: Auth,
+  paidLines: Line[] = checkout.lines,
 ): Order {
-  const p = price(checkout.lines);
+  const p = price(paidLines);
   const order: Order = {
     id: newId("ord"),
     checkoutId: checkout.id,
-    lines: snapshot(checkout.lines),
+    lines: snapshot(paidLines),
     subtotal: p.subtotal,
     fulfillment: p.fulfillment,
     total: p.total,
@@ -510,6 +514,52 @@ function placeOrder(
   put("orders", order.id, order);
   saveCheckout({ ...checkout, phase: "completed", orderId: order.id, lastMessage: undefined });
   return order;
+}
+
+/**
+ * The order for a payment Adyen authorised, or why none is placed. The lines come from the payment
+ * record, and the amount Adyen reports, when it reports one, must be the amount that was sent.
+ */
+function placePaidOrder(
+  checkout: Checkout,
+  record: PaymentRecord,
+  pspReference: string | undefined,
+  reportedAmount: number | undefined,
+  auth?: Auth,
+): Order | string {
+  const lines = record.lines ?? checkout.lines;
+  if (reportedAmount !== undefined && reportedAmount !== record.amount)
+    return `Adyen authorised ${reportedAmount}, the payment was sent for ${record.amount}`;
+  if (price(lines).total !== record.amount)
+    return `The lines total ${price(lines).total}, the payment was sent for ${record.amount}`;
+  const paidBy = record.purpose === "agent" ? "agent" : "shopper";
+  return placeOrder(checkout, paidBy, pspReference, "authorised", auth, lines);
+}
+
+/**
+ * No order: the amounts disagree. The checkout is held in progress, so neither the agent nor the
+ * shopper can pay it again or edit it, and it says why; nothing reads as paid.
+ */
+function holdMismatch(checkout: Checkout, reason: string): void {
+  trace({
+    channel: "adyen",
+    actor: "server",
+    method: "POST",
+    path: "/payments",
+    status: 409,
+    ref: checkout.id,
+    detail: { amountMismatch: reason },
+  });
+  saveCheckout({
+    ...checkout,
+    phase: "complete_in_progress",
+    lastMessage: {
+      type: "error",
+      code: "amount_mismatch",
+      content: `No order was placed: ${reason}. Check the payment in the Back Office.`,
+      severity: "requires_buyer_review",
+    },
+  });
 }
 
 export function instrumentAlias(body: Record<string, unknown>): string | undefined {
@@ -545,8 +595,12 @@ export async function completeCheckout(
   if (checkout.phase === "completed" || checkout.phase === "complete_in_progress") return checkout;
   if (checkout.phase === "canceled")
     throw err(409, "checkout_canceled", "This checkout was canceled");
-  const assessment = assess(checkout, auth, cards);
-  if (assessment.status !== "ready_for_complete" || !auth) return checkout;
+  // The grant as it stands now, not as the token found it: a complete on another checkout may have
+  // reserved part of the budget during the await above, or the shopper may have revoked it.
+  const grant = auth ? get<Grant>("grants", auth.grant.id) : undefined;
+  const live = auth && grant && !grant.revoked ? { ...auth, grant } : undefined;
+  const assessment = assess(checkout, live, cards);
+  if (assessment.status !== "ready_for_complete" || !live) return checkout;
   const alias = instrumentAlias(body);
   const card = cards.find((c) => c.alias === alias);
   if (!card)
@@ -557,16 +611,18 @@ export async function completeCheckout(
       "$.payment.instruments",
     );
 
-  // Claimed synchronously before the network call, so a parallel complete sees it in progress.
+  // Claimed and the budget reserved synchronously before the network call, so a parallel complete
+  // sees the checkout in progress and the grant already charged; a refusal or an error gives it back.
   const attempt = checkout.attempts + 1;
   const claimed = saveCheckout({
     ...checkout,
     phase: "complete_in_progress",
     attempts: attempt,
-    grantId: auth.grant.id,
-    agentName: auth.grant.clientName,
-    clientId: auth.token.clientId,
+    grantId: live.grant.id,
+    agentName: live.grant.clientName,
+    clientId: live.token.clientId,
   });
+  chargeGrant(live.grant.id, assessment.total);
   const reference = `${checkout.id}-a${attempt}`;
   const record: PaymentRecord = {
     id: newId("pay"),
@@ -574,7 +630,8 @@ export async function completeCheckout(
     checkoutId: checkout.id,
     reference,
     amount: assessment.total,
-    agentName: auth.grant.clientName,
+    lines: checkout.lines,
+    agentName: live.grant.clientName,
     createdAt: now(),
     updatedAt: now(),
   };
@@ -586,10 +643,11 @@ export async function completeCheckout(
       reference,
       storedPaymentMethodId: card.storedPaymentMethodId,
       idempotencyKey: `agent-pay-${reference}`,
-      shopperEmail: buyerOf(checkout, auth)?.email,
-      metadata: { checkoutId: checkout.id, agent: auth.grant.clientName.slice(0, 80) },
+      shopperEmail: buyerOf(checkout, live)?.email,
+      metadata: { checkoutId: checkout.id, agent: live.grant.clientName.slice(0, 80) },
     });
   } catch (error) {
+    chargeGrant(live.grant.id, -assessment.total);
     put("payments", record.id, {
       ...record,
       resultCode: "Error",
@@ -634,15 +692,14 @@ export async function completeCheckout(
     },
   });
   if (result.resultCode === "Authorised") {
-    chargeGrant(auth.grant.id, assessment.total);
-    placeOrder(claimed, "agent", result.pspReference, "authorised", auth);
+    const placed = placePaidOrder(claimed, record, result.pspReference, undefined, live);
+    if (typeof placed === "string") holdMismatch(claimed, placed);
     return loadCheckout(checkout.id, "browser");
   }
-  if (result.resultCode === "Pending" || result.resultCode === "Received") {
-    chargeGrant(auth.grant.id, assessment.total);
-    return claimed;
-  }
+  // Pending keeps the reservation until the webhook settles it.
+  if (result.resultCode === "Pending" || result.resultCode === "Received") return claimed;
   // A refusal ends this attempt, not the order: the shopper can still pay at continue_url.
+  chargeGrant(live.grant.id, -assessment.total);
   return saveCheckout({
     ...claimed,
     phase: "open",
@@ -689,6 +746,7 @@ export async function startShopperSession(checkout: Checkout) {
     checkoutId: checkout.id,
     reference,
     amount: assessment.total,
+    lines: checkout.lines,
     sessionId: session.id,
     createdAt: now(),
     updatedAt: now(),
@@ -715,8 +773,8 @@ export async function finishShopperSession(
   sessionId: string,
   sessionResult: string,
 ) {
-  const known = list<PaymentRecord>("payments").find(
-    (p) => p.sessionId === sessionId && p.checkoutId === loaded.id,
+  const known = findBy<PaymentRecord>("payments", "sessionId", sessionId).find(
+    (p) => p.checkoutId === loaded.id,
   );
   if (!known) throw err(404, "not_found", "Unknown payment session");
   const result = await adyen.sessionResult(sessionId, sessionResult);
@@ -741,7 +799,8 @@ export async function finishShopperSession(
   });
   if (checkout.phase === "completed") return checkout;
   if (result.status === "completed" && authorised) {
-    placeOrder(checkout, "shopper", authorised.pspReference, "authorised");
+    const placed = placePaidOrder(checkout, record, authorised.pspReference, authorised.amount);
+    if (typeof placed === "string") holdMismatch(checkout, placed);
   } else if (result.status === "paymentPending") {
     saveCheckout({ ...checkout, phase: "complete_in_progress" });
   }
@@ -785,8 +844,8 @@ export async function startCardSave() {
 }
 
 export async function finishCardSave(sessionId: string, sessionResult: string) {
-  const record = list<PaymentRecord>("payments").find(
-    (p) => p.sessionId === sessionId && p.purpose === "card-save",
+  const record = findBy<PaymentRecord>("payments", "sessionId", sessionId).find(
+    (p) => p.purpose === "card-save",
   );
   if (!record) throw err(404, "not_found", "Unknown card session");
   const result = await adyen.sessionResult(sessionId, sessionResult);
@@ -804,7 +863,7 @@ export async function finishCardSave(sessionId: string, sessionResult: string) {
 
 export function applyNotification(item: adyen.NotificationItem): string {
   const reference = item.merchantReference ?? "";
-  const record = list<PaymentRecord>("payments").find((p) => p.reference === reference);
+  const record = findBy<PaymentRecord>("payments", "reference", reference)[0];
   if (!record) return "no matching payment";
   const success = item.success === "true";
   if (item.eventCode !== "AUTHORISATION") return "recorded";
@@ -826,17 +885,19 @@ export function applyNotification(item: adyen.NotificationItem): string {
     return "order confirmed";
   }
   if (success) {
-    const order = placeOrder(
-      checkout,
-      record.purpose === "agent" ? "agent" : "shopper",
-      item.pspReference,
-      "authorised",
-    );
-    put("orders", order.id, { ...order, webhook: stamp });
+    const placed = placePaidOrder(checkout, record, item.pspReference, item.amount?.value);
+    if (typeof placed === "string") {
+      holdMismatch(checkout, placed);
+      return "amount mismatch, no order";
+    }
+    put("orders", placed.id, { ...placed, webhook: stamp });
     return "order placed from webhook";
   }
-  if (checkout.phase === "complete_in_progress") {
-    // The agent's budget was reserved when Adyen answered Pending; a refusal gives it back.
+  // Only a refusal of the attempt in progress reopens the checkout: a late refusal of an earlier
+  // attempt must not reopen it while a newer one is pending, nor give back budget never reserved.
+  const current = [`${checkout.id}-a${checkout.attempts}`, `${checkout.id}-s${checkout.attempts}`];
+  if (checkout.phase === "complete_in_progress" && current.includes(record.reference)) {
+    // The agent's budget was reserved when the payment was sent; a refusal gives it back.
     if (record.purpose === "agent" && checkout.grantId)
       chargeGrant(checkout.grantId, -record.amount);
     saveCheckout({

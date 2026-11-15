@@ -31,16 +31,19 @@ const temporaryData = mkdtempSync(join(tmpdir(), "adyen-suite-verify-"));
 const servers: Standalone[] = [];
 
 try {
-  servers.push(
-    ...(await Promise.all(
-      targets.map((target) =>
-        startStandalone(target.directory, target.port, {
-          PUBLIC_ORIGIN: `http://127.0.0.1:${target.port}`,
-          DATABASE_PATH: join(temporaryData, `${target.name}.sqlite`),
-        }),
-      ),
-    )),
+  // Settled, not all: when one app fails, the others that did start are still stopped below, so
+  // no orphan keeps a port and answers the next run's health check.
+  const started = await Promise.allSettled(
+    targets.map((target) =>
+      startStandalone(target.directory, target.port, {
+        PUBLIC_ORIGIN: `http://127.0.0.1:${target.port}`,
+        DATABASE_PATH: join(temporaryData, `${target.name}.sqlite`),
+      }),
+    ),
   );
+  for (const result of started) if (result.status === "fulfilled") servers.push(result.value);
+  const failed = started.find((result) => result.status === "rejected");
+  if (failed) throw failed.reason;
   for (const [index, target] of targets.entries()) {
     for (const path of target.pages) {
       const failures = await pageFailures(`${servers[index].origin}${path}`);

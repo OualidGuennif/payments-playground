@@ -164,6 +164,45 @@ describe("the shopper's Drop-in", () => {
     );
   });
 
+  test("an edit after the session started does not change what the order records", async () => {
+    const c = commerce.createCheckout({
+      line_items: items(SOCKS),
+      buyer: { email: "a@example.com" },
+    });
+    const session = await commerce.startShopperSession(c);
+    commerce.updateCheckout(commerce.loadCheckout(c.id, "browser"), {
+      line_items: items(SOCKS, OXFORD),
+    });
+    fake.session = {
+      status: "completed",
+      payments: [{ resultCode: "Authorised", pspReference: "PSPEDIT", amount: 1695 }],
+    };
+    await commerce.finishShopperSession(commerce.loadCheckout(c.id, "browser"), session.id, "r");
+    expect(list<commerce.Order>("orders")).toEqual([
+      expect.objectContaining({
+        total: 1695,
+        lines: [expect.objectContaining({ variantId: SOCKS, quantity: 1 })],
+      }),
+    ]);
+  });
+
+  test("Adyen reporting another amount places no order and holds the checkout", async () => {
+    const c = commerce.createCheckout({
+      line_items: items(SOCKS),
+      buyer: { email: "a@example.com" },
+    });
+    const session = await commerce.startShopperSession(c);
+    fake.session = {
+      status: "completed",
+      payments: [{ resultCode: "Authorised", pspReference: "PSPODD", amount: 999 }],
+    };
+    await commerce.finishShopperSession(commerce.loadCheckout(c.id, "browser"), session.id, "r");
+    expect(list<commerce.Order>("orders")).toHaveLength(0);
+    const held = commerce.loadCheckout(c.id, "browser");
+    expect(held.phase).toBe("complete_in_progress");
+    expect(held.lastMessage?.code).toBe("amount_mismatch");
+  });
+
   test("two result calls for one Authorised session place one order", async () => {
     const c = commerce.createCheckout({
       line_items: items(SOCKS),

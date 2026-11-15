@@ -17,6 +17,9 @@ const config: NextConfig = {
   // Local PUBLIC_ORIGIN is 127.0.0.1, which Next's dev server otherwise treats as cross-origin.
   allowedDevOrigins: ["127.0.0.1"],
   poweredByHeader: false,
+  // Off, as the Preact islands effectively were: Strict Mode runs each mount effect twice in dev,
+  // and these effects call Adyen (a /sessions order, a single-use redirectResult) more than once.
+  reactStrictMode: false,
   // Next 16.4 otherwise writes an AGENTS.md here; agent instructions live at the repository root.
   agentRules: false,
   transpilePackages: ["@suite/platform", "@suite/ui"],

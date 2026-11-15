@@ -103,6 +103,18 @@ export function remove(collection: Collection, id: string): void {
     .run({ c: collection, id });
 }
 
+// Every document whose top-level field equals the value, newest first. A lookup by reference or
+// session id must not depend on list()'s window: a webhook for an old payment still finds it.
+export function findBy<T>(collection: Collection, field: string, value: string): T[] {
+  if (!/^[A-Za-z]\w*$/.test(field)) throw new Error(`Not a field name: ${field}`);
+  return database()
+    .query<{ data: string }, { c: string; path: string; v: string }>(
+      "select data from docs where collection = $c and json_extract(data, $path) = $v order by created_at desc",
+    )
+    .all({ c: collection, path: `$.${field}`, v: value })
+    .map((row) => JSON.parse(row.data) as T);
+}
+
 export function list<T>(collection: Collection, limit = 200): T[] {
   return database()
     .query<{ data: string }, { c: string; n: number }>(

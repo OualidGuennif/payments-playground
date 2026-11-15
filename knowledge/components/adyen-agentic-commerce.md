@@ -7,10 +7,10 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-16T02:00:00Z
 verified:
   - at: 2026-11-15
-    check: "bun test: 107 cases pass (PAP conformance, OAuth, UCP and payment state machine, commerce, security) against the Adyen double; tsc clean; next build and the oven/bun image build."
+    check: "bun test: 119 cases pass (PAP conformance, OAuth, UCP and payment state machine, commerce, security, the budget race, paid lines, amount mismatch, cross-site writes) against the Adyen double; tsc clean; next build."
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
 sources:
@@ -91,10 +91,17 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
 
 1. TEST only: endpoints are fixed to `*-test.adyen.com`; a client key must start with `test_`.
 2. The server computes every price, total and currency; the order state comes only from Adyen's
-   answers and HMAC-valid webhooks.
+   answers and HMAC-valid webhooks. Each payment record keeps the lines its amount was priced from,
+   and the order is placed from those lines, not from the checkout, which stays editable while a
+   Drop-in session is open. When Adyen reports an amount other than the one sent, no order is
+   placed and the checkout is held with `amount_mismatch`. Payments are found by reference or
+   session id, never inside a window of recent rows. A late refusal of an earlier attempt neither
+   reopens the checkout nor gives budget back.
 3. An agent payment happens only with a valid access token carrying the checkout scope, a grant that
-   is not revoked, a saved card, and a total at or under the grant's limit; otherwise
-   `requires_escalation`.
+   is not revoked, a saved card, and a total at or under the grant's remaining limit; otherwise
+   `requires_escalation`. The grant is re-read after the card lookup and the total is reserved on it
+   when the checkout is claimed, with nothing awaited in between, so completes on several checkouts
+   at once cannot together pass the limit; a refusal or a network error gives the reservation back.
 4. A checkout is paid at most once: it is re-read after the card lookup and `complete_in_progress`
    is claimed before the call with nothing awaited in between, so two completes at once send one
    payment; the idempotency key is `agent-pay-<checkout id>-a<attempt>`; a refusal opens a new
@@ -126,5 +133,9 @@ is whatever LLM the shopper points at it.
 - Adyen's own UCP tokenizer until the owner's account has the role (the handler is behind config).
 - Real user accounts: one demo shopper (`ogaccountnew`). Consent, account and Back Office are
   protected only by the playground's basic auth when it is set (the proxy strips the quotes
-  `docker run --env-file` keeps, like the config reader; `src/server/security.test.ts`).
+  `docker run --env-file` keeps, like the config reader; `src/server/security.test.ts`). Because a
+  browser attaches that basic auth to a cross-site form POST, the proxy also refuses a state-changing
+  request on those paths whose `Sec-Fetch-Site`, or else `Origin`, names another site; the consent
+  decision cannot be forged from another page. Every response carries the platform's security
+  headers (`X-Frame-Options: DENY` among them), so the consent page cannot be framed.
 - Conversations, browser sign-in and the Operations extension of PAP.

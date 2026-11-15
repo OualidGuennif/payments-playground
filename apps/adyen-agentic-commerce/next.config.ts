@@ -2,6 +2,16 @@
 import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
+// The same headers the other playgrounds send (packages/platform SECURITY_HEADERS; ADR-005: no CSP).
+// The consent page holds the Allow button, so it must never render inside another site's frame.
+const SECURITY_HEADERS: Record<string, string> = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "X-Frame-Options": "DENY",
+  "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+};
+
 // The workspace root: the one root bun.lock and the hoisted node_modules live there.
 const root = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -19,6 +29,14 @@ const config: NextConfig = {
   // Next 16.4 otherwise writes an AGENTS.md here; agent instructions live at the repository root.
   agentRules: false,
   serverExternalPackages: ["@adyen/api-library"],
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: Object.entries(SECURITY_HEADERS).map(([key, value]) => ({ key, value })),
+      },
+    ];
+  },
 };
 
 export default config;

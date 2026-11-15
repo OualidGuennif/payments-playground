@@ -7,7 +7,7 @@ status: stable
 scope: dev-build-pipeline
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-16T02:00:00Z
 sources:
   - id: next-config
     resource: ../../apps/adyen-digital/next.config.ts
@@ -60,8 +60,9 @@ own loader expands `$name` inside values and once cut an Adyen key that containe
 
 ## Dev server caveats
 
-React's strict mode runs effects twice in dev, so the Sessions page creates two Adyen sessions per
-load in dev only. Restart `bun run dev:<app>` after changing `next.config.ts`, `.env` or a
+Digital and styling set `reactStrictMode: false`: Next's app router turns Strict Mode on by default,
+which runs each mount effect twice in dev, and those effects call Adyen (a `/sessions` order per
+load, a single-use `redirectResult`). The agentic Drop-in guards its own effect with a ref. Restart `bun run dev:<app>` after changing `next.config.ts`, `.env` or a
 dependency; pages, components and `src/server/api.ts` reload on their own.
 
 ## Production build

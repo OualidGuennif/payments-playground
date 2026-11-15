@@ -7,7 +7,7 @@ type PaymentAnswer = { resultCode: string; pspReference?: string; refusalReason?
 type SessionAnswer = {
   status: string;
   reference?: string;
-  payments: { resultCode: string; pspReference?: string }[];
+  payments: { resultCode: string; pspReference?: string; amount?: number }[];
 };
 const NO_PAYMENT: SessionAnswer = { status: "completed", payments: [] };
 

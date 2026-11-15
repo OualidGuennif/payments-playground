@@ -2,7 +2,14 @@
 // port, signs in through the real OAuth endpoints and calls the store through the same `handle`
 // the route files use. Every token and JWT can be tampered with to probe a refusal.
 // Spec: knowledge/components/adyen-agentic-commerce.md
-import { calculateJwkThumbprint, exportJWK, generateKeyPair, type JWK, type JWTPayload, SignJWT } from "jose";
+import {
+  calculateJwkThumbprint,
+  exportJWK,
+  generateKeyPair,
+  type JWK,
+  type JWTPayload,
+  SignJWT,
+} from "jose";
 import { handle } from "../api";
 import { forgetCardCache } from "../commerce";
 import { openDatabase, useDatabase } from "../db";
@@ -22,7 +29,8 @@ export function freshStore() {
 }
 
 // The edge rate-limits per client IP and every in-process request would otherwise share one.
-export const randomIp = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
+export const randomIp = () =>
+  `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
 
 export type SessionOptions = {
   header?: Record<string, unknown>;
@@ -49,7 +57,11 @@ export class TestAgent {
   static async start(name = "Test agent"): Promise<TestAgent> {
     const agent = new TestAgent();
     agent.clientKeys = await generateKeyPair("ES256", { extractable: true });
-    agent.clientJwk = { ...(await exportJWK(agent.clientKeys.publicKey)), alg: "ES256", use: "sig" };
+    agent.clientJwk = {
+      ...(await exportJWK(agent.clientKeys.publicKey)),
+      alg: "ES256",
+      use: "sig",
+    };
     agent.clientJwk.kid = await calculateJwkThumbprint(agent.clientJwk);
     agent.sessionKeys = await generateKeyPair("ES256", { extractable: true });
     agent.sessionKid = await calculateJwkThumbprint(await exportJWK(agent.sessionKeys.publicKey));
@@ -98,22 +110,42 @@ export class TestAgent {
     for (const [k, v] of Object.entries(all)) if (v !== "") url.searchParams.set(k, v);
     const response = await handle(new Request(url));
     const location = new URL(response.headers.get("location") ?? `${ORIGIN}/`, ORIGIN);
-    return { response, location, requestId: location.pathname.startsWith("/consent/") ? location.pathname.split("/").pop()! : undefined };
+    return {
+      response,
+      location,
+      requestId: location.pathname.startsWith("/consent/")
+        ? location.pathname.split("/").pop()!
+        : undefined,
+    };
   }
 
   // The shopper's decision, posted as the consent form does.
-  async decide(requestId: string, opts: { approve?: boolean; scopes?: string[]; spendLimitEur?: number } = {}) {
-    const form = new URLSearchParams({ request: requestId, decision: opts.approve === false ? "deny" : "approve", spend_limit_eur: String(opts.spendLimitEur ?? 150) });
-    for (const s of opts.scopes ?? ["ucp:checkout", "ucp:pay", "ucp:orders", "profile"]) form.append("scope", s);
-    const response = await handle(new Request(`${ORIGIN}/oauth/decision`, { method: "POST", body: form }));
+  async decide(
+    requestId: string,
+    opts: { approve?: boolean; scopes?: string[]; spendLimitEur?: number } = {},
+  ) {
+    const form = new URLSearchParams({
+      request: requestId,
+      decision: opts.approve === false ? "deny" : "approve",
+      spend_limit_eur: String(opts.spendLimitEur ?? 150),
+    });
+    for (const s of opts.scopes ?? ["ucp:checkout", "ucp:pay", "ucp:orders", "profile"])
+      form.append("scope", s);
+    const response = await handle(
+      new Request(`${ORIGIN}/oauth/decision`, { method: "POST", body: form }),
+    );
     return new URL(response.headers.get("location") ?? `${ORIGIN}/`);
   }
 
   async assertion(claims: JWTPayload = {}, signer: Keys = this.clientKeys, lifetime = 300) {
     return new SignJWT({ ...claims })
       .setProtectedHeader({ alg: "ES256", kid: this.clientJwk.kid })
-      .setIssuer(this.clientId).setSubject(this.clientId).setAudience(String(claims.aud ?? ORIGIN))
-      .setIssuedAt().setExpirationTime(now() + lifetime).setJti(String(claims.jti ?? crypto.randomUUID()))
+      .setIssuer(this.clientId)
+      .setSubject(this.clientId)
+      .setAudience(String(claims.aud ?? ORIGIN))
+      .setIssuedAt()
+      .setExpirationTime(now() + lifetime)
+      .setJti(String(claims.jti ?? crypto.randomUUID()))
       .sign(signer.privateKey);
   }
 
@@ -126,11 +158,11 @@ export class TestAgent {
     const body = new URLSearchParams({
       client_id: this.clientId,
       client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-      client_assertion: assertion ?? await this.assertion(),
+      client_assertion: assertion ?? (await this.assertion()),
       ...form,
     });
     const response = await handle(new Request(`${ORIGIN}/oauth/token`, { method: "POST", body }));
-    return { status: response.status, body: await response.json() as Record<string, string> };
+    return { status: response.status, body: (await response.json()) as Record<string, string> };
   }
 
   // The happy path: consent with the given scopes and limit, then a token and a delegation.
@@ -140,7 +172,12 @@ export class TestAgent {
     const back = await this.decide(requestId, opts);
     const code = back.searchParams.get("code");
     if (!code) throw new Error(`consent failed: ${back.href}`);
-    const { status, body } = await this.token({ grant_type: "authorization_code", code, redirect_uri: this.redirectUri, code_verifier: "verifier-verifier-verifier-verifier-0123456789" });
+    const { status, body } = await this.token({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: this.redirectUri,
+      code_verifier: "verifier-verifier-verifier-verifier-0123456789",
+    });
     if (status !== 200) throw new Error(`token failed: ${JSON.stringify(body)}`);
     this.accessToken = body.access_token!;
     this.refreshToken = body.refresh_token!;
@@ -149,11 +186,20 @@ export class TestAgent {
     return body;
   }
 
-  async makeDelegation(opts: { lifetime?: number; iat?: number; signer?: Keys; typ?: string; cnf?: JWK } = {}) {
+  async makeDelegation(
+    opts: { lifetime?: number; iat?: number; signer?: Keys; typ?: string; cnf?: JWK } = {},
+  ) {
     const iat = opts.iat ?? now();
-    return new SignJWT({ cnf: { jwk: opts.cnf ?? await exportJWK(this.sessionKeys.publicKey) } })
-      .setProtectedHeader({ alg: "ES256", typ: opts.typ ?? "poppy-delegation+jwt", kid: this.clientJwk.kid })
-      .setIssuer(this.clientId).setIssuedAt(iat).setExpirationTime(iat + (opts.lifetime ?? 3600)).setJti(crypto.randomUUID())
+    return new SignJWT({ cnf: { jwk: opts.cnf ?? (await exportJWK(this.sessionKeys.publicKey)) } })
+      .setProtectedHeader({
+        alg: "ES256",
+        typ: opts.typ ?? "poppy-delegation+jwt",
+        kid: this.clientJwk.kid,
+      })
+      .setIssuer(this.clientId)
+      .setIssuedAt(iat)
+      .setExpirationTime(iat + (opts.lifetime ?? 3600))
+      .setJti(crypto.randomUUID())
       .sign((opts.signer ?? this.clientKeys).privateKey);
   }
 
@@ -173,12 +219,25 @@ export class TestAgent {
     };
     for (const k of opts.omit ?? []) delete claims[k];
     return new SignJWT(claims as JWTPayload)
-      .setProtectedHeader({ alg: "ES256", typ: "poppy-session+jwt", kid: this.sessionKid, ...opts.header })
+      .setProtectedHeader({
+        alg: "ES256",
+        typ: "poppy-session+jwt",
+        kid: this.sessionKid,
+        ...opts.header,
+      })
       .sign((opts.signer ?? this.sessionKeys).privateKey);
   }
 
   // One JSON-RPC call to /mcp with a fresh Poppy-Session unless the caller passes headers.
-  async mcp(method: string, params: Record<string, unknown> = {}, opts: { session?: SessionOptions; headers?: Record<string, string>; token?: string | null } = {}) {
+  async mcp(
+    method: string,
+    params: Record<string, unknown> = {},
+    opts: {
+      session?: SessionOptions;
+      headers?: Record<string, string>;
+      token?: string | null;
+    } = {},
+  ) {
     const headers: Record<string, string> = {
       "content-type": "application/json",
       "poppy-version": "1.0",
@@ -188,14 +247,27 @@ export class TestAgent {
     };
     const token = opts.token === undefined ? this.accessToken : opts.token;
     if (token) headers.authorization = `Bearer ${token}`;
-    const response = await handle(new Request(MCP, { method: "POST", headers, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }));
+    const response = await handle(
+      new Request(MCP, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      }),
+    );
     const text = await response.text();
-    return { status: response.status, headers: response.headers, body: text ? JSON.parse(text) as Record<string, any> : {} };
+    return {
+      status: response.status,
+      headers: response.headers,
+      body: text ? (JSON.parse(text) as Record<string, any>) : {},
+    };
   }
 
   async tool(name: string, args: Record<string, unknown>) {
     const { status, body } = await this.mcp("tools/call", { name, arguments: args });
     if (status !== 200 || body.error) throw new Error(`${name}: ${status} ${JSON.stringify(body)}`);
-    return { content: body.result.structuredContent as Record<string, any>, isError: body.result.isError as boolean | undefined };
+    return {
+      content: body.result.structuredContent as Record<string, any>,
+      isError: body.result.isError as boolean | undefined,
+    };
   }
 }

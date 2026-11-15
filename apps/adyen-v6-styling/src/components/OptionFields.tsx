@@ -31,17 +31,15 @@ export function OptionGroup(props: {
         <span className="option-group__title">{props.title}</span>
         {props.count ? <span className="option-group__count">{props.count} set</span> : null}
       </summary>
-      {props.hint
-        ? (
-          <p
-            className={`option-group__hint${
-              props.hintTone === "danger" ? " option-group__hint--danger" : ""
-            }`}
-          >
-            {props.hint}
-          </p>
-        )
-        : null}
+      {props.hint ? (
+        <p
+          className={`option-group__hint${
+            props.hintTone === "danger" ? " option-group__hint--danger" : ""
+          }`}
+        >
+          {props.hint}
+        </p>
+      ) : null}
       <div className="option-group__body">{props.children}</div>
     </details>
   );
@@ -92,11 +90,12 @@ export function CheckboxDropdown(props: {
   // Names, not the underlying values: the button reads "France", not "FR",
   // matching the row the reader ticked.
   const label = (value: string) => props.items.find(([key]) => key === value)?.[1] ?? value;
-  const summary = props.selected.length === 0
-    ? props.emptyLabel
-    : props.selected.length <= 3
-    ? props.selected.map(label).join(", ")
-    : `${props.selected.length} selected`;
+  const summary =
+    props.selected.length === 0
+      ? props.emptyLabel
+      : props.selected.length <= 3
+        ? props.selected.map(label).join(", ")
+        : `${props.selected.length} selected`;
 
   return (
     <div className="checkbox-dropdown" data-open={open ? "true" : "false"}>
@@ -108,40 +107,41 @@ export function CheckboxDropdown(props: {
         onClick={() => setOpen(!open)}
       >
         <span className="checkbox-dropdown__value">{summary}</span>
-        <span className="checkbox-dropdown__chevron" aria-hidden="true">▾</span>
+        <span className="checkbox-dropdown__chevron" aria-hidden="true">
+          ▾
+        </span>
       </button>
-      {open
-        ? (
-          <div className="checkbox-dropdown__list" role="group">
-            <label className="checkbox-dropdown__item">
-              <input
-                type="checkbox"
-                checked={props.selected.length === 0}
-                onChange={() => props.onChange([])}
-              />
-              {props.emptyLabel}
-            </label>
-            {props.items.map(([value, label]) => {
-              const on = props.selected.includes(value);
-              return (
-                <label key={value} className="checkbox-dropdown__item">
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    onChange={(event) =>
-                      props.onChange(
-                        event.currentTarget.checked
-                          ? [...props.selected, value]
-                          : props.selected.filter((entry) => entry !== value),
-                      )}
-                  />
-                  {label}
-                </label>
-              );
-            })}
-          </div>
-        )
-        : null}
+      {open ? (
+        <div className="checkbox-dropdown__list" role="group">
+          <label className="checkbox-dropdown__item">
+            <input
+              type="checkbox"
+              checked={props.selected.length === 0}
+              onChange={() => props.onChange([])}
+            />
+            {props.emptyLabel}
+          </label>
+          {props.items.map(([value, label]) => {
+            const on = props.selected.includes(value);
+            return (
+              <label key={value} className="checkbox-dropdown__item">
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={(event) =>
+                    props.onChange(
+                      event.currentTarget.checked
+                        ? [...props.selected, value]
+                        : props.selected.filter((entry) => entry !== value),
+                    )
+                  }
+                />
+                {label}
+              </label>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -155,9 +155,12 @@ function isCommittableColor(value: string): boolean {
   return value.trim().length > 2;
 }
 
-function ColorControl(
-  props: { id: string; value: string; fallback: string; onChange: (value: string) => void },
-) {
+function ColorControl(props: {
+  id: string;
+  value: string;
+  fallback: string;
+  onChange: (value: string) => void;
+}) {
   const [text, setText] = useState(props.value);
   useEffect(() => setText(props.value), [props.value]);
   return (
@@ -208,70 +211,63 @@ export function OptionRow(props: {
     <div className={`field option-row${props.value ? " option-row--set" : ""}`}>
       <div className="option-row__head">
         <label htmlFor={props.id}>{props.label}</label>
-        {props.value
-          ? (
-            <button
-              type="button"
-              className="option-row__clear"
-              title="Back to the Adyen default"
-              aria-label={`Reset ${props.label}`}
-              onClick={() => props.onChange("")}
-            >
-              ↺
-            </button>
-          )
-          : null}
-      </div>
-      {spec.kind === "color"
-        ? (
-          <ColorControl
-            id={props.id}
-            value={props.value}
-            fallback={fallback}
-            onChange={props.onChange}
-          />
-        )
-        : spec.kind === "select"
-        ? (
-          <select
-            id={props.id}
-            value={props.value}
-            onChange={(event) => props.onChange(event.currentTarget.value)}
+        {props.value ? (
+          <button
+            type="button"
+            className="option-row__clear"
+            title="Back to the Adyen default"
+            aria-label={`Reset ${props.label}`}
+            onClick={() => props.onChange("")}
           >
-            <option value="">
-              {fallback ? `Adyen default (${fallback})` : "Adyen default"}
+            ↺
+          </button>
+        ) : null}
+      </div>
+      {spec.kind === "color" ? (
+        <ColorControl
+          id={props.id}
+          value={props.value}
+          fallback={fallback}
+          onChange={props.onChange}
+        />
+      ) : spec.kind === "select" ? (
+        <select
+          id={props.id}
+          value={props.value}
+          onChange={(event) => props.onChange(event.currentTarget.value)}
+        >
+          <option value="">{fallback ? `Adyen default (${fallback})` : "Adyen default"}</option>
+          {(spec.options ?? []).map((option) => (
+            <option key={option} value={option}>
+              {option}
             </option>
-            {(spec.options ?? []).map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        )
-        : spec.kind === "range"
-        ? (
-          <div className="range-field">
-            <input
-              id={props.id}
-              type="range"
-              min={spec.min ?? 0}
-              max={spec.max ?? 64}
-              step={spec.step ?? 1}
-              value={Number.parseFloat(props.value || fallback) || 0}
-              onChange={(event) =>
-                props.onChange(`${event.currentTarget.valueAsNumber}${spec.unit ?? ""}`)}
-            />
-            <small>{props.value || `${fallback} (default)`}</small>
-          </div>
-        )
-        : (
+          ))}
+        </select>
+      ) : spec.kind === "range" ? (
+        <div className="range-field">
           <input
             id={props.id}
-            type="text"
-            value={props.value}
-            placeholder={fallback}
-            spellCheck={false}
-            onChange={(event) => props.onChange(event.currentTarget.value)}
+            type="range"
+            min={spec.min ?? 0}
+            max={spec.max ?? 64}
+            step={spec.step ?? 1}
+            value={Number.parseFloat(props.value || fallback) || 0}
+            onChange={(event) =>
+              props.onChange(`${event.currentTarget.valueAsNumber}${spec.unit ?? ""}`)
+            }
           />
-        )}
+          <small>{props.value || `${fallback} (default)`}</small>
+        </div>
+      ) : (
+        <input
+          id={props.id}
+          type="text"
+          value={props.value}
+          placeholder={fallback}
+          spellCheck={false}
+          onChange={(event) => props.onChange(event.currentTarget.value)}
+        />
+      )}
       {props.hint ? <small>{props.hint}</small> : null}
     </div>
   );

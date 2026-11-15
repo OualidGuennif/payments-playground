@@ -18,12 +18,10 @@ afterAll(() => {
   }
 });
 
-for (
-  const [name, handle] of [
-    ["digital", digitalHandle],
-    ["styling", stylingHandle],
-  ] as const
-) {
+for (const [name, handle] of [
+  ["digital", digitalHandle],
+  ["styling", stylingHandle],
+] as const) {
   test(`${name} health route responds without external credentials`, async () => {
     const response = await handle(new Request("http://localhost/api/health"));
     assertEquals(response.status, 200);
@@ -48,16 +46,18 @@ test("digital refuses a webhook whose HMAC matches no profile", async () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         live: "false",
-        notificationItems: [{
-          NotificationRequestItem: {
-            eventCode: "AUTHORISATION",
-            merchantReference: "digital-unknown",
-            pspReference: "TESTPSP0000000001",
-            success: "true",
-            amount: { value: 1000, currency: "EUR" },
-            additionalData: { hmacSignature: "invalid" },
+        notificationItems: [
+          {
+            NotificationRequestItem: {
+              eventCode: "AUTHORISATION",
+              merchantReference: "digital-unknown",
+              pspReference: "TESTPSP0000000001",
+              success: "true",
+              amount: { value: 1000, currency: "EUR" },
+              additionalData: { hmacSignature: "invalid" },
+            },
           },
-        }],
+        ],
       }),
     }),
   );

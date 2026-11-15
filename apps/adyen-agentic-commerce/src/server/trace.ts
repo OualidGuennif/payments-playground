@@ -55,11 +55,15 @@ export function trace(entry: Omit<TraceEntry, "id" | "at">): void {
 
 export function recentTrace(limit = 150, ref?: string): TraceEntry[] {
   const rows = ref
-    ? database().query<Record<string, unknown>, { n: number; r: string }>(
-      "select * from trace where ref = $r order by id desc limit $n",
-    ).all({ n: limit, r: ref })
-    : database().query<Record<string, unknown>, { n: number }>(
-      "select * from trace order by id desc limit $n",
-    ).all({ n: limit });
+    ? database()
+        .query<Record<string, unknown>, { n: number; r: string }>(
+          "select * from trace where ref = $r order by id desc limit $n",
+        )
+        .all({ n: limit, r: ref })
+    : database()
+        .query<Record<string, unknown>, { n: number }>(
+          "select * from trace order by id desc limit $n",
+        )
+        .all({ n: limit });
   return rows.map((row) => ({ ...(row as TraceEntry), detail: JSON.parse(String(row.detail)) }));
 }

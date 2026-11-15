@@ -23,7 +23,9 @@ describe("configuration", () => {
 
   test("only the TEST environment is accepted", () => {
     expect(() => readConfig({ ...base, ADYEN_ENVIRONMENT: "LIVE" })).toThrow(ConfigError);
-    expect(readConfig({ ...base, ADYEN_ENVIRONMENT: "test" }).publicOrigin).toBe("https://shop.example");
+    expect(readConfig({ ...base, ADYEN_ENVIRONMENT: "test" }).publicOrigin).toBe(
+      "https://shop.example",
+    );
   });
 
   test("a LIVE client key fails closed", () => {
@@ -37,7 +39,13 @@ describe("configuration", () => {
 
   test("the Back Office password needs both a user and a password", () => {
     expect(readConfig({ ...base, PLAYGROUND_BASIC_AUTH_USER: "owner" }).backOffice).toBeUndefined();
-    expect(readConfig({ ...base, PLAYGROUND_BASIC_AUTH_USER: "owner", PLAYGROUND_BASIC_AUTH_PASSWORD: "pw" }).backOffice).toEqual({ user: "owner", password: "pw" });
+    expect(
+      readConfig({
+        ...base,
+        PLAYGROUND_BASIC_AUTH_USER: "owner",
+        PLAYGROUND_BASIC_AUTH_PASSWORD: "pw",
+      }).backOffice,
+    ).toEqual({ user: "owner", password: "pw" });
   });
 
   test("dotenv quotes kept by docker --env-file are stripped, a lone quote is not", () => {
@@ -48,8 +56,15 @@ describe("configuration", () => {
       ADYEN_HMAC_KEY: '"AB12"',
     });
     expect(quoted.publicOrigin).toBe("https://shop.example");
-    expect(quoted.adyen).toEqual({ apiKey: undefined, merchantAccount: "Merchant", clientKey: "test_ABC", hmacKey: "AB12" });
-    expect(readConfig({ ...base, ADYEN_MERCHANT_ACCOUNT: '"Merchant' }).adyen.merchantAccount).toBe('"Merchant');
+    expect(quoted.adyen).toEqual({
+      apiKey: undefined,
+      merchantAccount: "Merchant",
+      clientKey: "test_ABC",
+      hmacKey: "AB12",
+    });
+    expect(readConfig({ ...base, ADYEN_MERCHANT_ACCOUNT: '"Merchant' }).adyen.merchantAccount).toBe(
+      '"Merchant',
+    );
     expect(readConfig({ ...base, ADYEN_API_KEY: '""' }).adyen.apiKey).toBeUndefined();
     expect(() => readConfig({ ...base, ADYEN_CLIENT_KEY: '"live_ABC"' })).toThrow(ConfigError);
   });
@@ -57,20 +72,29 @@ describe("configuration", () => {
 
 describe("redaction", () => {
   test("tokens, codes, assertions, card ids and signatures are redacted at any depth", () => {
-    const out = JSON.stringify(redact({
-      authorization: "Bearer at_x",
-      form: { code: "abc", code_verifier: "v", client_assertion: "eyJ", refresh_token: "rt_x" },
-      card: [{ storedPaymentMethodId: "TEST_STORED_VISA_1111" }],
-      additionalData: { hmacSignature: "sig" },
-      "poppy-session": "eyJ",
-    }));
-    for (const secret of ["at_x", "abc", "eyJ", "rt_x", "TEST_STORED_VISA_1111", "sig"]) expect(out).not.toContain(`"${secret}"`);
+    const out = JSON.stringify(
+      redact({
+        authorization: "Bearer at_x",
+        form: { code: "abc", code_verifier: "v", client_assertion: "eyJ", refresh_token: "rt_x" },
+        card: [{ storedPaymentMethodId: "TEST_STORED_VISA_1111" }],
+        additionalData: { hmacSignature: "sig" },
+        "poppy-session": "eyJ",
+      }),
+    );
+    for (const secret of ["at_x", "abc", "eyJ", "rt_x", "TEST_STORED_VISA_1111", "sig"])
+      expect(out).not.toContain(`"${secret}"`);
     expect(out).not.toContain("Bearer");
   });
 
   test("a UCP message keeps its public code", () => {
-    expect(redact({ type: "error", code: "payment_refused", content: "Refused", severity: "requires_buyer_review" }))
-      .toMatchObject({ code: "payment_refused" });
+    expect(
+      redact({
+        type: "error",
+        code: "payment_refused",
+        content: "Refused",
+        severity: "requires_buyer_review",
+      }),
+    ).toMatchObject({ code: "payment_refused" });
   });
 
   test("long strings are cut", () => {
@@ -88,12 +112,26 @@ describe("an agent payment leaves no secret behind", () => {
   test("the trace and the account page hold no token, assertion or stored card id", async () => {
     agent.ip = randomIp();
     await agent.signIn();
-    const { content } = await agent.tool("create_checkout", { checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] } });
+    const { content } = await agent.tool("create_checkout", {
+      checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] },
+    });
     const alias = content.payment.instruments[0].id;
-    expect((await agent.tool("complete_checkout", { id: content.id, checkout: { payment: { instruments: [{ id: alias }] } } })).content.status).toBe("completed");
+    expect(
+      (
+        await agent.tool("complete_checkout", {
+          id: content.id,
+          checkout: { payment: { instruments: [{ id: alias }] } },
+        })
+      ).content.status,
+    ).toBe("completed");
 
     const trace = JSON.stringify(recentTrace(500));
-    for (const secret of [agent.accessToken, agent.refreshToken, "TEST_STORED_VISA_1111", agent.delegation]) {
+    for (const secret of [
+      agent.accessToken,
+      agent.refreshToken,
+      "TEST_STORED_VISA_1111",
+      agent.delegation,
+    ]) {
       expect(trace).not.toContain(secret);
     }
     expect(trace).toContain("UnscheduledCardOnFile");
@@ -107,12 +145,21 @@ describe("an agent payment leaves no secret behind", () => {
 describe("webhooks", () => {
   function notification(item: Record<string, unknown>, sign = true) {
     const signed = { ...item, additionalData: {} as Record<string, string> };
-    if (sign) signed.additionalData.hmacSignature = new hmacValidator().calculateHmac(signed as never, HMAC_KEY);
-    return handle(new Request(`${ORIGIN}/api/webhooks/adyen`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ live: "false", notificationItems: [{ NotificationRequestItem: signed }] }),
-    }));
+    if (sign)
+      signed.additionalData.hmacSignature = new hmacValidator().calculateHmac(
+        signed as never,
+        HMAC_KEY,
+      );
+    return handle(
+      new Request(`${ORIGIN}/api/webhooks/adyen`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          live: "false",
+          notificationItems: [{ NotificationRequestItem: signed }],
+        }),
+      }),
+    );
   }
 
   const authorisation = (reference: string, success: boolean) => ({
@@ -126,7 +173,9 @@ describe("webhooks", () => {
 
   test("an unsigned or empty notification is rejected", async () => {
     expect((await notification(authorisation("x", true), false)).status).toBe(401);
-    const empty = await handle(new Request(`${ORIGIN}/api/webhooks/adyen`, { method: "POST", body: "{}" }));
+    const empty = await handle(
+      new Request(`${ORIGIN}/api/webhooks/adyen`, { method: "POST", body: "{}" }),
+    );
     expect(empty.status).toBe(401);
   });
 
@@ -134,7 +183,12 @@ describe("webhooks", () => {
     const item = { ...authorisation("x", true), additionalData: {} as Record<string, string> };
     item.additionalData.hmacSignature = new hmacValidator().calculateHmac(item as never, HMAC_KEY);
     item.amount = { value: 1, currency: "EUR" };
-    const response = await handle(new Request(`${ORIGIN}/api/webhooks/adyen`, { method: "POST", body: JSON.stringify({ notificationItems: [{ NotificationRequestItem: item }] }) }));
+    const response = await handle(
+      new Request(`${ORIGIN}/api/webhooks/adyen`, {
+        method: "POST",
+        body: JSON.stringify({ notificationItems: [{ NotificationRequestItem: item }] }),
+      }),
+    );
     expect(response.status).toBe(401);
   });
 
@@ -142,15 +196,26 @@ describe("webhooks", () => {
     const agent = await TestAgent.start("Webhook agent");
     try {
       await agent.signIn();
-      const { content } = await agent.tool("create_checkout", { checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] } });
+      const { content } = await agent.tool("create_checkout", {
+        checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] },
+      });
       fake.answers.push({ resultCode: "Pending" });
-      const pending = await agent.tool("complete_checkout", { id: content.id, checkout: { payment: { instruments: [{ id: content.payment.instruments[0].id }] } } });
+      const pending = await agent.tool("complete_checkout", {
+        id: content.id,
+        checkout: { payment: { instruments: [{ id: content.payment.instruments[0].id }] } },
+      });
       expect(pending.content.status).toBe("complete_in_progress");
 
       const response = await notification(authorisation(`${content.id}-a1`, true));
       expect(response.status).toBe(200);
       expect(await response.text()).toBe("[accepted]");
-      expect(list<commerce.Order>("orders")).toEqual([expect.objectContaining({ checkoutId: content.id, pspReference: "PSPWEBHOOK", paidBy: "agent" })]);
+      expect(list<commerce.Order>("orders")).toEqual([
+        expect.objectContaining({
+          checkoutId: content.id,
+          pspReference: "PSPWEBHOOK",
+          paidBy: "agent",
+        }),
+      ]);
     } finally {
       agent.stop();
     }
@@ -160,9 +225,14 @@ describe("webhooks", () => {
     const agent = await TestAgent.start("Refused webhook agent");
     try {
       await agent.signIn();
-      const { content } = await agent.tool("create_checkout", { checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] } });
+      const { content } = await agent.tool("create_checkout", {
+        checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] },
+      });
       fake.answers.push({ resultCode: "Pending" });
-      await agent.tool("complete_checkout", { id: content.id, checkout: { payment: { instruments: [{ id: content.payment.instruments[0].id }] } } });
+      await agent.tool("complete_checkout", {
+        id: content.id,
+        checkout: { payment: { instruments: [{ id: content.payment.instruments[0].id }] } },
+      });
       expect((await notification(authorisation(`${content.id}-a1`, false))).status).toBe(200);
       const after = (await agent.tool("get_checkout", { id: content.id })).content;
       expect(after.status).toBe("ready_for_complete");
@@ -184,7 +254,10 @@ describe("rate limit", () => {
 
 describe("shopper pages basic auth", () => {
   const header = (pair: string) => `Basic ${btoa(pair)}`;
-  const quoted = { PLAYGROUND_BASIC_AUTH_USER: '"shopper"', PLAYGROUND_BASIC_AUTH_PASSWORD: "'s3cret'" };
+  const quoted = {
+    PLAYGROUND_BASIC_AUTH_USER: '"shopper"',
+    PLAYGROUND_BASIC_AUTH_PASSWORD: "'s3cret'",
+  };
 
   test("quotes kept by docker --env-file are stripped before comparing", () => {
     expect(basicAuthAllows(header("shopper:s3cret"), quoted)).toBe(true);

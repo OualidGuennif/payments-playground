@@ -33,20 +33,52 @@
 }
 
 @layer base {
-  html { background: var(--color-paper); color: var(--color-ink); }
-  body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
-  h1, h2, h3 { font-family: var(--font-serif); letter-spacing: -0.01em; }
-  a { text-underline-offset: 3px; }
-  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
+  a {
+    text-underline-offset: 3px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
 }
 
 @layer components {
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-paper transition hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40; }
-  .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-full border border-line bg-card px-5 py-2.5 text-sm font-medium text-ink transition hover:border-ink disabled:opacity-40; }
-  .panel { @apply rounded-2xl border border-line bg-card p-5 sm:p-6; }
-  .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted; }
-  .pill { @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium; }
-  .field { @apply w-full rounded-xl border border-line bg-card text-ink px-3 py-2 text-sm outline-none focus:border-ink; }
-  .dropin-surface { @apply rounded-2xl border border-line bg-dropin p-3 text-dropin-ink sm:p-4; }
-  .code { @apply rounded-md bg-line/60 px-1.5 py-0.5 font-mono text-[0.8em]; }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-paper transition hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line bg-card px-5 py-2.5 text-sm font-medium text-ink transition hover:border-ink disabled:opacity-40;
+  }
+  .panel {
+    @apply rounded-2xl border border-line bg-card p-5 sm:p-6;
+  }
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted;
+  }
+  .pill {
+    @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium;
+  }
+  .field {
+    @apply w-full rounded-xl border border-line bg-card text-ink px-3 py-2 text-sm outline-none focus:border-ink;
+  }
+  .dropin-surface {
+    @apply rounded-2xl border border-line bg-dropin p-3 text-dropin-ink sm:p-4;
+  }
+  .code {
+    @apply rounded-md bg-line/60 px-1.5 py-0.5 font-mono text-[0.8em];
+  }
 }

@@ -13,7 +13,10 @@ import { ADYEN_CSS_URL, ADYEN_WEB_VERSION, CSS_TOKEN_SPECS } from "./adyenOption
 
 /** Minified CSS drops leading zeroes and spaces; those are the same value. */
 function normalise(value: string): string {
-  return value.replace(/\s+/g, "").replace(/(^|[^\d])0\./g, "$1.").toLowerCase();
+  return value
+    .replace(/\s+/g, "")
+    .replace(/(^|[^\d])0\./g, "$1.")
+    .toLowerCase();
 }
 
 async function adyenStylesheet(): Promise<string> {
@@ -50,13 +53,11 @@ test(`adyen.css ${ADYEN_WEB_VERSION}: no token is left unexposed`, async () => {
 
 test(`adyen.css ${ADYEN_WEB_VERSION}: shown defaults match the stylesheet`, async () => {
   const real = tokensIn(await adyenStylesheet());
-  const wrong = CSS_TOKEN_SPECS
-    .filter((spec) => {
-      const fallbacks = real.get(spec.token);
-      // Some tokens are only ever used without a fallback; nothing to check.
-      if (!fallbacks || fallbacks.size === 0) return false;
-      return ![...fallbacks].some((value) => normalise(value) === normalise(spec.fallback));
-    })
-    .map((spec) => `${spec.token}: panel says ${spec.fallback}`);
+  const wrong = CSS_TOKEN_SPECS.filter((spec) => {
+    const fallbacks = real.get(spec.token);
+    // Some tokens are only ever used without a fallback; nothing to check.
+    if (!fallbacks || fallbacks.size === 0) return false;
+    return ![...fallbacks].some((value) => normalise(value) === normalise(spec.fallback));
+  }).map((spec) => `${spec.token}: panel says ${spec.fallback}`);
   assertEquals(wrong, [], "the panel would show a merchant the wrong Adyen default");
 });

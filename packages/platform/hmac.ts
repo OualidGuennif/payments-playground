@@ -14,7 +14,9 @@ export interface StandardWebhookItem {
 }
 
 function escape(value: unknown): string {
-  return String(value ?? "").replaceAll("\\", "\\\\").replaceAll(":", "\\:");
+  return String(value ?? "")
+    .replaceAll("\\", "\\\\")
+    .replaceAll(":", "\\:");
 }
 
 export function standardWebhookSigningString(item: StandardWebhookItem): string {
@@ -27,7 +29,9 @@ export function standardWebhookSigningString(item: StandardWebhookItem): string 
     item.amount?.currency,
     item.eventCode,
     item.success,
-  ].map(escape).join(":");
+  ]
+    .map(escape)
+    .join(":");
 }
 
 function hexToBytes(hex: string): Uint8Array {
@@ -101,9 +105,7 @@ export async function verifyHeaderHmac(
       false,
       ["sign"],
     );
-    const expected = new Uint8Array(
-      await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody)),
-    );
+    const expected = new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody)));
     return constantTimeEqual(expected, base64ToBytes(receivedSignature));
   } catch {
     return false;

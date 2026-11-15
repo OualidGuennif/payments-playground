@@ -85,8 +85,9 @@ export const MARKETS = [
 // Every market's own locale/currency, so both dropdowns cover the same set
 // the per-country defaults are actually drawn from.
 export const LOCALE_OPTIONS = [...new Set(MARKETS.map(([code]) => localeForCountry(code)))].sort();
-export const CURRENCY_OPTIONS = [...new Set(MARKETS.map(([code]) => currencyForCountry(code)))]
-  .sort();
+export const CURRENCY_OPTIONS = [
+  ...new Set(MARKETS.map(([code]) => currencyForCountry(code))),
+].sort();
 
 export const VALIDITY_OPTIONS: Array<[number, string]> = [
   [1, "1 hour"],
@@ -182,7 +183,10 @@ export function closesSession(failure: unknown): boolean {
 
 export function flagEmoji(countryCode: string): string {
   return String.fromCodePoint(
-    ...countryCode.toUpperCase().split("").map((letter) => 127397 + letter.charCodeAt(0)),
+    ...countryCode
+      .toUpperCase()
+      .split("")
+      .map((letter) => 127397 + letter.charCodeAt(0)),
   );
 }
 

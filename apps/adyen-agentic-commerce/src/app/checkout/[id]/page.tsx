@@ -7,7 +7,10 @@ import { loadCheckout } from "@/server/commerce";
 export const metadata = { title: "Checkout" };
 export const dynamic = "force-dynamic";
 
-export default async function CheckoutPage({ params, searchParams }: {
+export default async function CheckoutPage({
+  params,
+  searchParams,
+}: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ sessionId?: string; redirectResult?: string }>;
 }) {
@@ -19,5 +22,10 @@ export default async function CheckoutPage({ params, searchParams }: {
     notFound();
   }
   const { sessionId, redirectResult } = await searchParams;
-  return <CheckoutPay initial={view} redirect={sessionId && redirectResult ? { sessionId, redirectResult } : undefined} />;
+  return (
+    <CheckoutPay
+      initial={view}
+      redirect={sessionId && redirectResult ? { sessionId, redirectResult } : undefined}
+    />
+  );
 }

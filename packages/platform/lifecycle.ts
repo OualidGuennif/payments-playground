@@ -278,8 +278,9 @@ export const PAYMENT_METHOD_CAPABILITIES: Record<string, LifecycleCapabilities> 
 };
 
 export function capabilitiesFor(paymentMethod: string | undefined): LifecycleCapabilities {
-  return PAYMENT_METHOD_CAPABILITIES[paymentMethod ?? "scheme"] ??
-    PAYMENT_METHOD_CAPABILITIES.scheme;
+  return (
+    PAYMENT_METHOD_CAPABILITIES[paymentMethod ?? "scheme"] ?? PAYMENT_METHOD_CAPABILITIES.scheme
+  );
 }
 
 /**
@@ -287,9 +288,7 @@ export function capabilitiesFor(paymentMethod: string | undefined): LifecycleCap
  * one. The latest attempt with any PSP reference could be a refusal, and
  * Adyen rejects a modification on a refused payment.
  */
-export function lifecycleSourceAttempt(
-  attempts: AttemptAggregate[],
-): AttemptAggregate | undefined {
+export function lifecycleSourceAttempt(attempts: AttemptAggregate[]): AttemptAggregate | undefined {
   return attempts.findLast((attempt) => attempt.state === "authorised" && attempt.pspReference);
 }
 
@@ -337,8 +336,7 @@ export function actionPermissions(
     if (capabilities.automaticCapture) {
       return {
         allowed: false,
-        reason:
-          `This merchant account captures ${name} on authorisation, so there is nothing to capture.`,
+        reason: `This merchant account captures ${name} on authorisation, so there is nothing to capture.`,
       };
     }
     if (ledger.cancelled) return { allowed: false, reason: "The authorisation was cancelled." };
@@ -360,11 +358,12 @@ export function actionPermissions(
       allowed: true,
       maxValue: capturable,
       partial: capabilities.partialCapture,
-      reason: captured > 0
-        ? "Another partial capture. It needs multiple partial captures enabled on the merchant account; without it, Adyen cancelled the rest after the first capture."
-        : capabilities.partialCapture
-        ? "Capture all of it, or part of it."
-        : `${name} is captured in full only.`,
+      reason:
+        captured > 0
+          ? "Another partial capture. It needs multiple partial captures enabled on the merchant account; without it, Adyen cancelled the rest after the first capture."
+          : capabilities.partialCapture
+            ? "Capture all of it, or part of it."
+            : `${name} is captured in full only.`,
     };
   })();
 
@@ -396,9 +395,9 @@ export function actionPermissions(
     if (captured === 0) {
       return ledger.capturePending > 0
         ? {
-          allowed: false,
-          reason: "Waiting for the CAPTURE webhook before anything can be refunded.",
-        }
+            allowed: false,
+            reason: "Waiting for the CAPTURE webhook before anything can be refunded.",
+          }
         : { allowed: false, reason: "Only captured payments can be refunded." };
     }
     if (refundable === 0) return { allowed: false, reason: "Everything captured is refunded." };

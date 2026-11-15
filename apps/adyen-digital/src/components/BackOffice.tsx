@@ -8,13 +8,7 @@ import {
   type Modification,
   type Permission,
 } from "./LifecyclePanel.tsx";
-import {
-  attemptStatus,
-  isAbandoned,
-  type LedgerLike,
-  orderStatus,
-  type Tone,
-} from "./status.ts";
+import { attemptStatus, isAbandoned, type LedgerLike, orderStatus, type Tone } from "./status.ts";
 import { Timeline, type TimelineEntry } from "./Timeline.tsx";
 import type { App } from "@/server/api";
 
@@ -91,7 +85,7 @@ const FLOW_NAMES: Record<string, string> = {
 
 function methodName(order: Order): string | undefined {
   const method = order.attempts.findLast((attempt) => attempt.paymentMethod)?.paymentMethod;
-  return method ? METHOD_NAMES[method] ?? method : undefined;
+  return method ? (METHOD_NAMES[method] ?? method) : undefined;
 }
 
 function relativeTime(iso: string): string {
@@ -158,7 +152,8 @@ export default function BackOffice() {
   useEffect(() => {
     refresh().catch((cause) => setError(cause instanceof Error ? cause.message : "Load failed."));
     // Named in the manual-capture warning; not a secret.
-    api().api.bootstrap.get()
+    api()
+      .api.bootstrap.get()
       .then((result) => setMerchantAccount(unwrap(result).profile?.merchantAccount))
       .catch(() => undefined);
     // Webhooks change orders behind the page's back: a capture becomes
@@ -173,15 +168,23 @@ export default function BackOffice() {
   const selectedSignature = selected ? `${selected.id}:${selected.updatedAt}` : "";
   useEffect(() => {
     if (!selectedId) return;
-    api().api.timeline({ correlationId: selectedId }).get()
+    api()
+      .api.timeline({ correlationId: selectedId })
+      .get()
       .then((result) => setTimeline(unwrap(result).entries as TimelineEntry[]))
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Timeline failed."));
   }, [selectedSignature, selectedId]);
 
   if (!orders) {
-    return error
-      ? <div className="notice notice--danger" role="alert">{error}</div>
-      : <p className="muted" aria-live="polite">Loading orders…</p>;
+    return error ? (
+      <div className="notice notice--danger" role="alert">
+        {error}
+      </div>
+    ) : (
+      <p className="muted" aria-live="polite">
+        Loading orders…
+      </p>
+    );
   }
 
   const abandoned = orders.filter(isAbandoned);
@@ -191,11 +194,12 @@ export default function BackOffice() {
   const visible = orders
     .filter((order) => showAbandoned || !isAbandoned(order) || order.id === selectedId)
     .filter((order) => matchesFilter(order, filter))
-    .filter((order) =>
-      !needle ||
-      order.reference.toLowerCase().includes(needle) ||
-      order.id.includes(needle) ||
-      order.attempts.some((attempt) => attempt.pspReference?.toLowerCase().includes(needle))
+    .filter(
+      (order) =>
+        !needle ||
+        order.reference.toLowerCase().includes(needle) ||
+        order.id.includes(needle) ||
+        order.attempts.some((attempt) => attempt.pspReference?.toLowerCase().includes(needle)),
     );
   const shown = visible.slice(0, limit);
 
@@ -255,12 +259,16 @@ export default function BackOffice() {
         </label>
       </div>
 
-      {error ? <div className="notice notice--danger" role="alert">{error}</div> : null}
+      {error ? (
+        <div className="notice notice--danger" role="alert">
+          {error}
+        </div>
+      ) : null}
 
       <div className={`bo-layout${selected ? " has-selection" : ""}`}>
         <section className="bo-list" aria-label="Orders">
-          {shown.length
-            ? shown.map((order) => {
+          {shown.length ? (
+            shown.map((order) => {
               const status = orderStatus(order);
               const method = methodName(order);
               return (
@@ -284,123 +292,123 @@ export default function BackOffice() {
                 </button>
               );
             })
-            : (
-              <p className="muted bo-empty">
-                {orders.length
-                  ? "No order matches these filters."
-                  : "No payment yet. Start one from the Checkout tab."}
-              </p>
-            )}
-          {visible.length > shown.length
-            ? (
-              <button
-                type="button"
-                className="text-button bo-more"
-                onClick={() => setLimit(limit + PAGE_SIZE)}
-              >
-                Show more ({visible.length - shown.length})
-              </button>
-            )
-            : null}
+          ) : (
+            <p className="muted bo-empty">
+              {orders.length
+                ? "No order matches these filters."
+                : "No payment yet. Start one from the Checkout tab."}
+            </p>
+          )}
+          {visible.length > shown.length ? (
+            <button
+              type="button"
+              className="text-button bo-more"
+              onClick={() => setLimit(limit + PAGE_SIZE)}
+            >
+              Show more ({visible.length - shown.length})
+            </button>
+          ) : null}
         </section>
 
-        {selected
-          ? (
-            <section className="bo-detail" aria-label="Order details">
-              <button type="button" className="text-button bo-back" onClick={() => setSelectedId(null)}>
-                ← All orders
-              </button>
-              {(() => {
-                const status = orderStatus(selected);
-                const amount = formatMinorAmount(selected.amount.value, selected.amount.currency);
-                return (
-                  <>
-                    <header className="bo-detail__head">
-                      <div>
-                        <span className="bo-detail__amount">{amount}</span>
-                        <Pill tone={status.tone}>{status.label}</Pill>
-                      </div>
-                      {status.detail ? <p>{status.detail}</p> : null}
-                    </header>
-
-                    <LifecyclePanel
-                      order={selected}
-                      methodName={METHOD_NAMES[selected.capabilities.paymentMethod] ??
-                        selected.capabilities.paymentMethod}
-                      merchantAccount={merchantAccount}
-                      onChanged={refresh}
-                    />
-
-                    <dl className="facts bo-facts">
-                      <dt>Reference</dt>
-                      <dd>
-                        <button
-                          type="button"
-                          className="text-button mono"
-                          onClick={() => copy(selected.reference)}
-                        >
-                          {copied === selected.reference ? "Copied" : selected.reference}
-                        </button>
-                      </dd>
-                      <dt>Flow</dt>
-                      <dd>{FLOW_NAMES[selected.flow] ?? selected.flow}</dd>
-                      <dt>Created</dt>
-                      <dd>{new Date(selected.createdAt).toLocaleString()}</dd>
-                    </dl>
-
-                    <div className="bo-section">
-                      <h3>Payment attempts</h3>
-                      {selected.attempts.length
-                        ? (
-                          <ul className="bo-attempts">
-                            {selected.attempts.map((attempt) => {
-                              const attemptState = attemptStatus(attempt.state);
-                              return (
-                                <li key={attempt.id}>
-                                  <span className="bo-attempts__main">
-                                    <strong>
-                                      {METHOD_NAMES[attempt.paymentMethod ?? ""] ??
-                                        attempt.paymentMethod ?? "Payment"}
-                                    </strong>
-                                    {attempt.pspReference
-                                      ? (
-                                        <button
-                                          type="button"
-                                          className="text-button mono"
-                                          onClick={() => copy(attempt.pspReference as string)}
-                                        >
-                                          {copied === attempt.pspReference
-                                            ? "Copied"
-                                            : attempt.pspReference}
-                                        </button>
-                                      )
-                                      : <span className="muted">No PSP reference yet</span>}
-                                    {attempt.refusalReason
-                                      ? <span className="muted">{attempt.refusalReason}</span>
-                                      : null}
-                                  </span>
-                                  <Pill tone={attemptState.tone}>{attemptState.label}</Pill>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )
-                        : <p className="muted">Nobody tried to pay this order.</p>}
+        {selected ? (
+          <section className="bo-detail" aria-label="Order details">
+            <button
+              type="button"
+              className="text-button bo-back"
+              onClick={() => setSelectedId(null)}
+            >
+              ← All orders
+            </button>
+            {(() => {
+              const status = orderStatus(selected);
+              const amount = formatMinorAmount(selected.amount.value, selected.amount.currency);
+              return (
+                <>
+                  <header className="bo-detail__head">
+                    <div>
+                      <span className="bo-detail__amount">{amount}</span>
+                      <Pill tone={status.tone}>{status.label}</Pill>
                     </div>
+                    {status.detail ? <p>{status.detail}</p> : null}
+                  </header>
 
-                    <div className="bo-section">
-                      <h3>Timeline</h3>
-                      <Timeline
-                        entries={timeline}
-                        empty="Nothing recorded for this order yet."
-                      />
-                    </div>
-                  </>
-                );
-              })()}
-            </section>
-          )
-          : null}
+                  <LifecyclePanel
+                    order={selected}
+                    methodName={
+                      METHOD_NAMES[selected.capabilities.paymentMethod] ??
+                      selected.capabilities.paymentMethod
+                    }
+                    merchantAccount={merchantAccount}
+                    onChanged={refresh}
+                  />
+
+                  <dl className="facts bo-facts">
+                    <dt>Reference</dt>
+                    <dd>
+                      <button
+                        type="button"
+                        className="text-button mono"
+                        onClick={() => copy(selected.reference)}
+                      >
+                        {copied === selected.reference ? "Copied" : selected.reference}
+                      </button>
+                    </dd>
+                    <dt>Flow</dt>
+                    <dd>{FLOW_NAMES[selected.flow] ?? selected.flow}</dd>
+                    <dt>Created</dt>
+                    <dd>{new Date(selected.createdAt).toLocaleString()}</dd>
+                  </dl>
+
+                  <div className="bo-section">
+                    <h3>Payment attempts</h3>
+                    {selected.attempts.length ? (
+                      <ul className="bo-attempts">
+                        {selected.attempts.map((attempt) => {
+                          const attemptState = attemptStatus(attempt.state);
+                          return (
+                            <li key={attempt.id}>
+                              <span className="bo-attempts__main">
+                                <strong>
+                                  {METHOD_NAMES[attempt.paymentMethod ?? ""] ??
+                                    attempt.paymentMethod ??
+                                    "Payment"}
+                                </strong>
+                                {attempt.pspReference ? (
+                                  <button
+                                    type="button"
+                                    className="text-button mono"
+                                    onClick={() => copy(attempt.pspReference as string)}
+                                  >
+                                    {copied === attempt.pspReference
+                                      ? "Copied"
+                                      : attempt.pspReference}
+                                  </button>
+                                ) : (
+                                  <span className="muted">No PSP reference yet</span>
+                                )}
+                                {attempt.refusalReason ? (
+                                  <span className="muted">{attempt.refusalReason}</span>
+                                ) : null}
+                              </span>
+                              <Pill tone={attemptState.tone}>{attemptState.label}</Pill>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p className="muted">Nobody tried to pay this order.</p>
+                    )}
+                  </div>
+
+                  <div className="bo-section">
+                    <h3>Timeline</h3>
+                    <Timeline entries={timeline} empty="Nothing recorded for this order yet." />
+                  </div>
+                </>
+              );
+            })()}
+          </section>
+        ) : null}
       </div>
     </div>
   );

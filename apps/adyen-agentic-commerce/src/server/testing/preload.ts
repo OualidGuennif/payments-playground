@@ -20,8 +20,12 @@ const { fake } = await import("./fake-adyen");
 mock.module("../adyen", () => ({
   ...real,
   storedCards: async () => fake.cards,
-  payWithSavedCard: async (input: Parameters<typeof real.payWithSavedCard>[0]) => fake.answer(input),
-  createSession: async (input: Parameters<typeof real.createSession>[0]) => ({ id: `CS_${input.reference}`, sessionData: "fake" }),
+  payWithSavedCard: async (input: Parameters<typeof real.payWithSavedCard>[0]) =>
+    fake.answer(input),
+  createSession: async (input: Parameters<typeof real.createSession>[0]) => ({
+    id: `CS_${input.reference}`,
+    sessionData: "fake",
+  }),
   sessionResult: async () => fake.session,
   forgetCard: async (id: string) => {
     fake.cards = fake.cards.filter((c) => c.storedPaymentMethodId !== id);

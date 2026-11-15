@@ -89,9 +89,10 @@ test("a request the API rejected is never pending", () => {
 });
 
 test("a capture made in the Customer Area still counts, from its webhook", () => {
-  const modifications = reconcile([], [
-    event({ eventCode: "CAPTURE", pspReference: "CAP-9", value: 10_000 }),
-  ]);
+  const modifications = reconcile(
+    [],
+    [event({ eventCode: "CAPTURE", pspReference: "CAP-9", value: 10_000 })],
+  );
   assertEquals(modifications[0].external, true);
   assertEquals(ledgerOf(10_000, modifications).captured, 10_000);
 });
@@ -99,12 +100,14 @@ test("a capture made in the Customer Area still counts, from its webhook", () =>
 test("an old request without its PSP reference takes the next event of its kind", () => {
   const modifications = reconcile(
     [request({ kind: "capture", createdAt: "2026-10-09T10:00:00.000Z" })],
-    [event({
-      eventCode: "CAPTURE",
-      pspReference: "CAP-1",
-      value: 10_000,
-      receivedAt: "2026-10-09T10:00:04.000Z",
-    })],
+    [
+      event({
+        eventCode: "CAPTURE",
+        pspReference: "CAP-1",
+        value: 10_000,
+        receivedAt: "2026-10-09T10:00:04.000Z",
+      }),
+    ],
   );
   assertEquals(modifications.length, 1);
   assertEquals(modifications[0].status, "succeeded");

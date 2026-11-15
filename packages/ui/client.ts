@@ -4,9 +4,11 @@ import type { Elysia } from "elysia";
 
 export function readCookie(name: string): string | undefined {
   if (typeof document === "undefined") return undefined;
-  return document.cookie.split(";").map((value) => value.trim()).find((value) =>
-    value.startsWith(`${name}=`)
-  )?.slice(name.length + 1);
+  return document.cookie
+    .split(";")
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(`${name}=`))
+    ?.slice(name.length + 1);
 }
 
 export async function apiFetch<T>(

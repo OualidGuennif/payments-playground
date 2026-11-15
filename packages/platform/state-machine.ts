@@ -74,33 +74,33 @@ export function resolveOrder(input: OrderResolutionInput, now = new Date()): Ord
   if (input.modificationWebhook?.success) {
     return input.modificationWebhook.kind === "capture"
       ? {
-        state: "paid",
-        paidValue,
-        terminal: true,
-        reason: "CAPTURE success=true: the authorised amount is captured.",
-      }
+          state: "paid",
+          paidValue,
+          terminal: true,
+          reason: "CAPTURE success=true: the authorised amount is captured.",
+        }
       : {
-        state: "cancelled",
-        paidValue,
-        terminal: true,
-        reason: "CANCELLATION success=true: the authorisation is released.",
-      };
+          state: "cancelled",
+          paidValue,
+          terminal: true,
+          reason: "CANCELLATION success=true: the authorisation is released.",
+        };
   }
 
   if (input.orderClosedWebhook) {
     return input.orderClosedWebhook.success
       ? {
-        state: "paid",
-        paidValue,
-        terminal: true,
-        reason: "ORDER_CLOSED success=true is the authoritative terminal event.",
-      }
+          state: "paid",
+          paidValue,
+          terminal: true,
+          reason: "ORDER_CLOSED success=true is the authoritative terminal event.",
+        }
       : {
-        state: "cancelled",
-        paidValue,
-        terminal: true,
-        reason: "ORDER_CLOSED success=false closed the partial payment order.",
-      };
+          state: "cancelled",
+          paidValue,
+          terminal: true,
+          reason: "ORDER_CLOSED success=false closed the partial payment order.",
+        };
   }
 
   if (input.linkStatus === "completed" && paidValue >= input.totalValue) {

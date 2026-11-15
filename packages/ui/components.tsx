@@ -12,24 +12,20 @@ interface TestDataLink {
 
 const TEST_DATA_LINKS: TestDataLink[] = [
   {
-    href:
-      "https://chromewebstore.google.com/detail/adyen-test-cards/icllkfleeahmemjgoibajcmeoehkeoag",
+    href: "https://chromewebstore.google.com/detail/adyen-test-cards/icllkfleeahmemjgoibajcmeoehkeoag",
     label: "Card dataset (Chrome extension)",
     needsExtensions: true,
   },
   {
-    href:
-      "https://docs.adyen.com/development-resources/test-cards-and-credentials/test-card-numbers",
+    href: "https://docs.adyen.com/development-resources/test-cards-and-credentials/test-card-numbers",
     label: "Card dataset (Adyen docs)",
   },
   {
-    href:
-      "https://docs.adyen.com/development-resources/test-cards-and-credentials/alternative-payment-method-credentials",
+    href: "https://docs.adyen.com/development-resources/test-cards-and-credentials/alternative-payment-method-credentials",
     label: "Alt. payment dataset (Adyen docs)",
   },
   {
-    href:
-      "https://docs.klarna.com/resources/developer-tools/sample-data/sample-customer-data/#all-countries",
+    href: "https://docs.klarna.com/resources/developer-tools/sample-data/sample-customer-data/#all-countries",
     label: "Klarna dataset (phone numbers)",
   },
 ];
@@ -80,11 +76,10 @@ export function DisclaimerPage(props: { appName: string; repositoryUrl?: string 
     <article className="legal">
       <h1>Disclaimer</h1>
       <p className="legal__lede">
-        <strong>{props.appName}</strong>{" "}
-        is a playground for exploring and testing Adyen integrations against the Adyen{" "}
-        <strong>TEST</strong>{" "}
-        environment. It is not a product, not a reference or certified integration, and it is not
-        intended to be deployed to production as it stands.
+        <strong>{props.appName}</strong> is a playground for exploring and testing Adyen
+        integrations against the Adyen <strong>TEST</strong> environment. It is not a product, not a
+        reference or certified integration, and it is not intended to be deployed to production as
+        it stands.
       </p>
 
       <h2>No real money, no real cards</h2>
@@ -124,22 +119,19 @@ export function DisclaimerPage(props: { appName: string; repositoryUrl?: string 
 
       <h2>No warranty, no liability</h2>
       <p>
-        Provided{" "}
-        <strong>as is</strong>, without warranty of any kind, under the MIT Licence. The authors
-        accept no liability for any claim, damage, financial loss, chargeback, outage, regulatory
-        penalty or other consequence arising from its use, in test or in production.
+        Provided <strong>as is</strong>, without warranty of any kind, under the MIT Licence. The
+        authors accept no liability for any claim, damage, financial loss, chargeback, outage,
+        regulatory penalty or other consequence arising from its use, in test or in production.
       </p>
 
-      {props.repositoryUrl
-        ? (
-          <p className="legal__source">
-            Source and full terms:{" "}
-            <a href={props.repositoryUrl} target="_blank" rel="noopener noreferrer">
-              {props.repositoryUrl.replace(/^https?:\/\//, "")}
-            </a>
-          </p>
-        )
-        : null}
+      {props.repositoryUrl ? (
+        <p className="legal__source">
+          Source and full terms:{" "}
+          <a href={props.repositoryUrl} target="_blank" rel="noopener noreferrer">
+            {props.repositoryUrl.replace(/^https?:\/\//, "")}
+          </a>
+        </p>
+      ) : null}
     </article>
   );
 }
@@ -251,78 +243,94 @@ export function AppShell(props: {
    */
   minimal?: boolean;
 }) {
-  const current = (href: string) => props.currentPath === href ? "page" : undefined;
+  const current = (href: string) => (props.currentPath === href ? "page" : undefined);
   return (
     <>
-      <a className="skip-link" href="#main-content">Skip to content</a>
-      {props.minimal
-        ? <MinimalHeader currentPath={props.currentPath} />
-        : (
-          <header className="shell-header">
-            <div className="shell-header__bar">
-              <div className="shell-header__start">
-                <a className="brand" href="/" aria-label={props.title}>
-                  <PlaygroundWordmark label={props.title} />
-                </a>
-                <TestPill />
-              </div>
-              <nav className="shell-nav" aria-label="Main navigation">
-                {NAV.map((item) => (
-                  <a key={item.href} href={item.href} aria-current={current(item.href)}>
-                    {item.label}
-                  </a>
-                ))}
-              </nav>
-              <div className="shell-header__actions">
-                <TestDataAndTools />
-                <ThemeToggle />
-                <a
-                  className="shell-icon-button shell-settings"
-                  href="/settings"
-                  aria-label="Settings"
-                  title="Settings"
-                  aria-current={current("/settings")}
-                >
-                  <GearIcon />
-                </a>
-                <details className="shell-menu">
-                  <summary className="shell-icon-button" aria-label="Menu">
-                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                      <path
-                        d="M4 8h16M4 16h16"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </summary>
-                  <nav className="shell-menu__sheet" aria-label="Menu">
-                    {NAV.map((item) => (
-                      <a key={item.href} href={item.href} aria-current={current(item.href)}>
-                        {item.label}
-                      </a>
-                    ))}
-                    <a href="/settings" aria-current={current("/settings")}>Settings</a>
-                    <a href="/wiki" aria-current={current("/wiki")}>Wiki</a>
-                    <a href={DOCS_URL} target="_blank" rel="noopener noreferrer">Adyen docs ↗</a>
-                  </nav>
-                </details>
-              </div>
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+      {props.minimal ? (
+        <MinimalHeader currentPath={props.currentPath} />
+      ) : (
+        <header className="shell-header">
+          <div className="shell-header__bar">
+            <div className="shell-header__start">
+              <a className="brand" href="/" aria-label={props.title}>
+                <PlaygroundWordmark label={props.title} />
+              </a>
+              <TestPill />
             </div>
-          </header>
-        )}
+            <nav className="shell-nav" aria-label="Main navigation">
+              {NAV.map((item) => (
+                <a key={item.href} href={item.href} aria-current={current(item.href)}>
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+            <div className="shell-header__actions">
+              <TestDataAndTools />
+              <ThemeToggle />
+              <a
+                className="shell-icon-button shell-settings"
+                href="/settings"
+                aria-label="Settings"
+                title="Settings"
+                aria-current={current("/settings")}
+              >
+                <GearIcon />
+              </a>
+              <details className="shell-menu">
+                <summary className="shell-icon-button" aria-label="Menu">
+                  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                    <path
+                      d="M4 8h16M4 16h16"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </summary>
+                <nav className="shell-menu__sheet" aria-label="Menu">
+                  {NAV.map((item) => (
+                    <a key={item.href} href={item.href} aria-current={current(item.href)}>
+                      {item.label}
+                    </a>
+                  ))}
+                  <a href="/settings" aria-current={current("/settings")}>
+                    Settings
+                  </a>
+                  <a href="/wiki" aria-current={current("/wiki")}>
+                    Wiki
+                  </a>
+                  <a href={DOCS_URL} target="_blank" rel="noopener noreferrer">
+                    Adyen docs ↗
+                  </a>
+                </nav>
+              </details>
+            </div>
+          </div>
+        </header>
+      )}
       <div className={props.compact ? "app-frame app-frame--compact" : "app-frame"}>
         <div className="app-content">
-          <main id="main-content" tabIndex={-1}>{props.children}</main>
+          <main id="main-content" tabIndex={-1}>
+            {props.children}
+          </main>
           <footer className={props.minimal ? "app-footer app-footer--wide" : "app-footer"}>
             <span className="app-footer__meta">
               {props.minimal ? <TestPill /> : null}
               Adyen Web 6.48.1 · Checkout API v72
             </span>
             <nav className="app-footer__links" aria-label="Footer">
-              <a href="/wiki" aria-current={current("/wiki")}>Wiki</a>
-              <a href={DOCS_URL} target="_blank" rel="noopener noreferrer">Adyen docs ↗</a>
-              <a href="/disclaimer" aria-current={current("/disclaimer")}>Disclaimer</a>
+              <a href="/wiki" aria-current={current("/wiki")}>
+                Wiki
+              </a>
+              <a href={DOCS_URL} target="_blank" rel="noopener noreferrer">
+                Adyen docs ↗
+              </a>
+              <a href="/disclaimer" aria-current={current("/disclaimer")}>
+                Disclaimer
+              </a>
             </nav>
           </footer>
         </div>
@@ -335,21 +343,21 @@ function MinimalHeader(props: { currentPath: string }) {
   return (
     <header className="shell-header shell-header--minimal">
       <div className="shell-float">
-        {props.currentPath === "/"
-          ? <span />
-          : (
-            <nav className="shell-glass shell-nav" aria-label="Main navigation">
-              {NAV.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  aria-current={props.currentPath === item.href ? "page" : undefined}
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-          )}
+        {props.currentPath === "/" ? (
+          <span />
+        ) : (
+          <nav className="shell-glass shell-nav" aria-label="Main navigation">
+            {NAV.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                aria-current={props.currentPath === item.href ? "page" : undefined}
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        )}
         <div className="shell-glass">
           <ThemeToggle />
           <a
@@ -389,18 +397,17 @@ export function StatusPill(props: {
   children: ReactNode;
   tone?: "neutral" | "positive" | "warning" | "danger" | "info";
 }) {
-  return <span className={`status-pill status-pill--${props.tone ?? "neutral"}`}>{props.children}
-  </span>;
+  return (
+    <span className={`status-pill status-pill--${props.tone ?? "neutral"}`}>{props.children}</span>
+  );
 }
 
-export function EmptyState(props: {
-  title: string;
-  description: string;
-  children?: ReactNode;
-}) {
+export function EmptyState(props: { title: string; description: string; children?: ReactNode }) {
   return (
     <div className="empty-state">
-      <span className="empty-state__icon" aria-hidden="true">◎</span>
+      <span className="empty-state__icon" aria-hidden="true">
+        ◎
+      </span>
       <h2>{props.title}</h2>
       <p>{props.description}</p>
       {props.children}
@@ -430,9 +437,12 @@ const HEX_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 // reflects the live color (not some unrelated default) and only pushes
 // upstream once the typed value is a valid hex, so a half-typed value doesn't
 // blank out the swatch.
-export function ColorField(
-  props: { label: string; htmlFor: string; value: string; onChange: (value: string) => void },
-) {
+export function ColorField(props: {
+  label: string;
+  htmlFor: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
   const [text, setText] = useState(props.value);
   useEffect(() => setText(props.value), [props.value]);
   return (

@@ -25,5 +25,9 @@ const LABEL: Record<string, string> = {
 // Unknown states stay neutral: they never read as success.
 export function StatusPill({ status }: { status: string }) {
   const label = LABEL[status] ?? status.replaceAll("_", " ").toLowerCase();
-  return <span className={`pill ${TONE[status] ?? "border-line text-muted"}`} title={status}>{label}</span>;
+  return (
+    <span className={`pill ${TONE[status] ?? "border-line text-muted"}`} title={status}>
+      {label}
+    </span>
+  );
 }

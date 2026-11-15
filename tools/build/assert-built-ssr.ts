@@ -5,7 +5,9 @@ import { pageFailures, startStandalone } from "./standalone.ts";
 
 const [appDirectory, expectedText, portArgument] = process.argv.slice(2);
 if (!appDirectory || !expectedText) {
-  throw new Error("Usage: bun tools/build/assert-built-ssr.ts <app-directory> <expected-text> [port]");
+  throw new Error(
+    "Usage: bun tools/build/assert-built-ssr.ts <app-directory> <expected-text> [port]",
+  );
 }
 
 // Build-time checks never touch persistent application storage.

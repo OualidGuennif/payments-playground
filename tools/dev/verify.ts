@@ -32,11 +32,13 @@ const servers: Standalone[] = [];
 
 try {
   servers.push(
-    ...await Promise.all(targets.map((target) =>
-      startStandalone(target.directory, target.port, {
-        PUBLIC_ORIGIN: `http://127.0.0.1:${target.port}`,
-        DATABASE_PATH: join(temporaryData, `${target.name}.sqlite`),
-      })
+    ...(await Promise.all(
+      targets.map((target) =>
+        startStandalone(target.directory, target.port, {
+          PUBLIC_ORIGIN: `http://127.0.0.1:${target.port}`,
+          DATABASE_PATH: join(temporaryData, `${target.name}.sqlite`),
+        }),
+      ),
     )),
   );
   for (const [index, target] of targets.entries()) {

@@ -33,21 +33,23 @@ export default function WikiPage() {
       </Callout>
       <div className="wiki-layout">
         <nav className="wiki-toc" aria-label="Wiki contents">
-          {sections.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}
+          {sections.map(([id, label]) => (
+            <a key={id} href={`#${id}`}>
+              {label}
+            </a>
+          ))}
         </nav>
         <article className="wiki-content">
           <section id="sessions">
             <h2>Sessions Flow</h2>
             <p>
               Create a <code>POST /sessions</code> request on the server and pass only the returned
-              <code>id</code> and <code>sessionData</code>{" "}
-              to Adyen Web. The final outcome is asynchronous and must be reconciled from the
-              AUTHORISATION webhook.
+              <code>id</code> and <code>sessionData</code> to Adyen Web. The final outcome is
+              asynchronous and must be reconciled from the AUTHORISATION webhook.
             </p>
             <p>
-              Move the shopper to the confirmation page on <code>onPaymentCompleted</code>{" "}
-              and let the webhook be the only source of truth for the order. This playground never
-              calls{" "}
+              Move the shopper to the confirmation page on <code>onPaymentCompleted</code> and let
+              the webhook be the only source of truth for the order. This playground never calls{" "}
               <code>GET /sessions/{"{id}"}</code>: Adyen documents that the status it returns is not
               updated, so it must not be polled for the payment's outcome.
             </p>
@@ -62,8 +64,7 @@ export default function WikiPage() {
             <p>
               The browser calls your backend for <code>/paymentMethods</code>,{" "}
               <code>/payments</code>
-              and{" "}
-              <code>/payments/details</code>. The component callback resolves with the backend
+              and <code>/payments/details</code>. The component callback resolves with the backend
               response so Adyen Web can handle redirects, 3DS2 or QR/voucher actions.
             </p>
             <p>
@@ -76,22 +77,20 @@ export default function WikiPage() {
             <p>
               Core callbacks include <code>onSubmit</code>, <code>onAdditionalDetails</code>,
               <code>onPaymentCompleted</code>, <code>onPaymentFailed</code>, <code>onError</code>,
-              <code>onChange</code>{" "}
-              and payment-method-specific events. This playground records chronological, sanitized
-              snapshots. Encrypted fields, sessionData and card data are redacted.
+              <code>onChange</code> and payment-method-specific events. This playground records
+              chronological, sanitized snapshots. Encrypted fields, sessionData and card data are
+              redacted.
             </p>
             <p>
-              Adyen Web 6.41.0 added healthcare data to{" "}
-              <code>onBinLookup</code>, validated an invalid
-              <code>threeDSNotificationURL</code>{" "}
-              in challenge tokens, tightened the TypeScript callback types, and fixed{" "}
-              <code>aria-checked</code> when
+              Adyen Web 6.41.0 added healthcare data to <code>onBinLookup</code>, validated an
+              invalid
+              <code>threeDSNotificationURL</code> in challenge tokens, tightened the TypeScript
+              callback types, and fixed <code>aria-checked</code> when
               <code>openFirstPaymentMethod=false</code>. Up to 6.46.0 it then let the 3DS2 iframe
-              run WebAuthn and SPC challenges, added a Sessions <code>onReview</code>{" "}
-              callback, kept a Drop-in method's state when another is selected, and allowed a
-              disclaimer above the Pay button. 6.47.0 shows a failed gift card balance check to the
-              shopper instead of failing silently, and warns when several checkouts are created on
-              one page.
+              run WebAuthn and SPC challenges, added a Sessions <code>onReview</code> callback, kept
+              a Drop-in method's state when another is selected, and allowed a disclaimer above the
+              Pay button. 6.47.0 shows a failed gift card balance check to the shopper instead of
+              failing silently, and warns when several checkouts are created on one page.
             </p>
           </section>
           <section id="webhooks">
@@ -158,32 +157,29 @@ export default function WikiPage() {
               From Adyen's feature table on{" "}
               <a href={CAPABILITIES_SOURCE} target="_blank" rel="noopener noreferrer">
                 docs.adyen.com/payment-methods
-              </a>, checked{" "}
-              {CAPABILITIES_REVIEWED_ON}. Re-checked every three months
+              </a>
+              , checked {CAPABILITIES_REVIEWED_ON}. Re-checked every three months
               (packages/platform/lifecycle.ts).
             </p>
             <ul>
               <li>
-                <strong>Multiple partial captures</strong>{" "}
-                also need Adyen Support to enable them on the merchant account. Without that, a
-                partial capture is the only one: Adyen cancels what is left.
+                <strong>Multiple partial captures</strong> also need Adyen Support to enable them on
+                the merchant account. Without that, a partial capture is the only one: Adyen cancels
+                what is left.
               </li>
               <li>
-                <strong>Refunds</strong>{" "}
-                apply to what is captured, and their total never exceeds it. Cancel releases an
-                authorisation nothing was captured from.
+                <strong>Refunds</strong> apply to what is captured, and their total never exceeds
+                it. Cancel releases an authorisation nothing was captured from.
               </li>
               <li>
                 <strong>Every modification is asynchronous.</strong> <code>/captures</code>,{" "}
-                <code>/cancels</code> and <code>/refunds</code> answer{" "}
-                <code>received</code>; the CAPTURE, CANCELLATION and REFUND webhooks are the
-                outcome, and CAPTURE_FAILED, REFUND_FAILED or REFUNDED_REVERSED can overturn a
-                success days later. The Back Office keeps a button disabled while its webhook is
-                awaited.
+                <code>/cancels</code> and <code>/refunds</code> answer <code>received</code>; the
+                CAPTURE, CANCELLATION and REFUND webhooks are the outcome, and CAPTURE_FAILED,
+                REFUND_FAILED or REFUNDED_REVERSED can overturn a success days later. The Back
+                Office keeps a button disabled while its webhook is awaited.
               </li>
               <li>
-                <strong>Idempotency.</strong> Each request carries an <code>Idempotency-Key</code>
-                {" "}
+                <strong>Idempotency.</strong> Each request carries an <code>Idempotency-Key</code>{" "}
                 (a UUID v4, at most 64 characters) minted for that intent and reused on a retry.
                 Adyen keeps keys 7 to 14 days and answers a repeat with the first response; a repeat
                 still in flight gets HTTP 409 or 422 with error code 704.
@@ -193,31 +189,28 @@ export default function WikiPage() {
           <section id="partial">
             <h2>Partial payments and multiple attempts</h2>
             <p>
-              Checkout <code>/orders</code>{" "}
-              combines tenders such as a gift card followed by card. A remaining amount of zero is
-              not sufficient to close: wait for all payments to reach final status and for{" "}
-              <code>ORDER_CLOSED success=true</code>. Expired or manually cancelled orders close
-              with <code>success=false</code>.
+              Checkout <code>/orders</code> combines tenders such as a gift card followed by card. A
+              remaining amount of zero is not sufficient to close: wait for all payments to reach
+              final status and for <code>ORDER_CLOSED success=true</code>. Expired or manually
+              cancelled orders close with <code>success=false</code>.
             </p>
             <p>
-              <strong>Sessions.</strong>{" "}
-              Adyen Web checks the gift card balance, creates the order and pays into it on its own.
-              The merchant implements <code>onOrderUpdated</code>{" "}
-              in the AdyenCheckout configuration: show what is paid and what is left and, with
+              <strong>Sessions.</strong> Adyen Web checks the gift card balance, creates the order
+              and pays into it on its own. The merchant implements <code>onOrderUpdated</code> in
+              the AdyenCheckout configuration: show what is paid and what is left and, with
               Components, mount the next component (a card). The checkout already carries the order,
-              so that component charges only the rest; <code>onPaymentCompleted</code>{" "}
-              fires once nothing is left. Drop-in does all of this itself.
+              so that component charges only the rest; <code>onPaymentCompleted</code> fires once
+              nothing is left. Drop-in does all of this itself.
             </p>
             <p>
               <strong>Advanced.</strong> The merchant's server does that work:{" "}
               <code>onBalanceCheck</code> calls <code>/paymentMethods/balance</code>,{" "}
               <code>onOrderRequest</code> calls <code>/orders</code>, and each{" "}
-              <code>/payments</code> carries the <code>order</code>{" "}
-              and its share of it: the gift card pays what its balance covers, the next method the
-              rest. Without{" "}
+              <code>/payments</code> carries the <code>order</code> and its share of it: the gift
+              card pays what its balance covers, the next method the rest. Without{" "}
               <code>onBalanceCheck</code>, Adyen Web submits the gift card for the whole amount and
-              Adyen refuses it ("Not enough balance"). <code>onPaymentMethodsRequest</code>{" "}
-              lists the methods for what is left, <code>onOrderCancel</code> calls{" "}
+              Adyen refuses it ("Not enough balance"). <code>onPaymentMethodsRequest</code> lists
+              the methods for what is left, <code>onOrderCancel</code> calls{" "}
               <code>/orders/cancel</code> when the shopper removes a paid gift card in Drop-in.
             </p>
           </section>

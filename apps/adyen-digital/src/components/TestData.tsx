@@ -16,13 +16,11 @@ const CARDS = [
 
 const LINKS = [
   {
-    href:
-      "https://docs.adyen.com/development-resources/test-cards-and-credentials/test-card-numbers",
+    href: "https://docs.adyen.com/development-resources/test-cards-and-credentials/test-card-numbers",
     label: "All test card numbers",
   },
   {
-    href:
-      "https://docs.adyen.com/development-resources/test-cards-and-credentials/alternative-payment-method-credentials",
+    href: "https://docs.adyen.com/development-resources/test-cards-and-credentials/alternative-payment-method-credentials",
     label: "Alternative payment method credentials",
   },
   { href: KLARNA_DOCS, label: "Klarna sample shoppers" },
@@ -79,19 +77,21 @@ export function TestData() {
             </span>
             <span className="copy-row__side">
               {method.detail ? <span>{method.detail}</span> : null}
-              <span className="copy-row__action">{copied === method.value ? "Copied" : "Copy"}</span>
+              <span className="copy-row__action">
+                {copied === method.value ? "Copied" : "Copy"}
+              </span>
             </span>
           </button>
         ))}
       </div>
-      <p className="sheet__note">
-        Apple Pay and PayPal need your own sandbox accounts.
-      </p>
+      <p className="sheet__note">Apple Pay and PayPal need your own sandbox accounts.</p>
       <h3>References</h3>
       <ul className="link-list">
         {LINKS.map((link) => (
           <li key={link.href}>
-            <a href={link.href} target="_blank" rel="noopener noreferrer">{link.label} ↗</a>
+            <a href={link.href} target="_blank" rel="noopener noreferrer">
+              {link.label} ↗
+            </a>
           </li>
         ))}
       </ul>

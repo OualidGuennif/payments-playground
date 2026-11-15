@@ -144,9 +144,7 @@ export function isSupportedMarket(countryCode: string): boolean {
 
 /** Converts a major (human-readable) amount to Adyen minor units. */
 export function toMinorUnits(major: number, currency: string): number {
-  return Math.round(
-    ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase()) ? major : major * 100,
-  );
+  return Math.round(ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase()) ? major : major * 100);
 }
 
 /** Default order amount for a currency, in Adyen minor units. */

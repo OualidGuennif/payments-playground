@@ -29,8 +29,8 @@ function readEnvFile(path: string): Record<string, string> {
  * wrapped in quotes and got 401s. No credential here is quoted.
  */
 export function unquoteEnvValue(value: string): string {
-  const quoted = value.length >= 2 && (value[0] === '"' || value[0] === "'") &&
-    value.at(-1) === value[0];
+  const quoted =
+    value.length >= 2 && (value[0] === '"' || value[0] === "'") && value.at(-1) === value[0];
   return quoted ? value.slice(1, -1) : value;
 }
 
@@ -89,7 +89,7 @@ const EPHEMERAL = Symbol.for("suite.platform.ephemeralSigningSecrets");
 
 function ephemeralSecret(appId: AppId): string {
   const store = globalThis as typeof globalThis & { [EPHEMERAL]?: Map<AppId, string> };
-  const secrets = store[EPHEMERAL] ??= new Map();
+  const secrets = (store[EPHEMERAL] ??= new Map());
   let secret = secrets.get(appId);
   if (!secret) {
     secret = `ephemeral-${appId}-${crypto.randomUUID()}`;

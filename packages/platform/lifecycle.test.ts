@@ -137,9 +137,14 @@ test("a manually captured card still needs its CAPTURE before a refund", () => {
 });
 
 test("methods with separate capture follow the account's manual capture", () => {
-  for (
-    const method of ["googlepay", "applepay", "klarna_account", "alma", "facilypay_3x", "ancv"]
-  ) {
+  for (const method of [
+    "googlepay",
+    "applepay",
+    "klarna_account",
+    "alma",
+    "facilypay_3x",
+    "ancv",
+  ]) {
     const permissions = actionPermissions("payment_pending", method, ledger());
     assertEquals(permissions.capture.allowed, true, method);
     assertEquals(permissions.cancel.allowed, true, method);

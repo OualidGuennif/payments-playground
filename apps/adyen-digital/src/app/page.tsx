@@ -2,9 +2,7 @@ import type { ReactNode } from "react";
 import { type FlowInfo, FLOWS } from "@/components/flows.ts";
 import { DigitalLayout } from "@/components/Layout.tsx";
 
-function Card(
-  props: { href: string; title: string; children: ReactNode; badge?: string },
-) {
+function Card(props: { href: string; title: string; children: ReactNode; badge?: string }) {
   return (
     <a className="home-card" href={props.href}>
       <span className="home-card__body">
@@ -14,7 +12,9 @@ function Card(
         </span>
         <span className="home-card__text">{props.children}</span>
       </span>
-      <span className="home-card__arrow" aria-hidden="true">→</span>
+      <span className="home-card__arrow" aria-hidden="true">
+        →
+      </span>
     </a>
   );
 }

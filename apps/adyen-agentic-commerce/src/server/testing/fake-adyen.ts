@@ -4,7 +4,11 @@
 import type { AgentPayment, StoredCard } from "../adyen";
 
 type PaymentAnswer = { resultCode: string; pspReference?: string; refusalReason?: string } | Error;
-type SessionAnswer = { status: string; reference?: string; payments: { resultCode: string; pspReference?: string }[] };
+type SessionAnswer = {
+  status: string;
+  reference?: string;
+  payments: { resultCode: string; pspReference?: string }[];
+};
 const NO_PAYMENT: SessionAnswer = { status: "completed", payments: [] };
 
 const VISA: StoredCard = {
@@ -29,7 +33,10 @@ export const fake = {
   },
   answer(input: AgentPayment) {
     this.payments.push(input);
-    const next = this.answers.shift() ?? { resultCode: "Authorised", pspReference: `PSP${this.payments.length}` };
+    const next = this.answers.shift() ?? {
+      resultCode: "Authorised",
+      pspReference: `PSP${this.payments.length}`,
+    };
     if (next instanceof Error) throw next;
     return { refusalReasonCode: undefined, ...next };
   },

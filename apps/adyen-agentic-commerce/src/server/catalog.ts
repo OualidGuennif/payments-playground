@@ -224,7 +224,7 @@ export function variantsOf(product: Product): Variant[] {
         price: product.price,
         available: !(product.soldOut ?? []).includes(id),
       };
-    })
+    }),
   );
 }
 
@@ -242,8 +242,15 @@ export function searchProducts(
   return PRODUCTS.filter((p) => {
     if (filters.category && p.category !== filters.category) return false;
     if (filters.maxPrice !== undefined && p.price > filters.maxPrice) return false;
-    const haystack = [p.title, p.description, p.category, ...p.tags, ...p.colours.map((x) => x.label)]
-      .join(" ").toLowerCase();
+    const haystack = [
+      p.title,
+      p.description,
+      p.category,
+      ...p.tags,
+      ...p.colours.map((x) => x.label),
+    ]
+      .join(" ")
+      .toLowerCase();
     return words.every((w) => haystack.includes(w) || haystack.includes(w.replace(/s$/, "")));
   });
 }

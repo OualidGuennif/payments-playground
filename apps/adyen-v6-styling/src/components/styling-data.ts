@@ -91,13 +91,17 @@ export const LOCALES = [
 // The market selector keeps the most-used markets on top, where you pick one
 // country. This list is the opposite job, finding a country among all of
 // them, so it is alphabetical.
-export const COUNTRY_ITEMS: [string, string][] = COUNTRIES
-  .map(([code, name]): [string, string] => [code, name])
-  .sort((a, b) => a[1].localeCompare(b[1]));
+export const COUNTRY_ITEMS: [string, string][] = COUNTRIES.map(([code, name]): [string, string] => [
+  code,
+  name,
+]).sort((a, b) => a[1].localeCompare(b[1]));
 
 export function flagEmoji(countryCode: string): string {
   return String.fromCodePoint(
-    ...countryCode.toUpperCase().split("").map((letter) => 127397 + letter.charCodeAt(0)),
+    ...countryCode
+      .toUpperCase()
+      .split("")
+      .map((letter) => 127397 + letter.charCodeAt(0)),
   );
 }
 
@@ -157,10 +161,11 @@ export function cardDefaultsFor(country: string): CardOptions {
 // between them and the section they came for.
 export const DEFAULT_OPEN_GROUPS: Record<string, boolean> = {};
 
-export const PLACEHOLDERS_HINT = "placeholders, Adyen ships localised placeholders; anything " +
-  "set here replaces them.";
+export const PLACEHOLDERS_HINT =
+  "placeholders, Adyen ships localised placeholders; anything " + "set here replaces them.";
 
-export const RULES_HINT = "Not recommended. No design token covers these, so they reach into " +
+export const RULES_HINT =
+  "Not recommended. No design token covers these, so they reach into " +
   "Adyen's own class names, private API that can be renamed in any release, with no " +
   "warning and no deprecation. A checkout styled this way can break on an SDK upgrade. " +
   "Use the theme tokens above wherever one exists.";

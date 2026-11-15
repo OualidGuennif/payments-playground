@@ -50,9 +50,7 @@ function outcomeFromAttempts(attempts: Attempt[]): PaymentOutcome | null {
   };
 }
 
-export default function RedirectReturn(
-  props: { orderId: string; redirectResult: string | null },
-) {
+export default function RedirectReturn(props: { orderId: string; redirectResult: string | null }) {
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [outcome, setOutcome] = useState<PaymentOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +114,9 @@ export default function RedirectReturn(
   if (error) {
     return (
       <div className="return-card">
-        <div className="notice notice--danger" role="alert">{error}</div>
+        <div className="notice notice--danger" role="alert">
+          {error}
+        </div>
         <a className="button button--secondary" href={`/back-office?orderId=${props.orderId}`}>
           Open in Back Office
         </a>

@@ -74,28 +74,23 @@ const CALLBACK_CATALOG: Record<string, { rank: CallbackRank; hint: string }> = {
   },
   onBalanceCheck: {
     rank: "required",
-    hint:
-      "Advanced partial payments: check the gift card with /paymentMethods/balance and resolve with the response. Sessions does it for you.",
+    hint: "Advanced partial payments: check the gift card with /paymentMethods/balance and resolve with the response. Sessions does it for you.",
   },
   onOrderRequest: {
     rank: "required",
-    hint:
-      "Advanced partial payments: create the order via /orders and resolve with it. Sessions does it for you.",
+    hint: "Advanced partial payments: create the order via /orders and resolve with it. Sessions does it for you.",
   },
   onOrderUpdated: {
     rank: "required",
-    hint:
-      "Part of the order is paid. Show what is left and, with Components, mount the next method: it charges only the rest.",
+    hint: "Part of the order is paid. Show what is left and, with Components, mount the next method: it charges only the rest.",
   },
   onOrderCancel: {
     rank: "recommended",
-    hint:
-      "Advanced: the shopper removed a paid gift card in Drop-in. Cancel via /orders/cancel, resolve with the full amount.",
+    hint: "Advanced: the shopper removed a paid gift card in Drop-in. Cancel via /orders/cancel, resolve with the full amount.",
   },
   onPaymentMethodsRequest: {
     rank: "optional",
-    hint:
-      "Advanced: after a partial payment, /paymentMethods with the order lists what can pay the rest.",
+    hint: "Advanced: after a partial payment, /paymentMethods with the order lists what can pay the rest.",
   },
   onError: {
     rank: "recommended",
@@ -172,8 +167,10 @@ function describe(entry: TimelineEntry, source: Source, changes: Change[] | null
     const api = entry.payload as { response?: unknown; error?: string };
     const code = Number(entry.status);
     const failed = Boolean(api?.error) || code >= 400;
-    const outcome = text(field(api?.response, "resultCode")) ??
-      text(field(api?.response, "status")) ?? (failed ? api?.error : undefined);
+    const outcome =
+      text(field(api?.response, "resultCode")) ??
+      text(field(api?.response, "status")) ??
+      (failed ? api?.error : undefined);
     return {
       source,
       title: `${apiMethod(entry)} ${apiPath(entry)}`,
@@ -215,13 +212,12 @@ function describe(entry: TimelineEntry, source: Source, changes: Change[] | null
       ].filter((part): part is string => Boolean(part));
       break;
     case "onAdditionalDetails":
-      summary = Object.keys(
-        (field(payload, "data.details") ?? {}) as Record<string, unknown>,
-      );
+      summary = Object.keys((field(payload, "data.details") ?? {}) as Record<string, unknown>);
       break;
     case "onBinLookup":
       summary = [
-        ...((field(payload, "detectedBrands") ?? field(payload, "supportedBrands") ??
+        ...((field(payload, "detectedBrands") ??
+          field(payload, "supportedBrands") ??
           []) as string[]),
       ].map(String);
       break;
@@ -232,7 +228,9 @@ function describe(entry: TimelineEntry, source: Source, changes: Change[] | null
         text(field(payload, "binValue")),
         text(field(payload, "name")),
         text(field(payload, "message")),
-      ].filter((part): part is string => Boolean(part)).map((part) => clip(part, 40));
+      ]
+        .filter((part): part is string => Boolean(part))
+        .map((part) => clip(part, 40));
   }
   const failed = entry.name === "onPaymentFailed" || entry.name === "onError";
   const done = entry.name === "onPaymentCompleted";
@@ -274,7 +272,7 @@ function foldLongValues(
   }
   if (Array.isArray(value)) {
     return value.map((entry, index) =>
-      foldLongValues(entry, expandedValues, baseKey, folds, `${path}[${index}]`)
+      foldLongValues(entry, expandedValues, baseKey, folds, `${path}[${index}]`),
     );
   }
   if (value && typeof value === "object") {
@@ -293,8 +291,8 @@ const JSON_TOKEN =
 export function JsonBlock(props: { value: unknown; entryKey: string }) {
   const [expandedValues, setExpandedValues] = useState<Set<string>>(new Set());
   const folds: Fold[] = [];
-  const rendered = prettyJson(foldLongValues(props.value, expandedValues, props.entryKey, folds)) ||
-    "null";
+  const rendered =
+    prettyJson(foldLongValues(props.value, expandedValues, props.entryKey, folds)) || "null";
   const toggle = (key: string) =>
     setExpandedValues((current) => {
       const next = new Set(current);
@@ -331,7 +329,9 @@ export function JsonBlock(props: { value: unknown; entryKey: string }) {
       );
       if (match[2]) nodes.push(match[2]);
     } else if (match[3]) {
-      nodes.push(<span className={match[3] === "null" ? "json__null" : "json__bool"}>{match[3]}</span>);
+      nodes.push(
+        <span className={match[3] === "null" ? "json__null" : "json__bool"}>{match[3]}</span>,
+      );
     } else {
       nodes.push(<span className="json__number">{match[4]}</span>);
     }
@@ -355,16 +355,17 @@ type Tab = "response" | "request" | "changes" | "payload";
 
 function EntryDetail(props: { entry: TimelineEntry; source: Source; changes: Change[] | null }) {
   const { entry, source } = props;
-  const api = source === "api"
-    ? entry.payload as { request?: unknown; response?: unknown; error?: string }
-    : null;
+  const api =
+    source === "api"
+      ? (entry.payload as { request?: unknown; response?: unknown; error?: string })
+      : null;
   // Request before response, in the order they happened; the response stays
   // the tab that opens, it is what the row summarises.
   const tabs: Tab[] = api
     ? ["request", "response"]
     : props.changes
-    ? ["changes", "payload"]
-    : ["payload"];
+      ? ["changes", "payload"]
+      : ["payload"];
   const [tab, setTab] = useState<Tab>(api ? "response" : tabs[0]);
   // The two JSON blocks look alike; each direction gets its own colour and
   // header so the one on screen is never ambiguous.
@@ -376,29 +377,32 @@ function EntryDetail(props: { entry: TimelineEntry; source: Source; changes: Cha
   const { copied, copy } = useCopy();
 
   const shown = api
-    ? (tab === "request" ? api.request : api.error ? { error: api.error } : api.response)
+    ? tab === "request"
+      ? api.request
+      : api.error
+        ? { error: api.error }
+        : api.response
     : entry.payload;
   const { rest, additionalData } = splitAdditionalData(shown);
   const json = prettyJson(shown);
   const curl = api && entry.endpoint ? asCurl(apiMethod(entry), entry.endpoint, api.request) : null;
   const meta = source === "sdk" ? CALLBACK_CATALOG[entry.name] : undefined;
-  const hint = source === "sdk"
-    ? meta?.hint ?? "Not in this playground's reference list; check the Adyen Web changelog."
-    : source === "api"
-    ? API_HINTS.find(([endpoint]) => entry.name.includes(endpoint))?.[1] ??
-      "Adyen Checkout API call."
-    : "Sent by Adyen to this server; the HMAC signature is checked before anything is processed.";
+  const hint =
+    source === "sdk"
+      ? (meta?.hint ?? "Not in this playground's reference list; check the Adyen Web changelog.")
+      : source === "api"
+        ? (API_HINTS.find(([endpoint]) => entry.name.includes(endpoint))?.[1] ??
+          "Adyen Checkout API call.")
+        : "Sent by Adyen to this server; the HMAC signature is checked before anything is processed.";
 
   return (
     <div className="ev__detail">
-      {api
-        ? (
-          <p className="ev__endpoint">
-            <span className="ev__verb">{apiMethod(entry)}</span>
-            <span className="mono">{entry.endpoint ?? entry.name}</span>
-          </p>
-        )
-        : null}
+      {api ? (
+        <p className="ev__endpoint">
+          <span className="ev__verb">{apiMethod(entry)}</span>
+          <span className="mono">{entry.endpoint ?? entry.name}</span>
+        </p>
+      ) : null}
       <p className="ev__hint">
         {meta ? <span className={`ev__rank ev__rank--${meta.rank}`}>{meta.rank}</span> : null}
         {hint}
@@ -421,74 +425,68 @@ function EntryDetail(props: { entry: TimelineEntry; source: Source; changes: Cha
           ))}
         </div>
         <span className="ev__actions">
-          {curl
-            ? (
-              <button type="button" className="text-button" onClick={() => copy(curl, { raw: true })}>
-                {copied === curl ? "Copied" : "Copy cURL"}
-              </button>
-            )
-            : null}
+          {curl ? (
+            <button type="button" className="text-button" onClick={() => copy(curl, { raw: true })}>
+              {copied === curl ? "Copied" : "Copy cURL"}
+            </button>
+          ) : null}
           <button type="button" className="text-button" onClick={() => copy(json, { raw: true })}>
             {copied === json ? "Copied" : "Copy JSON"}
           </button>
         </span>
       </div>
-      {tab === "changes"
-        ? (
-          props.changes?.length
-            ? (
-              <table className="changes">
-                <tbody>
-                  {props.changes.map((change) => (
-                    <tr key={change.path}>
-                      <th scope="row">{change.path}</th>
-                      <td className="changes__before">{plain(change.before)}</td>
-                      <td className="changes__after">{plain(change.after)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )
-            : <p className="ev__hint">Same state as the previous onChange.</p>
+      {tab === "changes" ? (
+        props.changes?.length ? (
+          <table className="changes">
+            <tbody>
+              {props.changes.map((change) => (
+                <tr key={change.path}>
+                  <th scope="row">{change.path}</th>
+                  <td className="changes__before">{plain(change.before)}</td>
+                  <td className="changes__after">{plain(change.after)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="ev__hint">Same state as the previous onChange.</p>
         )
-        : (
-          <>
-            {direction
-              ? (
-                <div className={`ev__payload ev__payload--${toneOf(direction)}`}>
-                  <p className="ev__direction">
-                    <strong>{direction === "request" ? "Request" : "Response"}</strong>
-                    <span>
-                      {direction === "request"
-                        ? "this server → Adyen"
-                        : `Adyen → this server${
-                          Number(entry.status) > 0 ? ` · HTTP ${entry.status}` : ""
-                        }`}
-                    </span>
-                  </p>
-                  <JsonBlock value={rest} entryKey={`${entry.id}:${tab}`} />
-                </div>
-              )
-              : <JsonBlock value={rest} entryKey={`${entry.id}:${tab}`} />}
-            {additionalData
-              ? (
-                <div className="ev__extra">
-                  <button
-                    type="button"
-                    className="text-button"
-                    aria-expanded={showAdditional}
-                    onClick={() => setShowAdditional(!showAdditional)}
-                  >
-                    {showAdditional ? "Hide additionalData" : "Show additionalData"}
-                  </button>
-                  {showAdditional
-                    ? <JsonBlock value={additionalData} entryKey={`${entry.id}:additional`} />
-                    : null}
-                </div>
-              )
-              : null}
-          </>
-        )}
+      ) : (
+        <>
+          {direction ? (
+            <div className={`ev__payload ev__payload--${toneOf(direction)}`}>
+              <p className="ev__direction">
+                <strong>{direction === "request" ? "Request" : "Response"}</strong>
+                <span>
+                  {direction === "request"
+                    ? "this server → Adyen"
+                    : `Adyen → this server${
+                        Number(entry.status) > 0 ? ` · HTTP ${entry.status}` : ""
+                      }`}
+                </span>
+              </p>
+              <JsonBlock value={rest} entryKey={`${entry.id}:${tab}`} />
+            </div>
+          ) : (
+            <JsonBlock value={rest} entryKey={`${entry.id}:${tab}`} />
+          )}
+          {additionalData ? (
+            <div className="ev__extra">
+              <button
+                type="button"
+                className="text-button"
+                aria-expanded={showAdditional}
+                onClick={() => setShowAdditional(!showAdditional)}
+              >
+                {showAdditional ? "Hide additionalData" : "Show additionalData"}
+              </button>
+              {showAdditional ? (
+                <JsonBlock value={additionalData} entryKey={`${entry.id}:additional`} />
+              ) : null}
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
@@ -504,9 +502,9 @@ function relativeTime(milliseconds: number): string {
 
 function clockTime(iso: string): string {
   const date = new Date(iso);
-  return `${date.toLocaleTimeString([], { hour12: false })}.${
-    String(date.getMilliseconds()).padStart(3, "0")
-  }`;
+  return `${date.toLocaleTimeString([], { hour12: false })}.${String(
+    date.getMilliseconds(),
+  ).padStart(3, "0")}`;
 }
 
 function download(name: string, content: string) {
@@ -556,11 +554,13 @@ export function Timeline(props: { entries: TimelineEntry[]; empty: string }) {
   const counts = new Map<Source, number>();
   for (const item of live) counts.set(item.source, (counts.get(item.source) ?? 0) + 1);
   const needle = query.trim().toLowerCase();
-  const visible = live.filter((item) =>
-    (filter === "all" || item.source === filter) &&
-    (!needle ||
-      `${item.row.title} ${item.row.summary.join(" ")} ${JSON.stringify(item.entry.payload)}`
-        .toLowerCase().includes(needle))
+  const visible = live.filter(
+    (item) =>
+      (filter === "all" || item.source === filter) &&
+      (!needle ||
+        `${item.row.title} ${item.row.summary.join(" ")} ${JSON.stringify(item.entry.payload)}`
+          .toLowerCase()
+          .includes(needle)),
   );
   const exported = JSON.stringify(
     visible.map(({ entry, source }) => ({
@@ -597,7 +597,7 @@ export function Timeline(props: { entries: TimelineEntry[]; empty: string }) {
             >
               {item.label}
               <span className="tl-filter__count">
-                {item.id === "all" ? live.length : counts.get(item.id) ?? 0}
+                {item.id === "all" ? live.length : (counts.get(item.id) ?? 0)}
               </span>
             </button>
           ))}
@@ -627,7 +627,8 @@ export function Timeline(props: { entries: TimelineEntry[]; empty: string }) {
               download(
                 `adyen-events-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.json`,
                 exported,
-              )}
+              )
+            }
           >
             Export
           </button>
@@ -641,67 +642,61 @@ export function Timeline(props: { entries: TimelineEntry[]; empty: string }) {
           </button>
         </div>
       </div>
-      {hidden
-        ? (
-          <p className="tl-note">
-            {hidden} earlier {hidden === 1 ? "event" : "events"} cleared.{" "}
-            <button type="button" className="text-button" onClick={() => setClearedAt(null)}>
-              Show them
-            </button>
-          </p>
-        )
-        : null}
-      {visible.length
-        ? (
-          <ol className="tl-list">
-            {visible.map(({ entry, source, changes, row }) => {
-              const expanded = open.has(entry.id);
-              const summary = row.summary.slice(0, 4);
-              const more = row.summary.length - summary.length;
-              return (
-                <li className={`ev ev--${row.tone}${expanded ? " is-open" : ""}`} key={entry.id}>
-                  <button
-                    type="button"
-                    className="ev__row"
-                    aria-expanded={expanded}
-                    onClick={() => toggle(entry.id)}
+      {hidden ? (
+        <p className="tl-note">
+          {hidden} earlier {hidden === 1 ? "event" : "events"} cleared.{" "}
+          <button type="button" className="text-button" onClick={() => setClearedAt(null)}>
+            Show them
+          </button>
+        </p>
+      ) : null}
+      {visible.length ? (
+        <ol className="tl-list">
+          {visible.map(({ entry, source, changes, row }) => {
+            const expanded = open.has(entry.id);
+            const summary = row.summary.slice(0, 4);
+            const more = row.summary.length - summary.length;
+            return (
+              <li className={`ev ev--${row.tone}${expanded ? " is-open" : ""}`} key={entry.id}>
+                <button
+                  type="button"
+                  className="ev__row"
+                  aria-expanded={expanded}
+                  onClick={() => toggle(entry.id)}
+                >
+                  <span className={`ev__src ev__src--${source}`}>
+                    {SOURCES.find((item) => item.id === source)?.tag}
+                  </span>
+                  <span className="ev__name">{row.title}</span>
+                  {row.status ? (
+                    <span className={`ev__status ev__status--${row.tone}`}>{row.status}</span>
+                  ) : null}
+                  <time
+                    className="ev__time"
+                    dateTime={entry.occurredAt}
+                    title={clockTime(entry.occurredAt)}
                   >
-                    <span className={`ev__src ev__src--${source}`}>
-                      {SOURCES.find((item) => item.id === source)?.tag}
-                    </span>
-                    <span className="ev__name">
-                      {row.title}
-                    </span>
-                    {row.status
-                      ? <span className={`ev__status ev__status--${row.tone}`}>{row.status}</span>
-                      : null}
-                    <time
-                      className="ev__time"
-                      dateTime={entry.occurredAt}
-                      title={clockTime(entry.occurredAt)}
-                    >
-                      {relativeTime(Date.parse(entry.occurredAt) - origin)}
-                    </time>
-                    {summary.length
-                      ? (
-                        <span className="ev__summary">
-                          {summary.map((part, index) => (
-                            <span className="ev__chip" key={`${part}-${index}`}>{part}</span>
-                          ))}
-                          {more > 0 ? <span className="ev__chip ev__chip--more">+{more}</span> : null}
+                    {relativeTime(Date.parse(entry.occurredAt) - origin)}
+                  </time>
+                  {summary.length ? (
+                    <span className="ev__summary">
+                      {summary.map((part, index) => (
+                        <span className="ev__chip" key={`${part}-${index}`}>
+                          {part}
                         </span>
-                      )
-                      : null}
-                  </button>
-                  {expanded
-                    ? <EntryDetail entry={entry} source={source} changes={changes} />
-                    : null}
-                </li>
-              );
-            })}
-          </ol>
-        )
-        : <p className="tl-empty">{live.length ? "No event matches." : props.empty}</p>}
+                      ))}
+                      {more > 0 ? <span className="ev__chip ev__chip--more">+{more}</span> : null}
+                    </span>
+                  ) : null}
+                </button>
+                {expanded ? <EntryDetail entry={entry} source={source} changes={changes} /> : null}
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className="tl-empty">{live.length ? "No event matches." : props.empty}</p>
+      )}
     </div>
   );
 }

@@ -22,7 +22,10 @@ export function assertNotEquals<T>(actual: T, expected: T): void {
   expect(actual).not.toStrictEqual(expected);
 }
 
-export function assertExists<T>(value: T, message = "Expected a value."): asserts value is NonNullable<T> {
+export function assertExists<T>(
+  value: T,
+  message = "Expected a value.",
+): asserts value is NonNullable<T> {
   if (value === null || value === undefined) throw new Error(message);
 }
 

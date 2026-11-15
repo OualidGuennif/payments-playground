@@ -61,7 +61,7 @@ function splitFrontmatter(text: string): { meta?: Record<string, unknown>; body:
   if (!match) return { body: text };
   const meta = parseYaml(match[1]);
   return {
-    meta: meta && typeof meta === "object" ? meta as Record<string, unknown> : undefined,
+    meta: meta && typeof meta === "object" ? (meta as Record<string, unknown>) : undefined,
     body: text.slice(match[0].length),
   };
 }
@@ -172,7 +172,7 @@ function checkConcept(concept: Concept, root: string, report: Report, now: Date)
   if (concept.body.split("\n").length > BODY_MAX_LINES) {
     report.errors.push(`${where}: body over ${BODY_MAX_LINES} lines; split it along its headings`);
   }
-  const verified = Array.isArray(meta.verified) ? meta.verified as Record<string, unknown>[] : [];
+  const verified = Array.isArray(meta.verified) ? (meta.verified as Record<string, unknown>[]) : [];
   if (verified.length > VERIFIED_MAX) {
     report.errors.push(`${where}: ${verified.length} verified entries (max ${VERIFIED_MAX})`);
   }
@@ -189,7 +189,7 @@ function checkConcept(concept: Concept, root: string, report: Report, now: Date)
       }
     }
   }
-  const sources = Array.isArray(meta.sources) ? meta.sources as Record<string, unknown>[] : [];
+  const sources = Array.isArray(meta.sources) ? (meta.sources as Record<string, unknown>[]) : [];
   if (SOURCED_TYPES.has(String(meta.type)) && sources.length === 0) {
     report.errors.push(`${where}: a ${meta.type} concept needs sources`);
   }
@@ -304,9 +304,10 @@ export function checkKnowledge(root: string, now = new Date()): Report {
 if (import.meta.main) {
   const args = process.argv.slice(2);
   const rootFlag = args.indexOf("--root");
-  const root = rootFlag >= 0
-    ? resolve(args[rootFlag + 1])
-    : resolve(dirname(new URL(import.meta.url).pathname), "../..");
+  const root =
+    rootFlag >= 0
+      ? resolve(args[rootFlag + 1])
+      : resolve(dirname(new URL(import.meta.url).pathname), "../..");
   const { errors, warnings } = checkKnowledge(root);
   for (const warning of warnings) console.warn(`WARN ${warning}`);
   for (const error of errors) console.error(`FAIL ${error}`);

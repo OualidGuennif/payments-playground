@@ -70,36 +70,45 @@ test("an oversized AGENTS.md fails", () => {
 
 test("invalid YAML and missing metadata fail", () => {
   assert(
-    failures(fixture({ "knowledge/architecture/overview.md": "---\ntitle: [unclosed\n---\n" }))
-      .some((error) => error.includes("invalid YAML")),
+    failures(
+      fixture({ "knowledge/architecture/overview.md": "---\ntitle: [unclosed\n---\n" }),
+    ).some((error) => error.includes("invalid YAML")),
   );
-  const missing = failures(fixture({
-    "knowledge/architecture/overview.md": CONCEPT.replace(/description: .*\n/, ""),
-  }));
+  const missing = failures(
+    fixture({
+      "knowledge/architecture/overview.md": CONCEPT.replace(/description: .*\n/, ""),
+    }),
+  );
   assert(missing.some((error) => error.includes("missing description")));
 });
 
 test("a factual concept without sources fails", () => {
-  const errors = failures(fixture({
-    "knowledge/architecture/overview.md": CONCEPT.replace(/sources:[\s\S]*?title: Readme\n/, ""),
-  }));
+  const errors = failures(
+    fixture({
+      "knowledge/architecture/overview.md": CONCEPT.replace(/sources:[\s\S]*?title: Readme\n/, ""),
+    }),
+  );
   assert(errors.some((error) => error.includes("needs sources")));
 });
 
 test("a source path that no longer exists fails", () => {
-  const errors = failures(fixture({
-    "knowledge/architecture/overview.md": CONCEPT.replace(
-      "resource: ../../README.md",
-      "resource: ../../gone.ts",
-    ),
-  }));
+  const errors = failures(
+    fixture({
+      "knowledge/architecture/overview.md": CONCEPT.replace(
+        "resource: ../../README.md",
+        "resource: ../../gone.ts",
+      ),
+    }),
+  );
   assert(errors.some((error) => error.includes("gone.ts")));
 });
 
 test("a broken internal link fails", () => {
-  const errors = failures(fixture({
-    "knowledge/architecture/overview.md": `${CONCEPT}\nSee [nothing](missing.md).\n`,
-  }));
+  const errors = failures(
+    fixture({
+      "knowledge/architecture/overview.md": `${CONCEPT}\nSee [nothing](missing.md).\n`,
+    }),
+  );
   assert(errors.some((error) => error.includes("broken link -> missing.md")));
 });
 
@@ -111,8 +120,9 @@ test("an index that omits a stable concept fails", () => {
 test("a stable concept past stale_after must say STALE", () => {
   const stale = CONCEPT.replace("status: stable", "status: stable\nstale_after: 2026-10-01");
   assert(
-    failures(fixture({ "knowledge/architecture/overview.md": stale }))
-      .some((error) => error.includes("stale_after has passed")),
+    failures(fixture({ "knowledge/architecture/overview.md": stale })).some((error) =>
+      error.includes("stale_after has passed"),
+    ),
   );
   const marked = stale.replace("# Overview", "# Overview\n\n> STALE: re-verify.");
   assertEquals(failures(fixture({ "knowledge/architecture/overview.md": marked })), []);
@@ -121,15 +131,18 @@ test("a stable concept past stale_after must say STALE", () => {
 test("deprecated needs an existing superseded_by, and scopes are unique", () => {
   const deprecated = CONCEPT.replace("status: stable", "status: deprecated");
   assert(
-    failures(fixture({ "knowledge/architecture/overview.md": deprecated }))
-      .some((error) => error.includes("superseded_by")),
+    failures(fixture({ "knowledge/architecture/overview.md": deprecated })).some((error) =>
+      error.includes("superseded_by"),
+    ),
   );
   const scoped = CONCEPT.replace("status: stable", "status: stable\nscope: overview");
-  const errors = failures(fixture({
-    "knowledge/architecture/overview.md": scoped,
-    "knowledge/architecture/other.md": scoped,
-    "knowledge/architecture/index.md": "# A\n\n- [O](overview.md)\n- [P](other.md)\n",
-  }));
+  const errors = failures(
+    fixture({
+      "knowledge/architecture/overview.md": scoped,
+      "knowledge/architecture/other.md": scoped,
+      "knowledge/architecture/index.md": "# A\n\n- [O](overview.md)\n- [P](other.md)\n",
+    }),
+  );
   assert(errors.some((error) => error.includes('scope "overview"')));
 });
 
@@ -139,14 +152,16 @@ test("factory caps: description, component sections, verified and work state", (
     `description: "${"x".repeat(251)}"\n`,
   );
   assert(
-    failures(fixture({ "knowledge/architecture/overview.md": longDescription }))
-      .some((error) => error.includes("description over 250 characters")),
+    failures(fixture({ "knowledge/architecture/overview.md": longDescription })).some((error) =>
+      error.includes("description over 250 characters"),
+    ),
   );
 
   const component = CONCEPT.replace("type: Architecture", "type: Component");
   assert(
-    failures(fixture({ "knowledge/architecture/overview.md": component }))
-      .some((error) => error.includes("Component lacks '## Intent'")),
+    failures(fixture({ "knowledge/architecture/overview.md": component })).some((error) =>
+      error.includes("Component lacks '## Intent'"),
+    ),
   );
 
   const verified = CONCEPT.replace(
@@ -154,19 +169,19 @@ test("factory caps: description, component sections, verified and work state", (
     `\nverified:\n  - at: 2026-10-31\n    check: "${"y".repeat(301)}"\n---\n\n# Overview`,
   );
   assert(
-    failures(fixture({ "knowledge/architecture/overview.md": verified }))
-      .some((error) => error.includes("over 300 characters")),
+    failures(fixture({ "knowledge/architecture/overview.md": verified })).some((error) =>
+      error.includes("over 300 characters"),
+    ),
   );
 
   const four = CONCEPT.replace(
     "\n---\n\n# Overview",
-    "\nverified:\n" +
-      "  - at: 2026-10-31\n    check: a\n".repeat(4) +
-      "---\n\n# Overview",
+    "\nverified:\n" + "  - at: 2026-10-31\n    check: a\n".repeat(4) + "---\n\n# Overview",
   );
   assert(
-    failures(fixture({ "knowledge/architecture/overview.md": four }))
-      .some((error) => error.includes("4 verified entries")),
+    failures(fixture({ "knowledge/architecture/overview.md": four })).some((error) =>
+      error.includes("4 verified entries"),
+    ),
   );
 
   const fields = [
@@ -176,16 +191,15 @@ test("factory caps: description, component sections, verified and work state", (
     "- Blocker: none.",
     "- Evidence: x",
   ].join("\n");
-  assertEquals(
-    failures(fixture({ "work/current.md": `## A — ACTIVE\n${fields}\n` })),
-    [],
+  assertEquals(failures(fixture({ "work/current.md": `## A — ACTIVE\n${fields}\n` })), []);
+  assert(
+    failures(fixture({ "work/current.md": "## A — ACTIVE\n- State: x\n" })).some((error) =>
+      error.includes("lacks '- Owner decision:'"),
+    ),
   );
   assert(
-    failures(fixture({ "work/current.md": "## A — ACTIVE\n- State: x\n" }))
-      .some((error) => error.includes("lacks '- Owner decision:'")),
-  );
-  assert(
-    failures(fixture({ "work/current.md": `## A — ACTIVE\n${fields}\n${"- x\n".repeat(6)}` }))
-      .some((error) => error.includes("over 10 lines")),
+    failures(fixture({ "work/current.md": `## A — ACTIVE\n${fields}\n${"- x\n".repeat(6)}` })).some(
+      (error) => error.includes("over 10 lines"),
+    ),
   );
 });

@@ -16,7 +16,8 @@ const autoConsent = Bun.argv.includes("--auto-consent");
 const query = arg("--query") ?? "scarf";
 const run = crypto.randomUUID().slice(0, 8);
 const b64url = (bytes: ArrayBuffer) => Buffer.from(bytes).toString("base64url");
-const sha256 = async (text: string) => b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
+const sha256 = async (text: string) =>
+  b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
 const now = () => Math.floor(Date.now() / 1000);
 
 // 1. Keys: one client key published in the JWKS, one session key bound by the delegation.
@@ -39,7 +40,9 @@ const server = Bun.serve({
     if (url.pathname === `/agent/${run}/jwks.json`) return Response.json({ keys: [clientJwk] });
     if (url.pathname === `/agent/${run}/callback`) {
       resolveCallback(url);
-      return new Response("Signed in. You can close this tab and return to the agent.", { headers: { "content-type": "text/plain" } });
+      return new Response("Signed in. You can close this tab and return to the agent.", {
+        headers: { "content-type": "text/plain" },
+      });
     }
     return new Response("Not found", { status: 404 });
   },
@@ -62,10 +65,16 @@ function metadata(): Record<string, unknown> {
 
 try {
   // 3. Discovery: poppy.json names the issuer and the MCP endpoint.
-  const poppy = await (await fetch(`${origin}/.well-known/poppy.json`)).json() as { auth: { issuer: string; scopes: string[] }; apis: { type: string; url: string }[] };
+  const poppy = (await (await fetch(`${origin}/.well-known/poppy.json`)).json()) as {
+    auth: { issuer: string; scopes: string[] };
+    apis: { type: string; url: string }[];
+  };
   const issuer = poppy.auth.issuer;
   const mcpUrl = poppy.apis.find((a) => a.type === "mcp")!.url;
-  const as = await (await fetch(`${issuer}/.well-known/oauth-authorization-server`)).json() as { authorization_endpoint: string; token_endpoint: string };
+  const as = (await (await fetch(`${issuer}/.well-known/oauth-authorization-server`)).json()) as {
+    authorization_endpoint: string;
+    token_endpoint: string;
+  };
   console.log("discovered", { issuer, mcpUrl });
 
   // 4. Authorization request with PKCE S256; the store answers with its consent page.
@@ -73,9 +82,15 @@ try {
   const state = crypto.randomUUID();
   const authorize = new URL(as.authorization_endpoint);
   for (const [k, v] of Object.entries({
-    response_type: "code", client_id: clientId, redirect_uri: redirectUri, state,
-    scope: poppy.auth.scopes.join(" "), code_challenge: await sha256(verifier), code_challenge_method: "S256",
-  })) authorize.searchParams.set(k, v);
+    response_type: "code",
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    state,
+    scope: poppy.auth.scopes.join(" "),
+    code_challenge: await sha256(verifier),
+    code_challenge_method: "S256",
+  }))
+    authorize.searchParams.set(k, v);
   const consent = await fetch(authorize, { redirect: "manual" });
   const consentUrl = new URL(consent.headers.get("location") ?? "", origin);
   if (consent.status !== 302 || !consentUrl.pathname.startsWith("/consent/")) {
@@ -84,9 +99,17 @@ try {
 
   // 5. The shopper decides; this run either waits for the browser or approves itself.
   if (autoConsent) {
-    const form = new URLSearchParams({ request: consentUrl.pathname.split("/").pop()!, decision: "approve", spend_limit_eur: "150" });
+    const form = new URLSearchParams({
+      request: consentUrl.pathname.split("/").pop()!,
+      decision: "approve",
+      spend_limit_eur: "150",
+    });
     for (const scope of poppy.auth.scopes) form.append("scope", scope);
-    const decided = await fetch(`${origin}/oauth/decision`, { method: "POST", body: form, redirect: "manual" });
+    const decided = await fetch(`${origin}/oauth/decision`, {
+      method: "POST",
+      body: form,
+      redirect: "manual",
+    });
     const location = decided.headers.get("location");
     if (decided.status !== 303 || !location) throw new Error(`decision answered ${decided.status}`);
     resolveCallback(new URL(location));
@@ -95,7 +118,9 @@ try {
   }
   const back = await Promise.race([
     callback,
-    Bun.sleep(300_000).then(() => { throw new Error("No consent within 5 minutes"); }),
+    Bun.sleep(300_000).then(() => {
+      throw new Error("No consent within 5 minutes");
+    }),
   ]);
   if (back.searchParams.get("error")) throw new Error(`consent: ${back.searchParams.get("error")}`);
   if (back.searchParams.get("state") !== state) throw new Error("state mismatch");
@@ -105,17 +130,30 @@ try {
   // 6. Token request, authenticated with a client assertion signed by the client key.
   const assertion = await new SignJWT({})
     .setProtectedHeader({ alg: "ES256", kid: clientJwk.kid })
-    .setIssuer(clientId).setSubject(clientId).setAudience(issuer)
-    .setIssuedAt().setExpirationTime(now() + 300).setJti(crypto.randomUUID())
+    .setIssuer(clientId)
+    .setSubject(clientId)
+    .setAudience(issuer)
+    .setIssuedAt()
+    .setExpirationTime(now() + 300)
+    .setJti(crypto.randomUUID())
     .sign(clientKeys.privateKey);
   const tokenResponse = await fetch(as.token_endpoint, {
     method: "POST",
     body: new URLSearchParams({
-      grant_type: "authorization_code", code, redirect_uri: redirectUri, code_verifier: verifier, client_id: clientId,
-      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer", client_assertion: assertion,
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: redirectUri,
+      code_verifier: verifier,
+      client_id: clientId,
+      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      client_assertion: assertion,
     }),
   });
-  const tokens = await tokenResponse.json() as { access_token?: string; scope?: string; error?: string };
+  const tokens = (await tokenResponse.json()) as {
+    access_token?: string;
+    scope?: string;
+    error?: string;
+  };
   if (!tokens.access_token) throw new Error(`token: ${JSON.stringify(tokens)}`);
   console.log("signed in", { scope: tokens.scope });
   const ath = await sha256(tokens.access_token);
@@ -123,7 +161,10 @@ try {
   // 7. Delegation: the client key vouches for the session key for one hour.
   const delegation = await new SignJWT({ cnf: { jwk: sessionJwk } })
     .setProtectedHeader({ alg: "ES256", typ: "poppy-delegation+jwt", kid: clientJwk.kid })
-    .setIssuer(clientId).setIssuedAt().setExpirationTime(now() + 3600).setJti(crypto.randomUUID())
+    .setIssuer(clientId)
+    .setIssuedAt()
+    .setExpirationTime(now() + 3600)
+    .setJti(crypto.randomUUID())
     .sign(clientKeys.privateKey);
   const sid = crypto.randomUUID();
 
@@ -132,44 +173,101 @@ try {
   async function mcp(method: string, params: Record<string, unknown>) {
     const session = await new SignJWT({ poppy_dlg: delegation, sid, htm: "POST", htu: mcpUrl, ath })
       .setProtectedHeader({ alg: "ES256", typ: "poppy-session+jwt", kid: sessionKid })
-      .setIssuer(clientId).setSubject("demo-shopper").setAudience(mcpUrl)
-      .setIssuedAt().setJti(crypto.randomUUID())
+      .setIssuer(clientId)
+      .setSubject("demo-shopper")
+      .setAudience(mcpUrl)
+      .setIssuedAt()
+      .setJti(crypto.randomUUID())
       .sign(sessionKeys.privateKey);
     const response = await fetch(mcpUrl, {
       method: "POST",
       headers: {
-        authorization: `Bearer ${tokens.access_token}`, "poppy-version": "1.0", "poppy-session": session,
-        "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-11-25",
+        authorization: `Bearer ${tokens.access_token}`,
+        "poppy-version": "1.0",
+        "poppy-session": session,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-protocol-version": "2025-11-25",
       },
       body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }),
     });
-    const body = await response.json() as { result?: { structuredContent?: Record<string, unknown>; isError?: boolean }; error?: unknown };
-    if (response.status !== 200 || body.error) throw new Error(`${method} answered ${response.status}: ${JSON.stringify(body)}`);
+    const body = (await response.json()) as {
+      result?: { structuredContent?: Record<string, unknown>; isError?: boolean };
+      error?: unknown;
+    };
+    if (response.status !== 200 || body.error)
+      throw new Error(`${method} answered ${response.status}: ${JSON.stringify(body)}`);
     return body.result!;
   }
   const meta = () => ({ "idempotency-key": crypto.randomUUID() });
 
-  await mcp("initialize", { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "velune-demo-agent", version: "1.0.0" } });
-  const search = (await mcp("tools/call", { name: "search_catalog", arguments: { catalog: { query } } })).structuredContent as { products: { id: string; title: string; variants?: { id: string; availability?: { available?: boolean } }[] }[] };
+  await mcp("initialize", {
+    protocolVersion: "2025-11-25",
+    capabilities: {},
+    clientInfo: { name: "velune-demo-agent", version: "1.0.0" },
+  });
+  const search = (
+    await mcp("tools/call", { name: "search_catalog", arguments: { catalog: { query } } })
+  ).structuredContent as {
+    products: {
+      id: string;
+      title: string;
+      variants?: { id: string; availability?: { available?: boolean } }[];
+    }[];
+  };
   const product = search.products[0];
   if (!product) throw new Error(`No product for "${query}"`);
-  const variant = product.variants?.find((v) => v.availability?.available !== false)?.id ?? product.id;
+  const variant =
+    product.variants?.find((v) => v.availability?.available !== false)?.id ?? product.id;
   console.log("chose", { product: product.title, variant });
 
-  const created = (await mcp("tools/call", { name: "create_checkout", arguments: { meta: meta(), checkout: { line_items: [{ item: { id: variant }, quantity: 1 }] } } })).structuredContent as {
-    id: string; status: string; totals: { type: string; amount: number }[]; messages?: unknown[]; continue_url?: string;
+  const created = (
+    await mcp("tools/call", {
+      name: "create_checkout",
+      arguments: {
+        meta: meta(),
+        checkout: { line_items: [{ item: { id: variant }, quantity: 1 }] },
+      },
+    })
+  ).structuredContent as {
+    id: string;
+    status: string;
+    totals: { type: string; amount: number }[];
+    messages?: unknown[];
+    continue_url?: string;
     payment?: { instruments?: { id: string; handler_id: string; display?: unknown }[] };
   };
   const total = created.totals.find((t) => t.type === "total")?.amount;
-  console.log("checkout", { id: created.id, status: created.status, total, messages: created.messages });
-  if (created.status !== "ready_for_complete") throw new Error(`Not ready: escalate to ${created.continue_url}`);
+  console.log("checkout", {
+    id: created.id,
+    status: created.status,
+    total,
+    messages: created.messages,
+  });
+  if (created.status !== "ready_for_complete")
+    throw new Error(`Not ready: escalate to ${created.continue_url}`);
   const instrument = created.payment?.instruments?.[0];
   if (!instrument) throw new Error("No saved-card instrument offered");
 
-  const completed = (await mcp("tools/call", { name: "complete_checkout", arguments: { meta: meta(), id: created.id, checkout: { payment: { instruments: [{ ...instrument, selected: true }] } } } })).structuredContent as {
-    status: string; order?: { id: string; permalink_url?: string }; messages?: unknown[];
+  const completed = (
+    await mcp("tools/call", {
+      name: "complete_checkout",
+      arguments: {
+        meta: meta(),
+        id: created.id,
+        checkout: { payment: { instruments: [{ ...instrument, selected: true }] } },
+      },
+    })
+  ).structuredContent as {
+    status: string;
+    order?: { id: string; permalink_url?: string };
+    messages?: unknown[];
   };
-  console.log("completed", { status: completed.status, order: completed.order, messages: completed.messages });
+  console.log("completed", {
+    status: completed.status,
+    order: completed.order,
+    messages: completed.messages,
+  });
   if (completed.status !== "completed") process.exitCode = 1;
 } finally {
   server.stop(true);

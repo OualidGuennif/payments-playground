@@ -68,19 +68,20 @@ interface MountedComponent {
 }
 
 function field(value: unknown, key: string): string | undefined {
-  const entry = value && typeof value === "object"
-    ? (value as Record<string, unknown>)[key]
-    : undefined;
+  const entry =
+    value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined;
   return typeof entry === "string" && entry ? entry : undefined;
 }
 
-export default function FlowWorkbench(
-  { flow, initialBootstrap, initialIntegration }: {
-    flow: Flow;
-    initialBootstrap?: Bootstrap;
-    initialIntegration?: "dropin" | "component";
-  },
-) {
+export default function FlowWorkbench({
+  flow,
+  initialBootstrap,
+  initialIntegration,
+}: {
+  flow: Flow;
+  initialBootstrap?: Bootstrap;
+  initialIntegration?: "dropin" | "component";
+}) {
   const info = flowInfo(flow);
   const hasAutoInit = flow === "sessions" || flow === "advanced" || flow === "api-only";
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(initialBootstrap ?? null);
@@ -93,7 +94,7 @@ export default function FlowWorkbench(
   const [country, setCountry] = useState(() => detectInitialCountry(flow));
   const [currency, setCurrency] = useState(() => currencyForCountry(detectInitialCountry(flow)));
   const [amount, setAmount] = useState(() =>
-    defaultAmountForCurrency(currencyForCountry(detectInitialCountry(flow)))
+    defaultAmountForCurrency(currencyForCountry(detectInitialCountry(flow))),
   );
   const [locale, setLocale] = useState(() => localeForCountry(detectInitialCountry(flow)));
   const [theme, setTheme] = useState<Theme>(() => currentTheme());
@@ -169,11 +170,12 @@ export default function FlowWorkbench(
   function updateCorrelation(value: string) {
     correlationRef.current = value;
     setCorrelationId(value);
-    setCorrelationIds((current) => current.includes(value) ? current : [...current, value]);
+    setCorrelationIds((current) => (current.includes(value) ? current : [...current, value]));
   }
 
   useEffect(() => {
-    api().api.bootstrap.get()
+    api()
+      .api.bootstrap.get()
       .then((result) => unwrap(result) as Bootstrap)
       .then((data) => {
         setBootstrap(data);
@@ -214,12 +216,16 @@ export default function FlowWorkbench(
   useEffect(() => {
     if (flow !== "mit" || !bootstrap?.clientKey) return;
     setStoredMethods(null);
-    api(profileId).api.digital["payment-methods"].post({
-          amount: { value: amount, currency },
-          countryCode: country,
-          shopperLocale: locale,
-        })
-      .then((result) => unwrap(result) as { paymentMethodsResponse: { storedPaymentMethods?: StoredMethod[] } })
+    api(profileId)
+      .api.digital["payment-methods"].post({
+        amount: { value: amount, currency },
+        countryCode: country,
+        shopperLocale: locale,
+      })
+      .then(
+        (result) =>
+          unwrap(result) as { paymentMethodsResponse: { storedPaymentMethods?: StoredMethod[] } },
+      )
       .then((response) => {
         const methods = response.paymentMethodsResponse.storedPaymentMethods ?? [];
         setStoredMethods(methods);
@@ -236,9 +242,11 @@ export default function FlowWorkbench(
       try {
         const responses = await Promise.all(
           polledCorrelations.split("|").map((id) =>
-            api().api.timeline({ correlationId: id }).get()
-      .then((result) => unwrap(result) as { entries: TimelineEntry[] })
-              .catch(() => ({ entries: [] as TimelineEntry[] }))
+            api()
+              .api.timeline({ correlationId: id })
+              .get()
+              .then((result) => unwrap(result) as { entries: TimelineEntry[] })
+              .catch(() => ({ entries: [] as TimelineEntry[] })),
           ),
         );
         if (!active) return;
@@ -310,20 +318,23 @@ export default function FlowWorkbench(
     // created the checkout, whose state still holds the previous run's id.
     const id = explicitCorrelation ?? correlationRef.current;
     if (id) {
-      api(profileId).api.callbacks.post({
+      api(profileId)
+        .api.callbacks.post({
           correlationId: id,
           name,
           occurredAt: entry.occurredAt,
           payload: safePayload,
         })
-      .then((result) => unwrap(result)).catch(() => undefined);
+        .then((result) => unwrap(result))
+        .catch(() => undefined);
     }
   }
 
   function finish(result: unknown) {
     setOutcome({
       ...lastPaymentRef.current,
-      resultCode: field(result, "resultCode") ??
+      resultCode:
+        field(result, "resultCode") ??
         (closesSession(result) ? "Error" : lastPaymentRef.current.resultCode),
     });
   }
@@ -400,22 +411,20 @@ export default function FlowWorkbench(
       ...(styles ? { styles } : {}),
     };
     for (const type of ["card", "scheme", "storedCard"]) {
-      configuration[type] = { ...configuration[type] as Record<string, unknown>, ...cardOptions };
+      configuration[type] = { ...(configuration[type] as Record<string, unknown>), ...cardOptions };
     }
     // Gift cards, meal vouchers and Bancontact type into the same secured
     // field iframes: without these colours their digits stay dark on the
     // dark theme. Giftcard hands its props to the iframes, styles included.
     if (styles) {
-      for (
-        const type of [
-          "giftcard",
-          "bcmc",
-          "mealVoucher_FR_groupeup",
-          "mealVoucher_FR_natixis",
-          "mealVoucher_FR_sodexo",
-        ]
-      ) {
-        configuration[type] = { ...configuration[type] as Record<string, unknown>, styles };
+      for (const type of [
+        "giftcard",
+        "bcmc",
+        "mealVoucher_FR_groupeup",
+        "mealVoucher_FR_natixis",
+        "mealVoucher_FR_sodexo",
+      ]) {
+        configuration[type] = { ...(configuration[type] as Record<string, unknown>), styles };
       }
     }
     return configuration;
@@ -425,9 +434,7 @@ export default function FlowWorkbench(
     const checkout = checkoutRef.current;
     if (!checkout || !dropinHost.current) return;
     try {
-      const ComponentClass = checkout.getComponent(type) as
-        | ComponentConstructor
-        | undefined;
+      const ComponentClass = checkout.getComponent(type) as ComponentConstructor | undefined;
       if (!ComponentClass) {
         setError(`No "${type}" component is available in this payment methods response.`);
         return;
@@ -469,10 +476,11 @@ export default function FlowWorkbench(
   // that order to expire. An expired session can only be replaced.
   function retryNeedsNewSession(): boolean {
     if (flow !== "sessions") return false;
-    const expired = sessionExpiresAtRef.current !== null &&
-      Date.now() >= sessionExpiresAtRef.current;
-    return expired || sessionClosedRef.current ||
-      sessionRefusalsRef.current >= SESSION_REFUSAL_LIMIT;
+    const expired =
+      sessionExpiresAtRef.current !== null && Date.now() >= sessionExpiresAtRef.current;
+    return (
+      expired || sessionClosedRef.current || sessionRefusalsRef.current >= SESSION_REFUSAL_LIMIT
+    );
   }
 
   function retry() {
@@ -491,7 +499,7 @@ export default function FlowWorkbench(
   }
 
   async function mountCheckout(configuration: Record<string, unknown>, stale: () => boolean) {
-    const checkout = await AdyenCheckout(configuration as never) as Core;
+    const checkout = (await AdyenCheckout(configuration as never)) as Core;
     // A newer run owns the host now; mounting this one too would stack two
     // checkouts in it. The previous checkout stays up until then.
     if (stale() || !dropinHost.current) return;
@@ -505,12 +513,9 @@ export default function FlowWorkbench(
       // scans this container. No prebuilt Card component involved.
       dropinHost.current.innerHTML = CUSTOM_CARD_MARKUP;
       const statusEl = dropinHost.current.querySelector<HTMLElement>('[data-role="status"]');
-      const submitBtn = dropinHost.current.querySelector<HTMLButtonElement>(
-        '[data-role="submit"]',
-      );
-      customCardHolderNameRef.current = dropinHost.current.querySelector<HTMLInputElement>(
-        "#customCardHolderName",
-      );
+      const submitBtn = dropinHost.current.querySelector<HTMLButtonElement>('[data-role="submit"]');
+      customCardHolderNameRef.current =
+        dropinHost.current.querySelector<HTMLInputElement>("#customCardHolderName");
       const styles = securedFieldStyles(theme);
       const component = new CustomCard(checkout, {
         type: "card",
@@ -556,14 +561,16 @@ export default function FlowWorkbench(
   }
 
   async function startSession(stale: () => boolean) {
-    const data = unwrap(await api(profileId).api.digital.sessions.post({
+    const data = unwrap(
+      await api(profileId).api.digital.sessions.post({
         flow: `sessions-${integration}`,
         amount: { value: amount, currency },
         countryCode: country,
         shopperLocale: locale,
         installments,
         nativeThreeDS,
-      })) as {
+      }),
+    ) as {
       correlationId: string;
       session: { id: string; sessionData: string; expiresAt?: string };
     };
@@ -587,11 +594,13 @@ export default function FlowWorkbench(
   }
 
   async function startAdvanced(stale: () => boolean) {
-    const methods = unwrap(await api(profileId).api.digital["payment-methods"].post({
+    const methods = unwrap(
+      await api(profileId).api.digital["payment-methods"].post({
         amount: { value: amount, currency },
         countryCode: country,
         shopperLocale: locale,
-      })) as {
+      }),
+    ) as {
       correlationId: string;
       shopperConversionId: string;
       paymentMethodsResponse: unknown;
@@ -609,13 +618,15 @@ export default function FlowWorkbench(
           const holderName = customCardHolderNameRef.current?.value;
           if (flow === "api-only" && holderName) {
             stateData.paymentMethod = {
-              ...(stateData.paymentMethod as Record<string, unknown> ?? {}),
+              ...((stateData.paymentMethod as Record<string, unknown>) ?? {}),
               holderName,
             };
           }
-          const response = unwrap(await (flow === "api-only"
-        ? api(profileId).api.digital["api-only"]
-        : api(profileId).api.digital.payments).post({
+          const response = unwrap(
+            await (flow === "api-only"
+              ? api(profileId).api.digital["api-only"]
+              : api(profileId).api.digital.payments
+            ).post({
               flow: flow === "api-only" ? "api-only-pci" : `advanced-${integration}`,
               countryCode: country,
               shopperLocale: locale,
@@ -629,13 +640,15 @@ export default function FlowWorkbench(
                 value: partialAmount({
                   total: amount,
                   remaining: remainingRef.current,
-                  giftCardBalance: field(stateData.paymentMethod, "type") === "giftcard"
-                    ? giftCardBalanceRef.current
-                    : null,
+                  giftCardBalance:
+                    field(stateData.paymentMethod, "type") === "giftcard"
+                      ? giftCardBalanceRef.current
+                      : null,
                 }),
                 currency,
               },
-            })) as {
+            }),
+          ) as {
             correlationId: string;
             result: unknown;
           };
@@ -646,8 +659,8 @@ export default function FlowWorkbench(
           lastPaymentRef.current = {
             pspReference: field(response.result, "pspReference"),
             resultCode: field(response.result, "resultCode"),
-            method: field(stateData.paymentMethod, "brand") ??
-              field(stateData.paymentMethod, "type"),
+            method:
+              field(stateData.paymentMethod, "brand") ?? field(stateData.paymentMethod, "type"),
           };
           actions.resolve(response.result);
         } catch (cause) {
@@ -663,11 +676,16 @@ export default function FlowWorkbench(
         addCallback("onAdditionalDetails", state);
         try {
           const stateData = (state as { data?: Record<string, unknown> }).data ?? {};
-          const response = unwrap(await api(profileId).api.digital.payments.details.post({ correlationId: correlationRef.current, ...stateData })) as { result: unknown };
+          const response = unwrap(
+            await api(profileId).api.digital.payments.details.post({
+              correlationId: correlationRef.current,
+              ...stateData,
+            }),
+          ) as { result: unknown };
           lastPaymentRef.current = {
             ...lastPaymentRef.current,
-            pspReference: field(response.result, "pspReference") ??
-              lastPaymentRef.current.pspReference,
+            pspReference:
+              field(response.result, "pspReference") ?? lastPaymentRef.current.pspReference,
             resultCode: field(response.result, "resultCode"),
           };
           actions.resolve(response.result);
@@ -695,11 +713,13 @@ export default function FlowWorkbench(
       ) => {
         addCallback("onBalanceCheck", data);
         try {
-          const response = unwrap(await api(profileId).api.digital["gift-card-balance"].post({
+          const response = unwrap(
+            await api(profileId).api.digital["gift-card-balance"].post({
               correlationId: partialOrderIdRef.current ?? correlationRef.current,
               amount: { value: remainingRef.current ?? amount, currency },
               paymentMethod: valueAt(data, "paymentMethod"),
-            })) as { result: unknown };
+            }),
+          ) as { result: unknown };
           const balance = valueAt(response.result, "balance.value");
           giftCardBalanceRef.current = typeof balance === "number" ? balance : null;
           resolve(response.result);
@@ -714,7 +734,11 @@ export default function FlowWorkbench(
       ) => {
         addCallback("onOrderRequest", data);
         try {
-          const response = unwrap(await api(profileId).api.digital["partial-orders"].post({ amount: { value: amount, currency } })) as { correlationId: string; adyenOrder: unknown };
+          const response = unwrap(
+            await api(profileId).api.digital["partial-orders"].post({
+              amount: { value: amount, currency },
+            }),
+          ) as { correlationId: string; adyenOrder: unknown };
           partialOrderIdRef.current = response.correlationId;
           updateCorrelation(response.correlationId);
           remainingRef.current = orderProgress(response.adyenOrder)?.remaining ?? null;
@@ -731,7 +755,11 @@ export default function FlowWorkbench(
         addCallback("onOrderCancel", data);
         try {
           if (partialOrderIdRef.current) {
-            unwrap(await api(profileId).api.digital["partial-orders"]({ id: partialOrderIdRef.current }).cancel.post({ order: valueAt(data, "order") }));
+            unwrap(
+              await api(profileId)
+                .api.digital["partial-orders"]({ id: partialOrderIdRef.current })
+                .cancel.post({ order: valueAt(data, "order") }),
+            );
           }
           resetPartialOrder();
           actions.resolve({ amount: { value: amount, currency } });
@@ -746,14 +774,16 @@ export default function FlowWorkbench(
       ) => {
         addCallback("onPaymentMethodsRequest", data);
         try {
-          const response = unwrap(await api(profileId).api.digital["payment-methods"].post({
-                correlationId: partialOrderIdRef.current ?? correlationRef.current,
-                amount: { value: remainingRef.current ?? amount, currency },
-                countryCode: country,
-                shopperLocale: locale,
-                shopperConversionId: shopperConversionRef.current,
-                order: valueAt(data, "order"),
-              })) as { paymentMethodsResponse: unknown };
+          const response = unwrap(
+            await api(profileId).api.digital["payment-methods"].post({
+              correlationId: partialOrderIdRef.current ?? correlationRef.current,
+              amount: { value: remainingRef.current ?? amount, currency },
+              countryCode: country,
+              shopperLocale: locale,
+              shopperConversionId: shopperConversionRef.current,
+              order: valueAt(data, "order"),
+            }),
+          ) as { paymentMethodsResponse: unknown };
           actions.resolve(response.paymentMethodsResponse);
         } catch {
           actions.reject();
@@ -763,13 +793,15 @@ export default function FlowWorkbench(
   }
 
   async function createPaymentLink() {
-    const response = unwrap(await api(profileId).api.digital["payment-links"].post({
+    const response = unwrap(
+      await api(profileId).api.digital["payment-links"].post({
         amount: { value: amount, currency },
         countryCode: country,
         shopperLocale: locale,
         validityHours,
         reusable,
-      })) as {
+      }),
+    ) as {
       correlationId: string;
       paymentLink: Record<string, unknown>;
     };
@@ -782,7 +814,11 @@ export default function FlowWorkbench(
     if (!correlationRef.current) return;
     setLoading(true);
     try {
-      const response = unwrap(await api(profileId).api.digital["payment-links"]({ orderId: correlationRef.current }).get()) as {
+      const response = unwrap(
+        await api(profileId)
+          .api.digital["payment-links"]({ orderId: correlationRef.current })
+          .get(),
+      ) as {
         paymentLink: Record<string, unknown>;
         resolution: { state: string };
       };
@@ -795,12 +831,14 @@ export default function FlowWorkbench(
   }
 
   async function runMit() {
-    const response = unwrap(await api(profileId).api.digital.mit.post({
+    const response = unwrap(
+      await api(profileId).api.digital.mit.post({
         amount: { value: amount, currency },
         storedPaymentMethodId,
         shopperReference,
         recurringProcessingModel: recurringModel,
-      })) as {
+      }),
+    ) as {
       correlationId: string;
       result: Record<string, unknown>;
     };
@@ -859,9 +897,10 @@ export default function FlowWorkbench(
   const steps: Array<[string, boolean]> = [
     [
       "Checkout ready",
-      events.some((entry) =>
-        entry.kind === "api_call" &&
-        (entry.name.endsWith("/sessions") || entry.name.includes("paymentMethods"))
+      events.some(
+        (entry) =>
+          entry.kind === "api_call" &&
+          (entry.name.endsWith("/sessions") || entry.name.includes("paymentMethods")),
       ),
     ],
     ["Submitted", names.has("onSubmit") || names.has("beforeSubmit")],
@@ -911,14 +950,12 @@ export default function FlowWorkbench(
             <dl className="facts">
               <dt>Amount</dt>
               <dd>{amountText}</dd>
-              {expiresAt
-                ? (
-                  <>
-                    <dt>Expires</dt>
-                    <dd>{new Date(expiresAt).toLocaleString()}</dd>
-                  </>
-                )
-                : null}
+              {expiresAt ? (
+                <>
+                  <dt>Expires</dt>
+                  <dd>{new Date(expiresAt).toLocaleString()}</dd>
+                </>
+              ) : null}
               <dt>Reusable</dt>
               <dd>{field(link, "reusable") ?? (reusable ? "yes" : "no")}</dd>
             </dl>
@@ -926,13 +963,11 @@ export default function FlowWorkbench(
               <button className="text-button" type="button" onClick={() => setLink(null)}>
                 Create another link
               </button>
-              {correlationId
-                ? (
-                  <a className="text-button" href={`/back-office?orderId=${correlationId}`}>
-                    Open in Back Office
-                  </a>
-                )
-                : null}
+              {correlationId ? (
+                <a className="text-button" href={`/back-office?orderId=${correlationId}`}>
+                  Open in Back Office
+                </a>
+              ) : null}
             </div>
           </div>
         );
@@ -952,7 +987,9 @@ export default function FlowWorkbench(
               onChange={(event) => setValidityHours(Number(event.currentTarget.value))}
             >
               {VALIDITY_OPTIONS.map(([hours, label]) => (
-                <option key={hours} value={hours}>{label}</option>
+                <option key={hours} value={hours}>
+                  {label}
+                </option>
               ))}
             </select>
           </Field>
@@ -990,7 +1027,8 @@ export default function FlowWorkbench(
         );
       }
       const selected = storedMethods?.find((method) => method.id === storedPaymentMethodId);
-      const modelMismatch = selected?.supportedRecurringProcessingModels?.length &&
+      const modelMismatch =
+        selected?.supportedRecurringProcessingModels?.length &&
         !selected.supportedRecurringProcessingModels.includes(recurringModel);
       return (
         <form
@@ -1002,10 +1040,10 @@ export default function FlowWorkbench(
         >
           <fieldset className="choice-list">
             <legend>Saved payment method</legend>
-            {storedMethods === null
-              ? <p className="muted">Looking up this week's saved cards…</p>
-              : storedMethods.length
-              ? storedMethods.map((method) => (
+            {storedMethods === null ? (
+              <p className="muted">Looking up this week's saved cards…</p>
+            ) : storedMethods.length ? (
+              storedMethods.map((method) => (
                 <label className="choice" key={method.id}>
                   <input
                     type="radio"
@@ -1026,13 +1064,13 @@ export default function FlowWorkbench(
                   </span>
                 </label>
               ))
-              : (
-                <p className="muted">
-                  No saved card for this week's shopper yet. Pay once in{" "}
-                  <a href="/advanced?integration=dropin">Advanced</a>{" "}
-                  with “Save for my next payment” ticked, then come back.
-                </p>
-              )}
+            ) : (
+              <p className="muted">
+                No saved card for this week's shopper yet. Pay once in{" "}
+                <a href="/advanced?integration=dropin">Advanced</a> with “Save for my next payment”
+                ticked, then come back.
+              </p>
+            )}
           </fieldset>
           <div className="field">
             <span>Recurring model</span>
@@ -1048,16 +1086,12 @@ export default function FlowWorkbench(
                 </button>
               ))}
             </div>
-            {modelMismatch
-              ? (
-                <small className="field-warning">
-                  This card was saved for{" "}
-                  {selected?.supportedRecurringProcessingModels?.join(", ")}; Adyen may refuse a
-                  {" "}
-                  {recurringModel} charge.
-                </small>
-              )
-              : null}
+            {modelMismatch ? (
+              <small className="field-warning">
+                This card was saved for {selected?.supportedRecurringProcessingModels?.join(", ")};
+                Adyen may refuse a {recurringModel} charge.
+              </small>
+            ) : null}
           </div>
           <details className="more">
             <summary>Use another token</summary>
@@ -1094,53 +1128,47 @@ export default function FlowWorkbench(
 
     return (
       <>
-        {outcome
-          ? (
-            <ResultCard
-              outcome={outcome}
-              amountText={partialOrder && outcome.resultCode !== "Authorised"
+        {outcome ? (
+          <ResultCard
+            outcome={outcome}
+            amountText={
+              partialOrder && outcome.resultCode !== "Authorised"
                 ? `${formatMinorAmount(partialOrder.remaining, partialOrder.currency)} left to pay`
-                : amountText}
-              orderId={correlationId}
-              onRestart={start}
-              onRetry={flow === "api-only" ? undefined : retry}
-              retryStartsOver={retryNeedsNewSession()}
-            />
-          )
-          : null}
-        {partialOrder && integration === "component" && !outcome
-          ? (
-            // Drop-in lists the paid gift card itself; a lone component shows
-            // nothing, so the page says what is paid and what is left.
-            <p className="partial-banner" role="status">
-              <strong>Partial payment</strong>
-              <span>
-                {formatMinorAmount(partialOrder.paid, partialOrder.currency)} paid ·{" "}
-                {formatMinorAmount(partialOrder.remaining, partialOrder.currency)} left to pay
-              </span>
-            </p>
-          )
-          : null}
+                : amountText
+            }
+            orderId={correlationId}
+            onRestart={start}
+            onRetry={flow === "api-only" ? undefined : retry}
+            retryStartsOver={retryNeedsNewSession()}
+          />
+        ) : null}
+        {partialOrder && integration === "component" && !outcome ? (
+          // Drop-in lists the paid gift card itself; a lone component shows
+          // nothing, so the page says what is paid and what is left.
+          <p className="partial-banner" role="status">
+            <strong>Partial payment</strong>
+            <span>
+              {formatMinorAmount(partialOrder.paid, partialOrder.currency)} paid ·{" "}
+              {formatMinorAmount(partialOrder.remaining, partialOrder.currency)} left to pay
+            </span>
+          </p>
+        ) : null}
         <div className={`dropin-host${outcome ? " is-hidden" : ""}`} aria-live="polite">
           <div ref={dropinHost} />
-          {!checkoutMounted
-            ? (
-              <div className="pay-skeleton" aria-label="Loading the checkout">
-                <span />
-                <span />
-                <span />
-              </div>
-            )
-            : null}
+          {!checkoutMounted ? (
+            <div className="pay-skeleton" aria-label="Loading the checkout">
+              <span />
+              <span />
+              <span />
+            </div>
+          ) : null}
         </div>
-        {flow === "api-only" && !outcome
-          ? (
-            <p className="pay-note">
-              Card details are typed into Adyen-hosted fields and reach this server encrypted; raw
-              card numbers are refused.
-            </p>
-          )
-          : null}
+        {flow === "api-only" && !outcome ? (
+          <p className="pay-note">
+            Card details are typed into Adyen-hosted fields and reach this server encrypted; raw
+            card numbers are refused.
+          </p>
+        ) : null}
       </>
     );
   }
@@ -1159,7 +1187,9 @@ export default function FlowWorkbench(
             onClick={() => setConfigOpen(true)}
             aria-label="Change market, amount and integration"
           >
-            <span className="scenario-chip__flag" aria-hidden="true">{flagEmoji(country)}</span>
+            <span className="scenario-chip__flag" aria-hidden="true">
+              {flagEmoji(country)}
+            </span>
             <span className="scenario-chip__text">
               <strong>{countryName}</strong>
               <span>
@@ -1189,78 +1219,71 @@ export default function FlowWorkbench(
         </div>
       </div>
 
-      {bootstrap && !selectedProfile?.isConfigured
-        ? (
-          <div className="notice notice--warning" role="note">
-            <div>
-              <strong>This profile is incomplete</strong>
-              <p>
-                Missing: {selectedProfile?.missingFields.join(", ")}. Add them in{" "}
-                <a href="/settings">Settings</a>.
-              </p>
-            </div>
+      {bootstrap && !selectedProfile?.isConfigured ? (
+        <div className="notice notice--warning" role="note">
+          <div>
+            <strong>This profile is incomplete</strong>
+            <p>
+              Missing: {selectedProfile?.missingFields.join(", ")}. Add them in{" "}
+              <a href="/settings">Settings</a>.
+            </p>
           </div>
-        )
-        : null}
-      {error
-        ? (
-          <div className="notice notice--danger" role="alert">
-            <div>
-              <strong>Something went wrong</strong>
-              <p>{error}</p>
-            </div>
-            {hasAutoInit
-              ? (
-                <button
-                  className="button button--secondary button--small"
-                  type="button"
-                  onClick={start}
-                >
-                  Try again
-                </button>
-              )
-              : null}
+        </div>
+      ) : null}
+      {error ? (
+        <div className="notice notice--danger" role="alert">
+          <div>
+            <strong>Something went wrong</strong>
+            <p>{error}</p>
           </div>
-        )
-        : null}
+          {hasAutoInit ? (
+            <button
+              className="button button--secondary button--small"
+              type="button"
+              onClick={start}
+            >
+              Try again
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className={`checkout-workspace${inspectorOpen ? " has-inspector" : ""}`}>
         <div className="checkout-card">
           <section className="checkout-pay" aria-busy={loading}>
             <div className="checkout-pay__head">
               <h2>{flow === "pay-by-link" ? "Payment link" : "Payment"}</h2>
-              {integration === "component" && info.hasIntegration &&
-                  availableComponents.length > 0
-                ? (
-                  <select
-                    className="compact-select"
-                    aria-label="Payment method component"
-                    value={componentType}
-                    onChange={(event) => mountComponentType(event.currentTarget.value)}
-                  >
-                    {availableComponents.map((method) => (
-                      <option key={method.type} value={method.type}>{method.name}</option>
-                    ))}
-                  </select>
-                )
-                : null}
+              {integration === "component" &&
+              info.hasIntegration &&
+              availableComponents.length > 0 ? (
+                <select
+                  className="compact-select"
+                  aria-label="Payment method component"
+                  value={componentType}
+                  onChange={(event) => mountComponentType(event.currentTarget.value)}
+                >
+                  {availableComponents.map((method) => (
+                    <option key={method.type} value={method.type}>
+                      {method.name}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
             </div>
             {renderPayment()}
           </section>
         </div>
 
-        {inspectorOpen
-          ? (
-            <FlowInspector
-              entries={events}
-              steps={steps}
-              correlationId={correlationId}
-              body={inspectorBody}
-              follow={followEvents}
-              onClose={() => setInspectorOpen(false)}
-            />
-          )
-          : null}
+        {inspectorOpen ? (
+          <FlowInspector
+            entries={events}
+            steps={steps}
+            correlationId={correlationId}
+            body={inspectorBody}
+            follow={followEvents}
+            onClose={() => setInspectorOpen(false)}
+          />
+        ) : null}
       </div>
 
       <FlowSettings

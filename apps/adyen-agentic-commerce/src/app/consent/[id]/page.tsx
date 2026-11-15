@@ -22,32 +22,53 @@ export default async function Consent({ params }: { params: Promise<{ id: string
       <div className="space-y-1">
         <p className="eyebrow">Connect an agent</p>
         <h1 className="text-2xl">{request.clientName} wants to shop for you</h1>
-        <p className="break-all text-sm text-muted">Client: {host}. You will return to {redirectHost}.</p>
+        <p className="break-all text-sm text-muted">
+          Client: {host}. You will return to {redirectHost}.
+        </p>
       </div>
       <fieldset className="space-y-2">
         <legend className="eyebrow">It asks to</legend>
         {request.scopes.map((scope) => (
-          <label key={scope} className="flex items-start gap-3 rounded-xl border border-line p-3 text-sm">
+          <label
+            key={scope}
+            className="flex items-start gap-3 rounded-xl border border-line p-3 text-sm"
+          >
             <input type="checkbox" name="scope" value={scope} defaultChecked className="mt-0.5" />
             <span>
               {SCOPES[scope].label} <span className="code">{scope}</span>
-              {SCOPES[scope].kind === "personal_data" ? <span className="block text-xs text-muted">Shares personal data</span> : null}
+              {SCOPES[scope].kind === "personal_data" ? (
+                <span className="block text-xs text-muted">Shares personal data</span>
+              ) : null}
             </span>
           </label>
         ))}
       </fieldset>
-      {request.scopes.includes("ucp:pay")
-        ? (
-          <label className="block space-y-1 text-sm">
-            <span className="eyebrow">Total it may spend (EUR)</span>
-            <input type="number" name="spend_limit_eur" min={0} max={1000} step={10} defaultValue={150} className="field" />
-            <span className="block text-xs text-muted">Above this, the agent must send you a link to approve and pay yourself.</span>
-          </label>
-        )
-        : <input type="hidden" name="spend_limit_eur" value="0" />}
+      {request.scopes.includes("ucp:pay") ? (
+        <label className="block space-y-1 text-sm">
+          <span className="eyebrow">Total it may spend (EUR)</span>
+          <input
+            type="number"
+            name="spend_limit_eur"
+            min={0}
+            max={1000}
+            step={10}
+            defaultValue={150}
+            className="field"
+          />
+          <span className="block text-xs text-muted">
+            Above this, the agent must send you a link to approve and pay yourself.
+          </span>
+        </label>
+      ) : (
+        <input type="hidden" name="spend_limit_eur" value="0" />
+      )}
       <div className="flex gap-3">
-        <button type="submit" name="decision" value="approve" className="btn flex-1">Allow</button>
-        <button type="submit" name="decision" value="deny" className="btn-ghost flex-1">Deny</button>
+        <button type="submit" name="decision" value="approve" className="btn flex-1">
+          Allow
+        </button>
+        <button type="submit" name="decision" value="deny" className="btn-ghost flex-1">
+          Deny
+        </button>
       </div>
     </form>
   );

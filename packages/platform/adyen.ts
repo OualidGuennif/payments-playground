@@ -62,12 +62,12 @@ let cachedHttpClient: AdyenHttpClient | undefined;
 
 /** Built once, on first request rather than at module load. */
 function sharedHttpClient(): AdyenHttpClient {
-  return cachedHttpClient ??= new (library().HttpURLConnectionClient)();
+  return (cachedHttpClient ??= new (library().HttpURLConnectionClient)());
 }
 
 function responseObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : {};
 }
 
@@ -112,15 +112,19 @@ function asRequestError(error: unknown): AdyenRequestError {
     );
   }
 
-  const body = responseObject(parseBody(
-    text(thrown.responseBody) ?? (error instanceof Error ? error.message : ""),
-  ));
+  const body = responseObject(
+    parseBody(text(thrown.responseBody) ?? (error instanceof Error ? error.message : "")),
+  );
   const apiError = responseObject(thrown.apiError);
   const firstError = responseObject(Array.isArray(body.errors) ? body.errors[0] : undefined);
 
   const status = httpStatus(thrown.statusCode) ?? httpStatus(body.status);
-  const message = text(apiError.message) ?? text(body.message) ?? text(body.detail) ??
-    text(body.title) ?? text(firstError.message);
+  const message =
+    text(apiError.message) ??
+    text(body.message) ??
+    text(body.detail) ??
+    text(body.title) ??
+    text(firstError.message);
   const errorCode = text(apiError.errorCode) ?? text(body.errorCode) ?? text(firstError.errorCode);
 
   if (status !== undefined) {

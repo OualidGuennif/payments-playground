@@ -11,7 +11,8 @@ export class PaymentsUnavailable extends Error {}
 
 function api(): { checkout: CheckoutAPI; merchantAccount: string } {
   const { apiKey, merchantAccount } = config().adyen;
-  if (!apiKey || !merchantAccount) throw new PaymentsUnavailable("Adyen TEST credentials are not set");
+  if (!apiKey || !merchantAccount)
+    throw new PaymentsUnavailable("Adyen TEST credentials are not set");
   const client = new Client({ apiKey, environment: EnvironmentEnum.TEST });
   return { checkout: new CheckoutAPI(client), merchantAccount };
 }

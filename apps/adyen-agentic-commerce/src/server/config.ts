@@ -25,7 +25,10 @@ export class ConfigError extends Error {}
 // `docker run --env-file` keeps the quotes of a dotenv `KEY="value"` line, so they are removed here
 // rather than reaching Adyen as part of a key.
 function clean(value: string | undefined): string | undefined {
-  const trimmed = value?.trim().replace(/^(["'])(.*)\1$/s, "$2").trim();
+  const trimmed = value
+    ?.trim()
+    .replace(/^(["'])(.*)\1$/s, "$2")
+    .trim();
   return trimmed ? trimmed : undefined;
 }
 
@@ -33,8 +36,9 @@ function clean(value: string | undefined): string | undefined {
 export { clean as cleanEnvValue };
 
 export function readConfig(env: Record<string, string | undefined>): Config {
-  const publicOrigin = (clean(env.PUBLIC_ORIGIN) ?? `http://localhost:${clean(env.PORT) ?? "8003"}`)
-    .replace(/\/+$/, "");
+  const publicOrigin = (
+    clean(env.PUBLIC_ORIGIN) ?? `http://localhost:${clean(env.PORT) ?? "8003"}`
+  ).replace(/\/+$/, "");
   let url: URL;
   try {
     url = new URL(publicOrigin);

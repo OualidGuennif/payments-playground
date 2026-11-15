@@ -44,7 +44,7 @@ export async function startStandalone(
     }
     try {
       const response = await fetch(`${origin}/healthz`, { signal: AbortSignal.timeout(1_000) });
-      const body = await response.json() as { status?: string };
+      const body = (await response.json()) as { status?: string };
       if (response.ok && body.status === "ok") return { origin, stop };
       lastError = `${response.status} ${JSON.stringify(body)}`;
     } catch (error) {

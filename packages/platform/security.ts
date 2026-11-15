@@ -71,7 +71,10 @@ export class CookieJar {
       const separator = part.indexOf("=");
       if (separator < 1) continue;
       const name = part.slice(0, separator).trim();
-      const raw = part.slice(separator + 1).trim().replace(/^"(.*)"$/, "$1");
+      const raw = part
+        .slice(separator + 1)
+        .trim()
+        .replace(/^"(.*)"$/, "$1");
       try {
         this.#values.set(name, decodeURIComponent(raw));
       } catch {

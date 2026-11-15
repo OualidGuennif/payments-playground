@@ -4,7 +4,14 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { cleanEnvValue } from "./server/config";
 
-const PROTECTED = ["/account", "/back-office", "/consent", "/api/account", "/api/back-office", "/oauth/decision"];
+const PROTECTED = [
+  "/account",
+  "/back-office",
+  "/consent",
+  "/api/account",
+  "/api/back-office",
+  "/oauth/decision",
+];
 
 // `docker run --env-file` keeps the quotes of `KEY="value"`; uncleaned, the right pair was refused.
 export function basicAuthAllows(
@@ -35,5 +42,12 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/account/:path*", "/back-office/:path*", "/consent/:path*", "/api/account/:path*", "/api/back-office", "/oauth/decision"],
+  matcher: [
+    "/account/:path*",
+    "/back-office/:path*",
+    "/consent/:path*",
+    "/api/account/:path*",
+    "/api/back-office",
+    "/oauth/decision",
+  ],
 };

@@ -18,16 +18,16 @@ export default async function ResultPage({ searchParams }: { searchParams: Promi
   return (
     <DigitalLayout path="/result">
       <div className="return-page">
-        {orderId
-          ? <RedirectReturn orderId={orderId} redirectResult={first(query.redirectResult)} />
-          : (
-            <div className="return-card">
-              <p>This page is where a payment method sends the shopper back.</p>
-              <a className="button button--primary" href="/sessions?integration=dropin">
-                Start a checkout
-              </a>
-            </div>
-          )}
+        {orderId ? (
+          <RedirectReturn orderId={orderId} redirectResult={first(query.redirectResult)} />
+        ) : (
+          <div className="return-card">
+            <p>This page is where a payment method sends the shopper back.</p>
+            <a className="button button--primary" href="/sessions?integration=dropin">
+              Start a checkout
+            </a>
+          </div>
+        )}
       </div>
     </DigitalLayout>
   );

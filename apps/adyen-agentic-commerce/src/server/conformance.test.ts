@@ -24,7 +24,8 @@ beforeEach(async () => {
   await agent.signIn();
 });
 
-const get = (path: string) => handle(new Request(`${ORIGIN}${path}`, { headers: { "x-forwarded-for": randomIp() } }));
+const get = (path: string) =>
+  handle(new Request(`${ORIGIN}${path}`, { headers: { "x-forwarded-for": randomIp() } }));
 
 describe("discovery", () => {
   test("poppy.json names the protocol version, the issuer and the MCP API, readable cross-origin", async () => {
@@ -56,13 +57,17 @@ describe("discovery", () => {
 
 describe("the resource", () => {
   test("an unsigned-in MCP call gets 401 with the resource metadata URL", async () => {
-    const response = await handle(new Request(MCP, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-forwarded-for": randomIp() },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }),
-    }));
+    const response = await handle(
+      new Request(MCP, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": randomIp() },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }),
+      }),
+    );
     expect(response.status).toBe(401);
-    expect(response.headers.get("www-authenticate")).toContain(`resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/mcp"`);
+    expect(response.headers.get("www-authenticate")).toContain(
+      `resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/mcp"`,
+    );
   });
 
   test("an unknown bearer token is invalid_token, with the error in WWW-Authenticate", async () => {
@@ -85,26 +90,34 @@ describe("the resource", () => {
   });
 
   test("Poppy-Session is optional: a bearer token alone is accepted", async () => {
-    const response = await handle(new Request(MCP, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${agent.accessToken}`, "x-forwarded-for": randomIp() },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
-    }));
+    const response = await handle(
+      new Request(MCP, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${agent.accessToken}`,
+          "x-forwarded-for": randomIp(),
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
+      }),
+    );
     expect(response.status).toBe(200);
   });
 
   test("htu is compared without the query string", async () => {
-    const response = await handle(new Request(`${MCP}?trace=1`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${agent.accessToken}`,
-        "poppy-version": "1.0",
-        "poppy-session": await agent.session(MCP),
-        "x-forwarded-for": randomIp(),
-      },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
-    }));
+    const response = await handle(
+      new Request(`${MCP}?trace=1`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${agent.accessToken}`,
+          "poppy-version": "1.0",
+          "poppy-session": await agent.session(MCP),
+          "x-forwarded-for": randomIp(),
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
+      }),
+    );
     expect(response.status).toBe(200);
   });
 });
@@ -131,7 +144,9 @@ describe("Poppy-Session refusals", () => {
   });
 
   test("htu for another URL", async () => {
-    expect(await refused({ session: { claims: { htu: `${ORIGIN}/ucp/v1/carts` } } })).toContain("htu");
+    expect(await refused({ session: { claims: { htu: `${ORIGIN}/ucp/v1/carts` } } })).toContain(
+      "htu",
+    );
   });
 
   test("htm for another method", async () => {
@@ -139,7 +154,9 @@ describe("Poppy-Session refusals", () => {
   });
 
   test("aud for another resource", async () => {
-    expect(await refused({ session: { claims: { aud: "https://shop.example" } } })).toContain("aud");
+    expect(await refused({ session: { claims: { aud: "https://shop.example" } } })).toContain(
+      "aud",
+    );
   });
 
   test("an iat outside five minutes", async () => {
@@ -162,7 +179,9 @@ describe("Poppy-Session refusals", () => {
   });
 
   test("ath for another token", async () => {
-    expect(await refused({ session: { claims: { ath: sha256b64url("at_other") } } })).toContain("ath");
+    expect(await refused({ session: { claims: { ath: sha256b64url("at_other") } } })).toContain(
+      "ath",
+    );
   });
 
   test("ath without any token", async () => {
@@ -172,10 +191,14 @@ describe("Poppy-Session refusals", () => {
   test("a session from another client presented with this client's token", async () => {
     other.ip = randomIp();
     await other.signIn();
-    const { status, body } = await other.mcp("ping", {}, {
-      token: agent.accessToken,
-      session: { claims: { ath: sha256b64url(agent.accessToken) } },
-    });
+    const { status, body } = await other.mcp(
+      "ping",
+      {},
+      {
+        token: agent.accessToken,
+        session: { claims: { ath: sha256b64url(agent.accessToken) } },
+      },
+    );
     expect(status).toBe(400);
     expect(body.error_description).toContain("another client");
   });
@@ -206,7 +229,10 @@ describe("Poppy-Session refusals", () => {
   });
 
   test("an expired delegation ends the session", async () => {
-    const delegation = await agent.makeDelegation({ iat: Math.floor(Date.now() / 1000) - 7200, lifetime: 3600 });
+    const delegation = await agent.makeDelegation({
+      iat: Math.floor(Date.now() / 1000) - 7200,
+      lifetime: 3600,
+    });
     await refused({ session: { delegation } }, "session_ended");
   });
 });

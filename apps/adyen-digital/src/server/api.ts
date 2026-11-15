@@ -45,7 +45,7 @@ const context = createPlatformContext("digital");
 
 function object(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : {};
 }
 
@@ -89,7 +89,7 @@ function amountFrom(value: unknown, defaultCurrency = "EUR"): Amount {
  */
 function conversionIdFrom(value: unknown): string {
   return typeof value === "string" &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
     ? value
     : crypto.randomUUID();
 }
@@ -254,9 +254,10 @@ function lifecycleFor(order: OrderAggregate, attempts: AttemptAggregate[]) {
   const settled = ledgerOf(source?.amount.value ?? 0, modifications);
   // A method captured on authorisation never sees a CAPTURE webhook: what is
   // authorised is captured.
-  const ledger = capabilitiesFor(paymentMethod).automaticCapture && !settled.cancelled
-    ? { ...settled, captured: settled.authorised }
-    : settled;
+  const ledger =
+    capabilitiesFor(paymentMethod).automaticCapture && !settled.cancelled
+      ? { ...settled, captured: settled.authorised }
+      : settled;
   return {
     ledger,
     modifications,
@@ -288,15 +289,19 @@ function requestBase(input: {
   // when Adyen Web's state.data supplied names. /paymentLinks validates a
   // plain address schema and rejects them ("Structure of address contains
   // the following unknown fields: [firstName, lastName]").
-  const { firstName: _firstName, lastName: _lastName, ...postalDelivery } =
-    addresses.deliveryAddress;
-  const deliveryAddress = input.context === "sessions"
-    ? {
-      ...postalDelivery,
-      firstName: String(input.body.firstName ?? "Test"),
-      lastName: String(input.body.lastName ?? "Shopper"),
-    }
-    : postalDelivery;
+  const {
+    firstName: _firstName,
+    lastName: _lastName,
+    ...postalDelivery
+  } = addresses.deliveryAddress;
+  const deliveryAddress =
+    input.context === "sessions"
+      ? {
+          ...postalDelivery,
+          firstName: String(input.body.firstName ?? "Test"),
+          lastName: String(input.body.lastName ?? "Shopper"),
+        }
+      : postalDelivery;
   return {
     amount: input.order.amount,
     reference: input.order.reference,
@@ -355,8 +360,8 @@ async function hmacSecrets(): Promise<ProfileSecrets[]> {
 function webhookItems(payload: unknown): StandardWebhookItem[] {
   const root = object(payload);
   if (!Array.isArray(root.notificationItems)) return [root as StandardWebhookItem];
-  return root.notificationItems.map((entry) =>
-    object(object(entry).NotificationRequestItem) as StandardWebhookItem
+  return root.notificationItems.map(
+    (entry) => object(object(entry).NotificationRequestItem) as StandardWebhookItem,
   );
 }
 
@@ -392,23 +397,20 @@ const MODIFICATION_EVENTS: Record<string, "capture" | "cancel"> = {
  * /payments for the Advanced flow, and for API only once its PCI boundary
  * check passed.
  */
-async function createPayment(
-  body: Record<string, unknown>,
-  http: Request,
-  remoteAddress?: string,
-) {
+async function createPayment(body: Record<string, unknown>, http: Request, remoteAddress?: string) {
   rejectRawCardData(body.paymentMethod);
   const amount = amountFrom(body.amount);
   const { client, secrets, id: profileId } = await profileClient(http);
-  const existingOrder = typeof body.orderId === "string"
-    ? context.repository.getOrder(body.orderId)
-    : undefined;
-  const order = existingOrder ?? context.repository.createOrder({
-    appId: "digital",
-    flow: String(body.flow ?? "advanced-dropin"),
-    amount,
-    metadata: { profileId },
-  });
+  const existingOrder =
+    typeof body.orderId === "string" ? context.repository.getOrder(body.orderId) : undefined;
+  const order =
+    existingOrder ??
+    context.repository.createOrder({
+      appId: "digital",
+      flow: String(body.flow ?? "advanced-dropin"),
+      amount,
+      metadata: { profileId },
+    });
   // A payment into an Adyen order charges its share (a gift card's balance,
   // then the rest), not the whole order, and never more than the order.
   const adyenOrder = orderReference(body.order);
@@ -441,13 +443,13 @@ async function createPayment(
     // Paying with a token, or asking to store one, is a card-on-file
     // transaction, the legacy playground derived both fields from the payload
     // instead of trusting the client to label it correctly.
-    shopperInteraction: body.shopperInteraction ??
-      (isStoredPaymentMethod ? "ContAuth" : "Ecommerce"),
+    shopperInteraction:
+      body.shopperInteraction ?? (isStoredPaymentMethod ? "ContAuth" : "Ecommerce"),
     ...(body.recurringProcessingModel
       ? { recurringProcessingModel: body.recurringProcessingModel }
       : isStoredPaymentMethod || body.storePaymentMethod
-      ? { recurringProcessingModel: "CardOnFile" }
-      : {}),
+        ? { recurringProcessingModel: "CardOnFile" }
+        : {}),
     // A stored method is already on file; re-storing it is rejected.
     ...(body.storePaymentMethod && !isStoredPaymentMethod ? { storePaymentMethod: true } : {}),
     ...(adyenOrder ? { order: adyenOrder, amount } : {}),
@@ -587,7 +589,8 @@ const app = createPlatformApi(context)
     return { correlationId, shopperConversionId, paymentMethodsResponse: result };
   })
   .post("/api/digital/payments", ({ body, request: http, server }) =>
-    createPayment(object(body), http, server?.requestIP(http)?.address))
+    createPayment(object(body), http, server?.requestIP(http)?.address),
+  )
   .post("/api/digital/payments/details", async ({ body: rawBody, request: http }) => {
     const body = object(rawBody);
     const correlationId = String(body.correlationId ?? "");
@@ -606,9 +609,9 @@ const app = createPlatformApi(context)
       execute: () => client.paymentDetails(request, crypto.randomUUID()),
     });
     // The attempt /payments left waiting on 3DS or a redirect.
-    const attempt = context.repository.listAttempts(order.id).findLast((item) =>
-      item.state === "pending" || item.state === "created"
-    );
+    const attempt = context.repository
+      .listAttempts(order.id)
+      .findLast((item) => item.state === "pending" || item.state === "created");
     const resolution = attempt ? settleAttempt(order, attempt, result) : undefined;
     return { correlationId, result, resolution };
   })
@@ -618,54 +621,61 @@ const app = createPlatformApi(context)
   // for Sessions too: the redirectResult carries the whole payment, so the
   // call does not need the session. A reload must not submit it twice, so an
   // order with nothing left waiting answers with what is already stored.
-  .post("/api/digital/orders/:id/redirect-result", async ({ params, body: rawBody, request: http }) => {
-    const order = context.repository.getOrder(params.id);
-    if (!order) return status(404, { error: "Order not found." });
-    const body = object(rawBody);
-    const redirectResult = typeof body.redirectResult === "string" ? body.redirectResult : "";
-    if (!redirectResult) return status(400, { error: "redirectResult is required." });
-    const attempts = context.repository.listAttempts(order.id);
-    const waiting = attempts.findLast((item) => item.state === "pending" || item.state === "created");
-    const settled = attempts.findLast((item) => item.pspReference && item.state !== "created");
-    if (!waiting && settled) {
+  .post(
+    "/api/digital/orders/:id/redirect-result",
+    async ({ params, body: rawBody, request: http }) => {
+      const order = context.repository.getOrder(params.id);
+      if (!order) return status(404, { error: "Order not found." });
+      const body = object(rawBody);
+      const redirectResult = typeof body.redirectResult === "string" ? body.redirectResult : "";
+      if (!redirectResult) return status(400, { error: "redirectResult is required." });
+      const attempts = context.repository.listAttempts(order.id);
+      const waiting = attempts.findLast(
+        (item) => item.state === "pending" || item.state === "created",
+      );
+      const settled = attempts.findLast((item) => item.pspReference && item.state !== "created");
+      if (!waiting && settled) {
+        return {
+          correlationId: order.id,
+          alreadySettled: true,
+          result: {
+            resultCode: RESULT_CODE_FOR_STATE[settled.state],
+            pspReference: settled.pspReference,
+            paymentMethod: { type: settled.paymentMethod },
+          },
+          resolution: resolveAndStore(order),
+        };
+      }
+      const { client } = await profileClient(http);
+      const request = { details: { redirectResult } };
+      const result = await recordedCall({
+        correlationId: order.id,
+        name: "Checkout API /payments/details",
+        endpoint: "https://checkout-test.adyen.com/v72/payments/details",
+        request,
+        execute: () => client.paymentDetails(request, crypto.randomUUID()),
+      });
+      const merchantReference = resultField(result, "merchantReference");
+      if (typeof merchantReference === "string" && merchantReference !== order.reference) {
+        return status(409, { error: "This redirect belongs to another order." });
+      }
+      // Sessions orders get their attempt from the session result, which a
+      // redirect skips; this is the first time the server sees the payment.
+      const attempt =
+        waiting ??
+        context.repository.createAttempt({
+          orderId: order.id,
+          amount: order.amount,
+          state: "created",
+          paymentMethod: String(object(resultField(result, "paymentMethod")).type ?? "unknown"),
+        });
       return {
         correlationId: order.id,
-        alreadySettled: true,
-        result: {
-          resultCode: RESULT_CODE_FOR_STATE[settled.state],
-          pspReference: settled.pspReference,
-          paymentMethod: { type: settled.paymentMethod },
-        },
-        resolution: resolveAndStore(order),
+        result,
+        resolution: settleAttempt(order, attempt, result),
       };
-    }
-    const { client } = await profileClient(http);
-    const request = { details: { redirectResult } };
-    const result = await recordedCall({
-      correlationId: order.id,
-      name: "Checkout API /payments/details",
-      endpoint: "https://checkout-test.adyen.com/v72/payments/details",
-      request,
-      execute: () => client.paymentDetails(request, crypto.randomUUID()),
-    });
-    const merchantReference = resultField(result, "merchantReference");
-    if (typeof merchantReference === "string" && merchantReference !== order.reference) {
-      return status(409, { error: "This redirect belongs to another order." });
-    }
-    // Sessions orders get their attempt from the session result, which a
-    // redirect skips; this is the first time the server sees the payment.
-    const attempt = waiting ?? context.repository.createAttempt({
-      orderId: order.id,
-      amount: order.amount,
-      state: "created",
-      paymentMethod: String(object(resultField(result, "paymentMethod")).type ?? "unknown"),
-    });
-    return {
-      correlationId: order.id,
-      result,
-      resolution: settleAttempt(order, attempt, result),
-    };
-  })
+    },
+  )
   .post("/api/digital/payment-links", async ({ body: rawBody, request: http }) => {
     const body = object(rawBody);
     const amount = amountFrom(body.amount);
@@ -782,22 +792,25 @@ const app = createPlatformApi(context)
   // Adyen Web's onOrderCancel (Drop-in offers it once part of an order is
   // paid). Adyen then cancels or refunds what was paid into the order, and
   // ORDER_CLOSED success=false settles it here.
-  .post("/api/digital/partial-orders/:id/cancel", async ({ params, body: rawBody, request: http }) => {
-    const order = context.repository.getOrder(params.id);
-    if (!order) return status(404, { error: "Order not found." });
-    const adyenOrder = orderReference(object(rawBody).order);
-    if (!adyenOrder) return status(400, { error: "orderData and pspReference are required." });
-    const { client, secrets } = await profileClient(http);
-    const request = { merchantAccount: secrets.merchantAccount, order: adyenOrder };
-    const result = await recordedCall({
-      correlationId: order.id,
-      name: "Checkout API /orders/cancel",
-      endpoint: "https://checkout-test.adyen.com/v72/orders/cancel",
-      request,
-      execute: () => client.cancelOrder(request, crypto.randomUUID()),
-    });
-    return { correlationId: order.id, result };
-  })
+  .post(
+    "/api/digital/partial-orders/:id/cancel",
+    async ({ params, body: rawBody, request: http }) => {
+      const order = context.repository.getOrder(params.id);
+      if (!order) return status(404, { error: "Order not found." });
+      const adyenOrder = orderReference(object(rawBody).order);
+      if (!adyenOrder) return status(400, { error: "orderData and pspReference are required." });
+      const { client, secrets } = await profileClient(http);
+      const request = { merchantAccount: secrets.merchantAccount, order: adyenOrder };
+      const result = await recordedCall({
+        correlationId: order.id,
+        name: "Checkout API /orders/cancel",
+        endpoint: "https://checkout-test.adyen.com/v72/orders/cancel",
+        request,
+        execute: () => client.cancelOrder(request, crypto.randomUUID()),
+      });
+      return { correlationId: order.id, result };
+    },
+  )
   .post("/api/digital/mit", async ({ body: rawBody, request: http }) => {
     const body = object(rawBody);
     rejectRawCardData(body);
@@ -831,9 +844,8 @@ const app = createPlatformApi(context)
       paymentMethod: { storedPaymentMethodId: token },
       shopperReference,
       shopperInteraction: "ContAuth",
-      recurringProcessingModel: body.recurringProcessingModel === "Subscription"
-        ? "Subscription"
-        : "UnscheduledCardOnFile",
+      recurringProcessingModel:
+        body.recurringProcessingModel === "Subscription" ? "Subscription" : "UnscheduledCardOnFile",
     };
     const result = await recordedCall({
       correlationId: order.id,
@@ -850,8 +862,8 @@ const app = createPlatformApi(context)
     rejectRawCardData(body);
     const paymentMethod = object(body.paymentMethod);
     if (
-      !Object.values(paymentMethod).some((value) =>
-        typeof value === "string" && (value.startsWith("adyenjs_") || value.length > 12)
+      !Object.values(paymentMethod).some(
+        (value) => typeof value === "string" && (value.startsWith("adyenjs_") || value.length > 12),
       )
     ) {
       return status(400, {
@@ -860,11 +872,7 @@ const app = createPlatformApi(context)
       });
     }
     // Reuse the Advanced Flow contract after the explicit PCI boundary check.
-    return createPayment(
-      { ...body, flow: "api-only-pci" },
-      http,
-      server?.requestIP(http)?.address,
-    );
+    return createPayment({ ...body, flow: "api-only-pci" }, http, server?.requestIP(http)?.address);
   })
   // Capture, cancel or refund. Each request carries the Idempotency-Key the
   // Back Office minted for that intent (Adyen keeps it 7 to 14 days and returns
@@ -872,188 +880,190 @@ const app = createPlatformApi(context)
   // seen answers with what is known instead of reaching Adyen again. A request
   // Adyen answered "received" blocks another of its kind until its webhook,
   // the only source of the outcome, arrives.
-  .post("/api/digital/orders/:id/actions/:action", async ({ params, body: rawBody, request: http }) => {
-    const order = context.repository.getOrder(params.id);
-    if (!order) return status(404, { error: "Order not found." });
-    const action = params.action;
-    if (action !== "capture" && action !== "cancel" && action !== "refund") {
-      return status(400, { error: "Unsupported lifecycle action." });
-    }
-    const idempotencyKey = String(http.headers.get("idempotency-key") ?? crypto.randomUUID()).slice(
-      0,
-      64,
-    );
-    const known = context.repository.findAction(idempotencyKey);
-    if (known) {
-      if (known.state === "requested") {
-        // Adyen's own answer to a duplicate still in flight (error code 704).
+  .post(
+    "/api/digital/orders/:id/actions/:action",
+    async ({ params, body: rawBody, request: http }) => {
+      const order = context.repository.getOrder(params.id);
+      if (!order) return status(404, { error: "Order not found." });
+      const action = params.action;
+      if (action !== "capture" && action !== "cancel" && action !== "refund") {
+        return status(400, { error: "Unsupported lifecycle action." });
+      }
+      const idempotencyKey = String(
+        http.headers.get("idempotency-key") ?? crypto.randomUUID(),
+      ).slice(0, 64);
+      const known = context.repository.findAction(idempotencyKey);
+      if (known) {
+        if (known.state === "requested") {
+          // Adyen's own answer to a duplicate still in flight (error code 704).
+          return status(409, { error: "This request is already being processed." });
+        }
+        return { duplicate: true, request: known };
+      }
+
+      const attempts = context.repository.listAttempts(order.id);
+      const sourceAttempt = lifecycleSourceAttempt(attempts);
+      if (!sourceAttempt?.pspReference) {
+        return status(409, { error: "No authorised payment is available." });
+      }
+      const { permissions } = lifecycleFor(order, attempts);
+      const permission = permissions[action];
+      if (!permission.allowed) return status(409, { error: permission.reason, permissions });
+
+      const body = object(rawBody);
+      let amount: Amount | undefined;
+      if (action !== "cancel") {
+        const max = permission.maxValue ?? 0;
+        const value = body.amount === undefined ? max : Number(object(body.amount).value);
+        if (!Number.isInteger(value) || value < 1 || value > max) {
+          return status(400, { error: `The amount must be between 1 and ${max} minor units.` });
+        }
+        if (!permission.partial && value !== max) {
+          return status(400, { error: `This payment method only takes the full ${action}.` });
+        }
+        amount = { value, currency: sourceAttempt.amount.currency };
+      }
+
+      const record = context.repository.recordAction({
+        appId: "digital",
+        orderId: order.id,
+        correlationId: order.id,
+        action,
+        state: "requested",
+        idempotencyKey,
+        payload: amount ? { amount } : {},
+      });
+      if (record.duplicate) {
         return status(409, { error: "This request is already being processed." });
       }
-      return { duplicate: true, request: known };
-    }
-
-    const attempts = context.repository.listAttempts(order.id);
-    const sourceAttempt = lifecycleSourceAttempt(attempts);
-    if (!sourceAttempt?.pspReference) {
-      return status(409, { error: "No authorised payment is available." });
-    }
-    const { permissions } = lifecycleFor(order, attempts);
-    const permission = permissions[action];
-    if (!permission.allowed) return status(409, { error: permission.reason, permissions });
-
-    const body = object(rawBody);
-    let amount: Amount | undefined;
-    if (action !== "cancel") {
-      const max = permission.maxValue ?? 0;
-      const value = body.amount === undefined ? max : Number(object(body.amount).value);
-      if (!Number.isInteger(value) || value < 1 || value > max) {
-        return status(400, { error: `The amount must be between 1 and ${max} minor units.` });
+      const { client, secrets } = await profileClient(http);
+      const request = {
+        merchantAccount: secrets.merchantAccount,
+        reference: `${action}-${order.reference}`.slice(0, 80),
+        ...(amount ? { amount } : {}),
+      };
+      try {
+        const result = await recordedCall({
+          correlationId: order.id,
+          name: `Checkout API lifecycle ${action}`,
+          endpoint: `https://checkout-test.adyen.com/v72/payments/${sourceAttempt.pspReference}/${action}s`,
+          request,
+          execute: () => {
+            if (action === "capture") {
+              return client.capture(sourceAttempt.pspReference!, request, idempotencyKey);
+            }
+            if (action === "cancel") {
+              return client.cancel(sourceAttempt.pspReference!, request, idempotencyKey);
+            }
+            return client.refund(sourceAttempt.pspReference!, request, idempotencyKey);
+          },
+        });
+        context.repository.updateAction(record.id, {
+          state: "received",
+          pspReference: String(resultField(result, "pspReference") ?? "") || undefined,
+        });
+        return status(202, { actionId: record.id, idempotencyKey, result });
+      } catch (error) {
+        context.repository.updateAction(record.id, {
+          state: "rejected",
+          reason: error instanceof Error ? error.message : "Adyen rejected the request.",
+        });
+        throw error;
       }
-      if (!permission.partial && value !== max) {
-        return status(400, { error: `This payment method only takes the full ${action}.` });
-      }
-      amount = { value, currency: sourceAttempt.amount.currency };
-    }
+    },
+  )
+  .post(
+    "/webhook",
+    async ({ body: rawBody }) => {
+      const payload = rawBody;
+      const secrets = await hmacSecrets();
+      const items = webhookItems(payload);
+      let invalid = false;
 
-    const record = context.repository.recordAction({
-      appId: "digital",
-      orderId: order.id,
-      correlationId: order.id,
-      action,
-      state: "requested",
-      idempotencyKey,
-      payload: amount ? { amount } : {},
-    });
-    if (record.duplicate) {
-      return status(409, { error: "This request is already being processed." });
-    }
-    const { client, secrets } = await profileClient(http);
-    const request = {
-      merchantAccount: secrets.merchantAccount,
-      reference: `${action}-${order.reference}`.slice(0, 80),
-      ...(amount ? { amount } : {}),
-    };
-    try {
-      const result = await recordedCall({
-        correlationId: order.id,
-        name: `Checkout API lifecycle ${action}`,
-        endpoint:
-          `https://checkout-test.adyen.com/v72/payments/${sourceAttempt.pspReference}/${action}s`,
-        request,
-        execute: () => {
-          if (action === "capture") {
-            return client.capture(sourceAttempt.pspReference!, request, idempotencyKey);
+      for (const item of items) {
+        let hmacValid = false;
+        for (const profile of secrets) {
+          if (await verifyStandardHmac(item, profile.hmacKey)) {
+            hmacValid = true;
+            break;
           }
-          if (action === "cancel") {
-            return client.cancel(sourceAttempt.pspReference!, request, idempotencyKey);
-          }
-          return client.refund(sourceAttempt.pspReference!, request, idempotencyKey);
-        },
-      });
-      context.repository.updateAction(record.id, {
-        state: "received",
-        pspReference: String(resultField(result, "pspReference") ?? "") || undefined,
-      });
-      return status(202, { actionId: record.id, idempotencyKey, result });
-    } catch (error) {
-      context.repository.updateAction(record.id, {
-        state: "rejected",
-        reason: error instanceof Error ? error.message : "Adyen rejected the request.",
-      });
-      throw error;
-    }
-  })
-  .post("/webhook", async ({ body: rawBody }) => {
-    const payload = rawBody;
-    const secrets = await hmacSecrets();
-    const items = webhookItems(payload);
-    let invalid = false;
-
-    for (const item of items) {
-      let hmacValid = false;
-      for (const profile of secrets) {
-        if (await verifyStandardHmac(item, profile.hmacKey)) {
-          hmacValid = true;
-          break;
         }
-      }
-      const order = correlateWebhook(item);
-      const correlationId = order?.id ?? String(item.merchantReference ?? "unmatched");
-      const eventType = String(item.eventCode ?? object(payload).type ?? "UNKNOWN");
-      const dedupeKey = [
-        item.pspReference,
-        item.originalReference,
-        eventType,
-        item.success,
-      ].join(":");
-      context.repository.recordWebhook({
-        appId: "digital",
-        dedupeKey,
-        correlationId,
-        eventType,
-        pspReference: item.pspReference,
-        hmacValid,
-        payload: sanitize(item),
-      });
-
-      if (!hmacValid) {
-        invalid = true;
-        continue;
-      }
-      if (!order) continue;
-
-      const success = String(item.success).toLowerCase() === "true";
-      if (eventType === "AUTHORISATION") {
-        let attempt = context.repository.listAttempts(order.id).find((value) =>
-          value.pspReference === item.pspReference
+        const order = correlateWebhook(item);
+        const correlationId = order?.id ?? String(item.merchantReference ?? "unmatched");
+        const eventType = String(item.eventCode ?? object(payload).type ?? "UNKNOWN");
+        const dedupeKey = [item.pspReference, item.originalReference, eventType, item.success].join(
+          ":",
         );
-        if (!attempt) {
-          attempt = context.repository.createAttempt({
-            orderId: order.id,
-            amount: {
-              value: Number(item.amount?.value ?? order.amount.value),
-              currency: String(item.amount?.currency ?? order.amount.currency),
-            },
-            paymentMethod: String(item.paymentMethod ?? "unknown"),
-            pspReference: item.pspReference,
-            state: success ? "authorised" : "refused",
-            refusalReason: success ? undefined : String(item.reason ?? "Refused"),
-          });
-        } else {
-          context.repository.updateAttempt(attempt.id, {
-            state: success ? "authorised" : "refused",
-            pspReference: item.pspReference,
-            refusalReason: success ? undefined : String(item.reason ?? "Refused"),
-          });
+        context.repository.recordWebhook({
+          appId: "digital",
+          dedupeKey,
+          correlationId,
+          eventType,
+          pspReference: item.pspReference,
+          hmacValid,
+          payload: sanitize(item),
+        });
+
+        if (!hmacValid) {
+          invalid = true;
+          continue;
         }
-        if (success) {
-          context.repository.recordPaymentPart({
-            orderId: order.id,
-            attemptId: attempt.id,
-            pspReference: item.pspReference,
-            amount: {
-              value: Number(item.amount?.value ?? order.amount.value),
-              currency: String(item.amount?.currency ?? order.amount.currency),
-            },
-            state: "authorised",
-          });
+        if (!order) continue;
+
+        const success = String(item.success).toLowerCase() === "true";
+        if (eventType === "AUTHORISATION") {
+          let attempt = context.repository
+            .listAttempts(order.id)
+            .find((value) => value.pspReference === item.pspReference);
+          if (!attempt) {
+            attempt = context.repository.createAttempt({
+              orderId: order.id,
+              amount: {
+                value: Number(item.amount?.value ?? order.amount.value),
+                currency: String(item.amount?.currency ?? order.amount.currency),
+              },
+              paymentMethod: String(item.paymentMethod ?? "unknown"),
+              pspReference: item.pspReference,
+              state: success ? "authorised" : "refused",
+              refusalReason: success ? undefined : String(item.reason ?? "Refused"),
+            });
+          } else {
+            context.repository.updateAttempt(attempt.id, {
+              state: success ? "authorised" : "refused",
+              pspReference: item.pspReference,
+              refusalReason: success ? undefined : String(item.reason ?? "Refused"),
+            });
+          }
+          if (success) {
+            context.repository.recordPaymentPart({
+              orderId: order.id,
+              attemptId: attempt.id,
+              pspReference: item.pspReference,
+              amount: {
+                value: Number(item.amount?.value ?? order.amount.value),
+                currency: String(item.amount?.currency ?? order.amount.currency),
+              },
+              state: "authorised",
+            });
+          }
         }
+
+        const modification = MODIFICATION_EVENTS[eventType];
+        resolveAndStore(order, {
+          orderClosedWebhook: eventType === "ORDER_CLOSED" ? { success } : undefined,
+          modificationWebhook: modification ? { kind: modification, success } : undefined,
+        });
       }
 
-      const modification = MODIFICATION_EVENTS[eventType];
-      resolveAndStore(order, {
-        orderClosedWebhook: eventType === "ORDER_CLOSED" ? { success } : undefined,
-        modificationWebhook: modification ? { kind: modification, success } : undefined,
-      });
-    }
-
-    if (invalid) return status(401, { error: "Invalid or missing HMAC signature." });
-    return status(202, "[accepted]");
-  }, { parse: "json" })
+      if (invalid) return status(401, { error: "Invalid or missing HMAC signature." });
+      return status(202, "[accepted]");
+    },
+    { parse: "json" },
+  )
   .get("/api/digital/webhooks/:correlationId", ({ params }) => {
-    const entries = context.repository.timeline(params.correlationId).filter((entry) =>
-      entry.kind === "webhook"
-    );
+    const entries = context.repository
+      .timeline(params.correlationId)
+      .filter((entry) => entry.kind === "webhook");
     return {
       waiting: entries.length === 0,
       entries: entries as unknown as JsonValue,

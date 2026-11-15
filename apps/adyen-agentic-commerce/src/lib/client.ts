@@ -34,20 +34,38 @@ export function useCart() {
   const save = useCallback((next: CartLine[]) => {
     try {
       localStorage.setItem(KEY, JSON.stringify(next));
-    } catch { /* private mode: the cart lives for this page only */ }
+    } catch {
+      /* private mode: the cart lives for this page only */
+    }
     setLines(next);
     window.dispatchEvent(new Event("velune-cart"));
   }, []);
-  const add = useCallback((variantId: string, quantity = 1) => {
-    const current = read();
-    const found = current.find((l) => l.variantId === variantId);
-    save(found
-      ? current.map((l) => l.variantId === variantId ? { ...l, quantity: Math.min(10, l.quantity + quantity) } : l)
-      : [...current, { variantId, quantity }]);
-  }, [save]);
-  const setQuantity = useCallback((variantId: string, quantity: number) => {
-    save(read().map((l) => l.variantId === variantId ? { ...l, quantity } : l).filter((l) => l.quantity > 0));
-  }, [save]);
+  const add = useCallback(
+    (variantId: string, quantity = 1) => {
+      const current = read();
+      const found = current.find((l) => l.variantId === variantId);
+      save(
+        found
+          ? current.map((l) =>
+              l.variantId === variantId
+                ? { ...l, quantity: Math.min(10, l.quantity + quantity) }
+                : l,
+            )
+          : [...current, { variantId, quantity }],
+      );
+    },
+    [save],
+  );
+  const setQuantity = useCallback(
+    (variantId: string, quantity: number) => {
+      save(
+        read()
+          .map((l) => (l.variantId === variantId ? { ...l, quantity } : l))
+          .filter((l) => l.quantity > 0),
+      );
+    },
+    [save],
+  );
   const clear = useCallback(() => save([]), [save]);
   return { lines, add, setQuantity, clear, count: lines.reduce((n, l) => n + l.quantity, 0) };
 }

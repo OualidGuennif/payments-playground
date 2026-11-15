@@ -76,10 +76,7 @@ function resolveEncryptionKey(databasePath: string): Uint8Array {
   }
 }
 
-function publicFrom(
-  row: ProfileRow,
-  secrets: ProfileSecrets,
-): PublicProfile {
+function publicFrom(row: ProfileRow, secrets: ProfileSecrets): PublicProfile {
   const missingFields = REQUIRED_SECRETS.filter((field) => !secrets[field]);
   return {
     id: row.id,
@@ -147,9 +144,11 @@ export class ProfileStore {
   }
 
   async listPublic(): Promise<PublicProfile[]> {
-    const rows = this.#database.prepare<ProfileRow, SQLQueryBindings[]>(
-      "SELECT * FROM profiles WHERE app_id = ? ORDER BY updated_at DESC",
-    ).all(this.#appId);
+    const rows = this.#database
+      .prepare<ProfileRow, SQLQueryBindings[]>(
+        "SELECT * FROM profiles WHERE app_id = ? ORDER BY updated_at DESC",
+      )
+      .all(this.#appId);
     const profiles: PublicProfile[] = [this.#defaultProfile];
     for (const row of rows) {
       try {
@@ -172,17 +171,17 @@ export class ProfileStore {
 
   async getPublic(id: string): Promise<PublicProfile | undefined> {
     if (id === "default") return this.#defaultProfile;
-    const row = this.#database.prepare<ProfileRow, SQLQueryBindings[]>(
-      "SELECT * FROM profiles WHERE app_id = ? AND id = ?",
-    ).get(this.#appId, id);
+    const row = this.#database
+      .prepare<ProfileRow, SQLQueryBindings[]>("SELECT * FROM profiles WHERE app_id = ? AND id = ?")
+      .get(this.#appId, id);
     return row ? publicFrom(row, await this.#decrypt(row)) : undefined;
   }
 
   async getSecrets(id: string): Promise<ProfileSecrets | undefined> {
     if (id === "default") return { ...this.#defaultSecrets };
-    const row = this.#database.prepare<ProfileRow, SQLQueryBindings[]>(
-      "SELECT * FROM profiles WHERE app_id = ? AND id = ?",
-    ).get(this.#appId, id);
+    const row = this.#database
+      .prepare<ProfileRow, SQLQueryBindings[]>("SELECT * FROM profiles WHERE app_id = ? AND id = ?")
+      .get(this.#appId, id);
     return row ? await this.#decrypt(row) : undefined;
   }
 
@@ -198,22 +197,16 @@ export class ProfileStore {
     profileIsTestOnly(secrets);
     const encrypted = await this.#encrypt(secrets);
     const now = new Date().toISOString();
-    this.#database.prepare(
-      `INSERT INTO profiles
+    this.#database
+      .prepare(
+        `INSERT INTO profiles
        (id, app_id, label, encrypted_secrets, nonce, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET label = excluded.label,
        encrypted_secrets = excluded.encrypted_secrets, nonce = excluded.nonce,
        updated_at = excluded.updated_at`,
-    ).run(
-      id,
-      this.#appId,
-      normalizedLabel,
-      encrypted.ciphertext,
-      encrypted.nonce,
-      now,
-      now,
-    );
+      )
+      .run(id, this.#appId, normalizedLabel, encrypted.ciphertext, encrypted.nonce, now, now);
     return (await this.getPublic(id))!;
   }
 
@@ -221,8 +214,10 @@ export class ProfileStore {
     if (id === "default") {
       throw new Error("The environment-backed default profile cannot be deleted.");
     }
-    return this.#database.prepare(
-      "DELETE FROM profiles WHERE app_id = ? AND id = ?",
-    ).run(this.#appId, id).changes > 0;
+    return (
+      this.#database
+        .prepare("DELETE FROM profiles WHERE app_id = ? AND id = ?")
+        .run(this.#appId, id).changes > 0
+    );
   }
 }

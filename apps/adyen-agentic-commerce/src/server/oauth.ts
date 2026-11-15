@@ -1,7 +1,13 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // The authorization server: PAP 1.0 clients (client metadata documents + private_key_jwt) and
 // generic MCP clients (RFC 7591 public clients), authorization code + PKCE S256 only.
-import { calculateJwkThumbprint, createLocalJWKSet, decodeJwt, type JSONWebKeySet, jwtVerify } from "jose";
+import {
+  calculateJwkThumbprint,
+  createLocalJWKSet,
+  decodeJwt,
+  type JSONWebKeySet,
+  jwtVerify,
+} from "jose";
 import { config } from "./config";
 import { claimJti, get, list, put } from "./db";
 import { trace } from "./trace";
@@ -76,7 +82,11 @@ export type Token = {
 export type Auth = { token: Token; grant: Grant; accessToken: string };
 
 export class OAuthError extends Error {
-  constructor(readonly code: string, message: string, readonly status = 400) {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly status = 400,
+  ) {
     super(message);
   }
 }
@@ -135,7 +145,8 @@ async function fetchNoRedirect(url: string): Promise<unknown> {
     headers: { accept: "application/json" },
     signal: AbortSignal.timeout(5000),
   });
-  if (response.status !== 200) throw new OAuthError("invalid_client", `${url} answered ${response.status}`);
+  if (response.status !== 200)
+    throw new OAuthError("invalid_client", `${url} answered ${response.status}`);
   const text = await response.text();
   if (text.length > 64_000) throw new OAuthError("invalid_client", `${url} is too large`);
   return JSON.parse(text);
@@ -149,7 +160,9 @@ export async function resolveClient(clientId: string): Promise<Client> {
   let url: URL | undefined;
   try {
     url = new URL(clientId);
-  } catch { /* a registered client id is not a URL */ }
+  } catch {
+    /* a registered client id is not a URL */
+  }
   if (!url) {
     const client = get<Client>("clients", clientId);
     if (!client) throw new OAuthError("invalid_client", "Unknown client_id");
@@ -168,14 +181,17 @@ export async function resolveClient(clientId: string): Promise<Client> {
   const authMethod = doc.token_endpoint_auth_method === "none" ? "none" : "private_key_jwt";
   for (const uri of redirectUris) {
     const r = new URL(uri);
-    const ok = sameSite(r, url) && (r.protocol === "https:" || isLoopback(r)) ||
+    const ok =
+      (sameSite(r, url) && (r.protocol === "https:" || isLoopback(r))) ||
       (authMethod === "none" && isLoopback(r));
-    if (!ok) throw new OAuthError("invalid_client", `redirect_uri ${uri} is not on the client's domain`);
+    if (!ok)
+      throw new OAuthError("invalid_client", `redirect_uri ${uri} is not on the client's domain`);
   }
   if (!redirectUris.length) throw new OAuthError("invalid_client", "redirect_uris is required");
   let jwksUri: string | undefined;
   if (authMethod === "private_key_jwt") {
-    if (typeof doc.jwks_uri !== "string") throw new OAuthError("invalid_client", "jwks_uri is required");
+    if (typeof doc.jwks_uri !== "string")
+      throw new OAuthError("invalid_client", "jwks_uri is required");
     const j = new URL(doc.jwks_uri);
     if (!sameSite(j, url) || !metadataUrlAllowed(j)) {
       throw new OAuthError("invalid_client", "jwks_uri must be on the client's domain");
@@ -198,7 +214,8 @@ export async function resolveClient(clientId: string): Promise<Client> {
 export function registerClient(body: unknown): Client {
   if (!isRecord(body)) throw new OAuthError("invalid_client_metadata", "JSON body required");
   const redirectUris = Array.isArray(body.redirect_uris) ? body.redirect_uris.map(String) : [];
-  if (!redirectUris.length) throw new OAuthError("invalid_redirect_uri", "redirect_uris is required");
+  if (!redirectUris.length)
+    throw new OAuthError("invalid_redirect_uri", "redirect_uris is required");
   for (const uri of redirectUris) {
     let r: URL;
     try {
@@ -215,7 +232,10 @@ export function registerClient(body: unknown): Client {
   }
   const method = body.token_endpoint_auth_method ?? "none";
   if (method !== "none") {
-    throw new OAuthError("invalid_client_metadata", "Registered clients are public; use a client metadata document for private_key_jwt");
+    throw new OAuthError(
+      "invalid_client_metadata",
+      "Registered clients are public; use a client metadata document for private_key_jwt",
+    );
   }
   const client: Client = {
     clientId: newId("mcp", 12),
@@ -231,7 +251,8 @@ export function registerClient(body: unknown): Client {
 async function clientKeys(client: Client): Promise<JSONWebKeySet> {
   if (!client.jwksUri) throw new OAuthError("invalid_client", "Client has no jwks_uri");
   const doc = await fetchNoRedirect(client.jwksUri);
-  if (!isRecord(doc) || !Array.isArray(doc.keys)) throw new OAuthError("invalid_client", "Bad JWKS");
+  if (!isRecord(doc) || !Array.isArray(doc.keys))
+    throw new OAuthError("invalid_client", "Bad JWKS");
   return doc as unknown as JSONWebKeySet;
 }
 
@@ -268,27 +289,38 @@ async function authenticateClient(form: URLSearchParams): Promise<Client> {
     }
     clientId = claims.iss;
     const client = await resolveClient(clientId);
-    if (client.authMethod !== "private_key_jwt") throw new OAuthError("invalid_client", "Client is public", 401);
+    if (client.authMethod !== "private_key_jwt")
+      throw new OAuthError("invalid_client", "Client is public", 401);
     let payload;
     try {
       ({ payload } = await verifyWithClientKeys(client, assertion, {}));
     } catch (error) {
-      throw new OAuthError("invalid_client", `client_assertion rejected: ${(error as Error).message}`, 401);
+      throw new OAuthError(
+        "invalid_client",
+        `client_assertion rejected: ${(error as Error).message}`,
+        401,
+      );
     }
     const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-    if (!aud.includes(issuer())) throw new OAuthError("invalid_client", "aud must be the issuer", 401);
-    if (typeof payload.exp !== "number") throw new OAuthError("invalid_client", "exp is required", 401);
+    if (!aud.includes(issuer()))
+      throw new OAuthError("invalid_client", "aud must be the issuer", 401);
+    if (typeof payload.exp !== "number")
+      throw new OAuthError("invalid_client", "exp is required", 401);
     if (typeof payload.iat === "number" && payload.exp - payload.iat > 3600) {
       throw new OAuthError("invalid_client", "client_assertion lifetime is too long", 401);
     }
-    if (typeof payload.jti !== "string" || !claimJti(`ca:${clientId}:${payload.jti}`, payload.exp)) {
+    if (
+      typeof payload.jti !== "string" ||
+      !claimJti(`ca:${clientId}:${payload.jti}`, payload.exp)
+    ) {
       throw new OAuthError("invalid_client", "client_assertion jti missing or replayed", 401);
     }
     return client;
   }
   if (!clientId) throw new OAuthError("invalid_client", "client authentication required", 401);
   const client = await resolveClient(clientId);
-  if (client.authMethod !== "none") throw new OAuthError("invalid_client", "client_assertion required", 401);
+  if (client.authMethod !== "none")
+    throw new OAuthError("invalid_client", "client_assertion required", 401);
   return client;
 }
 
@@ -315,10 +347,20 @@ export async function startAuthorization(params: URLSearchParams): Promise<Autho
   try {
     client = await resolveClient(clientId);
   } catch (error) {
-    return { kind: "error", status: 400, error: "invalid_client", description: (error as Error).message };
+    return {
+      kind: "error",
+      status: 400,
+      error: "invalid_client",
+      description: (error as Error).message,
+    };
   }
   if (!client.redirectUris.includes(redirectUri)) {
-    return { kind: "error", status: 400, error: "invalid_request", description: "redirect_uri is not registered" };
+    return {
+      kind: "error",
+      status: 400,
+      error: "invalid_request",
+      description: "redirect_uri is not registered",
+    };
   }
   const state = params.get("state") ?? undefined;
   const fail = (error: string, description: string): AuthorizeOutcome => ({
@@ -349,7 +391,9 @@ export async function startAuthorization(params: URLSearchParams): Promise<Autho
   return { kind: "consent", requestId: request.id };
 }
 
-export function pendingRequest(id: string): (AuthRequest & { client: Client | undefined }) | undefined {
+export function pendingRequest(
+  id: string,
+): (AuthRequest & { client: Client | undefined }) | undefined {
   const request = get<AuthRequest>("auth_requests", id);
   if (!request || request.expiresAt < nowSec()) return undefined;
   return { ...request, client: get<Client>("clients", request.clientId) };
@@ -362,14 +406,24 @@ export function decide(input: {
   spendLimit: number;
 }): string {
   const request = pendingRequest(input.requestId);
-  if (!request) throw new OAuthError("invalid_request", "This sign-in request expired. Start again from your agent.");
+  if (!request)
+    throw new OAuthError(
+      "invalid_request",
+      "This sign-in request expired. Start again from your agent.",
+    );
   put("auth_requests", request.id, { ...request, expiresAt: 0 });
   if (!input.approve) {
-    return errorRedirect(request.redirectUri, "access_denied", "The shopper declined", request.state);
+    return errorRedirect(
+      request.redirectUri,
+      "access_denied",
+      "The shopper declined",
+      request.state,
+    );
   }
   // Never grant more than asked: the shopper may only narrow the requested scopes.
   const scopes = request.scopes.filter((s) => input.scopes.includes(s));
-  if (!scopes.length) return errorRedirect(request.redirectUri, "access_denied", "No scope approved", request.state);
+  if (!scopes.length)
+    return errorRedirect(request.redirectUri, "access_denied", "No scope approved", request.state);
   const limit = Math.max(0, Math.min(Math.round(input.spendLimit), 100_000));
   const grant: Grant = {
     id: newId("gr"),
@@ -393,7 +447,15 @@ export function decide(input: {
     expiresAt: nowSec() + 120,
     used: false,
   });
-  trace({ channel: "oauth", actor: request.clientName, method: "CONSENT", path: "/oauth/authorize", status: 302, ref: grant.id, detail: { scopes, spendLimit: limit } });
+  trace({
+    channel: "oauth",
+    actor: request.clientName,
+    method: "CONSENT",
+    path: "/oauth/authorize",
+    status: 302,
+    ref: grant.id,
+    detail: { scopes, spendLimit: limit },
+  });
   const url = new URL(request.redirectUri);
   url.searchParams.set("code", code);
   if (request.state) url.searchParams.set("state", request.state);
@@ -443,9 +505,11 @@ export async function tokenEndpoint(form: URLSearchParams) {
       throw new OAuthError("invalid_grant", "Code is invalid, used or expired");
     }
     put("codes", code.id, { ...code, used: true });
-    if (form.get("redirect_uri") !== code.redirectUri) throw new OAuthError("invalid_grant", "redirect_uri mismatch");
+    if (form.get("redirect_uri") !== code.redirectUri)
+      throw new OAuthError("invalid_grant", "redirect_uri mismatch");
     const verifier = form.get("code_verifier") ?? "";
-    if (sha256b64url(verifier) !== code.codeChallenge) throw new OAuthError("invalid_grant", "PKCE verification failed");
+    if (sha256b64url(verifier) !== code.codeChallenge)
+      throw new OAuthError("invalid_grant", "PKCE verification failed");
     const grant = get<Grant>("grants", code.grantId);
     if (!grant || grant.revoked) throw new OAuthError("invalid_grant", "Grant revoked");
     return issueTokens(client.clientId, grant, code.scopes);
@@ -453,13 +517,20 @@ export async function tokenEndpoint(form: URLSearchParams) {
   if (grantType === "refresh_token") {
     const raw = form.get("refresh_token") ?? "";
     const token = get<Token>("tokens", sha256(raw));
-    if (!token || token.kind !== "refresh" || token.revoked || token.expiresAt < nowSec() || token.clientId !== client.clientId) {
+    if (
+      !token ||
+      token.kind !== "refresh" ||
+      token.revoked ||
+      token.expiresAt < nowSec() ||
+      token.clientId !== client.clientId
+    ) {
       throw new OAuthError("invalid_grant", "Refresh token is invalid");
     }
     const grant = get<Grant>("grants", token.grantId);
     if (!grant || grant.revoked) throw new OAuthError("invalid_grant", "Grant revoked");
     const asked = (form.get("scope") ?? "").split(" ").filter(Boolean);
-    if (asked.some((s) => !token.scopes.includes(s as Scope))) throw new OAuthError("invalid_scope", "Scope exceeds the grant");
+    if (asked.some((s) => !token.scopes.includes(s as Scope)))
+      throw new OAuthError("invalid_scope", "Scope exceeds the grant");
     put("tokens", token.id, { ...token, revoked: true });
     return issueTokens(client.clientId, grant, asked.length ? (asked as Scope[]) : token.scopes);
   }
@@ -469,7 +540,8 @@ export async function tokenEndpoint(form: URLSearchParams) {
 export async function revokeEndpoint(form: URLSearchParams) {
   const client = await authenticateClient(form);
   const token = get<Token>("tokens", sha256(form.get("token") ?? ""));
-  if (token && token.clientId === client.clientId) put("tokens", token.id, { ...token, revoked: true });
+  if (token && token.clientId === client.clientId)
+    put("tokens", token.id, { ...token, revoked: true });
 }
 
 export function authenticate(header: string | null): Auth | undefined | "invalid" {
@@ -477,7 +549,8 @@ export function authenticate(header: string | null): Auth | undefined | "invalid
   const match = /^Bearer\s+(\S+)$/i.exec(header);
   if (!match) return "invalid";
   const token = get<Token>("tokens", sha256(match[1]!));
-  if (!token || token.kind !== "access" || token.revoked || token.expiresAt < nowSec()) return "invalid";
+  if (!token || token.kind !== "access" || token.revoked || token.expiresAt < nowSec())
+    return "invalid";
   const grant = get<Grant>("grants", token.grantId);
   if (!grant || grant.revoked) return "invalid";
   put("grants", grant.id, { ...grant, lastUsedAt: new Date().toISOString() });
@@ -488,13 +561,19 @@ export function grants(): Grant[] {
   return list<Grant>("grants");
 }
 
-export function updateGrant(id: string, change: { revoked?: boolean; spendLimit?: number }): Grant | undefined {
+export function updateGrant(
+  id: string,
+  change: { revoked?: boolean; spendLimit?: number },
+): Grant | undefined {
   const grant = get<Grant>("grants", id);
   if (!grant) return undefined;
   const next = {
     ...grant,
     revoked: change.revoked ?? grant.revoked,
-    spendLimit: change.spendLimit !== undefined ? Math.max(0, Math.round(change.spendLimit)) : grant.spendLimit,
+    spendLimit:
+      change.spendLimit !== undefined
+        ? Math.max(0, Math.round(change.spendLimit))
+        : grant.spendLimit,
   };
   return put("grants", id, next);
 }

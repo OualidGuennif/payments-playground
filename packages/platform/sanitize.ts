@@ -5,13 +5,7 @@ import type { JsonValue } from "./types.ts";
 // and hiding them defeats the whole point of the debug inspector. Only true
 // infrastructure credentials, which would let someone call Adyen as this
 // merchant, stay redacted, regardless of environment.
-const DROP_KEYS = [
-  "apikey",
-  "authorization",
-  "basicauth",
-  "password",
-  "rawbody",
-];
+const DROP_KEYS = ["apikey", "authorization", "basicauth", "password", "rawbody"];
 
 function normalizedKey(key: string): string {
   return key.toLowerCase().replaceAll(/[^a-z0-9]/g, "");

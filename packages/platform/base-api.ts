@@ -178,19 +178,19 @@ export function createPlatformContext(appId: AppId): PlatformContext {
   const context: PlatformContext = {
     appId,
     get config() {
-      return config ??= loadServerConfig(appId);
+      return (config ??= loadServerConfig(appId));
     },
     get repository() {
-      return repository ??= new Repository(context.config.databasePath);
+      return (repository ??= new Repository(context.config.databasePath));
     },
     get profiles() {
-      return profiles ??= new ProfileStore({
+      return (profiles ??= new ProfileStore({
         database: context.repository.database,
         databasePath: context.config.databasePath,
         appId,
         defaultProfile: context.config.defaultProfile,
         defaultSecrets: context.config.defaultSecrets,
-      });
+      }));
     },
   };
   return context;
@@ -239,7 +239,7 @@ export async function selectedSecrets(
   // The bootstrap response resolves the signed HttpOnly preference cookie.
   // Subsequent same-origin calls repeat that non-secret profile id explicitly.
   const requested = request.headers.get("x-profile-id");
-  if (requested && await context.profiles.getPublic(requested)) id = requested;
+  if (requested && (await context.profiles.getPublic(requested))) id = requested;
   const secrets = await context.profiles.getSecrets(id);
   if (!secrets) throw new Error("Selected profile is unavailable.");
   return { id, secrets };

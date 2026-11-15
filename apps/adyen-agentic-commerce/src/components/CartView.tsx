@@ -34,7 +34,9 @@ export function CartView({ variants }: { variants: Info }) {
     return (
       <div className="panel mx-auto max-w-lg space-y-3 text-center">
         <h1 className="text-2xl">Your cart is empty</h1>
-        <Link href="/shop" className="btn">Browse the collection</Link>
+        <Link href="/shop" className="btn">
+          Browse the collection
+        </Link>
       </div>
     );
   }
@@ -48,14 +50,31 @@ export function CartView({ variants }: { variants: Info }) {
             return (
               <li key={l.variantId} className="flex items-center gap-4 p-4">
                 {/* eslint-disable-next-line @next/next/no-img-element -- local SVG drawings need no optimiser */}
-                <img src={`/api/art/${l.variantId}.svg`} alt="" width={64} height={64} className="size-16 rounded-xl border border-line" />
+                <img
+                  src={`/api/art/${l.variantId}.svg`}
+                  alt=""
+                  width={64}
+                  height={64}
+                  className="size-16 rounded-xl border border-line"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{v.title}</p>
                   <p className="text-xs text-muted tabular-nums">{money(v.price)}</p>
                 </div>
-                <label className="sr-only" htmlFor={`q-${l.variantId}`}>Quantity</label>
-                <select id={`q-${l.variantId}`} value={l.quantity} onChange={(e) => setQuantity(l.variantId, Number(e.target.value))} className="field w-20">
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => <option key={n} value={n}>{n === 0 ? "Remove" : n}</option>)}
+                <label className="sr-only" htmlFor={`q-${l.variantId}`}>
+                  Quantity
+                </label>
+                <select
+                  id={`q-${l.variantId}`}
+                  value={l.quantity}
+                  onChange={(e) => setQuantity(l.variantId, Number(e.target.value))}
+                  className="field w-20"
+                >
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                    <option key={n} value={n}>
+                      {n === 0 ? "Remove" : n}
+                    </option>
+                  ))}
                 </select>
               </li>
             );
@@ -63,14 +82,33 @@ export function CartView({ variants }: { variants: Info }) {
         </ul>
       </section>
       <aside className="panel h-fit space-y-4">
-        <div className="flex justify-between text-sm"><span>Subtotal</span><span className="tabular-nums">{money(subtotal)}</span></div>
-        <p className="text-xs text-muted">Shipping is free from €100, otherwise €4.95. The server computes the final total.</p>
-        <div className="space-y-1">
-          <label htmlFor="email" className="eyebrow">Email for the receipt</label>
-          <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="field" />
+        <div className="flex justify-between text-sm">
+          <span>Subtotal</span>
+          <span className="tabular-nums">{money(subtotal)}</span>
         </div>
-        {error ? <p role="alert" className="text-sm text-bad">{error}</p> : null}
-        <button type="button" className="btn w-full" disabled={busy} onClick={checkout}>{busy ? "Creating checkout…" : "Checkout"}</button>
+        <p className="text-xs text-muted">
+          Shipping is free from €100, otherwise €4.95. The server computes the final total.
+        </p>
+        <div className="space-y-1">
+          <label htmlFor="email" className="eyebrow">
+            Email for the receipt
+          </label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="field"
+          />
+        </div>
+        {error ? (
+          <p role="alert" className="text-sm text-bad">
+            {error}
+          </p>
+        ) : null}
+        <button type="button" className="btn w-full" disabled={busy} onClick={checkout}>
+          {busy ? "Creating checkout…" : "Checkout"}
+        </button>
       </aside>
     </div>
   );

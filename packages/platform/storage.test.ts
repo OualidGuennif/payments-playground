@@ -64,7 +64,10 @@ test("modification requests and their webhooks read back for reconciliation", ()
     assertEquals(stored.pspReference, "CAP-1");
     assertEquals(repository.findAction("key-1")?.id, action.id);
 
-    for (const [hmacValid, eventType] of [[true, "CAPTURE"], [false, "REFUND"]] as const) {
+    for (const [hmacValid, eventType] of [
+      [true, "CAPTURE"],
+      [false, "REFUND"],
+    ] as const) {
       repository.recordWebhook({
         appId: "digital",
         dedupeKey: `${eventType}:CAP-1`,
@@ -139,9 +142,11 @@ test("one PSP reference records one payment part, however often it is reported",
     };
     const first = repository.recordPaymentPart(part);
     assertEquals(repository.recordPaymentPart(part), first);
-    const count = repository.database.prepare<{ count: number }, [string]>(
-      "SELECT COUNT(*) AS count FROM payment_parts WHERE order_id = ?",
-    ).get(order.id);
+    const count = repository.database
+      .prepare<{ count: number }, [string]>(
+        "SELECT COUNT(*) AS count FROM payment_parts WHERE order_id = ?",
+      )
+      .get(order.id);
     assertEquals(count?.count, 1);
   } finally {
     repository.close();

@@ -30,6 +30,7 @@
     "check": "bun run knowledge:check && bun run docs:links && bun run repo:health && bun run types && bun run test && bun run build && bun run ssr:assert && bun run template:test"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.7",
     "@types/bun": "1.4.4",
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",

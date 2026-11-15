@@ -84,9 +84,7 @@ function DownloadIcon() {
   );
 }
 
-function RawOutput(
-  props: { content: string; filename: string; mime: string },
-) {
+function RawOutput(props: { content: string; filename: string; mime: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="raw-output">
@@ -97,10 +95,13 @@ function RawOutput(
             type="button"
             className="button button--quiet button--small"
             onClick={() => {
-              navigator.clipboard?.writeText(props.content).then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              }).catch(() => undefined);
+              navigator.clipboard
+                ?.writeText(props.content)
+                .then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                })
+                .catch(() => undefined);
             }}
           >
             {copied ? "Copied" : "Copy"}
@@ -147,8 +148,8 @@ export function FieldStylesPanel(props: {
       <p className="css-note">
         The card number, expiry date and security code are rendered inside Adyen-hosted iframes, so
         no page CSS can reach them: they are styled only through this object. All{" "}
-        {SECURE_PROPERTY_SPECS.length}{" "}
-        properties Adyen accepts are below, for each of its four states.
+        {SECURE_PROPERTY_SPECS.length} properties Adyen accepts are below, for each of its four
+        states.
       </p>
       <div className="styling-segmented" role="tablist" aria-label="Field state">
         {SECURE_STATES.map((state) => {
@@ -169,8 +170,7 @@ export function FieldStylesPanel(props: {
       </div>
       <p className="option-group__hint">{SECURE_STATE_META[secureState].hint}</p>
       {SECURE_GROUPS.map((group) => {
-        const specs = SECURE_PROPERTY_SPECS
-          .filter((spec) => spec.group === group);
+        const specs = SECURE_PROPERTY_SPECS.filter((spec) => spec.group === group);
         if (specs.length === 0) return null;
         const key = `secure:${group}`;
         return (
@@ -295,8 +295,10 @@ export function ComponentsPanel(props: {
         />
         <SwitchRow
           label="Adyen Giving"
-          hint={"donation.autoMount, offers a donation once the payment is done, " +
-            "when the account has Adyen Giving enabled. Rebuilds the session."}
+          hint={
+            "donation.autoMount, offers a donation once the payment is done, " +
+            "when the account has Adyen Giving enabled. Rebuilds the session."
+          }
           checked={showDonation}
           onChange={setShowDonation}
         />
@@ -320,7 +322,9 @@ export function ComponentsPanel(props: {
           >
             <option value="">None</option>
             {availableMethods.map(({ type, name }) => (
-              <option key={type} value={type}>{name}</option>
+              <option key={type} value={type}>
+                {name}
+              </option>
             ))}
           </select>
           <small>openPaymentMethod, takes priority over the two toggles above.</small>
@@ -388,14 +392,14 @@ export function ComponentsPanel(props: {
             id="applepay-type"
             value={walletOptions.applePayButtonType}
             onChange={(event) =>
-              updateWallet(
-                "applePayButtonType",
-                event.currentTarget.value as ApplePayButtonType,
-              )}
+              updateWallet("applePayButtonType", event.currentTarget.value as ApplePayButtonType)
+            }
           >
             <option value="">Adyen default (buy)</option>
             {APPLE_PAY_BUTTON_TYPES.map((value) => (
-              <option key={value} value={value}>{value}</option>
+              <option key={value} value={value}>
+                {value}
+              </option>
             ))}
           </select>
           <small>applepay.buttonType, the wording Apple prints on the button.</small>
@@ -405,14 +409,14 @@ export function ComponentsPanel(props: {
             id="applepay-color"
             value={walletOptions.applePayButtonColor}
             onChange={(event) =>
-              updateWallet(
-                "applePayButtonColor",
-                event.currentTarget.value as ApplePayButtonColor,
-              )}
+              updateWallet("applePayButtonColor", event.currentTarget.value as ApplePayButtonColor)
+            }
           >
             <option value="">Adyen default (black)</option>
             {APPLE_PAY_BUTTON_COLORS.map((value) => (
-              <option key={value} value={value}>{value}</option>
+              <option key={value} value={value}>
+                {value}
+              </option>
             ))}
           </select>
           <small>applepay.buttonColor</small>
@@ -438,9 +442,8 @@ export function ComponentsPanel(props: {
             onChange={(event) => updateWallet("applePayButtonRadius", event.currentTarget.value)}
           />
           <small>
-            {APPLE_PAY_RADIUS_VARIABLE}{" "}
-            , Apple's own property, so this one ships in the stylesheet rather than the config. A
-            bare number is read as pixels; 9999px gives a pill.
+            {APPLE_PAY_RADIUS_VARIABLE} , Apple's own property, so this one ships in the stylesheet
+            rather than the config. A bare number is read as pixels; 9999px gives a pill.
           </small>
         </Field>
       </OptionGroup>
@@ -455,14 +458,15 @@ export function ComponentsPanel(props: {
           <select
             id="googlepay-type"
             value={walletOptions.googlePayButtonType}
-            onChange={(event) => updateWallet(
-              "googlePayButtonType",
-              event.currentTarget.value as GooglePayButtonType,
-            )}
+            onChange={(event) =>
+              updateWallet("googlePayButtonType", event.currentTarget.value as GooglePayButtonType)
+            }
           >
             <option value="">Adyen default (buy)</option>
             {GOOGLE_PAY_BUTTON_TYPES.map((value) => (
-              <option key={value} value={value}>{value}</option>
+              <option key={value} value={value}>
+                {value}
+              </option>
             ))}
           </select>
           <small>googlepay.buttonType</small>
@@ -471,14 +475,18 @@ export function ComponentsPanel(props: {
           <select
             id="googlepay-color"
             value={walletOptions.googlePayButtonColor}
-            onChange={(event) => updateWallet(
-              "googlePayButtonColor",
-              event.currentTarget.value as GooglePayButtonColor,
-            )}
+            onChange={(event) =>
+              updateWallet(
+                "googlePayButtonColor",
+                event.currentTarget.value as GooglePayButtonColor,
+              )
+            }
           >
             <option value="">Adyen default (default)</option>
             {GOOGLE_PAY_BUTTON_COLORS.map((value) => (
-              <option key={value} value={value}>{value}</option>
+              <option key={value} value={value}>
+                {value}
+              </option>
             ))}
           </select>
           <small>googlepay.buttonColor, "default" follows the shopper's theme.</small>
@@ -507,10 +515,15 @@ export function ComponentsPanel(props: {
             id="paypal-color"
             value={walletOptions.paypalColor}
             onChange={(event) =>
-              updateWallet("paypalColor", event.currentTarget.value as PayPalColor)}
+              updateWallet("paypalColor", event.currentTarget.value as PayPalColor)
+            }
           >
             <option value="">Adyen default (gold)</option>
-            {PAYPAL_COLORS.map((value) => <option key={value} value={value}>{value}</option>)}
+            {PAYPAL_COLORS.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
           </select>
           <small>paypal.style.color</small>
         </Field>
@@ -519,10 +532,15 @@ export function ComponentsPanel(props: {
             id="paypal-shape"
             value={walletOptions.paypalShape}
             onChange={(event) =>
-              updateWallet("paypalShape", event.currentTarget.value as PayPalShape)}
+              updateWallet("paypalShape", event.currentTarget.value as PayPalShape)
+            }
           >
             <option value="">Adyen default (rect)</option>
-            {PAYPAL_SHAPES.map((value) => <option key={value} value={value}>{value}</option>)}
+            {PAYPAL_SHAPES.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
           </select>
           <small>paypal.style.shape</small>
         </Field>
@@ -531,17 +549,24 @@ export function ComponentsPanel(props: {
             id="paypal-label"
             value={walletOptions.paypalLabel}
             onChange={(event) =>
-              updateWallet("paypalLabel", event.currentTarget.value as PayPalLabel)}
+              updateWallet("paypalLabel", event.currentTarget.value as PayPalLabel)
+            }
           >
             <option value="">Adyen default (paypal)</option>
-            {PAYPAL_LABELS.map((value) => <option key={value} value={value}>{value}</option>)}
+            {PAYPAL_LABELS.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
           </select>
           <small>paypal.style.label</small>
         </Field>
         <SwitchRow
           label="Hide Pay Later button"
-          hint={"blockPayPalPayLaterButton, PayPal adds a second, instalments " +
-            "button when the amount and market qualify."}
+          hint={
+            "blockPayPalPayLaterButton, PayPal adds a second, instalments " +
+            "button when the amount and market qualify."
+          }
           checked={walletOptions.paypalBlockPayLater}
           onChange={(value) => updateWallet("paypalBlockPayLater", value)}
         />
@@ -576,55 +601,50 @@ export function ComponentsPanel(props: {
           checked={cardOptions.billingAddressRequired}
           onChange={(value) => updateCard("billingAddressRequired", value)}
         />
-        {cardOptions.billingAddressRequired
-          ? (
-            <>
-              <Field label="Address mode" htmlFor="card-billing-mode">
-                <select
-                  id="card-billing-mode"
-                  value={cardOptions.billingAddressMode}
-                  onChange={(event) =>
-                    updateCard(
-                      "billingAddressMode",
-                      event.currentTarget.value as BillingAddressMode,
-                    )}
-                >
-                  <option value="full">full, every field</option>
-                  <option value="partial">partial, postal code only</option>
-                  <option value="none">none, no fields</option>
-                </select>
-                <small>billingAddressMode</small>
-              </Field>
-              <div className="field">
-                <label htmlFor="card-billing-required">Required fields</label>
-                <CheckboxDropdown
-                  id="card-billing-required"
-                  items={ADDRESS_FIELDS}
-                  selected={cardOptions.billingAddressRequiredFields}
-                  emptyLabel="(empty) no required fields"
-                  onChange={(next) => updateCard("billingAddressRequiredFields", next)}
-                />
-                <small>
-                  billingAddressRequiredFields, empty means Adyen applies its own per-country
-                  schema.
-                </small>
-              </div>
-              <div className="field">
-                <label htmlFor="card-billing-countries">Allowed countries</label>
-                <CheckboxDropdown
-                  id="card-billing-countries"
-                  items={COUNTRY_ITEMS}
-                  selected={cardOptions.billingAddressAllowedCountries}
-                  emptyLabel="(empty) all countries"
-                  onChange={(next) => updateCard("billingAddressAllowedCountries", next)}
-                />
-                <small>
-                  billingAddressAllowedCountries, empty means every country Adyen supports.
-                </small>
-              </div>
-            </>
-          )
-          : null}
+        {cardOptions.billingAddressRequired ? (
+          <>
+            <Field label="Address mode" htmlFor="card-billing-mode">
+              <select
+                id="card-billing-mode"
+                value={cardOptions.billingAddressMode}
+                onChange={(event) =>
+                  updateCard("billingAddressMode", event.currentTarget.value as BillingAddressMode)
+                }
+              >
+                <option value="full">full, every field</option>
+                <option value="partial">partial, postal code only</option>
+                <option value="none">none, no fields</option>
+              </select>
+              <small>billingAddressMode</small>
+            </Field>
+            <div className="field">
+              <label htmlFor="card-billing-required">Required fields</label>
+              <CheckboxDropdown
+                id="card-billing-required"
+                items={ADDRESS_FIELDS}
+                selected={cardOptions.billingAddressRequiredFields}
+                emptyLabel="(empty) no required fields"
+                onChange={(next) => updateCard("billingAddressRequiredFields", next)}
+              />
+              <small>
+                billingAddressRequiredFields, empty means Adyen applies its own per-country schema.
+              </small>
+            </div>
+            <div className="field">
+              <label htmlFor="card-billing-countries">Allowed countries</label>
+              <CheckboxDropdown
+                id="card-billing-countries"
+                items={COUNTRY_ITEMS}
+                selected={cardOptions.billingAddressAllowedCountries}
+                emptyLabel="(empty) all countries"
+                onChange={(next) => updateCard("billingAddressAllowedCountries", next)}
+              />
+              <small>
+                billingAddressAllowedCountries, empty means every country Adyen supports.
+              </small>
+            </div>
+          </>
+        ) : null}
       </OptionGroup>
       <OptionGroup
         title="Input behaviour"
@@ -640,30 +660,38 @@ export function ComponentsPanel(props: {
         />
         <SwitchRow
           label="iOS keypad fix"
-          hint={"keypadFix, works around an iOS/Safari bug where the keypad " +
-            "stays up after the card field is no longer active."}
+          hint={
+            "keypadFix, works around an iOS/Safari bug where the keypad " +
+            "stays up after the card field is no longer active."
+          }
           checked={cardOptions.keypadFix}
           onChange={(value) => updateCard("keypadFix", value)}
         />
         <SwitchRow
           label="Legacy input mode"
-          hint={"legacyInputMode, gives the fields type=tel instead of " +
-            'type=text inputMode="numeric", for keyboards that ignore inputmode.'}
+          hint={
+            "legacyInputMode, gives the fields type=tel instead of " +
+            'type=text inputMode="numeric", for keyboards that ignore inputmode.'
+          }
           checked={cardOptions.legacyInputMode}
           onChange={(value) => updateCard("legacyInputMode", value)}
         />
         <SwitchRow
           label="Disable iOS arrow keys"
-          hint={"disableIOSArrowKeys, hides the ‹ › keys above the iOS keyboard, " +
-            "which otherwise jump focus out of the secured field."}
+          hint={
+            "disableIOSArrowKeys, hides the ‹ › keys above the iOS keyboard, " +
+            "which otherwise jump focus out of the secured field."
+          }
           checked={cardOptions.disableIOSArrowKeys}
           onChange={(value) => updateCard("disableIOSArrowKeys", value)}
         />
         <SwitchRow
           label="Expose expiry date"
-          hint={"exposeExpiryDate, the secured field also returns the expiry " +
+          hint={
+            "exposeExpiryDate, the secured field also returns the expiry " +
             "unencrypted. Only the expiry, never the PAN, so it stays out of " +
-            "PCI scope, but it does leave the iframe in clear."}
+            "PCI scope, but it does leave the iframe in clear."
+          }
           checked={cardOptions.exposeExpiryDate}
           onChange={(value) => updateCard("exposeExpiryDate", value)}
         />
@@ -675,60 +703,56 @@ export function ComponentsPanel(props: {
             placeholder="mm/yy"
             onChange={(event) => updateCard("minimumExpiryDate", event.currentTarget.value)}
           />
-          {cardOptions.minimumExpiryDate &&
-              !isValidExpiryDate(cardOptions.minimumExpiryDate)
-            ? <small className="field-warning">Use the mm/yy format.</small>
-            : <small>minimumExpiryDate, rejects cards expiring before this.</small>}
+          {cardOptions.minimumExpiryDate && !isValidExpiryDate(cardOptions.minimumExpiryDate) ? (
+            <small className="field-warning">Use the mm/yy format.</small>
+          ) : (
+            <small>minimumExpiryDate, rejects cards expiring before this.</small>
+          )}
         </Field>
       </OptionGroup>
-      {socialSecurityMarket || installmentMarket
-        ? (
-          <OptionGroup
-            title="This market only"
-            hint={`Options Adyen only applies in ${country}.`}
-            open={groupOpen("config:Market")}
-            onToggle={(open) => setGroupOpen("config:Market", open)}
-          >
-            {socialSecurityMarket
-              ? (
-                <Field label="Social security number" htmlFor="card-ssn-mode">
-                  <select
-                    id="card-ssn-mode"
-                    value={cardOptions.socialSecurityNumberMode}
-                    onChange={(event) =>
-                      updateCard(
-                        "socialSecurityNumberMode",
-                        event.currentTarget.value as SocialSecurityNumberMode,
-                      )}
-                  >
-                    <option value="auto">Auto (by card BIN)</option>
-                    <option value="show">Always show</option>
-                    <option value="hide">Never show</option>
-                  </select>
-                  <small>configuration.socialSecurityNumberMode, Brazil only.</small>
-                </Field>
-              )
-              : null}
-            {installmentMarket
-              ? (
-                <>
-                  <p className="option-note">
-                    installmentOptions is automatically sent in the /sessions request for this
-                    market (Brazil, Mexico, Japan), no toggle needed. This only controls whether the
-                    per-installment amount is displayed.
-                  </p>
-                  <SwitchRow
-                    label="Show installment amounts"
-                    hint="showInstallmentAmounts"
-                    checked={cardOptions.showInstallmentAmounts}
-                    onChange={(value) => updateCard("showInstallmentAmounts", value)}
-                  />
-                </>
-              )
-              : null}
-          </OptionGroup>
-        )
-        : null}
+      {socialSecurityMarket || installmentMarket ? (
+        <OptionGroup
+          title="This market only"
+          hint={`Options Adyen only applies in ${country}.`}
+          open={groupOpen("config:Market")}
+          onToggle={(open) => setGroupOpen("config:Market", open)}
+        >
+          {socialSecurityMarket ? (
+            <Field label="Social security number" htmlFor="card-ssn-mode">
+              <select
+                id="card-ssn-mode"
+                value={cardOptions.socialSecurityNumberMode}
+                onChange={(event) =>
+                  updateCard(
+                    "socialSecurityNumberMode",
+                    event.currentTarget.value as SocialSecurityNumberMode,
+                  )
+                }
+              >
+                <option value="auto">Auto (by card BIN)</option>
+                <option value="show">Always show</option>
+                <option value="hide">Never show</option>
+              </select>
+              <small>configuration.socialSecurityNumberMode, Brazil only.</small>
+            </Field>
+          ) : null}
+          {installmentMarket ? (
+            <>
+              <p className="option-note">
+                installmentOptions is automatically sent in the /sessions request for this market
+                (Brazil, Mexico, Japan), no toggle needed. This only controls whether the
+                per-installment amount is displayed.
+              </p>
+              <SwitchRow
+                label="Show installment amounts"
+                hint="showInstallmentAmounts"
+                checked={cardOptions.showInstallmentAmounts}
+                onChange={(value) => updateCard("showInstallmentAmounts", value)}
+              />
+            </>
+          ) : null}
+        </OptionGroup>
+      ) : null}
       <OptionGroup
         title="Disclaimer message"
         hint="disclaimerMessage, rendered under the card fields."
@@ -740,51 +764,46 @@ export function ComponentsPanel(props: {
           checked={cardOptions.disclaimerEnabled}
           onChange={(value) => updateCard("disclaimerEnabled", value)}
         />
-        {cardOptions.disclaimerEnabled
-          ? (
-            <>
-              <p className="option-note">
-                A valid http(s):// Link URL is required to render the message, add one below even if
-                you don't need clickable link text.
-              </p>
-              <Field label="Message" htmlFor="disclaimer-message">
-                <input
-                  id="disclaimer-message"
-                  type="text"
-                  value={cardOptions.disclaimerMessage}
-                  placeholder="By continuing you agree to %{linkText}"
-                  onChange={(event) => updateCard("disclaimerMessage", event.currentTarget.value)}
-                />
-                <small>{"Use %{linkText} to reference the link text below."}</small>
-              </Field>
-              <Field label="Link text" htmlFor="disclaimer-link-text">
-                <input
-                  id="disclaimer-link-text"
-                  type="text"
-                  value={cardOptions.disclaimerLinkText}
-                  onChange={(event) => updateCard("disclaimerLinkText", event.currentTarget.value)}
-                />
-              </Field>
-              <Field label="Link URL" htmlFor="disclaimer-link">
-                <input
-                  id="disclaimer-link"
-                  type="url"
-                  value={cardOptions.disclaimerLink}
-                  placeholder="https://example.com/terms"
-                  onChange={(event) => updateCard("disclaimerLink", event.currentTarget.value)}
-                />
-                {cardOptions.disclaimerMessage &&
-                    !isValidHttpUrl(cardOptions.disclaimerLink)
-                  ? (
-                    <small className="field-warning">
-                      Add a valid http(s):// URL above to display the message.
-                    </small>
-                  )
-                  : null}
-              </Field>
-            </>
-          )
-          : null}
+        {cardOptions.disclaimerEnabled ? (
+          <>
+            <p className="option-note">
+              A valid http(s):// Link URL is required to render the message, add one below even if
+              you don't need clickable link text.
+            </p>
+            <Field label="Message" htmlFor="disclaimer-message">
+              <input
+                id="disclaimer-message"
+                type="text"
+                value={cardOptions.disclaimerMessage}
+                placeholder="By continuing you agree to %{linkText}"
+                onChange={(event) => updateCard("disclaimerMessage", event.currentTarget.value)}
+              />
+              <small>{"Use %{linkText} to reference the link text below."}</small>
+            </Field>
+            <Field label="Link text" htmlFor="disclaimer-link-text">
+              <input
+                id="disclaimer-link-text"
+                type="text"
+                value={cardOptions.disclaimerLinkText}
+                onChange={(event) => updateCard("disclaimerLinkText", event.currentTarget.value)}
+              />
+            </Field>
+            <Field label="Link URL" htmlFor="disclaimer-link">
+              <input
+                id="disclaimer-link"
+                type="url"
+                value={cardOptions.disclaimerLink}
+                placeholder="https://example.com/terms"
+                onChange={(event) => updateCard("disclaimerLink", event.currentTarget.value)}
+              />
+              {cardOptions.disclaimerMessage && !isValidHttpUrl(cardOptions.disclaimerLink) ? (
+                <small className="field-warning">
+                  Add a valid http(s):// URL above to display the message.
+                </small>
+              ) : null}
+            </Field>
+          </>
+        ) : null}
       </OptionGroup>
       <RawOutput
         content={JSON.stringify(
@@ -830,10 +849,9 @@ export function ThemePanel(props: {
   return (
     <>
       <p className="css-note">
-        The {CSS_TOKEN_SPECS.length}{" "}
-        custom properties below are the ones Adyen Web actually reads, taken from the stylesheet it
-        ships. They are the supported way to theme the Drop-in; the class-name rules at the end are
-        not, and can break on any upgrade.
+        The {CSS_TOKEN_SPECS.length} custom properties below are the ones Adyen Web actually reads,
+        taken from the stylesheet it ships. They are the supported way to theme the Drop-in; the
+        class-name rules at the end are not, and can break on any upgrade.
       </p>
       <p className="css-cdn-link">
         Base stylesheet:{" "}
@@ -842,17 +860,15 @@ export function ThemePanel(props: {
         </a>
       </p>
       <div className="styling-filter-row">
-        {tokenOverrides
-          ? (
-            <button
-              type="button"
-              className="button button--quiet button--small"
-              onClick={() => setCssTokens({})}
-            >
-              Clear {tokenOverrides}
-            </button>
-          )
-          : null}
+        {tokenOverrides ? (
+          <button
+            type="button"
+            className="button button--quiet button--small"
+            onClick={() => setCssTokens({})}
+          >
+            Clear {tokenOverrides}
+          </button>
+        ) : null}
       </div>
       {CSS_TOKEN_GROUPS.map((group) => {
         const specs = CSS_TOKEN_SPECS.filter((spec) => spec.group === group);
@@ -909,31 +925,23 @@ export function ThemePanel(props: {
           checked={cssRules.compactMethods}
           onChange={(value) => updateRule("compactMethods", value)}
         />
-        {
-          /* A slider commits as soon as it is touched, and these
+        {/* A slider commits as soon as it is touched, and these
                         now persist, so brushing one leaves a rule we advise
                         against in the stylesheet until it is cleared. One
-                        click drops all of them. */
-        }
-        {cssRuleSetCount(cssRules) > 0
-          ? (
-            <div className="option-group__actions">
-              <button
-                type="button"
-                className="button button--quiet button--small"
-                onClick={() => setCssRules(DEFAULT_CSS_RULES)}
-              >
-                Remove all class-name rules
-              </button>
-            </div>
-          )
-          : null}
+                        click drops all of them. */}
+        {cssRuleSetCount(cssRules) > 0 ? (
+          <div className="option-group__actions">
+            <button
+              type="button"
+              className="button button--quiet button--small"
+              onClick={() => setCssRules(DEFAULT_CSS_RULES)}
+            >
+              Remove all class-name rules
+            </button>
+          </div>
+        ) : null}
       </OptionGroup>
-      <RawOutput
-        content={generatedCss}
-        filename="adyen-overrides.css"
-        mime="text/css"
-      />
+      <RawOutput content={generatedCss} filename="adyen-overrides.css" mime="text/css" />
     </>
   );
 }

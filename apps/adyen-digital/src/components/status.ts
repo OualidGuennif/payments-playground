@@ -42,10 +42,10 @@ function ledgerStatus(ledger: LedgerLike): StatusLabel {
     return ledger.refunded >= ledger.captured
       ? { label: "Refunded", tone: "neutral", detail: "Everything captured is refunded." }
       : {
-        label: "Partially refunded",
-        tone: "info",
-        detail: "Part of what was captured is refunded; the rest can still be.",
-      };
+          label: "Partially refunded",
+          tone: "info",
+          detail: "Part of what was captured is refunded; the rest can still be.",
+        };
   }
   if (ledger.refundPending > 0) {
     return {
@@ -58,10 +58,10 @@ function ledgerStatus(ledger: LedgerLike): StatusLabel {
     return ledger.captured >= ledger.authorised
       ? { label: "Captured", tone: "positive", detail: "The full amount is captured." }
       : {
-        label: "Partially captured",
-        tone: "positive",
-        detail: "Part of the authorisation is captured.",
-      };
+          label: "Partially captured",
+          tone: "positive",
+          detail: "Part of the authorisation is captured.",
+        };
   }
   if (ledger.capturePending > 0) {
     return {
@@ -114,10 +114,10 @@ export function orderStatus(order: OrderLike): StatusLabel {
         return order.permissions?.refund?.allowed
           ? { label: "Captured", tone: "positive", detail: "Captured on authorisation." }
           : {
-            label: "Authorised",
-            tone: "info",
-            detail: "Awaiting capture. Capture it, or cancel to release the funds.",
-          };
+              label: "Authorised",
+              tone: "info",
+              detail: "Awaiting capture. Capture it, or cancel to release the funds.",
+            };
       }
       return {
         label: "Pending",

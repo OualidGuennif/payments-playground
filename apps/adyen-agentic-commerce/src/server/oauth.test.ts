@@ -18,7 +18,10 @@ beforeEach(() => {
   agent.ip = randomIp();
 });
 
-async function code(params: Record<string, string> = {}, decision: Parameters<TestAgent["decide"]>[1] = {}) {
+async function code(
+  params: Record<string, string> = {},
+  decision: Parameters<TestAgent["decide"]>[1] = {},
+) {
   const { requestId } = await agent.authorize(params);
   if (!requestId) throw new Error("no consent request");
   const back = await agent.decide(requestId, decision);
@@ -26,7 +29,16 @@ async function code(params: Record<string, string> = {}, decision: Parameters<Te
 }
 
 const exchange = (c: string, extra: Record<string, string> = {}, assertion?: string) =>
-  agent.token({ grant_type: "authorization_code", code: c, redirect_uri: agent.redirectUri, code_verifier: VERIFIER, ...extra }, assertion);
+  agent.token(
+    {
+      grant_type: "authorization_code",
+      code: c,
+      redirect_uri: agent.redirectUri,
+      code_verifier: VERIFIER,
+      ...extra,
+    },
+    assertion,
+  );
 
 describe("authorize", () => {
   test("a valid request reaches the shopper's consent page", async () => {
@@ -75,7 +87,12 @@ describe("authorize", () => {
   test("a consent request is answered once", async () => {
     const { requestId } = await agent.authorize();
     await agent.decide(requestId!);
-    const again = await handle(new Request(`${ORIGIN}/oauth/decision`, { method: "POST", body: new URLSearchParams({ request: requestId!, decision: "approve" }) }));
+    const again = await handle(
+      new Request(`${ORIGIN}/oauth/decision`, {
+        method: "POST",
+        body: new URLSearchParams({ request: requestId!, decision: "approve" }),
+      }),
+    );
     expect(again.status).toBe(400);
   });
 });
@@ -88,7 +105,9 @@ describe("consent", () => {
   });
 
   test("the shopper cannot widen the scopes the agent asked for", async () => {
-    const { body } = await exchange(await code({ scope: "ucp:checkout" }, { scopes: ["ucp:checkout", "ucp:pay"] }));
+    const { body } = await exchange(
+      await code({ scope: "ucp:checkout" }, { scopes: ["ucp:checkout", "ucp:pay"] }),
+    );
     expect(body.scope).toBe("ucp:checkout");
   });
 
@@ -109,7 +128,10 @@ describe("token endpoint", () => {
 
   test("a wrong verifier fails and burns the code", async () => {
     const c = await code();
-    expect((await exchange(c, { code_verifier: "wrong-wrong-wrong-wrong-wrong-wrong-wrong-0000" })).body.error).toBe("invalid_grant");
+    expect(
+      (await exchange(c, { code_verifier: "wrong-wrong-wrong-wrong-wrong-wrong-wrong-0000" })).body
+        .error,
+    ).toBe("invalid_grant");
     expect((await exchange(c)).body.error).toBe("invalid_grant");
   });
 
@@ -122,29 +144,49 @@ describe("token endpoint", () => {
   });
 
   test("the redirect_uri must match the one the code was issued for", async () => {
-    expect((await exchange(await code(), { redirect_uri: `${agent.redirectUri}/other` })).body.error).toBe("invalid_grant");
+    expect(
+      (await exchange(await code(), { redirect_uri: `${agent.redirectUri}/other` })).body.error,
+    ).toBe("invalid_grant");
   });
 
   test("a private_key_jwt client must send an assertion", async () => {
-    const body = new URLSearchParams({ grant_type: "authorization_code", code: await code(), client_id: agent.clientId, redirect_uri: agent.redirectUri, code_verifier: VERIFIER });
+    const body = new URLSearchParams({
+      grant_type: "authorization_code",
+      code: await code(),
+      client_id: agent.clientId,
+      redirect_uri: agent.redirectUri,
+      code_verifier: VERIFIER,
+    });
     const response = await handle(new Request(`${ORIGIN}/oauth/token`, { method: "POST", body }));
     expect(response.status).toBe(401);
     expect((await response.json()).error).toBe("invalid_client");
   });
 
   test("an assertion for another audience is refused", async () => {
-    const { status, body } = await exchange(await code(), {}, await agent.assertion({ aud: "https://other.example" }));
+    const { status, body } = await exchange(
+      await code(),
+      {},
+      await agent.assertion({ aud: "https://other.example" }),
+    );
     expect(status).toBe(401);
     expect(body.error).toBe("invalid_client");
   });
 
   test("an assertion signed by a key the client did not publish is refused", async () => {
-    const { status } = await exchange(await code(), {}, await agent.assertion({}, await TestAgent.foreignKeys()));
+    const { status } = await exchange(
+      await code(),
+      {},
+      await agent.assertion({}, await TestAgent.foreignKeys()),
+    );
     expect(status).toBe(401);
   });
 
   test("an assertion living more than an hour is refused", async () => {
-    const { status, body } = await exchange(await code(), {}, await agent.assertion({}, undefined, 3601));
+    const { status, body } = await exchange(
+      await code(),
+      {},
+      await agent.assertion({}, undefined, 3601),
+    );
     expect(status).toBe(401);
     expect(body.error_description).toContain("lifetime");
   });
@@ -158,25 +200,41 @@ describe("token endpoint", () => {
   });
 
   test("an unknown grant type is refused", async () => {
-    expect((await agent.token({ grant_type: "client_credentials" })).body.error).toBe("unsupported_grant_type");
+    expect((await agent.token({ grant_type: "client_credentials" })).body.error).toBe(
+      "unsupported_grant_type",
+    );
   });
 });
 
 describe("refresh", () => {
   test("a refresh rotates the refresh token", async () => {
     const first = (await exchange(await code())).body;
-    const next = await agent.token({ grant_type: "refresh_token", refresh_token: first.refresh_token! });
+    const next = await agent.token({
+      grant_type: "refresh_token",
+      refresh_token: first.refresh_token!,
+    });
     expect(next.status).toBe(200);
     expect(next.body.refresh_token).not.toBe(first.refresh_token);
-    const reused = await agent.token({ grant_type: "refresh_token", refresh_token: first.refresh_token! });
+    const reused = await agent.token({
+      grant_type: "refresh_token",
+      refresh_token: first.refresh_token!,
+    });
     expect(reused.body.error).toBe("invalid_grant");
   });
 
   test("a refresh can narrow the scope but not widen it", async () => {
     const first = (await exchange(await code({}, { scopes: ["ucp:checkout", "ucp:orders"] }))).body;
-    const wider = await agent.token({ grant_type: "refresh_token", refresh_token: first.refresh_token!, scope: "ucp:checkout ucp:pay" });
+    const wider = await agent.token({
+      grant_type: "refresh_token",
+      refresh_token: first.refresh_token!,
+      scope: "ucp:checkout ucp:pay",
+    });
     expect(wider.body.error).toBe("invalid_scope");
-    const narrower = await agent.token({ grant_type: "refresh_token", refresh_token: first.refresh_token!, scope: "ucp:orders" });
+    const narrower = await agent.token({
+      grant_type: "refresh_token",
+      refresh_token: first.refresh_token!,
+      scope: "ucp:orders",
+    });
     expect(narrower.body.scope).toBe("ucp:orders");
   });
 
@@ -184,36 +242,62 @@ describe("refresh", () => {
     await agent.signIn();
     updateGrant(grants()[0]!.id, { revoked: true });
     expect((await agent.mcp("ping")).status).toBe(401);
-    expect((await agent.token({ grant_type: "refresh_token", refresh_token: agent.refreshToken })).body.error).toBe("invalid_grant");
+    expect(
+      (await agent.token({ grant_type: "refresh_token", refresh_token: agent.refreshToken })).body
+        .error,
+    ).toBe("invalid_grant");
   });
 
   test("a revoked access token stops working", async () => {
     await agent.signIn();
-    const body = new URLSearchParams({ client_id: agent.clientId, client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer", client_assertion: await agent.assertion(), token: agent.accessToken });
-    expect((await handle(new Request(`${ORIGIN}/oauth/revoke`, { method: "POST", body }))).status).toBe(200);
+    const body = new URLSearchParams({
+      client_id: agent.clientId,
+      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      client_assertion: await agent.assertion(),
+      token: agent.accessToken,
+    });
+    expect(
+      (await handle(new Request(`${ORIGIN}/oauth/revoke`, { method: "POST", body }))).status,
+    ).toBe(200);
     expect((await agent.mcp("ping")).status).toBe(401);
   });
 });
 
 describe("dynamic registration", () => {
   const register = (body: unknown) =>
-    handle(new Request(`${ORIGIN}/oauth/register`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }));
+    handle(
+      new Request(`${ORIGIN}/oauth/register`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
 
   test("a generic MCP client registers as a public client", async () => {
-    const response = await register({ client_name: "Desktop client", redirect_uris: ["http://127.0.0.1:33418/callback"] });
+    const response = await register({
+      client_name: "Desktop client",
+      redirect_uris: ["http://127.0.0.1:33418/callback"],
+    });
     expect(response.status).toBe(201);
     const body = await response.json();
     expect(body.token_endpoint_auth_method).toBe("none");
   });
 
   test("plain http off loopback is refused", async () => {
-    const response = await register({ client_name: "Bad", redirect_uris: ["http://agent.example/callback"] });
+    const response = await register({
+      client_name: "Bad",
+      redirect_uris: ["http://agent.example/callback"],
+    });
     expect(response.status).toBe(400);
     expect((await response.json()).error).toBe("invalid_redirect_uri");
   });
 
   test("a registered client cannot claim private_key_jwt", async () => {
-    const response = await register({ client_name: "Bad", redirect_uris: ["https://agent.example/cb"], token_endpoint_auth_method: "private_key_jwt" });
+    const response = await register({
+      client_name: "Bad",
+      redirect_uris: ["https://agent.example/cb"],
+      token_endpoint_auth_method: "private_key_jwt",
+    });
     expect(response.status).toBe(400);
   });
 });

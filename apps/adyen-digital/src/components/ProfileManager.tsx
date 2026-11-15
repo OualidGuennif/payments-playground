@@ -87,54 +87,58 @@ export default function ProfileManager() {
 
   return (
     <div className="settings">
-      {error ? <div className="notice notice--danger" role="alert">{error}</div> : null}
-      {message ? <div className="notice" role="status">{message}</div> : null}
+      {error ? (
+        <div className="notice notice--danger" role="alert">
+          {error}
+        </div>
+      ) : null}
+      {message ? (
+        <div className="notice" role="status">
+          {message}
+        </div>
+      ) : null}
 
       <section className="settings-card">
         <header className="settings-card__head">
           <h2>Connection</h2>
-          {active
-            ? (
-              <span
-                className={`status-pill status-pill--${active.isConfigured ? "positive" : "warning"}`}
-              >
-                {active.isConfigured ? "Ready" : "Incomplete"}
-              </span>
-            )
-            : null}
+          {active ? (
+            <span
+              className={`status-pill status-pill--${active.isConfigured ? "positive" : "warning"}`}
+            >
+              {active.isConfigured ? "Ready" : "Incomplete"}
+            </span>
+          ) : null}
         </header>
-        {active
-          ? (
-            <dl className="facts settings-facts">
-              <dt>Profile in use</dt>
-              <dd>{active.label}</dd>
-              <dt>Merchant account</dt>
-              <dd>{active.merchantAccount ?? "Not set"}</dd>
-              <dt>Client key</dt>
-              <dd>{bootstrap?.clientKey ? "Set (test_…)" : "Missing"}</dd>
-              {!active.isConfigured
-                ? (
-                  <>
-                    <dt>Missing</dt>
-                    <dd>{active.missingFields.join(", ")}</dd>
-                  </>
-                )
-                : null}
-              <dt>Webhook HMAC key</dt>
-              <dd>{bootstrap?.webhookHmacConfigured ? "Set" : "Missing: webhooks are rejected"}</dd>
-              <dt>Webhook URL</dt>
-              <dd>
-                <button
-                  type="button"
-                  className="text-button mono"
-                  onClick={() => copy(bootstrap?.webhookUrl ?? "", { raw: true })}
-                >
-                  {copied === bootstrap?.webhookUrl ? "Copied" : bootstrap?.webhookUrl}
-                </button>
-              </dd>
-            </dl>
-          )
-          : <p className="muted">Loading…</p>}
+        {active ? (
+          <dl className="facts settings-facts">
+            <dt>Profile in use</dt>
+            <dd>{active.label}</dd>
+            <dt>Merchant account</dt>
+            <dd>{active.merchantAccount ?? "Not set"}</dd>
+            <dt>Client key</dt>
+            <dd>{bootstrap?.clientKey ? "Set (test_…)" : "Missing"}</dd>
+            {!active.isConfigured ? (
+              <>
+                <dt>Missing</dt>
+                <dd>{active.missingFields.join(", ")}</dd>
+              </>
+            ) : null}
+            <dt>Webhook HMAC key</dt>
+            <dd>{bootstrap?.webhookHmacConfigured ? "Set" : "Missing: webhooks are rejected"}</dd>
+            <dt>Webhook URL</dt>
+            <dd>
+              <button
+                type="button"
+                className="text-button mono"
+                onClick={() => copy(bootstrap?.webhookUrl ?? "", { raw: true })}
+              >
+                {copied === bootstrap?.webhookUrl ? "Copied" : bootstrap?.webhookUrl}
+              </button>
+            </dd>
+          </dl>
+        ) : (
+          <p className="muted">Loading…</p>
+        )}
         <p className="settings-note">
           Point a TEST standard webhook at this URL and put its HMAC key in the profile. API and
           HMAC keys stay on the server: they are encrypted at rest and never sent to the browser.
@@ -158,28 +162,26 @@ export default function ProfileManager() {
                 </small>
               </span>
               <span className="profile-item__actions">
-                {bootstrap.profile.id === profile.id
-                  ? <span className="status-pill status-pill--positive">In use</span>
-                  : (
-                    <button
-                      className="button button--secondary button--small"
-                      type="button"
-                      onClick={() => select(profile.id)}
-                    >
-                      Use
-                    </button>
-                  )}
-                {!profile.isDefault
-                  ? (
-                    <button
-                      className="button button--danger button--small"
-                      type="button"
-                      onClick={() => remove(profile.id, profile.label)}
-                    >
-                      Delete
-                    </button>
-                  )
-                  : null}
+                {bootstrap.profile.id === profile.id ? (
+                  <span className="status-pill status-pill--positive">In use</span>
+                ) : (
+                  <button
+                    className="button button--secondary button--small"
+                    type="button"
+                    onClick={() => select(profile.id)}
+                  >
+                    Use
+                  </button>
+                )}
+                {!profile.isDefault ? (
+                  <button
+                    className="button button--danger button--small"
+                    type="button"
+                    onClick={() => remove(profile.id, profile.label)}
+                  >
+                    Delete
+                  </button>
+                ) : null}
               </span>
             </li>
           ))}
@@ -243,7 +245,11 @@ export default function ProfileManager() {
                 onChange={(event) => setHmacKey(event.currentTarget.value)}
               />
             </Field>
-            <button className="button button--primary button--block" type="submit" disabled={saving}>
+            <button
+              className="button button--primary button--block"
+              type="submit"
+              disabled={saving}
+            >
               {saving ? "Encrypting…" : "Save profile"}
             </button>
             <p className="settings-note">

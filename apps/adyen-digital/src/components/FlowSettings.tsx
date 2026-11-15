@@ -73,7 +73,9 @@ export function FlowSettings(props: {
             onChange={(event) => props.onMarket(event.currentTarget.value)}
           >
             {MARKETS.map(([code, name]) => (
-              <option key={code} value={code}>{flagEmoji(code)} {name}</option>
+              <option key={code} value={code}>
+                {flagEmoji(code)} {name}
+              </option>
             ))}
           </select>
         </Field>
@@ -84,7 +86,11 @@ export function FlowSettings(props: {
               value={locale}
               onChange={(event) => props.onLocale(event.currentTarget.value)}
             >
-              {LOCALE_OPTIONS.map((value) => <option key={value} value={value}>{value}</option>)}
+              {LOCALE_OPTIONS.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Currency" htmlFor="config-currency">
@@ -93,7 +99,11 @@ export function FlowSettings(props: {
               value={currency}
               onChange={(event) => props.onCurrency(event.currentTarget.value)}
             >
-              {CURRENCY_OPTIONS.map((value) => <option key={value} value={value}>{value}</option>)}
+              {CURRENCY_OPTIONS.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
             </select>
           </Field>
         </div>
@@ -111,56 +121,52 @@ export function FlowSettings(props: {
           />
         </Field>
       </section>
-      {hasIntegration
-        ? (
-          <section className="config-group">
-            <h3>Integration</h3>
-            <div className="segmented-control" role="group" aria-label="Frontend integration">
-              <button
-                type="button"
-                aria-pressed={integration === "dropin"}
-                onClick={() => props.onIntegration("dropin")}
-              >
-                Drop-in
-              </button>
-              <button
-                type="button"
-                aria-pressed={integration === "component"}
-                onClick={() => props.onIntegration("component")}
-              >
-                Components
-              </button>
-            </div>
-            <p className="config-hint">
-              {integration === "dropin"
-                ? "Every payment method in one list."
-                : "One payment method at a time; pick it above the payment form."}
-            </p>
-          </section>
-        )
-        : null}
-      {hasThreeDSChoice
-        ? (
-          <section className="config-group">
-            <h3>3D Secure</h3>
-            <label className="switch-row">
-              <span>
-                <strong>Native 3DS</strong>
-                <small>
-                  {nativeThreeDS
-                    ? "The challenge opens inside the checkout (nativeThreeDS: preferred)."
-                    : "The shopper is redirected to the issuer's page (nativeThreeDS: disabled)."}
-                </small>
-              </span>
-              <input
-                type="checkbox"
-                checked={nativeThreeDS}
-                onChange={(event) => props.onNativeThreeDS(event.currentTarget.checked)}
-              />
-            </label>
-          </section>
-        )
-        : null}
+      {hasIntegration ? (
+        <section className="config-group">
+          <h3>Integration</h3>
+          <div className="segmented-control" role="group" aria-label="Frontend integration">
+            <button
+              type="button"
+              aria-pressed={integration === "dropin"}
+              onClick={() => props.onIntegration("dropin")}
+            >
+              Drop-in
+            </button>
+            <button
+              type="button"
+              aria-pressed={integration === "component"}
+              onClick={() => props.onIntegration("component")}
+            >
+              Components
+            </button>
+          </div>
+          <p className="config-hint">
+            {integration === "dropin"
+              ? "Every payment method in one list."
+              : "One payment method at a time; pick it above the payment form."}
+          </p>
+        </section>
+      ) : null}
+      {hasThreeDSChoice ? (
+        <section className="config-group">
+          <h3>3D Secure</h3>
+          <label className="switch-row">
+            <span>
+              <strong>Native 3DS</strong>
+              <small>
+                {nativeThreeDS
+                  ? "The challenge opens inside the checkout (nativeThreeDS: preferred)."
+                  : "The shopper is redirected to the issuer's page (nativeThreeDS: disabled)."}
+              </small>
+            </span>
+            <input
+              type="checkbox"
+              checked={nativeThreeDS}
+              onChange={(event) => props.onNativeThreeDS(event.currentTarget.checked)}
+            />
+          </label>
+        </section>
+      ) : null}
       <section className="config-group">
         <h3>Server profile</h3>
         <Field label="TEST credentials" htmlFor="config-profile">

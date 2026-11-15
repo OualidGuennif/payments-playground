@@ -72,8 +72,8 @@ const apps: AppEnv[] = [
   {
     directory: "apps/adyen-agentic-commerce",
     // The Bun store keeps no encrypted profile or signed cookie, so it needs only the common keys.
-    values: common(8003, "agentic").filter(([key]) =>
-      !["PROFILE_ENCRYPTION_KEY", "SESSION_SIGNING_SECRET"].includes(key)
+    values: common(8003, "agentic").filter(
+      ([key]) => !["PROFILE_ENCRYPTION_KEY", "SESSION_SIGNING_SECRET"].includes(key),
     ),
   },
   {

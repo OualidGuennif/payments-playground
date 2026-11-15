@@ -98,7 +98,9 @@ export function get<T>(collection: Collection, id: string): T | undefined {
 }
 
 export function remove(collection: Collection, id: string): void {
-  database().query("delete from docs where collection = $c and id = $id").run({ c: collection, id });
+  database()
+    .query("delete from docs where collection = $c and id = $id")
+    .run({ c: collection, id });
 }
 
 export function list<T>(collection: Collection, limit = 200): T[] {
@@ -114,7 +116,8 @@ export function list<T>(collection: Collection, limit = 200): T[] {
 export function claimJti(jti: string, expiresAt: number): boolean {
   const d = database();
   d.query("delete from seen_jti where expires_at < $t").run({ t: Math.floor(Date.now() / 1000) });
-  const result = d.query("insert or ignore into seen_jti (jti, expires_at) values ($j, $e)")
+  const result = d
+    .query("insert or ignore into seen_jti (jti, expires_at) values ($j, $e)")
     .run({ j: jti, e: expiresAt });
   return result.changes === 1;
 }

@@ -45,7 +45,7 @@ export function stored(): Partial<Persisted> | null {
   if (storedCache !== undefined) return storedCache;
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
-    storedCache = raw ? JSON.parse(raw) as Partial<Persisted> : null;
+    storedCache = raw ? (JSON.parse(raw) as Partial<Persisted>) : null;
   } catch {
     // Private mode, disabled storage, or a blob this build can't parse.
     storedCache = null;

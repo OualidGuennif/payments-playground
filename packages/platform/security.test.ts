@@ -71,7 +71,10 @@ test("shopperIp gives nothing for a non-IP connection name or a forged non-IP", 
 });
 
 test("CSRF still rejects a cross-origin POST that carries a valid token", async () => {
-  const app = serveSecurely(new Elysia().post("/api/x", () => ({ ok: true })), OPTIONS);
+  const app = serveSecurely(
+    new Elysia().post("/api/x", () => ({ ok: true })),
+    OPTIONS,
+  );
   const headers = { cookie: "adyen_csrf=token", "x-csrf-token": "token" };
 
   const sameOrigin = await app(
@@ -126,6 +129,12 @@ test("a rejected POST issues no cookies, so it cannot replace bootstrap's CSRF t
 
   const bootstrap = await app(new Request("http://127.0.0.1:8001/api/bootstrap"));
   const issued = bootstrap.headers.getSetCookie().map((cookie) => cookie.split(";")[0]);
-  assertEquals(issued.some((cookie) => cookie.startsWith("adyen_csrf=")), true);
-  assertEquals(issued.some((cookie) => cookie.startsWith("adyen_session=")), true);
+  assertEquals(
+    issued.some((cookie) => cookie.startsWith("adyen_csrf=")),
+    true,
+  );
+  assertEquals(
+    issued.some((cookie) => cookie.startsWith("adyen_session=")),
+    true,
+  );
 });

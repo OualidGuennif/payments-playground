@@ -244,7 +244,10 @@
   cursor: pointer;
   text-align: left;
   backdrop-filter: blur(10px) saturate(140%);
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    border-color 140ms ease;
 }
 
 .test-card:hover {
@@ -514,7 +517,10 @@
   font-size: 0.72rem;
   font-weight: 750;
   white-space: nowrap;
-  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
 }
 
 .styling-reset:hover {

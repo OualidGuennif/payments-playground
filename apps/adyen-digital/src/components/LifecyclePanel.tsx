@@ -69,8 +69,10 @@ const STATUS: Record<Modification["status"], { label: string; tone: string }> = 
 
 function exponent(currency: string): number {
   try {
-    return new Intl.NumberFormat("en", { style: "currency", currency }).resolvedOptions()
-      .maximumFractionDigits ?? 2;
+    return (
+      new Intl.NumberFormat("en", { style: "currency", currency }).resolvedOptions()
+        .maximumFractionDigits ?? 2
+    );
   } catch {
     return 2;
   }
@@ -123,7 +125,7 @@ export function LifecyclePanel(props: {
     if (action !== "cancel") {
       const max = permission.maxValue ?? 0;
       value = permission.partial
-        ? toMinor(drafts[action] ?? toMajor(max, currency), currency) ?? 0
+        ? (toMinor(drafts[action] ?? toMajor(max, currency), currency) ?? 0)
         : max;
       if (value < 1 || value > max) {
         setMessage({
@@ -140,10 +142,12 @@ export function LifecyclePanel(props: {
     setMessage(null);
     try {
       unwrap(
-        await apiClient<App>().api.digital.orders({ id: order.id }).actions({ action }).post(
-          value ? { amount: { value, currency } } : {},
-          { headers: { "idempotency-key": key } },
-        ),
+        await apiClient<App>()
+          .api.digital.orders({ id: order.id })
+          .actions({ action })
+          .post(value ? { amount: { value, currency } } : {}, {
+            headers: { "idempotency-key": key },
+          }),
       );
       keys.current.delete(intent);
       setDrafts((current) => ({ ...current, [action]: undefined }));
@@ -171,28 +175,25 @@ export function LifecyclePanel(props: {
   const actions: Action[] = ["capture", "refund", "cancel"];
   const allowed = actions.filter((action) => order.permissions[action].allowed);
   const waiting = actions.filter((action) => order.permissions[action].waiting);
-  const blocked = actions.filter((action) =>
-    !order.permissions[action].allowed && !order.permissions[action].waiting
+  const blocked = actions.filter(
+    (action) => !order.permissions[action].allowed && !order.permissions[action].waiting,
   );
 
   return (
     <div className="lc">
-      {manualCapture
-        ? (
-          <div className="notice notice--warning lc-warning" role="note">
-            <strong>
-              {props.merchantAccount ?? "This merchant account"} captures {props.methodName}{" "}
-              manually.
-            </strong>
-            <p>
-              Payments stay authorised until they are captured, here or in the Customer Area. Check
-              that this is the setup you need; otherwise set immediate capture in the Customer Area
-              (capture delay, for the account or per payment method), or send{" "}
-              <code>captureDelayHours</code> with each payment.
-            </p>
-          </div>
-        )
-        : null}
+      {manualCapture ? (
+        <div className="notice notice--warning lc-warning" role="note">
+          <strong>
+            {props.merchantAccount ?? "This merchant account"} captures {props.methodName} manually.
+          </strong>
+          <p>
+            Payments stay authorised until they are captured, here or in the Customer Area. Check
+            that this is the setup you need; otherwise set immediate capture in the Customer Area
+            (capture delay, for the account or per payment method), or send{" "}
+            <code>captureDelayHours</code> with each payment.
+          </p>
+        </div>
+      ) : null}
 
       <dl className="lc-ledger">
         <div>
@@ -215,171 +216,154 @@ export function LifecyclePanel(props: {
         </div>
       </dl>
 
-      {allowed.length || waiting.length
-        ? (
-          <div className="lc-actions">
-            {[...allowed, ...waiting].map((action, index) => {
-              const permission = order.permissions[action];
-              if (permission.waiting) {
-                return (
-                  <div className="lc-action" key={action}>
-                    <button type="button" className="button button--secondary lc-waiting" disabled>
-                      <span className="spinner spinner--small" aria-hidden="true" />
-                      Waiting for the {WEBHOOK[action]} webhook
-                    </button>
-                    <small>
-                      Adyen answered "received". The outcome arrives by webhook, which only reaches
-                      a server Adyen can call (the deployed playground, not localhost).
-                    </small>
-                  </div>
-                );
-              }
-              const max = permission.maxValue ?? 0;
-              const draft = drafts[action] ?? (max ? toMajor(max, currency) : "");
-              const value = action === "cancel"
-                ? undefined
-                : permission.partial
-                ? toMinor(draft, currency)
-                : max;
+      {allowed.length || waiting.length ? (
+        <div className="lc-actions">
+          {[...allowed, ...waiting].map((action, index) => {
+            const permission = order.permissions[action];
+            if (permission.waiting) {
               return (
                 <div className="lc-action" key={action}>
-                  <div className="lc-action__row">
-                    {action !== "cancel" && permission.partial
-                      ? (
-                        <label className="lc-amount">
-                          <span className="sr-only">{LABEL[action]} amount</span>
-                          <input
-                            inputMode="decimal"
-                            value={draft}
-                            aria-describedby={`lc-${action}-hint`}
-                            onChange={(event) =>
-                              setDrafts((current) => ({
-                                ...current,
-                                [action]: event.currentTarget.value,
-                              }))}
-                          />
-                          <span>{currency}</span>
-                        </label>
-                      )
-                      : null}
-                    <button
-                      type="button"
-                      className={`button ${
-                        index === 0 && action !== "cancel" ? "button--primary" : "button--secondary"
-                      }`}
-                      disabled={Boolean(busy)}
-                      onClick={() => run(action)}
-                    >
-                      {busy === action
-                        ? "Sending…"
-                        : action === "cancel"
-                        ? LABEL.cancel
-                        : `${LABEL[action]} ${value ? money(value) : ""}`}
-                    </button>
-                  </div>
-                  <small id={`lc-${action}-hint`}>
-                    {action !== "cancel" && permission.partial
-                      ? `Up to ${money(max)}. ${permission.reason}`
-                      : permission.reason}
+                  <button type="button" className="button button--secondary lc-waiting" disabled>
+                    <span className="spinner spinner--small" aria-hidden="true" />
+                    Waiting for the {WEBHOOK[action]} webhook
+                  </button>
+                  <small>
+                    Adyen answered "received". The outcome arrives by webhook, which only reaches a
+                    server Adyen can call (the deployed playground, not localhost).
                   </small>
                 </div>
               );
-            })}
-          </div>
-        )
-        : null}
+            }
+            const max = permission.maxValue ?? 0;
+            const draft = drafts[action] ?? (max ? toMajor(max, currency) : "");
+            const value =
+              action === "cancel" ? undefined : permission.partial ? toMinor(draft, currency) : max;
+            return (
+              <div className="lc-action" key={action}>
+                <div className="lc-action__row">
+                  {action !== "cancel" && permission.partial ? (
+                    <label className="lc-amount">
+                      <span className="sr-only">{LABEL[action]} amount</span>
+                      <input
+                        inputMode="decimal"
+                        value={draft}
+                        aria-describedby={`lc-${action}-hint`}
+                        onChange={(event) =>
+                          setDrafts((current) => ({
+                            ...current,
+                            [action]: event.currentTarget.value,
+                          }))
+                        }
+                      />
+                      <span>{currency}</span>
+                    </label>
+                  ) : null}
+                  <button
+                    type="button"
+                    className={`button ${
+                      index === 0 && action !== "cancel" ? "button--primary" : "button--secondary"
+                    }`}
+                    disabled={Boolean(busy)}
+                    onClick={() => run(action)}
+                  >
+                    {busy === action
+                      ? "Sending…"
+                      : action === "cancel"
+                        ? LABEL.cancel
+                        : `${LABEL[action]} ${value ? money(value) : ""}`}
+                  </button>
+                </div>
+                <small id={`lc-${action}-hint`}>
+                  {action !== "cancel" && permission.partial
+                    ? `Up to ${money(max)}. ${permission.reason}`
+                    : permission.reason}
+                </small>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
-      {message
-        ? (
-          <div
-            className={`notice${message.tone === "error" ? " notice--danger" : ""}`}
-            role={message.tone === "error" ? "alert" : "status"}
-          >
-            {message.text}
-          </div>
-        )
-        : null}
+      {message ? (
+        <div
+          className={`notice${message.tone === "error" ? " notice--danger" : ""}`}
+          role={message.tone === "error" ? "alert" : "status"}
+        >
+          {message.text}
+        </div>
+      ) : null}
 
-      {blocked.length
-        ? (
-          <ul className="bo-reasons">
-            {blocked.map((action) => (
-              <li key={action}>
-                <strong>{LABEL[action]}:</strong> {order.permissions[action].reason}
-              </li>
-            ))}
-          </ul>
-        )
-        : null}
+      {blocked.length ? (
+        <ul className="bo-reasons">
+          {blocked.map((action) => (
+            <li key={action}>
+              <strong>{LABEL[action]}:</strong> {order.permissions[action].reason}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
-      {order.modifications.length
-        ? (
-          <div className="bo-section">
-            <h3>Captures, cancels and refunds</h3>
-            <ol className="lc-history">
-              {order.modifications.map((modification, index) => {
-                const status = STATUS[modification.status];
-                return (
-                  <li key={`${modification.pspReference ?? modification.idempotencyKey}-${index}`}>
-                    <span className="lc-history__main">
-                      <strong>
-                        {LABEL[modification.kind].replace(" authorisation", "")}
-                        {modification.value !== undefined ? ` ${money(modification.value)}` : ""}
-                      </strong>
-                      <small>
-                        {modification.external ? "Sent outside this playground · " : ""}
-                        {modification.requestedAt ?? modification.settledAt
-                          ? new Date(
+      {order.modifications.length ? (
+        <div className="bo-section">
+          <h3>Captures, cancels and refunds</h3>
+          <ol className="lc-history">
+            {order.modifications.map((modification, index) => {
+              const status = STATUS[modification.status];
+              return (
+                <li key={`${modification.pspReference ?? modification.idempotencyKey}-${index}`}>
+                  <span className="lc-history__main">
+                    <strong>
+                      {LABEL[modification.kind].replace(" authorisation", "")}
+                      {modification.value !== undefined ? ` ${money(modification.value)}` : ""}
+                    </strong>
+                    <small>
+                      {modification.external ? "Sent outside this playground · " : ""}
+                      {(modification.requestedAt ?? modification.settledAt)
+                        ? new Date(
                             (modification.requestedAt ?? modification.settledAt) as string,
                           ).toLocaleString()
-                          : ""}
-                        {modification.reason ? ` · ${modification.reason}` : ""}
-                      </small>
-                      <span className="lc-history__refs">
-                        {modification.pspReference
-                          ? (
-                            <button
-                              type="button"
-                              className="text-button mono"
-                              title="Copy the modification's PSP reference"
-                              onClick={() => copy(modification.pspReference as string)}
-                            >
-                              {copied === modification.pspReference
-                                ? "Copied"
-                                : modification.pspReference}
-                            </button>
-                          )
-                          : null}
-                        {modification.idempotencyKey
-                          ? (
-                            <button
-                              type="button"
-                              className="text-button mono"
-                              title="Copy the Idempotency-Key sent with this request"
-                              onClick={() => copy(modification.idempotencyKey as string)}
-                            >
-                              {copied === modification.idempotencyKey
-                                ? "Copied"
-                                : `key ${modification.idempotencyKey.slice(0, 8)}…`}
-                            </button>
-                          )
-                          : null}
-                      </span>
+                        : ""}
+                      {modification.reason ? ` · ${modification.reason}` : ""}
+                    </small>
+                    <span className="lc-history__refs">
+                      {modification.pspReference ? (
+                        <button
+                          type="button"
+                          className="text-button mono"
+                          title="Copy the modification's PSP reference"
+                          onClick={() => copy(modification.pspReference as string)}
+                        >
+                          {copied === modification.pspReference
+                            ? "Copied"
+                            : modification.pspReference}
+                        </button>
+                      ) : null}
+                      {modification.idempotencyKey ? (
+                        <button
+                          type="button"
+                          className="text-button mono"
+                          title="Copy the Idempotency-Key sent with this request"
+                          onClick={() => copy(modification.idempotencyKey as string)}
+                        >
+                          {copied === modification.idempotencyKey
+                            ? "Copied"
+                            : `key ${modification.idempotencyKey.slice(0, 8)}…`}
+                        </button>
+                      ) : null}
                     </span>
-                    <span className={`status-pill status-pill--${status.tone}`}>{status.label}</span>
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
-        )
-        : null}
+                  </span>
+                  <span className={`status-pill status-pill--${status.tone}`}>{status.label}</span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      ) : null}
 
       <p className="lc-caps">
         {props.methodName}: separate capture {yes(capabilities.separateCapture)} · partial{" "}
         {yes(capabilities.partialCapture)} · multiple partial{" "}
-        {yes(capabilities.multiplePartialCaptures)} · refunds {yes(capabilities.refund)} · partial
-        {" "}
+        {yes(capabilities.multiplePartialCaptures)} · refunds {yes(capabilities.refund)} · partial{" "}
         {yes(capabilities.partialRefund)} · multiple partial{" "}
         {yes(capabilities.multiplePartialRefunds)}. {capabilities.notes}{" "}
         <a href={capabilities.sourceUrl} target="_blank" rel="noopener noreferrer">

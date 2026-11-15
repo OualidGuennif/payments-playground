@@ -14,8 +14,7 @@ import {
 } from "@suite/ui/paymentMethods.ts";
 
 export const ADYEN_WEB_VERSION = "6.48.1";
-export const ADYEN_CSS_URL =
-  `https://checkoutshopper-live.cdn.adyen.com/checkoutshopper/sdk/${ADYEN_WEB_VERSION}/adyen.css`;
+export const ADYEN_CSS_URL = `https://checkoutshopper-live.cdn.adyen.com/checkoutshopper/sdk/${ADYEN_WEB_VERSION}/adyen.css`;
 
 export type ControlKind = "color" | "text" | "select" | "range";
 
@@ -43,7 +42,7 @@ const FONT_SMOOTHING = ["antialiased", "subpixel-antialiased", "none"];
  * this object, and only these four states exist.
  */
 export const SECURE_STATES = ["base", "placeholder", "error", "validated"] as const;
-export type SecureState = typeof SECURE_STATES[number];
+export type SecureState = (typeof SECURE_STATES)[number];
 
 export const SECURE_STATE_META: Record<SecureState, { label: string; hint: string }> = {
   base: {
@@ -104,7 +103,7 @@ export const SECURE_GROUPS = [
   "Text rendering",
   "Box & motion",
 ] as const;
-export type SecureGroup = typeof SECURE_GROUPS[number];
+export type SecureGroup = (typeof SECURE_GROUPS)[number];
 
 export interface SecurePropertySpec extends ControlSpec {
   property: SecureProperty;
@@ -400,9 +399,9 @@ export function secureStyleObject(styles: SecureStyles) {
 }
 
 export function secureSetCount(styles: SecureStyles, state: SecureState, group?: SecureGroup) {
-  return SECURE_PROPERTY_SPECS
-    .filter((spec) => !group || spec.group === group)
-    .filter((spec) => styles[state][spec.property]).length;
+  return SECURE_PROPERTY_SPECS.filter((spec) => !group || spec.group === group).filter(
+    (spec) => styles[state][spec.property],
+  ).length;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -423,7 +422,7 @@ export const CSS_TOKEN_GROUPS = [
   "Typography",
   "Motion",
 ] as const;
-export type CssTokenGroup = typeof CSS_TOKEN_GROUPS[number];
+export type CssTokenGroup = (typeof CSS_TOKEN_GROUPS)[number];
 
 export interface CssTokenSpec extends ControlSpec {
   /** Without the --adyen-sdk- prefix. */
@@ -520,14 +519,19 @@ export const CSS_TOKEN_SPECS: CssTokenSpec[] = [
     ["color-separator-primary", "#dbdee2"],
     ["color-separator-secondary", "#c9cdd3"],
   ]),
-  ...tokenGroup("Radius & borders", "border-", [
-    ["border-radius-xs", "2px"],
-    ["border-radius-s", "4px"],
-    ["border-radius-m", "8px"],
-    ["border-radius-l", "12px"],
-    ["border-width-s", "1px", { max: 12 }],
-    ["border-width-l", "3px", { max: 12 }],
-  ], { max: 32 }),
+  ...tokenGroup(
+    "Radius & borders",
+    "border-",
+    [
+      ["border-radius-xs", "2px"],
+      ["border-radius-s", "4px"],
+      ["border-radius-m", "8px"],
+      ["border-radius-l", "12px"],
+      ["border-width-s", "1px", { max: 12 }],
+      ["border-width-l", "3px", { max: 12 }],
+    ],
+    { max: 32 },
+  ),
   ...tokenGroup("Focus & shadow", "", [
     ["focus-ring-color", "rgba(0, 112, 245, 0.8)"],
     ["focus-ring-outline", "3px", { max: 12 }],
@@ -593,23 +597,28 @@ export const CSS_TOKEN_SPECS: CssTokenSpec[] = [
     ["tooltip-padding", "4px 8px"],
     ["tooltip-z-index", "5"],
   ]),
-  ...tokenGroup("Spacing", "", [
-    ["spacer-000", "0"],
-    ["spacer-010", "2px"],
-    ["spacer-020", "4px"],
-    ["spacer-030", "6px"],
-    ["spacer-040", "8px"],
-    ["spacer-050", "10px"],
-    ["spacer-060", "12px"],
-    ["spacer-070", "16px"],
-    ["spacer-080", "20px"],
-    ["spacer-090", "24px"],
-    ["spacer-100", "32px"],
-    ["spacer-110", "40px"],
-    ["spacer-120", "48px"],
-    ["spacer-130", "56px"],
-    ["spacer-140", "64px"],
-  ], { kind: "range", unit: "px", min: 0, max: 96, step: 1 }),
+  ...tokenGroup(
+    "Spacing",
+    "",
+    [
+      ["spacer-000", "0"],
+      ["spacer-010", "2px"],
+      ["spacer-020", "4px"],
+      ["spacer-030", "6px"],
+      ["spacer-040", "8px"],
+      ["spacer-050", "10px"],
+      ["spacer-060", "12px"],
+      ["spacer-070", "16px"],
+      ["spacer-080", "20px"],
+      ["spacer-090", "24px"],
+      ["spacer-100", "32px"],
+      ["spacer-110", "40px"],
+      ["spacer-120", "48px"],
+      ["spacer-130", "56px"],
+      ["spacer-140", "64px"],
+    ],
+    { kind: "range", unit: "px", min: 0, max: 96, step: 1 },
+  ),
   ...tokenGroup("Typography", "text-", [
     ["text-body-font-size", "0.875rem"],
     ["text-body-font-weight", "400", WEIGHT_TOKEN],
@@ -651,9 +660,9 @@ export function cssTokenSpec(token: string): CssTokenSpec {
 }
 
 export function cssTokenSetCount(tokens: CssTokens, group?: CssTokenGroup) {
-  return CSS_TOKEN_SPECS
-    .filter((spec) => !group || spec.group === group)
-    .filter((spec) => tokens[spec.token]).length;
+  return CSS_TOKEN_SPECS.filter((spec) => !group || spec.group === group).filter(
+    (spec) => tokens[spec.token],
+  ).length;
 }
 
 /**
@@ -703,8 +712,11 @@ export const CSS_RULE_SPECS: {
 ];
 
 export function cssRuleSetCount(rules: CssRules) {
-  return CSS_RULE_SPECS.filter(({ key }) => rules[key]).length +
-    (rules.uppercaseButton ? 1 : 0) + (rules.compactMethods ? 1 : 0);
+  return (
+    CSS_RULE_SPECS.filter(({ key }) => rules[key]).length +
+    (rules.uppercaseButton ? 1 : 0) +
+    (rules.compactMethods ? 1 : 0)
+  );
 }
 
 const NOTHING_SET = "/* Nothing overridden yet, the Drop-in runs Adyen's own values. */";
@@ -716,9 +728,9 @@ const CSS_HEADER = `/* Adyen Web ${ADYEN_WEB_VERSION}, TEST playground overrides
 
 export function cssText(tokens: CssTokens, rules: CssRules, wallets?: WalletOptions): string {
   const blocks: string[] = [];
-  const overrides = CSS_TOKEN_SPECS
-    .filter((spec) => tokens[spec.token])
-    .map((spec) => `  --adyen-sdk-${spec.token}: ${tokens[spec.token]};`);
+  const overrides = CSS_TOKEN_SPECS.filter((spec) => tokens[spec.token]).map(
+    (spec) => `  --adyen-sdk-${spec.token}: ${tokens[spec.token]};`,
+  );
   if (overrides.length > 0) blocks.push(`.adyen-checkout {\n${overrides.join("\n")}\n}`);
   const applePay = wallets ? applePayCssBlock(wallets) : null;
   if (applePay) blocks.push(applePay);
@@ -936,14 +948,14 @@ export function cardConfigObject(styles: SecureStyles, card: CardOptions, countr
     billingAddressRequired: card.billingAddressRequired,
     ...(card.billingAddressRequired
       ? {
-        billingAddressMode: card.billingAddressMode,
-        ...(card.billingAddressAllowedCountries.length > 0
-          ? { billingAddressAllowedCountries: card.billingAddressAllowedCountries }
-          : {}),
-        ...(card.billingAddressRequiredFields.length > 0
-          ? { billingAddressRequiredFields: card.billingAddressRequiredFields }
-          : {}),
-      }
+          billingAddressMode: card.billingAddressMode,
+          ...(card.billingAddressAllowedCountries.length > 0
+            ? { billingAddressAllowedCountries: card.billingAddressAllowedCountries }
+            : {}),
+          ...(card.billingAddressRequiredFields.length > 0
+            ? { billingAddressRequiredFields: card.billingAddressRequiredFields }
+            : {}),
+        }
       : {}),
     exposeExpiryDate: card.exposeExpiryDate,
     ...(isValidExpiryDate(card.minimumExpiryDate)
@@ -1055,11 +1067,7 @@ export const APPLE_PAY_BUTTON_TYPES: ApplePayButtonType[] = [
   "tip",
   "top-up",
 ];
-export const APPLE_PAY_BUTTON_COLORS: ApplePayButtonColor[] = [
-  "black",
-  "white",
-  "white-outline",
-];
+export const APPLE_PAY_BUTTON_COLORS: ApplePayButtonColor[] = ["black", "white", "white-outline"];
 
 export const GOOGLE_PAY_BUTTON_TYPES: GooglePayButtonType[] = [
   "book",
@@ -1144,9 +1152,9 @@ export function applePayCssBlock(wallets: WalletOptions): string | null {
 }
 
 export function walletSetCount(wallets: WalletOptions, prefix: string): number {
-  return Object.entries(wallets)
-    .filter(([key, value]) => key.startsWith(prefix) && value !== "" && value !== false)
-    .length;
+  return Object.entries(wallets).filter(
+    ([key, value]) => key.startsWith(prefix) && value !== "" && value !== false,
+  ).length;
 }
 
 /**

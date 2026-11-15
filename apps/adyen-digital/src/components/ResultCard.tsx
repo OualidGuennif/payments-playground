@@ -24,16 +24,19 @@ export function ResultCard(props: {
   // Only an outcome that is not a payment can be retried.
   const retry = status.tone === "danger" || status.tone === "neutral" ? props.onRetry : undefined;
   const { copied, copy } = useCopy();
-  const icon = status.tone === "positive"
-    ? "✓"
-    : status.tone === "danger"
-    ? "✕"
-    : status.tone === "warning"
-    ? "…"
-    : "•";
+  const icon =
+    status.tone === "positive"
+      ? "✓"
+      : status.tone === "danger"
+        ? "✕"
+        : status.tone === "warning"
+          ? "…"
+          : "•";
   return (
     <div className={`result result--${status.tone}`} role="status">
-      <span className="result__icon" aria-hidden="true">{icon}</span>
+      <span className="result__icon" aria-hidden="true">
+        {icon}
+      </span>
       <h3>{status.label}</h3>
       <p className="result__amount">{props.amountText}</p>
       <p className="result__detail">
@@ -41,73 +44,65 @@ export function ResultCard(props: {
           (status.tone === "positive"
             ? "Follow it in the Back Office, where you can capture, cancel or refund it as the method allows."
             : retry && props.retryStartsOver
-            ? "Adyen takes no more payments in this session (5 refusals, or it expired): trying again opens a new one."
-            : retry
-            ? "The checkout stays open, and so does anything already paid: try again with this method or another."
-            : "You can start a new payment straight away.")}
+              ? "Adyen takes no more payments in this session (5 refusals, or it expired): trying again opens a new one."
+              : retry
+                ? "The checkout stays open, and so does anything already paid: try again with this method or another."
+                : "You can start a new payment straight away.")}
       </p>
       <dl className="facts">
-        {props.outcome.resultCode
-          ? (
-            <>
-              <dt>Result code</dt>
-              <dd>{props.outcome.resultCode}</dd>
-            </>
-          )
-          : null}
-        {props.outcome.method
-          ? (
-            <>
-              <dt>Method</dt>
-              <dd>{props.outcome.method}</dd>
-            </>
-          )
-          : null}
-        {props.outcome.pspReference
-          ? (
-            <>
-              <dt>PSP reference</dt>
-              <dd>
-                <button
-                  type="button"
-                  className="text-button mono"
-                  title="Copy"
-                  onClick={() => copy(props.outcome.pspReference as string)}
-                >
-                  {props.outcome.pspReference}
-                  {copied === props.outcome.pspReference ? " · copied" : ""}
-                </button>
-              </dd>
-            </>
-          )
-          : null}
+        {props.outcome.resultCode ? (
+          <>
+            <dt>Result code</dt>
+            <dd>{props.outcome.resultCode}</dd>
+          </>
+        ) : null}
+        {props.outcome.method ? (
+          <>
+            <dt>Method</dt>
+            <dd>{props.outcome.method}</dd>
+          </>
+        ) : null}
+        {props.outcome.pspReference ? (
+          <>
+            <dt>PSP reference</dt>
+            <dd>
+              <button
+                type="button"
+                className="text-button mono"
+                title="Copy"
+                onClick={() => copy(props.outcome.pspReference as string)}
+              >
+                {props.outcome.pspReference}
+                {copied === props.outcome.pspReference ? " · copied" : ""}
+              </button>
+            </dd>
+          </>
+        ) : null}
       </dl>
       <div className="result__actions">
-        {retry
-          ? (
-            <button className="button button--primary" type="button" onClick={retry}>
-              Try again
-            </button>
-          )
-          : null}
-        {props.onRestart
-          ? (
-            <button
-              className={`button ${retry ? "button--secondary" : "button--primary"}`}
-              type="button"
-              onClick={props.onRestart}
-            >
-              New payment
-            </button>
-          )
-          : <a className="button button--primary" href={props.restartHref ?? "/"}>New payment</a>}
-        {props.orderId
-          ? (
-            <a className="button button--secondary" href={`/back-office?orderId=${props.orderId}`}>
-              Open in Back Office
-            </a>
-          )
-          : null}
+        {retry ? (
+          <button className="button button--primary" type="button" onClick={retry}>
+            Try again
+          </button>
+        ) : null}
+        {props.onRestart ? (
+          <button
+            className={`button ${retry ? "button--secondary" : "button--primary"}`}
+            type="button"
+            onClick={props.onRestart}
+          >
+            New payment
+          </button>
+        ) : (
+          <a className="button button--primary" href={props.restartHref ?? "/"}>
+            New payment
+          </a>
+        )}
+        {props.orderId ? (
+          <a className="button button--secondary" href={`/back-office?orderId=${props.orderId}`}>
+            Open in Back Office
+          </a>
+        ) : null}
       </div>
     </div>
   );

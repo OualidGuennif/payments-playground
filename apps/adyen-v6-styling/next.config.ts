@@ -23,10 +23,12 @@ const config: NextConfig = {
   serverExternalPackages: ["@adyen/api-library"],
   // The pages get the same headers the API answers with (ADR-005: no CSP).
   async headers() {
-    return [{
-      source: "/:path*",
-      headers: Object.entries(SECURITY_HEADERS).map(([key, value]) => ({ key, value })),
-    }];
+    return [
+      {
+        source: "/:path*",
+        headers: Object.entries(SECURITY_HEADERS).map(([key, value]) => ({ key, value })),
+      },
+    ];
   },
 };
 

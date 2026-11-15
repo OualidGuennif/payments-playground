@@ -9,7 +9,11 @@ import type FlowWorkbenchComponent from "./FlowWorkbench.tsx";
 
 const FlowWorkbench = dynamic(() => import("./FlowWorkbench.tsx"), {
   ssr: false,
-  loading: () => <p className="muted" role="status">Loading the checkout…</p>,
+  loading: () => (
+    <p className="muted" role="status">
+      Loading the checkout…
+    </p>
+  ),
 });
 
 export function ClientWorkbench(props: ComponentProps<typeof FlowWorkbenchComponent>) {

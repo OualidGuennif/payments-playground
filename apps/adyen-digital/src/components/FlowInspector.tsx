@@ -22,7 +22,9 @@ export function FlowInspector(props: {
       <header className="inspector-panel__head">
         <h2>
           Inspector
-          <span className="live" title="Refreshed every few seconds">Live</span>
+          <span className="live" title="Refreshed every few seconds">
+            Live
+          </span>
         </h2>
         <button
           type="button"
@@ -42,7 +44,9 @@ export function FlowInspector(props: {
       </header>
       <ol className="steps" aria-label="Progress">
         {steps.map(([label, done]) => (
-          <li key={label} className={done ? "is-done" : undefined}>{label}</li>
+          <li key={label} className={done ? "is-done" : undefined}>
+            {label}
+          </li>
         ))}
       </ol>
       <div
@@ -58,20 +62,14 @@ export function FlowInspector(props: {
           empty="Events land here as the checkout runs: Adyen Web callbacks, the API calls this server makes, and the webhooks Adyen sends back."
         />
       </div>
-      {correlationId
-        ? (
-          <footer className="inspector-panel__foot">
-            <span>Correlation</span>
-            <button
-              type="button"
-              className="text-button mono"
-              onClick={() => copy(correlationId)}
-            >
-              {copied === correlationId ? "Copied" : correlationId}
-            </button>
-          </footer>
-        )
-        : null}
+      {correlationId ? (
+        <footer className="inspector-panel__foot">
+          <span>Correlation</span>
+          <button type="button" className="text-button mono" onClick={() => copy(correlationId)}>
+            {copied === correlationId ? "Copied" : correlationId}
+          </button>
+        </footer>
+      ) : null}
     </aside>
   );
 }

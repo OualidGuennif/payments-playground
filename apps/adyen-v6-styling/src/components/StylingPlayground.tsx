@@ -20,12 +20,7 @@ import {
   flagEmoji,
   LOCALES,
 } from "./styling-data.ts";
-import type {
-  AvailableMethod,
-  Bootstrap,
-  Mounted,
-  SessionResponse,
-} from "./styling-data.ts";
+import type { AvailableMethod, Bootstrap, Mounted, SessionResponse } from "./styling-data.ts";
 import { clearStored, STORAGE_KEY, stored } from "./styling-persistence.ts";
 import type { Persisted } from "./styling-persistence.ts";
 import {
@@ -76,33 +71,35 @@ export default function StylingPlayground() {
   const [session, setSession] = useState<SessionResponse | null>(null);
   // Each restores over its defaults rather than replacing them, so a blob
   // written before an option existed still yields a complete object.
-  const [secureStyles, setSecureStyles] = useState<SecureStyles>(
-    () => ({ ...DEFAULT_SECURE, ...(stored()?.secureStyles ?? {}) }),
-  );
+  const [secureStyles, setSecureStyles] = useState<SecureStyles>(() => ({
+    ...DEFAULT_SECURE,
+    ...(stored()?.secureStyles ?? {}),
+  }));
   const [secureState, setSecureState] = useState<SecureState>("base");
   const [cssTokens, setCssTokens] = useState<CssTokens>(() => stored()?.cssTokens ?? {});
-  const [cssRules, setCssRules] = useState<CssRules>(
-    () => ({ ...DEFAULT_CSS_RULES, ...(stored()?.cssRules ?? {}) }),
-  );
-  const [nativeOptions, setNativeOptions] = useState<NativeOptions>(
-    () => ({ ...DEFAULT_NATIVE, ...(stored()?.nativeOptions ?? {}) }),
-  );
-  const [walletOptions, setWalletOptions] = useState<WalletOptions>(
-    () => ({ ...DEFAULT_WALLETS, ...(stored()?.walletOptions ?? {}) }),
-  );
-  const [cardOptions, setCardOptions] = useState<CardOptions>(
-    () => ({
-      ...cardDefaultsFor(stored()?.country ?? detectInitialCountry()),
-      ...(stored()?.cardOptions ?? {}),
-    }),
-  );
+  const [cssRules, setCssRules] = useState<CssRules>(() => ({
+    ...DEFAULT_CSS_RULES,
+    ...(stored()?.cssRules ?? {}),
+  }));
+  const [nativeOptions, setNativeOptions] = useState<NativeOptions>(() => ({
+    ...DEFAULT_NATIVE,
+    ...(stored()?.nativeOptions ?? {}),
+  }));
+  const [walletOptions, setWalletOptions] = useState<WalletOptions>(() => ({
+    ...DEFAULT_WALLETS,
+    ...(stored()?.walletOptions ?? {}),
+  }));
+  const [cardOptions, setCardOptions] = useState<CardOptions>(() => ({
+    ...cardDefaultsFor(stored()?.country ?? detectInitialCountry()),
+    ...(stored()?.cardOptions ?? {}),
+  }));
   // Guessed from the browser's own language preferences on first render, so a
   // Dutch or Japanese visitor lands on their own market instead of a fixed
   // one. Server-side there is no navigator, so the shared European fallback
   // is rendered and the guess is applied on hydration.
   const [country, setCountry] = useState(() => stored()?.country ?? detectInitialCountry());
-  const [locale, setLocale] = useState(() =>
-    stored()?.locale ?? localeForCountry(stored()?.country ?? detectInitialCountry())
+  const [locale, setLocale] = useState(
+    () => stored()?.locale ?? localeForCountry(stored()?.country ?? detectInitialCountry()),
   );
   const [localeManual, setLocaleManual] = useState(() => stored()?.localeManual ?? false);
   const [availableMethods, setAvailableMethods] = useState<AvailableMethod[]>([]);
@@ -167,7 +164,7 @@ export default function StylingPlayground() {
     }
     const timeout = setTimeout(() => {
       refreshSession().catch((cause) =>
-        setError(cause instanceof Error ? cause.message : "Session refresh failed.")
+        setError(cause instanceof Error ? cause.message : "Session refresh failed."),
       );
     }, 400);
     return () => clearTimeout(timeout);
@@ -180,21 +177,19 @@ export default function StylingPlayground() {
     try {
       globalThis.localStorage?.setItem(
         STORAGE_KEY,
-        JSON.stringify(
-          {
-            country,
-            locale,
-            localeManual,
-            section,
-            secureStyles,
-            cssTokens,
-            cssRules,
-            nativeOptions,
-            cardOptions,
-            walletOptions,
-            showDonation,
-          } satisfies Persisted,
-        ),
+        JSON.stringify({
+          country,
+          locale,
+          localeManual,
+          section,
+          secureStyles,
+          cssTokens,
+          cssRules,
+          nativeOptions,
+          cardOptions,
+          walletOptions,
+          showDonation,
+        } satisfies Persisted),
       );
     } catch {
       // Storage can be unavailable or full; the playground still works.
@@ -225,7 +220,7 @@ export default function StylingPlayground() {
     }
     const timeout = setTimeout(() => {
       remountDropinOnly().catch((cause) =>
-        setError(cause instanceof Error ? cause.message : "Remount failed.")
+        setError(cause instanceof Error ? cause.message : "Remount failed."),
       );
     }, 400);
     return () => clearTimeout(timeout);
@@ -238,7 +233,8 @@ export default function StylingPlayground() {
   // be refused, leaving the dropdown empty.
   useEffect(() => {
     if (!bootstrap) return;
-    api().api.styling["payment-methods"].post({ countryCode: country })
+    api()
+      .api.styling["payment-methods"].post({ countryCode: country })
       .then((result) => setAvailableMethods(unwrap(result).paymentMethods))
       .catch(() => setAvailableMethods([]));
   }, [country, bootstrap]);
@@ -395,9 +391,13 @@ export default function StylingPlayground() {
   // this falls to "custom" on its own, with no flag to keep in sync.
   const activeTheme = useMemo(() => {
     const current = themeSignature(secureStyles, cssTokens, walletOptions, showDonation);
-    return THEME_PRESETS.find((preset) =>
-      themeSignature(preset.secure, preset.tokens, preset.wallets, preset.showDonation) === current
-    )?.id ?? "custom";
+    return (
+      THEME_PRESETS.find(
+        (preset) =>
+          themeSignature(preset.secure, preset.tokens, preset.wallets, preset.showDonation) ===
+          current,
+      )?.id ?? "custom"
+    );
   }, [secureStyles, cssTokens, walletOptions, showDonation]);
 
   /** Themes own the look only, Drop-in behaviour and card fields are left. */
@@ -485,7 +485,7 @@ export default function StylingPlayground() {
     // "The provided session identifier or data is invalid". Reset is meant to
     // hand back a checkout you can pay with again.
     refreshSession().catch((cause) =>
-      setError(cause instanceof Error ? cause.message : "Reset failed.")
+      setError(cause instanceof Error ? cause.message : "Reset failed."),
     );
   }
 
@@ -504,7 +504,7 @@ export default function StylingPlayground() {
   function startNewPayment() {
     setError(null);
     refreshSession().catch((cause) =>
-      setError(cause instanceof Error ? cause.message : "Could not start a new payment.")
+      setError(cause instanceof Error ? cause.message : "Could not start a new payment."),
     );
   }
 
@@ -523,27 +523,21 @@ export default function StylingPlayground() {
   return (
     <>
       <style>{generatedCss}</style>
-      {error
-        ? (
-          <div className="callout callout--danger" role="alert">
-            <strong>Configuration error</strong>
-            <div>{error}</div>
-          </div>
-        )
-        : null}
+      {error ? (
+        <div className="callout callout--danger" role="alert">
+          <strong>Configuration error</strong>
+          <div>{error}</div>
+        </div>
+      ) : null}
       <div className="styling-layout">
-        {
-          /* Dark mode darkens the tool around the checkout: this canvas and the
+        {/* Dark mode darkens the tool around the checkout: this canvas and the
             test data. The Drop-in column alone keeps the light tokens, so the
-            checkout shows exactly what the merchant configured. */
-        }
+            checkout shows exactly what the merchant configured. */}
         <section className="styling-preview" style={previewVariables}>
-          {
-            /* Four blocks of one height: the shopper's country and locale, the
+          {/* Four blocks of one height: the shopper's country and locale, the
               theme preset, and the light/dark switch. They sit in the preview
               column so their edges are the checkout's and the test data's; the
-              name and SDK version moved to the footer (owner, 2026-10-10). */
-          }
+              name and SDK version moved to the footer (owner, 2026-10-10). */}
           <div className="styling-toolbar">
             <label className="toolbar-field">
               <span className="toolbar-field__label">Country</span>
@@ -569,7 +563,9 @@ export default function StylingPlayground() {
                 onChange={(event) => updateLocale(event.currentTarget.value)}
               >
                 {LOCALES.map(([code, name]) => (
-                  <option key={code} value={code}>{name} ({code})</option>
+                  <option key={code} value={code}>
+                    {name} ({code})
+                  </option>
                 ))}
               </select>
             </label>
@@ -578,62 +574,62 @@ export default function StylingPlayground() {
               <select
                 id="preview-theme"
                 aria-label="Theme preset"
-                title={THEME_PRESETS.find((preset) => preset.id === activeTheme)?.description ??
-                  "Your own combination."}
+                title={
+                  THEME_PRESETS.find((preset) => preset.id === activeTheme)?.description ??
+                  "Your own combination."
+                }
                 value={activeTheme}
                 onChange={(event) => applyTheme(event.currentTarget.value)}
               >
                 {THEME_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>{preset.label}</option>
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label}
+                  </option>
                 ))}
-                {
-                  /* Only offered once you have edited something: it is a state
-                    you can be in, not a theme you can pick. */
-                }
+                {/* Only offered once you have edited something: it is a state
+                    you can be in, not a theme you can pick. */}
                 {activeTheme === "custom" ? <option value="custom">Custom</option> : null}
               </select>
             </label>
-            {
-              /* The switch alone, no caption: its sun and moon say it (owner,
-                2026-10-10); screen readers get its "Dark mode" label. */
-            }
+            {/* The switch alone, no caption: its sun and moon say it (owner,
+                2026-10-10); screen readers get its "Dark mode" label. */}
             <div className="toolbar-field toolbar-field--mode">
               <ThemeToggle />
             </div>
           </div>
           <div className="dropin-column keep-light">
-            {
-              /* A sibling of the host, never a child: Adyen owns that node and
+            {/* A sibling of the host, never a child: Adyen owns that node and
                 calls replaceChildren on it, so anything React renders inside
-                would be torn out from under it. */
-            }
-            {completed && !loading
-              ? (
-                <div className="dropin-done" role="status">
-                  <span className="dropin-done__mark" aria-hidden="true">✓</span>
-                  <div className="dropin-done__text">
-                    <strong>Payment completed</strong>
-                    <span>
-                      {donation === "donated"
-                        ? "Donation sent."
-                        : donation === "skipped"
+                would be torn out from under it. */}
+            {completed && !loading ? (
+              <div className="dropin-done" role="status">
+                <span className="dropin-done__mark" aria-hidden="true">
+                  ✓
+                </span>
+                <div className="dropin-done__text">
+                  <strong>Payment completed</strong>
+                  <span>
+                    {donation === "donated"
+                      ? "Donation sent."
+                      : donation === "skipped"
                         ? "Donation declined."
                         : donation === "failed"
-                        ? "Donation failed, the payment itself went through."
-                        : "Sessions are single-use."}
-                    </span>
-                  </div>
-                  <button type="button" className="button" onClick={startNewPayment}>
-                    New payment
-                  </button>
+                          ? "Donation failed, the payment itself went through."
+                          : "Sessions are single-use."}
+                  </span>
                 </div>
-              )
-              : null}
+                <button type="button" className="button" onClick={startNewPayment}>
+                  New payment
+                </button>
+              </div>
+            ) : null}
             <div
               className={`dropin-host${completed && !loading ? " dropin-host--spent" : ""}`}
               aria-busy={loading}
             >
-              {loading ? <div className="dropin-placeholder">Loading Adyen TEST Drop-in…</div> : null}
+              {loading ? (
+                <div className="dropin-placeholder">Loading Adyen TEST Drop-in…</div>
+              ) : null}
               {/* Adyen Web owns this node's children; React never renders into it. */}
               <div ref={host} />
             </div>
@@ -641,12 +637,10 @@ export default function StylingPlayground() {
           <TestCards />
         </section>
         <aside id="styling-panel" className="styling-panel">
-          {
-            /* The tabs already say what this panel is, so they are the header ,
+          {/* The tabs already say what this panel is, so they are the header ,
               a "Customisation" caption above them only repeated it. Reset ends
               the same row: it belongs to the panel, and this is the panel's
-              one piece of chrome. */
-          }
+              one piece of chrome. */}
           <div className="styling-tabs">
             <div className="styling-tabs__list" role="tablist">
               <button
@@ -685,117 +679,107 @@ export default function StylingPlayground() {
               <span className="styling-reset__text">{successFlash ? "Done" : "Reset"}</span>
             </button>
           </div>
-          {
-            /* Both write CSS custom properties, so they live with the rest of
+          {/* Both write CSS custom properties, so they live with the rest of
               the theme rather than standing above all three tabs, where they
-              read as global controls and applied to none of the other two. */
-          }
-          {section === "css"
-            ? (
-              <div className="styling-controls styling-controls--shape">
-                <OptionRow
-                  id="shape-radius-s"
-                  label="Small radius"
-                  spec={cssTokenSpec("border-radius-s")}
-                  value={cssTokens["border-radius-s"] ?? ""}
-                  onChange={(value) => updateToken("border-radius-s", value)}
-                />
-                <OptionRow
-                  id="shape-radius-m"
-                  label="Medium radius"
-                  spec={cssTokenSpec("border-radius-m")}
-                  value={cssTokens["border-radius-m"] ?? ""}
-                  onChange={(value) => updateToken("border-radius-m", value)}
-                />
-              </div>
-            )
-            : null}
+              read as global controls and applied to none of the other two. */}
+          {section === "css" ? (
+            <div className="styling-controls styling-controls--shape">
+              <OptionRow
+                id="shape-radius-s"
+                label="Small radius"
+                spec={cssTokenSpec("border-radius-s")}
+                value={cssTokens["border-radius-s"] ?? ""}
+                onChange={(value) => updateToken("border-radius-s", value)}
+              />
+              <OptionRow
+                id="shape-radius-m"
+                label="Medium radius"
+                spec={cssTokenSpec("border-radius-m")}
+                value={cssTokens["border-radius-m"] ?? ""}
+                onChange={(value) => updateToken("border-radius-m", value)}
+              />
+            </div>
+          ) : null}
           <div className="styling-controls">
-            {section === "styling"
-              ? (
-                <FieldStylesPanel
-                  secureStyles={secureStyles}
-                  secureState={secureState}
-                  setSecureState={setSecureState}
-                  updateSecure={updateSecure}
-                  cardOptions={cardOptions}
-                  country={country}
-                  groupOpen={groupOpen}
-                  setGroupOpen={setGroupOpen}
-                />
-              )
-              : section === "configuration"
-              ? (
-                <ComponentsPanel
-                  nativeOptions={nativeOptions}
-                  cardOptions={cardOptions}
-                  walletOptions={walletOptions}
-                  secureStyles={secureStyles}
-                  showDonation={showDonation}
-                  setShowDonation={setShowDonation}
-                  availableMethods={availableMethods}
-                  country={country}
-                  updateNative={updateNative}
-                  updateCard={updateCard}
-                  updateWallet={updateWallet}
-                  updatePlaceholder={updatePlaceholder}
-                  toggleInstantPaymentType={toggleInstantPaymentType}
-                  groupOpen={groupOpen}
-                  setGroupOpen={setGroupOpen}
-                />
-              )
-              : (
-                <ThemePanel
-                  cssTokens={cssTokens}
-                  cssRules={cssRules}
-                  tokenOverrides={tokenOverrides}
-                  generatedCss={generatedCss}
-                  updateToken={updateToken}
-                  updateRule={updateRule}
-                  setCssTokens={setCssTokens}
-                  setCssRules={setCssRules}
-                  groupOpen={groupOpen}
-                  setGroupOpen={setGroupOpen}
-                />
-              )}
+            {section === "styling" ? (
+              <FieldStylesPanel
+                secureStyles={secureStyles}
+                secureState={secureState}
+                setSecureState={setSecureState}
+                updateSecure={updateSecure}
+                cardOptions={cardOptions}
+                country={country}
+                groupOpen={groupOpen}
+                setGroupOpen={setGroupOpen}
+              />
+            ) : section === "configuration" ? (
+              <ComponentsPanel
+                nativeOptions={nativeOptions}
+                cardOptions={cardOptions}
+                walletOptions={walletOptions}
+                secureStyles={secureStyles}
+                showDonation={showDonation}
+                setShowDonation={setShowDonation}
+                availableMethods={availableMethods}
+                country={country}
+                updateNative={updateNative}
+                updateCard={updateCard}
+                updateWallet={updateWallet}
+                updatePlaceholder={updatePlaceholder}
+                toggleInstantPaymentType={toggleInstantPaymentType}
+                groupOpen={groupOpen}
+                setGroupOpen={setGroupOpen}
+              />
+            ) : (
+              <ThemePanel
+                cssTokens={cssTokens}
+                cssRules={cssRules}
+                tokenOverrides={tokenOverrides}
+                generatedCss={generatedCss}
+                updateToken={updateToken}
+                updateRule={updateRule}
+                setCssTokens={setCssTokens}
+                setCssRules={setCssRules}
+                groupOpen={groupOpen}
+                setGroupOpen={setGroupOpen}
+              />
+            )}
           </div>
         </aside>
       </div>
-      {confirmingReset
-        ? (
+      {confirmingReset ? (
+        <div
+          className="confirm-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setConfirmingReset(false);
+          }}
+        >
           <div
-            className="confirm-backdrop"
-            onClick={(event) => {
-              if (event.target === event.currentTarget) setConfirmingReset(false);
-            }}
+            className="confirm-card"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="confirm-reset-title"
           >
-            <div
-              className="confirm-card"
-              role="alertdialog"
-              aria-modal="true"
-              aria-labelledby="confirm-reset-title"
-            >
-              <strong id="confirm-reset-title">Reset every option?</strong>
-              <p>
-                Your styles, component options and theme go back to Adyen's defaults, here and on
-                your next visit. This can't be undone.
-              </p>
-              <div className="confirm-card__actions">
-                <button
-                  type="button"
-                  className="button button--quiet"
-                  onClick={() => setConfirmingReset(false)}
-                >
-                  Cancel
-                </button>
-                <button type="button" className="button button--danger" onClick={reset} autoFocus>
-                  Reset everything
-                </button>
-              </div>
+            <strong id="confirm-reset-title">Reset every option?</strong>
+            <p>
+              Your styles, component options and theme go back to Adyen's defaults, here and on your
+              next visit. This can't be undone.
+            </p>
+            <div className="confirm-card__actions">
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => setConfirmingReset(false)}
+              >
+                Cancel
+              </button>
+              <button type="button" className="button button--danger" onClick={reset} autoFocus>
+                Reset everything
+              </button>
             </div>
           </div>
-        )
-        : null}
+        </div>
+      ) : null}
     </>
   );
 }

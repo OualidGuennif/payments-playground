@@ -10,8 +10,17 @@ import { trace } from "./trace";
 import { isRecord, newId, sha256 } from "./util";
 
 export type Line = { id: string; variantId: string; quantity: number };
-export type Buyer = { first_name?: string; last_name?: string; email?: string; phone_number?: string };
-export type Severity = "recoverable" | "requires_buyer_input" | "requires_buyer_review" | "unrecoverable";
+export type Buyer = {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone_number?: string;
+};
+export type Severity =
+  | "recoverable"
+  | "requires_buyer_input"
+  | "requires_buyer_review"
+  | "unrecoverable";
 export type Message = {
   type: "error" | "info" | "warning";
   code: string;
@@ -90,7 +99,11 @@ export type CardAlias = {
   expiryYear: string;
 };
 
-export const DEMO_SHOPPER: Buyer = { first_name: "Alex", last_name: "Demo", email: "shopper@example.com" };
+export const DEMO_SHOPPER: Buyer = {
+  first_name: "Alex",
+  last_name: "Demo",
+  email: "shopper@example.com",
+};
 export const MAX_LINES = 20;
 export const MAX_QUANTITY = 10;
 export const FREE_SHIPPING_FROM = 10000;
@@ -98,13 +111,21 @@ export const SHIPPING = 495;
 const CHECKOUT_TTL_MS = 6 * 3600_000;
 
 export class CommerceError extends Error {
-  constructor(readonly status: number, readonly msg: Message) {
+  constructor(
+    readonly status: number,
+    readonly msg: Message,
+  ) {
     super(msg.content);
   }
 }
 
-const err = (status: number, code: string, content: string, path?: string, severity: Severity = "unrecoverable") =>
-  new CommerceError(status, { type: "error", code, content, severity, path });
+const err = (
+  status: number,
+  code: string,
+  content: string,
+  path?: string,
+  severity: Severity = "unrecoverable",
+) => new CommerceError(status, { type: "error", code, content, severity, path });
 
 const now = () => new Date().toISOString();
 
@@ -125,14 +146,20 @@ export function totals(lines: Line[]) {
   const p = price(lines);
   return [
     { type: "subtotal", display_text: "Subtotal", amount: p.subtotal },
-    { type: "fulfillment", display_text: p.fulfillment ? "Standard shipping" : "Free shipping", amount: p.fulfillment },
+    {
+      type: "fulfillment",
+      display_text: p.fulfillment ? "Standard shipping" : "Free shipping",
+      amount: p.fulfillment,
+    },
     { type: "total", display_text: "Total (VAT included)", amount: p.total },
   ];
 }
 
 export function parseLines(input: unknown, previous: Line[] = []): Line[] {
-  if (!Array.isArray(input)) throw err(400, "invalid_line_items", "line_items must be an array", "$.line_items");
-  if (input.length > MAX_LINES) throw err(400, "too_many_line_items", `At most ${MAX_LINES} line items`, "$.line_items");
+  if (!Array.isArray(input))
+    throw err(400, "invalid_line_items", "line_items must be an array", "$.line_items");
+  if (input.length > MAX_LINES)
+    throw err(400, "too_many_line_items", `At most ${MAX_LINES} line items`, "$.line_items");
   const merged = new Map<string, Line>();
   input.forEach((raw, index) => {
     const path = `$.line_items[${index}]`;
@@ -143,18 +170,40 @@ export function parseLines(input: unknown, previous: Line[] = []): Line[] {
     if (!variantById(id)) {
       const product = productById(id);
       const only = product && product.colours.length * product.sizes.length === 1;
-      if (!product) throw err(400, "item_not_found", `No item ${id}. Use a variant id from the catalogue.`, `${path}.item.id`);
-      if (!only) throw err(400, "variant_required", `${id} has several variants; pass a variant id (colour and size).`, `${path}.item.id`);
+      if (!product)
+        throw err(
+          400,
+          "item_not_found",
+          `No item ${id}. Use a variant id from the catalogue.`,
+          `${path}.item.id`,
+        );
+      if (!only)
+        throw err(
+          400,
+          "variant_required",
+          `${id} has several variants; pass a variant id (colour and size).`,
+          `${path}.item.id`,
+        );
       id = `${product.id}-${product.colours[0]!.id}-one-size`;
     }
     const quantity = raw.quantity ?? 1;
-    if (!Number.isInteger(quantity) || (quantity as number) < 1 || (quantity as number) > MAX_QUANTITY) {
-      throw err(400, "invalid_quantity", `quantity must be an integer from 1 to ${MAX_QUANTITY}`, `${path}.quantity`);
+    if (
+      !Number.isInteger(quantity) ||
+      (quantity as number) < 1 ||
+      (quantity as number) > MAX_QUANTITY
+    ) {
+      throw err(
+        400,
+        "invalid_quantity",
+        `quantity must be an integer from 1 to ${MAX_QUANTITY}`,
+        `${path}.quantity`,
+      );
     }
     const existing = merged.get(id);
-    const lineId = typeof raw.id === "string" && previous.some((p) => p.id === raw.id)
-      ? raw.id
-      : previous.find((p) => p.variantId === id)?.id ?? `li_${sha256(id).slice(0, 10)}`;
+    const lineId =
+      typeof raw.id === "string" && previous.some((p) => p.id === raw.id)
+        ? raw.id
+        : (previous.find((p) => p.variantId === id)?.id ?? `li_${sha256(id).slice(0, 10)}`);
     merged.set(id, {
       id: existing?.id ?? lineId,
       variantId: id,
@@ -170,12 +219,19 @@ export function parseBuyer(input: unknown): Buyer | undefined {
   const pick = (k: keyof Buyer, max: number) => {
     const v = input[k];
     if (v === undefined) return undefined;
-    if (typeof v !== "string" || v.length > max) throw err(400, "invalid_buyer", `buyer.${k} is not valid`, `$.buyer.${k}`);
+    if (typeof v !== "string" || v.length > max)
+      throw err(400, "invalid_buyer", `buyer.${k} is not valid`, `$.buyer.${k}`);
     return v.trim();
   };
   const email = pick("email", 254);
-  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw err(400, "invalid_email", "buyer.email is not an email address", "$.buyer.email");
-  return { first_name: pick("first_name", 80), last_name: pick("last_name", 80), email, phone_number: pick("phone_number", 32) };
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
+    throw err(400, "invalid_email", "buyer.email is not an email address", "$.buyer.email");
+  return {
+    first_name: pick("first_name", 80),
+    last_name: pick("last_name", 80),
+    email,
+    phone_number: pick("phone_number", 32),
+  };
 }
 
 // --- saved cards -------------------------------------------------------------------------------
@@ -203,7 +259,15 @@ export async function savedCards(refresh = false): Promise<CardAlias[]> {
     cardCache = { at: Date.now(), cards };
     return cards;
   } catch (error) {
-    trace({ channel: "adyen", actor: "server", method: "GET", path: "/storedPaymentMethods", status: 502, ref: null, detail: { error: (error as Error).message } });
+    trace({
+      channel: "adyen",
+      actor: "server",
+      method: "GET",
+      path: "/storedPaymentMethods",
+      status: 502,
+      ref: null,
+      detail: { error: (error as Error).message },
+    });
     return cardCache?.cards ?? [];
   }
 }
@@ -216,20 +280,35 @@ export function forgetCardCache() {
 
 export function createCart(body: Record<string, unknown>, clientId?: string): Cart {
   const lines = parseLines(body.line_items);
-  const cart: Cart = { id: newId("cart"), lines, buyer: parseBuyer(body.buyer), status: "active", clientId, createdAt: now(), updatedAt: now() };
+  const cart: Cart = {
+    id: newId("cart"),
+    lines,
+    buyer: parseBuyer(body.buyer),
+    status: "active",
+    clientId,
+    createdAt: now(),
+    updatedAt: now(),
+  };
   return put("carts", cart.id, cart);
 }
 
 export function loadCart(id: string, clientId?: string): Cart {
   const cart = get<Cart>("carts", id);
-  if (!cart || (cart.clientId && cart.clientId !== clientId)) throw err(404, "not_found", "Cart not found");
+  if (!cart || (cart.clientId && cart.clientId !== clientId))
+    throw err(404, "not_found", "Cart not found");
   return cart;
 }
 
 export function updateCart(cart: Cart, body: Record<string, unknown>): Cart {
   if (cart.status !== "active") throw err(409, "cart_canceled", "This cart was canceled");
-  const lines = body.line_items === undefined ? cart.lines : parseLines(body.line_items, cart.lines);
-  return put("carts", cart.id, { ...cart, lines, buyer: parseBuyer(body.buyer) ?? cart.buyer, updatedAt: now() });
+  const lines =
+    body.line_items === undefined ? cart.lines : parseLines(body.line_items, cart.lines);
+  return put("carts", cart.id, {
+    ...cart,
+    lines,
+    buyer: parseBuyer(body.buyer) ?? cart.buyer,
+    updatedAt: now(),
+  });
 }
 
 export function cancelCart(cart: Cart): Cart {
@@ -274,9 +353,16 @@ export function loadCheckout(id: string, auth?: Auth | "browser"): Checkout {
 const saveCheckout = (c: Checkout) => put("checkouts", c.id, { ...c, updatedAt: now() });
 
 export function updateCheckout(checkout: Checkout, body: Record<string, unknown>): Checkout {
-  if (checkout.phase !== "open") throw err(409, "checkout_not_editable", `Checkout is ${checkout.phase}`);
-  const lines = body.line_items === undefined ? checkout.lines : parseLines(body.line_items, checkout.lines);
-  return saveCheckout({ ...checkout, lines, buyer: parseBuyer(body.buyer) ?? checkout.buyer, lastMessage: undefined });
+  if (checkout.phase !== "open")
+    throw err(409, "checkout_not_editable", `Checkout is ${checkout.phase}`);
+  const lines =
+    body.line_items === undefined ? checkout.lines : parseLines(body.line_items, checkout.lines);
+  return saveCheckout({
+    ...checkout,
+    lines,
+    buyer: parseBuyer(body.buyer) ?? checkout.buyer,
+    lastMessage: undefined,
+  });
 }
 
 export function cancelCheckout(checkout: Checkout): Checkout {
@@ -292,7 +378,13 @@ function buyerOf(checkout: Checkout, auth?: Auth): Buyer | undefined {
 }
 
 export type Assessment = {
-  status: "incomplete" | "requires_escalation" | "ready_for_complete" | "complete_in_progress" | "completed" | "canceled";
+  status:
+    | "incomplete"
+    | "requires_escalation"
+    | "ready_for_complete"
+    | "complete_in_progress"
+    | "completed"
+    | "canceled";
   messages: Message[];
   card?: CardAlias;
   total: number;
@@ -306,17 +398,47 @@ export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAl
     return { status, messages, total };
   }
   if (Date.parse(checkout.expiresAt) < Date.now()) {
-    return { status: "canceled", messages: [{ type: "error", code: "checkout_expired", content: "This checkout expired", severity: "unrecoverable" }], total };
+    return {
+      status: "canceled",
+      messages: [
+        {
+          type: "error",
+          code: "checkout_expired",
+          content: "This checkout expired",
+          severity: "unrecoverable",
+        },
+      ],
+      total,
+    };
   }
   const problems: Message[] = [];
-  if (!checkout.lines.length) problems.push({ type: "error", code: "empty_checkout", content: "Add at least one line item", severity: "requires_buyer_input", path: "$.line_items" });
+  if (!checkout.lines.length)
+    problems.push({
+      type: "error",
+      code: "empty_checkout",
+      content: "Add at least one line item",
+      severity: "requires_buyer_input",
+      path: "$.line_items",
+    });
   checkout.lines.forEach((line, i) => {
     if (!variantById(line.variantId)?.available) {
-      problems.push({ type: "error", code: "out_of_stock", content: `${line.variantId} is sold out`, severity: "requires_buyer_input", path: `$.line_items[${i}]` });
+      problems.push({
+        type: "error",
+        code: "out_of_stock",
+        content: `${line.variantId} is sold out`,
+        severity: "requires_buyer_input",
+        path: `$.line_items[${i}]`,
+      });
     }
   });
   if (!buyerOf(checkout, auth)?.email) {
-    problems.push({ type: "error", code: "missing_buyer_email", content: "buyer.email is required for the receipt", severity: "requires_buyer_input", path: "$.buyer.email" });
+    problems.push({
+      type: "error",
+      code: "missing_buyer_email",
+      content: "buyer.email is required for the receipt",
+      severity: "requires_buyer_input",
+      path: "$.buyer.email",
+    });
   }
   if (problems.length) return { status: "incomplete", messages: [...messages, ...problems], total };
 
@@ -325,14 +447,30 @@ export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAl
     messages: [...messages, { type: "error", code, content, severity: "requires_buyer_review" }],
     total,
   });
-  if (!paymentsConfigured()) return escalate("payments_unavailable", "Payments are not configured on this store");
-  if (!auth) return escalate("sign_in_required", "Sign in with OAuth (scope ucp:pay) to pay with the shopper's saved card, or hand the shopper the continue_url.");
-  if (!auth.token.scopes.includes("ucp:pay")) return escalate("insufficient_scope", "The ucp:pay scope is needed to pay; the shopper can pay at continue_url.");
+  if (!paymentsConfigured())
+    return escalate("payments_unavailable", "Payments are not configured on this store");
+  if (!auth)
+    return escalate(
+      "sign_in_required",
+      "Sign in with OAuth (scope ucp:pay) to pay with the shopper's saved card, or hand the shopper the continue_url.",
+    );
+  if (!auth.token.scopes.includes("ucp:pay"))
+    return escalate(
+      "insufficient_scope",
+      "The ucp:pay scope is needed to pay; the shopper can pay at continue_url.",
+    );
   const card = cards[0];
-  if (!card) return escalate("no_saved_card", "The shopper has no saved card yet; they can pay at continue_url and save one in their account.");
+  if (!card)
+    return escalate(
+      "no_saved_card",
+      "The shopper has no saved card yet; they can pay at continue_url and save one in their account.",
+    );
   const remaining = auth.grant.spendLimit - auth.grant.spent;
   if (total > remaining) {
-    return escalate("spend_limit_exceeded", `Total ${total} exceeds the remaining agent budget of ${Math.max(remaining, 0)} ${CURRENCY} minor units; the shopper must approve at continue_url.`);
+    return escalate(
+      "spend_limit_exceeded",
+      `Total ${total} exceeds the remaining agent budget of ${Math.max(remaining, 0)} ${CURRENCY} minor units; the shopper must approve at continue_url.`,
+    );
   }
   return { status: "ready_for_complete", messages, card, total };
 }
@@ -346,7 +484,13 @@ function snapshot(lines: Line[]): OrderLine[] {
   });
 }
 
-function placeOrder(checkout: Checkout, paidBy: Order["paidBy"], pspReference: string | undefined, status: Order["status"], auth?: Auth): Order {
+function placeOrder(
+  checkout: Checkout,
+  paidBy: Order["paidBy"],
+  pspReference: string | undefined,
+  status: Order["status"],
+  auth?: Auth,
+): Order {
   const p = price(checkout.lines);
   const order: Order = {
     id: newId("ord"),
@@ -374,30 +518,66 @@ export function instrumentAlias(body: Record<string, unknown>): string | undefin
   const chosen = instruments.find((i) => isRecord(i) && i.selected === true) ?? instruments[0];
   if (!isRecord(chosen)) return undefined;
   if (chosen.handler_id !== undefined && chosen.handler_id !== "saved_card") {
-    throw err(400, "unsupported_handler", "Only the saved_card handler is accepted here", "$.payment.instruments[0].handler_id");
+    throw err(
+      400,
+      "unsupported_handler",
+      "Only the saved_card handler is accepted here",
+      "$.payment.instruments[0].handler_id",
+    );
   }
   const credential = isRecord(chosen.credential) ? chosen.credential : undefined;
-  return typeof credential?.token === "string" ? credential.token : typeof chosen.id === "string" ? chosen.id : undefined;
+  return typeof credential?.token === "string"
+    ? credential.token
+    : typeof chosen.id === "string"
+      ? chosen.id
+      : undefined;
 }
 
-export async function completeCheckout(loaded: Checkout, body: Record<string, unknown>, auth?: Auth): Promise<Checkout> {
+export async function completeCheckout(
+  loaded: Checkout,
+  body: Record<string, unknown>,
+  auth?: Auth,
+): Promise<Checkout> {
   const cards = await savedCards();
   // Re-read after the await: from here to the claim nothing yields, so a parallel complete that
   // claimed the checkout meanwhile is seen and no second payment is sent.
   const checkout = get<Checkout>("checkouts", loaded.id) ?? loaded;
   if (checkout.phase === "completed" || checkout.phase === "complete_in_progress") return checkout;
-  if (checkout.phase === "canceled") throw err(409, "checkout_canceled", "This checkout was canceled");
+  if (checkout.phase === "canceled")
+    throw err(409, "checkout_canceled", "This checkout was canceled");
   const assessment = assess(checkout, auth, cards);
   if (assessment.status !== "ready_for_complete" || !auth) return checkout;
   const alias = instrumentAlias(body);
   const card = cards.find((c) => c.alias === alias);
-  if (!card) throw err(400, "unknown_instrument", "Pass one of the instruments listed in checkout.payment.instruments", "$.payment.instruments");
+  if (!card)
+    throw err(
+      400,
+      "unknown_instrument",
+      "Pass one of the instruments listed in checkout.payment.instruments",
+      "$.payment.instruments",
+    );
 
   // Claimed synchronously before the network call, so a parallel complete sees it in progress.
   const attempt = checkout.attempts + 1;
-  const claimed = saveCheckout({ ...checkout, phase: "complete_in_progress", attempts: attempt, grantId: auth.grant.id, agentName: auth.grant.clientName, clientId: auth.token.clientId });
+  const claimed = saveCheckout({
+    ...checkout,
+    phase: "complete_in_progress",
+    attempts: attempt,
+    grantId: auth.grant.id,
+    agentName: auth.grant.clientName,
+    clientId: auth.token.clientId,
+  });
   const reference = `${checkout.id}-a${attempt}`;
-  const record: PaymentRecord = { id: newId("pay"), purpose: "agent", checkoutId: checkout.id, reference, amount: assessment.total, agentName: auth.grant.clientName, createdAt: now(), updatedAt: now() };
+  const record: PaymentRecord = {
+    id: newId("pay"),
+    purpose: "agent",
+    checkoutId: checkout.id,
+    reference,
+    amount: assessment.total,
+    agentName: auth.grant.clientName,
+    createdAt: now(),
+    updatedAt: now(),
+  };
   put("payments", record.id, record);
   let result: Awaited<ReturnType<typeof adyen.payWithSavedCard>>;
   try {
@@ -410,12 +590,49 @@ export async function completeCheckout(loaded: Checkout, body: Record<string, un
       metadata: { checkoutId: checkout.id, agent: auth.grant.clientName.slice(0, 80) },
     });
   } catch (error) {
-    put("payments", record.id, { ...record, resultCode: "Error", refusalReason: (error as Error).message.slice(0, 200), updatedAt: now() });
-    trace({ channel: "adyen", actor: "server", method: "POST", path: "/payments", status: 502, ref: checkout.id, detail: { reference, error: (error as Error).message } });
-    return saveCheckout({ ...claimed, phase: "open", attempts: checkout.attempts, lastMessage: { type: "error", code: "payment_unavailable", content: "The payment could not be sent; retry complete with the same body.", severity: "recoverable" } });
+    put("payments", record.id, {
+      ...record,
+      resultCode: "Error",
+      refusalReason: (error as Error).message.slice(0, 200),
+      updatedAt: now(),
+    });
+    trace({
+      channel: "adyen",
+      actor: "server",
+      method: "POST",
+      path: "/payments",
+      status: 502,
+      ref: checkout.id,
+      detail: { reference, error: (error as Error).message },
+    });
+    return saveCheckout({
+      ...claimed,
+      phase: "open",
+      attempts: checkout.attempts,
+      lastMessage: {
+        type: "error",
+        code: "payment_unavailable",
+        content: "The payment could not be sent; retry complete with the same body.",
+        severity: "recoverable",
+      },
+    });
   }
   put("payments", record.id, { ...record, ...result, updatedAt: now() });
-  trace({ channel: "adyen", actor: "server", method: "POST", path: "/payments", status: 200, ref: checkout.id, detail: { reference, amount: assessment.total, shopperInteraction: "ContAuth", recurringProcessingModel: "UnscheduledCardOnFile", ...result } });
+  trace({
+    channel: "adyen",
+    actor: "server",
+    method: "POST",
+    path: "/payments",
+    status: 200,
+    ref: checkout.id,
+    detail: {
+      reference,
+      amount: assessment.total,
+      shopperInteraction: "ContAuth",
+      recurringProcessingModel: "UnscheduledCardOnFile",
+      ...result,
+    },
+  });
   if (result.resultCode === "Authorised") {
     chargeGrant(auth.grant.id, assessment.total);
     placeOrder(claimed, "agent", result.pspReference, "authorised", auth);
@@ -429,7 +646,12 @@ export async function completeCheckout(loaded: Checkout, body: Record<string, un
   return saveCheckout({
     ...claimed,
     phase: "open",
-    lastMessage: { type: "error", code: "payment_refused", content: `Adyen answered ${result.resultCode}${result.refusalReason ? ` (${result.refusalReason})` : ""}. The shopper can pay at continue_url.`, severity: "requires_buyer_review" },
+    lastMessage: {
+      type: "error",
+      code: "payment_refused",
+      content: `Adyen answered ${result.resultCode}${result.refusalReason ? ` (${result.refusalReason})` : ""}. The shopper can pay at continue_url.`,
+      severity: "requires_buyer_review",
+    },
   });
 }
 
@@ -437,8 +659,18 @@ export async function completeCheckout(loaded: Checkout, body: Record<string, un
 
 export async function startShopperSession(checkout: Checkout) {
   const assessment = assess(checkout, undefined, []);
-  if (checkout.phase !== "open" || assessment.status === "incomplete" || assessment.status === "canceled") {
-    throw err(409, "checkout_not_payable", "This checkout cannot be paid now", undefined, "requires_buyer_input");
+  if (
+    checkout.phase !== "open" ||
+    assessment.status === "incomplete" ||
+    assessment.status === "canceled"
+  ) {
+    throw err(
+      409,
+      "checkout_not_payable",
+      "This checkout cannot be paid now",
+      undefined,
+      "requires_buyer_input",
+    );
   }
   const attempt = checkout.attempts + 1;
   saveCheckout({ ...checkout, attempts: attempt });
@@ -451,21 +683,62 @@ export async function startShopperSession(checkout: Checkout) {
     purpose: "order",
     metadata: { checkoutId: checkout.id },
   });
-  put<PaymentRecord>("payments", reference, { id: reference, purpose: "shopper", checkoutId: checkout.id, reference, amount: assessment.total, sessionId: session.id, createdAt: now(), updatedAt: now() });
-  trace({ channel: "adyen", actor: "shopper", method: "POST", path: "/sessions", status: 200, ref: checkout.id, detail: { reference, amount: assessment.total } });
-  return { ...session, clientKey: config().adyen.clientKey!, amount: assessment.total, currency: CURRENCY };
+  put<PaymentRecord>("payments", reference, {
+    id: reference,
+    purpose: "shopper",
+    checkoutId: checkout.id,
+    reference,
+    amount: assessment.total,
+    sessionId: session.id,
+    createdAt: now(),
+    updatedAt: now(),
+  });
+  trace({
+    channel: "adyen",
+    actor: "shopper",
+    method: "POST",
+    path: "/sessions",
+    status: 200,
+    ref: checkout.id,
+    detail: { reference, amount: assessment.total },
+  });
+  return {
+    ...session,
+    clientKey: config().adyen.clientKey!,
+    amount: assessment.total,
+    currency: CURRENCY,
+  };
 }
 
-export async function finishShopperSession(loaded: Checkout, sessionId: string, sessionResult: string) {
-  const known = list<PaymentRecord>("payments").find((p) => p.sessionId === sessionId && p.checkoutId === loaded.id);
+export async function finishShopperSession(
+  loaded: Checkout,
+  sessionId: string,
+  sessionResult: string,
+) {
+  const known = list<PaymentRecord>("payments").find(
+    (p) => p.sessionId === sessionId && p.checkoutId === loaded.id,
+  );
   if (!known) throw err(404, "not_found", "Unknown payment session");
   const result = await adyen.sessionResult(sessionId, sessionResult);
   // Re-read after the await: a second result call or the webhook may have placed the order meanwhile.
   const checkout = get<Checkout>("checkouts", loaded.id) ?? loaded;
   const record = get<PaymentRecord>("payments", known.id) ?? known;
   const authorised = result.payments.find((p) => p.resultCode === "Authorised");
-  put("payments", record.id, { ...record, resultCode: authorised ? "Authorised" : result.status, pspReference: authorised?.pspReference ?? result.payments[0]?.pspReference, updatedAt: now() });
-  trace({ channel: "adyen", actor: "shopper", method: "GET", path: "/sessions/{id}", status: 200, ref: checkout.id, detail: result });
+  put("payments", record.id, {
+    ...record,
+    resultCode: authorised ? "Authorised" : result.status,
+    pspReference: authorised?.pspReference ?? result.payments[0]?.pspReference,
+    updatedAt: now(),
+  });
+  trace({
+    channel: "adyen",
+    actor: "shopper",
+    method: "GET",
+    path: "/sessions/{id}",
+    status: 200,
+    ref: checkout.id,
+    detail: result,
+  });
   if (checkout.phase === "completed") return checkout;
   if (result.status === "completed" && authorised) {
     placeOrder(checkout, "shopper", authorised.pspReference, "authorised");
@@ -477,17 +750,52 @@ export async function finishShopperSession(loaded: Checkout, sessionId: string, 
 
 export async function startCardSave() {
   const reference = newId("cardsave");
-  const session = await adyen.createSession({ amount: 0, reference, returnUrl: `${config().publicOrigin}/account`, purpose: "card-save", shopperEmail: DEMO_SHOPPER.email, metadata: { purpose: "card-save" } });
-  put<PaymentRecord>("payments", reference, { id: reference, purpose: "card-save", reference, amount: 0, sessionId: session.id, createdAt: now(), updatedAt: now() });
-  trace({ channel: "adyen", actor: "shopper", method: "POST", path: "/sessions", status: 200, ref: reference, detail: { reference, amount: 0, storePaymentMethodMode: "enabled", recurringProcessingModel: "UnscheduledCardOnFile" } });
+  const session = await adyen.createSession({
+    amount: 0,
+    reference,
+    returnUrl: `${config().publicOrigin}/account`,
+    purpose: "card-save",
+    shopperEmail: DEMO_SHOPPER.email,
+    metadata: { purpose: "card-save" },
+  });
+  put<PaymentRecord>("payments", reference, {
+    id: reference,
+    purpose: "card-save",
+    reference,
+    amount: 0,
+    sessionId: session.id,
+    createdAt: now(),
+    updatedAt: now(),
+  });
+  trace({
+    channel: "adyen",
+    actor: "shopper",
+    method: "POST",
+    path: "/sessions",
+    status: 200,
+    ref: reference,
+    detail: {
+      reference,
+      amount: 0,
+      storePaymentMethodMode: "enabled",
+      recurringProcessingModel: "UnscheduledCardOnFile",
+    },
+  });
   return { ...session, clientKey: config().adyen.clientKey!, amount: 0, currency: CURRENCY };
 }
 
 export async function finishCardSave(sessionId: string, sessionResult: string) {
-  const record = list<PaymentRecord>("payments").find((p) => p.sessionId === sessionId && p.purpose === "card-save");
+  const record = list<PaymentRecord>("payments").find(
+    (p) => p.sessionId === sessionId && p.purpose === "card-save",
+  );
   if (!record) throw err(404, "not_found", "Unknown card session");
   const result = await adyen.sessionResult(sessionId, sessionResult);
-  put("payments", record.id, { ...record, resultCode: result.payments[0]?.resultCode ?? result.status, pspReference: result.payments[0]?.pspReference, updatedAt: now() });
+  put("payments", record.id, {
+    ...record,
+    resultCode: result.payments[0]?.resultCode ?? result.status,
+    pspReference: result.payments[0]?.pspReference,
+    updatedAt: now(),
+  });
   forgetCardCache();
   return result.status;
 }
@@ -500,25 +808,47 @@ export function applyNotification(item: adyen.NotificationItem): string {
   if (!record) return "no matching payment";
   const success = item.success === "true";
   if (item.eventCode !== "AUTHORISATION") return "recorded";
-  put("payments", record.id, { ...record, resultCode: success ? "Authorised" : "Refused", pspReference: item.pspReference ?? record.pspReference, refusalReason: success ? undefined : item.reason, updatedAt: now() });
+  put("payments", record.id, {
+    ...record,
+    resultCode: success ? "Authorised" : "Refused",
+    pspReference: item.pspReference ?? record.pspReference,
+    refusalReason: success ? undefined : item.reason,
+    updatedAt: now(),
+  });
   if (!record.checkoutId) return "card save recorded";
   const checkout = get<Checkout>("checkouts", record.checkoutId);
   if (!checkout) return "checkout missing";
   const stamp = { eventCode: item.eventCode, success, at: now() };
   if (checkout.orderId) {
     const order = get<Order>("orders", checkout.orderId);
-    if (order && order.pspReference === item.pspReference) put("orders", order.id, { ...order, webhook: stamp });
+    if (order && order.pspReference === item.pspReference)
+      put("orders", order.id, { ...order, webhook: stamp });
     return "order confirmed";
   }
   if (success) {
-    const order = placeOrder(checkout, record.purpose === "agent" ? "agent" : "shopper", item.pspReference, "authorised");
+    const order = placeOrder(
+      checkout,
+      record.purpose === "agent" ? "agent" : "shopper",
+      item.pspReference,
+      "authorised",
+    );
     put("orders", order.id, { ...order, webhook: stamp });
     return "order placed from webhook";
   }
   if (checkout.phase === "complete_in_progress") {
     // The agent's budget was reserved when Adyen answered Pending; a refusal gives it back.
-    if (record.purpose === "agent" && checkout.grantId) chargeGrant(checkout.grantId, -record.amount);
-    saveCheckout({ ...checkout, phase: "open", lastMessage: { type: "error", code: "payment_refused", content: `Adyen refused the payment${item.reason ? ` (${item.reason})` : ""}`, severity: "requires_buyer_review" } });
+    if (record.purpose === "agent" && checkout.grantId)
+      chargeGrant(checkout.grantId, -record.amount);
+    saveCheckout({
+      ...checkout,
+      phase: "open",
+      lastMessage: {
+        type: "error",
+        code: "payment_refused",
+        content: `Adyen refused the payment${item.reason ? ` (${item.reason})` : ""}`,
+        severity: "requires_buyer_review",
+      },
+    });
   }
   return "refusal recorded";
 }

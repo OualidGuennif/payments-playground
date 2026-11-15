@@ -6,7 +6,11 @@ import dynamic from "next/dynamic";
 
 const StylingPlayground = dynamic(() => import("./StylingPlayground.tsx"), {
   ssr: false,
-  loading: () => <p className="styling-loading" role="status">Loading the playground…</p>,
+  loading: () => (
+    <p className="styling-loading" role="status">
+      Loading the playground…
+    </p>
+  ),
 });
 
 export function ClientPlayground() {

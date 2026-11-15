@@ -40,7 +40,9 @@ export function TestCards() {
           onClick={() => setCardsOpen(!cardsOpen)}
         >
           <span>Card dataset</span>
-          <span className="test-cards__chevron" aria-hidden="true">{cardsOpen ? "−" : "+"}</span>
+          <span className="test-cards__chevron" aria-hidden="true">
+            {cardsOpen ? "−" : "+"}
+          </span>
         </button>
         <div className="test-cards__body">
           <div className="test-cards__list">
@@ -88,7 +90,9 @@ export function TestCards() {
           onClick={() => setAltOpen(!altOpen)}
         >
           <span>Alternative payment dataset</span>
-          <span className="test-cards__chevron" aria-hidden="true">{altOpen ? "−" : "+"}</span>
+          <span className="test-cards__chevron" aria-hidden="true">
+            {altOpen ? "−" : "+"}
+          </span>
         </button>
         <div className="test-cards__body">
           <div className="test-cards__list">
@@ -100,56 +104,54 @@ export function TestCards() {
                     <span className="test-card__scheme">{method.name}</span>
                     {method.note ? <span className="test-card__note">{method.note}</span> : null}
                   </span>
-                  {method.value
-                    ? (
-                      <span
-                        className={`test-card__pan${
-                          method.value.length > 20 ? " test-card__pan--long" : ""
-                        }`}
+                  {method.value ? (
+                    <span
+                      className={`test-card__pan${
+                        method.value.length > 20 ? " test-card__pan--long" : ""
+                      }`}
+                    >
+                      {method.value}
+                    </span>
+                  ) : null}
+                  {method.disclaimer ? (
+                    <span className="test-card__disclaimer">
+                      {method.disclaimer.text}{" "}
+                      <a
+                        href={method.disclaimer.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(event) => event.stopPropagation()}
                       >
-                        {method.value}
+                        {method.disclaimer.linkLabel}
+                      </a>
+                    </span>
+                  ) : (
+                    <span className="test-card__bottom">
+                      {method.detail ? <span>{method.detail}</span> : null}
+                      <span className="test-card__copy">
+                        {copied === method.value ? "Copied" : "Copy"}
                       </span>
-                    )
-                    : null}
-                  {method.disclaimer
-                    ? (
-                      <span className="test-card__disclaimer">
-                        {method.disclaimer.text}{" "}
-                        <a
-                          href={method.disclaimer.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          {method.disclaimer.linkLabel}
-                        </a>
-                      </span>
-                    )
-                    : (
-                      <span className="test-card__bottom">
-                        {method.detail ? <span>{method.detail}</span> : null}
-                        <span className="test-card__copy">
-                          {copied === method.value ? "Copied" : "Copy"}
-                        </span>
-                      </span>
-                    )}
+                    </span>
+                  )}
                 </>
               );
               // Only the pasteable ones are buttons; a wallet tile carries no
               // credential, so a button there would do nothing when pressed.
-              return method.value
-                ? (
-                  <button
-                    className="test-card"
-                    type="button"
-                    key={key}
-                    title={`Copy ${method.value}`}
-                    onClick={() => copy(method.value as string)}
-                  >
-                    {content}
-                  </button>
-                )
-                : <div className="test-card test-card--static" key={key}>{content}</div>;
+              return method.value ? (
+                <button
+                  className="test-card"
+                  type="button"
+                  key={key}
+                  title={`Copy ${method.value}`}
+                  onClick={() => copy(method.value as string)}
+                >
+                  {content}
+                </button>
+              ) : (
+                <div className="test-card test-card--static" key={key}>
+                  {content}
+                </div>
+              );
             })}
           </div>
           <a

@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Format the code with Biome 2.6.7 (`biome.json`: spaces, indent 2, line width 100, double
+  quotes, semicolons; Markdown left out because Biome's Markdown formatter rewrites YAML
+  frontmatter). Formatting only: no behaviour changes.
 - Record that `main` has no branch protection and no ruleset (read back 2026-11-15), so the
   checks in the GitHub protection runbook are a procedure until an administrator applies them;
   the OKF reference names the Bun checker and the 120-line `AGENTS.md` cap.

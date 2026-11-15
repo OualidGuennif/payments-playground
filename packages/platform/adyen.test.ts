@@ -27,17 +27,23 @@ function jsonText(body: Call[1]): string {
 
 test("sessions uses the exact Checkout v72 TEST endpoint and TEST credentials", async () => {
   const { calls, httpClient } = recordingHttpClient(() =>
-    Promise.resolve(JSON.stringify({ id: "CS_TEST", sessionData: "session-data" }))
+    Promise.resolve(JSON.stringify({ id: "CS_TEST", sessionData: "session-data" })),
   );
-  const client = new AdyenTestClient({
-    apiKey: "test-api-key",
-    merchantAccount: "TestMerchant",
-  }, httpClient);
+  const client = new AdyenTestClient(
+    {
+      apiKey: "test-api-key",
+      merchantAccount: "TestMerchant",
+    },
+    httpClient,
+  );
 
-  const response = await client.sessions({
-    merchantAccount: "TestMerchant",
-    amount: { currency: "EUR", value: 2599 },
-  }, "idem-test");
+  const response = await client.sessions(
+    {
+      merchantAccount: "TestMerchant",
+      amount: { currency: "EUR", value: 2599 },
+    },
+    "idem-test",
+  );
 
   assertEquals(calls.length, 1);
   const [endpoint, json, config, isApiKeyRequired, requestOptions] = calls[0];
@@ -54,7 +60,7 @@ test("sessions uses the exact Checkout v72 TEST endpoint and TEST credentials", 
 
 test("a gift card balance is a POST to /paymentMethods/balance", async () => {
   const { calls, httpClient } = recordingHttpClient(() =>
-    Promise.resolve(JSON.stringify({ resultCode: "NotEnoughBalance" }))
+    Promise.resolve(JSON.stringify({ resultCode: "NotEnoughBalance" })),
   );
   const client = new AdyenTestClient({ apiKey: "test-api-key" }, httpClient);
 
@@ -82,12 +88,15 @@ test("Adyen HTTP errors preserve the upstream status and safe message", async ()
         responseBody,
         apiError: JSON.parse(responseBody),
       }),
-    )
+    ),
   );
-  const client = new AdyenTestClient({
-    apiKey: "test-api-key",
-    merchantAccount: "TestMerchant",
-  }, httpClient);
+  const client = new AdyenTestClient(
+    {
+      apiKey: "test-api-key",
+      merchantAccount: "TestMerchant",
+    },
+    httpClient,
+  );
 
   const error = await assertRejects(
     () => client.paymentMethods({ merchantAccount: "TestMerchant" }),
@@ -105,12 +114,15 @@ test("a transport failure is reported as a connection error, not a 500", async (
       name: "ApiException",
       statusCode: 500,
       message: "connect ECONNREFUSED 1.2.3.4:443",
-    })
+    }),
   );
-  const client = new AdyenTestClient({
-    apiKey: "test-api-key",
-    merchantAccount: "TestMerchant",
-  }, httpClient);
+  const client = new AdyenTestClient(
+    {
+      apiKey: "test-api-key",
+      merchantAccount: "TestMerchant",
+    },
+    httpClient,
+  );
 
   const error = await assertRejects(
     () => client.paymentMethods({ merchantAccount: "TestMerchant" }),

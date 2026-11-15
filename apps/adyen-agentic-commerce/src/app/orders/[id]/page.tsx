@@ -19,21 +19,38 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         <StatusPill status={order.status} />
       </div>
       <p className="text-sm text-muted">
-        {order.paidBy === "agent" ? `Placed by ${order.agentName ?? "an agent"} with your saved card` : "Paid by you with Drop-in"} on{" "}
-        {new Date(order.createdAt).toLocaleString("en-GB")}. Adyen PSP reference <span className="code">{order.pspReference ?? "pending"}</span>.
-        {order.webhook ? ` Webhook ${order.webhook.eventCode} received.` : " Waiting for the Adyen webhook."}
+        {order.paidBy === "agent"
+          ? `Placed by ${order.agentName ?? "an agent"} with your saved card`
+          : "Paid by you with Drop-in"}{" "}
+        on {new Date(order.createdAt).toLocaleString("en-GB")}. Adyen PSP reference{" "}
+        <span className="code">{order.pspReference ?? "pending"}</span>.
+        {order.webhook
+          ? ` Webhook ${order.webhook.eventCode} received.`
+          : " Waiting for the Adyen webhook."}
       </p>
       <ul className="divide-y divide-line rounded-2xl border border-line bg-card text-sm">
         {order.lines.map((l) => (
           <li key={l.variantId} className="flex justify-between gap-3 p-3">
-            <span>{l.title} <span className="text-muted">× {l.quantity}</span></span>
+            <span>
+              {l.title} <span className="text-muted">× {l.quantity}</span>
+            </span>
             <span className="tabular-nums">{money(l.unitPrice * l.quantity)}</span>
           </li>
         ))}
-        <li className="flex justify-between p-3"><span>Shipping</span><span className="tabular-nums">{order.fulfillment ? money(order.fulfillment) : "Free"}</span></li>
-        <li className="flex justify-between p-3 font-medium"><span>Total</span><span className="tabular-nums">{money(order.total)}</span></li>
+        <li className="flex justify-between p-3">
+          <span>Shipping</span>
+          <span className="tabular-nums">
+            {order.fulfillment ? money(order.fulfillment) : "Free"}
+          </span>
+        </li>
+        <li className="flex justify-between p-3 font-medium">
+          <span>Total</span>
+          <span className="tabular-nums">{money(order.total)}</span>
+        </li>
       </ul>
-      <Link href="/shop" className="btn-ghost">Continue shopping</Link>
+      <Link href="/shop" className="btn-ghost">
+        Continue shopping
+      </Link>
     </div>
   );
 }

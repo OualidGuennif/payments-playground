@@ -1,13 +1,13 @@
 const basePort = Number(Deno.env.get("BASE_PORT") || 8001);
+// Offsets keep each app on its documented port (8001, 8003, 8004); 8002 was the removed IPP app.
 const directories = [
-  "apps/adyen-digital",
-  "apps/adyen-ipp-endless-aisle",
-  "apps/adyen-agentic-commerce",
-  "apps/adyen-v6-styling",
-];
+  ["apps/adyen-digital", 0],
+  ["apps/adyen-agentic-commerce", 2],
+  ["apps/adyen-v6-styling", 3],
+] as const;
 
-const children = directories.map((directory, index) => {
-  const port = basePort + index;
+const children = directories.map(([directory, offset]) => {
+  const port = basePort + offset;
   const bun = directory === "apps/adyen-agentic-commerce";
   return new Deno.Command(Deno.execPath(), {
     args: bun

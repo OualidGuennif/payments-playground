@@ -13,12 +13,6 @@ const targets: Target[] = [
     pages: ["/", "/sessions", "/advanced", "/pay-by-link", "/back-office", "/settings", "/wiki"],
   },
   {
-    name: "ipp-endless-aisle",
-    directory: "apps/adyen-ipp-endless-aisle",
-    port: 8102,
-    pages: ["/", "/back-office", "/history", "/settings", "/wiki"],
-  },
-  {
     name: "adyen-agentic-commerce",
     directory: "apps/adyen-agentic-commerce",
     port: 8103,

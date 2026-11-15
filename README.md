@@ -12,20 +12,19 @@ platform and UI package.
 
 ## Applications
 
-**Drop-in Styling and Digital Checkout are ready to use.** The other two run and are worth
-exploring, but they are still being built, treat anything you see there as work in progress, not as
-a reference integration.
+**Drop-in Styling and Digital Checkout are ready to use.** Agentic Commerce runs and is worth
+exploring, but it is still being built: treat anything you see there as work in progress, not as a
+reference integration.
 
-| App                       | Covers                                                                | Status                     | Dev port |
-| ------------------------- | --------------------------------------------------------------------- | -------------------------- | -------: |
-| `adyen-v6-styling`        | **Drop-in Styling** · theming options and CSS overrides               | **Ready**                  |     8004 |
-| `adyen-digital`           | **Digital Checkout** · Sessions, Advanced, Pay by Link, MIT, API only | **Ready**                  |     8001 |
-| `adyen-ipp-endless-aisle` | **Endless Aisle** · in-person cart and Terminal API Cloud Device      | In progress · est. Q4 2026 |     8002 |
-| `adyen-agentic-commerce`  | **Agentic Commerce** · a store AI agents shop (UCP, PAP), TEST pay    | In progress · est. Q1 2027 |     8003 |
+| App                      | Covers                                                                | Status                     | Dev port |
+| ------------------------ | --------------------------------------------------------------------- | -------------------------- | -------: |
+| `adyen-v6-styling`       | **Drop-in Styling** · theming options and CSS overrides               | **Ready**                  |     8004 |
+| `adyen-digital`          | **Digital Checkout** · Sessions, Advanced, Pay by Link, MIT, API only | **Ready**                  |     8001 |
+| `adyen-agentic-commerce` | **Agentic Commerce** · a store AI agents shop (UCP, PAP), TEST pay    | In progress · est. Q1 2027 |     8003 |
 
 Dates are estimates for the end of the quarter, not commitments.
 
-A fifth entry, `apps/landing/`, is the static front door that links to the four. It is plain HTML
+A fourth entry, `apps/landing/`, is the static front door that links to the three. It is plain HTML
 with no build step and no server.
 
 ## Getting started
@@ -37,8 +36,8 @@ and Node 18+.
 deno task dev:all
 ```
 
-That starts all four apps on ports 8001–8004 with hot reload; one `Ctrl+C` stops them. To run just
-one, use `dev:digital`, `dev:ipp`, `dev:agentic` or `dev:styling`.
+That starts the three apps on ports 8001, 8003 and 8004 with hot reload; one `Ctrl+C` stops them. To
+run just one, use `dev:digital`, `dev:agentic` or `dev:styling`.
 
 Each app reads its credentials from its own `.env`. Copy `apps/<app>/.env.example` to
 `apps/<app>/.env` and fill in your TEST values, no `.env` file is committed. The browser only ever
@@ -48,9 +47,9 @@ and extra profiles are encrypted at rest.
 ## Tasks
 
 ```bash
-deno task check         # fmt, lint, knowledge, types, tests and all four builds
+deno task check         # fmt, lint, knowledge, types, tests and all three builds
 deno task test          # unit and integration tests
-deno task build         # four production builds
+deno task build         # three production builds
 deno task verify        # start the builds and check /healthz
 deno task docs:links    # knowledge sources and Spec: pointers, both ways
 deno task repo:health   # source-size, comment and folder caps
@@ -69,12 +68,12 @@ docker build -f apps/adyen-digital/Dockerfile -t digital-checkout:test .
 docker run --rm --env-file apps/adyen-digital/.env -p 8000:8000 digital-checkout:test
 ```
 
-On Render, the root `render.yaml` describes all four services; each app also has its own for an
-isolated deploy. The Blueprint stays at the repository root and is not moved by the agent workflow.
-Create a Blueprint from the repo, add TEST credentials in the dashboard, let Render generate
-`PROFILE_ENCRYPTION_KEY` and `SESSION_SIGNING_SECRET`, then add the deployed HTTPS origin to the
-client key's allowed origins and point your TEST webhook at `/webhook`. Set `PUBLIC_ORIGIN` if a
-service name differs from the default.
+On Render, the root `render.yaml` describes the three app services and the landing; each app also
+has its own for an isolated deploy. The Blueprint stays at the repository root and is not moved by
+the agent workflow. Create a Blueprint from the repo, add TEST credentials in the dashboard, let
+Render generate `PROFILE_ENCRYPTION_KEY` and `SESSION_SIGNING_SECRET`, then add the deployed HTTPS
+origin to the client key's allowed origins and point your TEST webhook at `/webhook`. Set
+`PUBLIC_ORIGIN` if a service name differs from the default.
 
 ## Storage
 
@@ -143,7 +142,7 @@ entirely at your own risk. See [SECURITY.md](./docs/SECURITY.md) and
 - [Command reference](./command.md): the agent skills, tools and loop commands
 - [Security and threat model](./docs/SECURITY.md)
 - [Known limits and simulated features](./docs/KNOWN_LIMITS.md)
-- Built-in wikis at `/wiki` in Digital and IPP; the agentic store explains itself at `/agents`
+- A built-in wiki at `/wiki` in Digital; the agentic store explains itself at `/agents`
 
 Reference material: [Fresh](https://jsr.io/@fresh/core/doc),
 [Hono](https://jsr.io/@hono/hono/versions),

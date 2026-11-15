@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Remove the IPP Endless Aisle app, its `ipp-endless-aisle` Render service, its landing card, dev
+  tasks and docs, at the owner's request; the other apps keep ports 8001, 8003 and 8004.
 - Update to Æion Template v4.0.3 with `template-update` (from Æion Factory v1.7.0): doc gate in
   `enforce`, 340k/390k context rule, `tools/template-tests`, framework mode off. Graphify, Archify,
   their CI workflow and receipt, the `graph` skill and `efficiency/` are removed (ADR-013).

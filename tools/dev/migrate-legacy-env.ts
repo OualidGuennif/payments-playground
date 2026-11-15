@@ -71,22 +71,6 @@ const apps: AppEnv[] = [
     values: common(8001, "digital"),
   },
   {
-    directory: "apps/adyen-ipp-endless-aisle",
-    values: [
-      ...common(8002, "ipp", {
-        ADYEN_API_KEY: legacyValue("ADYEN_DEVICE_API_KEY", "ADYEN_API_KEY"),
-        ADYEN_MERCHANT_ACCOUNT: legacyValue(
-          "ADYEN_MERCHANT_ACCOUNT_POS",
-          "ADYEN_MERCHANT_ACCOUNT",
-        ),
-        ADYEN_CLIENT_KEY: "",
-      }).filter(([key]) => key !== "ADYEN_CLIENT_KEY"),
-      ["ADYEN_TERMINAL_ID", legacyValue("ADYEN_TERMINAL_ID", "OMNI_TERMINAL_ID")],
-      ["WEBHOOK_BASIC_AUTH_USER", ""],
-      ["WEBHOOK_BASIC_AUTH_PASSWORD", ""],
-    ],
-  },
-  {
     directory: "apps/adyen-agentic-commerce",
     // The Bun store keeps no encrypted profile or signed cookie, so it needs only the common keys.
     values: common(8003, "agentic").filter(([key]) =>

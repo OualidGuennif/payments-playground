@@ -7,7 +7,7 @@ status: stable
 scope: system-overview
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T13:00:00Z
+  at: 2026-11-15T18:00:00Z
 sources:
   - id: architecture-doc
     resource: git-history:docs/ARCHITECTURE.md
@@ -32,17 +32,16 @@ of them is meant for production; see the [README disclaimer](../../README.md#dis
 payments-playground/
 ├── apps/
 │   ├── adyen-digital/           online checkout: Sessions, Advanced, API only, MIT, Pay by Link
-│   ├── adyen-ipp-endless-aisle/ in-person payments against a Cloud terminal
 │   ├── adyen-agentic-commerce/  Bun app: a store agents shop over UCP and PAP (own package.json)
 │   ├── adyen-v6-styling/        Drop-in theming workbench (no orders, no Back Office)
-│   └── landing/                 static front door linking to the four (no build, no server)
+│   └── landing/                 static front door linking to the three (no build, no server)
 ├── packages/
 │   ├── platform/                server only: Adyen calls, SQLite, security, state machine
 │   └── ui/                      browser-safe: Preact components, tokens, Adyen Web setup
 ├── tools/                       dev/build/start orchestration, Vite plugins, checks
 ├── knowledge/                   this bundle
 ├── docs/                        public SECURITY.md and KNOWN_LIMITS.md
-└── render.yaml                  one Blueprint for the landing page and the four services
+└── render.yaml                  one Blueprint for the landing page and the three services
 ```
 
 Versions are pinned once, in the root `deno.json`, and repeated verbatim in each app's `deno.json`
@@ -91,11 +90,10 @@ accepts a different set of fields, so request bodies are built per endpoint; the
 | App     | `dev:all` / `dev:<app>` port | Notes                                                   |
 | ------- | ---------------------------- | ------------------------------------------------------- |
 | digital | 8001                         | `deno task dev` inside the app uses Vite's default 5173 |
-| ipp     | 8002                         |                                                         |
 | agentic | 8003                         | Next on Bun via `tools/dev/bun-app.ts`, reads `PORT`    |
 | styling | 8004                         |                                                         |
 
-## Adding a fifth playground
+## Adding a playground
 
 1. Create `apps/<name>/` with the six pieces above; copy the smallest app as the skeleton.
 2. Add it to `workspace` in the root `deno.json`, with `dev:` and `build:` tasks.

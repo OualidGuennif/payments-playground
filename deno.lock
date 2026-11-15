@@ -1377,21 +1377,6 @@
           "npm:vite@7.1.4"
         ]
       },
-      "apps/adyen-ipp-endless-aisle": {
-        "dependencies": [
-          "jsr:@db/sqlite@0.13.0",
-          "jsr:@fresh/core@2.3.3",
-          "jsr:@fresh/plugin-vite@1.1.2",
-          "jsr:@hono/hono@4.12.31",
-          "jsr:@std/assert@1.0.19",
-          "jsr:@std/dotenv@0.225.7",
-          "jsr:@std/path@1.1.6",
-          "npm:@adyen/api-library@32.3.0",
-          "npm:@preact/signals@2.9.0",
-          "npm:preact@10.29.8",
-          "npm:vite@7.1.4"
-        ]
-      },
       "apps/adyen-v6-styling": {
         "dependencies": [
           "jsr:@db/sqlite@0.13.0",

@@ -1,6 +1,6 @@
 # Payments Playground: agent instructions
 
-Four Adyen **TEST** playgrounds in one Deno workspace (Fresh 2 + Hono, Adyen Web 6.48.1, Checkout
+Three Adyen **TEST** playgrounds in one Deno workspace (Fresh 2 + Hono, Adyen Web 6.48.1, Checkout
 API v72). Current focus: `apps/adyen-digital`. Owner and final say: Oualid (OualidGuennif).
 
 Keep reasoning private. Do not narrate plans, progress or tool calls. Use tools directly; speak only
@@ -14,7 +14,7 @@ anything the owner says, win; record a durable conflict in
 ```
 apps/adyen-digital/          online checkout + Back Office (focus, Ready)
 apps/adyen-v6-styling/       Drop-in theming workbench (Ready)
-apps/adyen-ipp-endless-aisle/, apps/adyen-agentic-commerce/   in progress
+apps/adyen-agentic-commerce/ store AI agents shop over UCP and PAP (in progress)
 apps/landing/                static front door
 packages/platform/           server only: Adyen client, SQLite, security, state machine
 packages/ui/                 browser-safe: components, tokens, Adyen Web configuration

@@ -5,7 +5,7 @@ description: "Durable project preferences: Render at the root, TEST only, the fa
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T15:00:00Z
+  at: 2026-11-15T18:00:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "Project rules and owner"
@@ -21,8 +21,10 @@ What the owner asked for that a reviewer should not have to ask again.
 
 ## Delivery
 
-- `render.yaml` stays at the repository root; the five services, Docker contexts, health checks and
-  Render auto-deploy from `main` are not moved.
+- `render.yaml` stays at the repository root; its services, Docker contexts, health checks and
+  Render auto-deploy from `main` are not moved. The IPP app and its `ipp-endless-aisle` service were
+  removed at the owner's request (2026-11-15); every remaining app moves to Bun + Next.js + Elysia +
+  Eden, and Deno and Fresh leave the repository.
 - Work reaches `main` through `develop` and a reviewed release pull request. `main` is the deploy
   branch.
 - Git is enabled: `tools/git-hooks` pre-commit and pre-push, with review receipts in
@@ -53,7 +55,7 @@ What the owner asked for that a reviewer should not have to ask again.
   worker.
 - Docker images start as root only for `tools/docker/entrypoint.sh` to chown the Render disk and
   `/app/data` to uid 1993, then drop to the `deno` user; the missing-user SAST rules stay waived
-  inline in the four Dockerfiles (2026-10-31, measured disk `root:1000`).
+  inline in the Dockerfiles (2026-10-31, measured disk `root:1000`).
 
 ## Workflow
 

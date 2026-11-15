@@ -1,12 +1,10 @@
 import { assertEquals } from "@std/assert";
 import { api as digitalApi } from "../../apps/adyen-digital/api.ts";
-import { api as ippApi } from "../../apps/adyen-ipp-endless-aisle/api.ts";
 import { api as stylingApi } from "../../apps/adyen-v6-styling/api.ts";
 
 for (
   const [name, api] of [
     ["digital", digitalApi],
-    ["ipp", ippApi],
     ["styling", stylingApi],
   ] as const
 ) {

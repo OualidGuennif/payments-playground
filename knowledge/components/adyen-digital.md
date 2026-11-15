@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-15T18:00:00Z
 sources:
   - resource: ../../apps/adyen-digital
     title: "The app's pages, API, islands and components"
@@ -303,9 +303,9 @@ deno task knowledge:check
 ```
 
 `deno task check` is the gate: `fmt:check`, `lint`, `knowledge:check`, `types`, `test` (all packages
-and apps), the four app builds and `ssr:assert`. The digital build fails on a type or import error;
-the SSR assertion (`tools/build/assert-built-ssr.ts apps/adyen-digital "Digital Checkout"`) fails
-when the built page no longer contains the app's name. `deno task test` alone runs
+and apps), the app builds and `ssr:assert`. The digital build fails on a type or import error; the
+SSR assertion (`tools/build/assert-built-ssr.ts apps/adyen-digital "Digital Checkout"`) fails when
+the built page no longer contains the app's name. `deno task test` alone runs
 `deno test -A --parallel packages apps tools/knowledge`.
 
 Not automated: the browser paths. A person runs `deno task --cwd apps/adyen-digital dev` (:5173) or

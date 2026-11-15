@@ -3,15 +3,15 @@ if (!Number.isInteger(basePort) || basePort < 1 || basePort + 3 > 65_535) {
   throw new Error("BASE_PORT must leave room for four valid consecutive ports.");
 }
 
+// Offsets keep each app on its documented port (8001, 8003, 8004); 8002 was the removed IPP app.
 const applications = [
-  ["Digital", "apps/adyen-digital"],
-  ["IPP Endless Aisle", "apps/adyen-ipp-endless-aisle"],
-  ["Agentic Commerce", "apps/adyen-agentic-commerce"],
-  ["V6 Styling", "apps/adyen-v6-styling"],
+  ["Digital", "apps/adyen-digital", 0],
+  ["Agentic Commerce", "apps/adyen-agentic-commerce", 2],
+  ["V6 Styling", "apps/adyen-v6-styling", 3],
 ] as const;
 
-const children = applications.map(([name, directory], index) => {
-  const port = basePort + index;
+const children = applications.map(([name, directory, offset]) => {
+  const port = basePort + offset;
   console.log(`${name}: http://127.0.0.1:${port}`);
   // The agentic store is a Bun project: Next's dev server, reading PORT, through the env wrapper.
   const bun = directory === "apps/adyen-agentic-commerce";

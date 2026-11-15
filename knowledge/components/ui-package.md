@@ -7,7 +7,7 @@ scope: component-ui
 tags: [component, ui, adyen-web]
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-15T18:00:00Z
 sources:
   - resource: ../../packages/ui
     title: "The package: modules and stylesheet"
@@ -179,7 +179,7 @@ stays fatal.
 
 ```bash
 deno task types         # every component and helper type-checks
-deno task build         # the four apps bundle this package for the browser
+deno task build         # the Deno apps bundle this package for the browser
 deno task ssr:assert    # <main> and the TEST marker in every built page
 deno task test          # the server-side half of the CSRF contract, and the market fixtures
 deno task check         # the full gate, including fmt and lint over packages/ui

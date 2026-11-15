@@ -44,7 +44,7 @@ deno task knowledge:check  # this bundle, AGENTS.md and CLAUDE.md
 deno task docs:links       # knowledge sources and Spec: pointers, both ways
 deno task repo:health      # size, comment and top-level-folder caps
 deno task template:test    # the template suites (hooks, context, links, loops)
-deno task build            # the four production builds
+deno task build            # the three production builds
 deno task verify           # build, then start the builds and check /healthz
 ```
 

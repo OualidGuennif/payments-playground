@@ -7,7 +7,7 @@ status: stable
 scope: docker-and-render
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T15:00:00Z
+  at: 2026-11-15T18:00:00Z
 sources:
   - id: dockerfile
     resource: ../../apps/adyen-digital/Dockerfile
@@ -23,7 +23,7 @@ sources:
     title: Build context exclusions
   - id: render
     resource: ../../render.yaml
-    title: Blueprint for the landing page and the four services
+    title: Blueprint for the landing page and the three services
 verified:
   - at: 2026-10-09
     check: "digital-checkout:6.46.0 built from a clean context holds no .env or .sqlite; run with the quoted local .env it reported a configured profile and listed 14 payment methods from TEST; with quoted Basic Auth credentials every page answered 401 without them and 200 with them."
@@ -64,10 +64,12 @@ the shared entrypoint, with a `deno` user created at uid 1993 so the same drop w
 
 ## Render
 
-`render.yaml` is one Blueprint: a static site for `apps/landing`, and the four Docker services
-(`digital-checkout` and `dropin-styling` on `starter` with a disk, `ipp-endless-aisle` and
-`agentic-commerce` on `free` without one). Each app also has its own `render.yaml` for an isolated
-deploy. Render builds from this repository's Dockerfiles; no image is pushed to a registry.
+`render.yaml` is one Blueprint: a static site for `apps/landing`, and the three Docker services
+(`digital-checkout` and `dropin-styling` on `starter` with a disk, `agentic-commerce` on `free`
+without one). The `ipp-endless-aisle` service left the Blueprint on 2026-11-15 with its app; Render
+keeps a service removed from a Blueprint until it is deleted in the dashboard. Each app also has its
+own `render.yaml` for an isolated deploy. Render builds from this repository's Dockerfiles; no image
+is pushed to a registry.
 
 Per service, set the Adyen TEST values as secret env vars (`sync: false`), let Render generate
 `PROFILE_ENCRYPTION_KEY` and `SESSION_SIGNING_SECRET`, and keep `PUBLIC_ORIGIN` equal to the public

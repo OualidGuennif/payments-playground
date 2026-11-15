@@ -7,7 +7,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 - Agentic store, from the release review: the grant's budget is reserved when a checkout is
   claimed, so completes on several checkouts at once cannot pass the spend limit, and each
-  payment's reservation is settled once whichever of the answer or the webhook arrives first; an order is
+  payment's reservation is settled once whichever of the answer or the webhook arrives first, and
+  a webhook that settles a payment during the call is never undone or doubled by its answer; an order is
   placed from the lines its payment was priced from and only when Adyen's amount matches;
   payments are found by reference, not in the newest 200 rows; a late refusal of an older
   attempt no longer reopens a pending checkout; the proxy refuses cross-site writes on the

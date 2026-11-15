@@ -672,6 +672,11 @@ export async function completeCheckout(
       metadata: { checkoutId: checkout.id, agent: live.grant.clientName.slice(0, 80) },
     });
   } catch (error) {
+    // A success webhook can arrive while the call is in flight and then the call time out: the
+    // payment is Authorised and the webhook settled it, so nothing here may undo that.
+    if (get<PaymentRecord>("payments", record.id)?.resultCode === "Authorised") {
+      return loadCheckout(checkout.id, "browser");
+    }
     // The retry reserves again under the same reference; if Adyen did authorise this call, its
     // webhook charges the budget again before the order is placed.
     const released = releaseReservation(record, live.grant.id);
@@ -724,9 +729,13 @@ export async function completeCheckout(
     },
   });
   if (result.resultCode === "Authorised") {
-    holdReservation(answered, live.grant.id);
-    const placed = placePaidOrder(claimed, answered, result.pspReference, undefined, live);
-    if (typeof placed === "string") holdMismatch(claimed, placed);
+    // The webhook may have placed the order, or held a mismatch, while the call was in flight.
+    const current = get<Checkout>("checkouts", checkout.id) ?? claimed;
+    if (!current.orderId && current.lastMessage?.code !== "amount_mismatch") {
+      holdReservation(answered, live.grant.id);
+      const placed = placePaidOrder(current, answered, result.pspReference, undefined, live);
+      if (typeof placed === "string") holdMismatch(current, placed);
+    }
     return loadCheckout(checkout.id, "browser");
   }
   // Pending keeps the reservation until the webhook settles it.

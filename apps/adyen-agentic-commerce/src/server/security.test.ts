@@ -319,6 +319,36 @@ describe("webhooks", () => {
     }
   });
 
+  for (const answer of ["Authorised", "a network error"] as const) {
+    test(`a success webhook during the call, then ${answer}: one order, charged once`, async () => {
+      const agent = await TestAgent.start(`Early webhook agent (${answer})`);
+      try {
+        await agent.signIn();
+        const { content } = await agent.tool("create_checkout", {
+          checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] },
+        });
+        fake.during = () => {
+          commerce.applyNotification(authorisation(`${content.id}-a1`, true));
+        };
+        fake.answers.push(
+          answer === "Authorised"
+            ? { resultCode: "Authorised", pspReference: "PSPWEBHOOK" }
+            : new Error("timeout"),
+        );
+        await agent.tool("complete_checkout", {
+          id: content.id,
+          checkout: { payment: { instruments: [{ id: content.payment.instruments[0].id }] } },
+        });
+        expect(list<commerce.Order>("orders")).toHaveLength(1);
+        const after = (await agent.tool("get_checkout", { id: content.id })).content;
+        expect(after.status).toBe("completed");
+        expect(after.agent_budget.spent.amount).toBe(1695);
+      } finally {
+        agent.stop();
+      }
+    });
+  }
+
   test("a webhook finds its payment behind more than 200 newer ones", async () => {
     const agent = await TestAgent.start("Old payment agent");
     try {

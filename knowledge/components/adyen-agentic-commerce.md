@@ -10,7 +10,7 @@ generated:
   at: 2026-11-16T02:00:00Z
 verified:
   - at: 2026-11-15
-    check: "bun test: 121 cases pass (PAP conformance, OAuth, UCP and payment state machine, commerce, security, the budget race, reservations settled once, paid lines, amount mismatch, cross-site writes) against the Adyen double; tsc clean; next build."
+    check: "bun test: 123 cases pass (PAP conformance, OAuth, UCP and payment state machine, commerce, security, the budget race, reservations settled once, paid lines, amount mismatch, cross-site writes) against the Adyen double; tsc clean; next build."
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
 sources:
@@ -103,7 +103,9 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
    when the checkout is claimed, with nothing awaited in between, so completes on several checkouts
    at once cannot together pass the limit. Each payment's reservation is settled once: the first of
    the synchronous refusal, a network error or a refusal webhook gives it back, and a success
-   webhook for a payment whose reservation was given back charges it again before the order.
+   webhook for a payment whose reservation was given back charges it again before the order. The
+   synchronous answer re-reads the payment and the checkout first: when a webhook already placed
+   the order or held a mismatch during the call, it neither places a second order nor releases.
 4. A checkout is paid at most once: it is re-read after the card lookup and `complete_in_progress`
    is claimed before the call with nothing awaited in between, so two completes at once send one
    payment; the idempotency key is `agent-pay-<checkout id>-a<attempt>`; a refusal opens a new

@@ -157,6 +157,8 @@ export function ThemeToggle() {
       data-theme-toggle
       aria-label="Dark mode"
       title="Dark mode"
+      // THEME_SCRIPT sets aria-checked before React hydrates; React leaves it alone afterwards.
+      suppressHydrationWarning
     >
       <span className="theme-toggle__track" aria-hidden="true">
         <span className="theme-toggle__thumb">

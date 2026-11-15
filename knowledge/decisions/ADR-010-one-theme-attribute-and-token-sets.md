@@ -18,7 +18,7 @@ sources:
     resource: ../../packages/ui/components.tsx
     title: ThemeScript, ThemeToggle, TestPill, AppShell
   - id: workbench
-    resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
+    resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
     title: securedFieldStyles and the theme-driven remount
 ---
 

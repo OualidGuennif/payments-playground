@@ -49,6 +49,9 @@ interface EdenResult<T> {
  * type; it is never a 2xx, so it never reaches `data`.
  */
 export function unwrap<T>(result: EdenResult<T>): Exclude<T, Response> {
+  // No answer at all: Eden wraps fetch's TypeError as a 503; rethrown as is, a caller can still
+  // tell it from a real answer (the Back Office keeps its Idempotency-Key for the retry).
+  if (result.error?.value instanceof TypeError) throw result.error.value;
   if (result.error || result.data === null) {
     const value = result.error?.value as { error?: unknown } | undefined;
     throw new Error(
@@ -70,6 +73,9 @@ type AnyElysia = Elysia<any, any, any, any, any, any, any>;
 export function apiClient<App extends AnyElysia>(profileId?: () => string | undefined) {
   return treaty<App>(window.location.origin, {
     fetch: { credentials: "same-origin" },
+    // Eden turns ISO date strings into Date objects by default, unlike the
+    // types it infers; timestamps stay the strings the server sent.
+    parseDate: false,
     headers() {
       const headers: Record<string, string> = {};
       const csrfToken = readCookie("adyen_csrf");

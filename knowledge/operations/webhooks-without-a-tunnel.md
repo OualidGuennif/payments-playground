@@ -13,7 +13,7 @@ sources:
     resource: ../../packages/platform/hmac.ts
     title: calculateStandardHmac and verifyStandardHmac
   - id: handler
-    resource: ../../apps/adyen-digital/api.ts
+    resource: ../../apps/adyen-digital/src/server/api.ts
     title: POST /webhook
 verified:
   - at: 2026-10-09

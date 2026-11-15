@@ -12,8 +12,8 @@ sources:
     resource: ../../tools/dev/adyen-web-dev-bundle.ts
     title: adyenWebDevBundle
   - id: config
-    resource: ../../apps/adyen-digital/vite.config.ts
-    title: Wired into digital
+    resource: ../../apps/adyen-digital/next.config.ts
+    title: Digital's Next.js configuration, which no longer loads the plugin
 ---
 
 # ADR-006: Adyen Web is served as one bundle in dev too

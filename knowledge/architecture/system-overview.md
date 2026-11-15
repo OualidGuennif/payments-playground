@@ -16,8 +16,8 @@ sources:
     resource: ../../deno.json
     title: Workspace members, pinned imports, every root task
   - id: digital-main
-    resource: ../../apps/adyen-digital/main.ts
-    title: How Fresh, Hono and the security middleware are wired in one app
+    resource: ../../apps/adyen-digital/src/proxy.ts
+    title: The digital proxy, Basic Auth and the CSRF cookie before the Next.js pages
 ---
 
 # System overview

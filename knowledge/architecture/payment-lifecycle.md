@@ -19,7 +19,7 @@ sources:
     resource: ../../packages/platform/modifications.ts
     title: reconcile and ledgerOf
   - id: digital-api
-    resource: ../../apps/adyen-digital/api.ts
+    resource: ../../apps/adyen-digital/src/server/api.ts
     title: settleAttempt, resolveAndStore, the session-result route, the webhook handler
 verified:
   - at: 2026-10-10

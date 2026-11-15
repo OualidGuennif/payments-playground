@@ -1,36 +1,37 @@
 ---
 type: Current State
 title: "adyen-digital: what is verified, and what is still open"
-description: "Evidence-backed state of the digital playground as of 2026-10-15: each flow with the verification level it reached, and the open gaps in priority order."
+description: "Evidence-backed state of the digital playground as of 2026-11-15: each flow with the verification level it reached, and the open gaps in priority order."
 tags: [current, digital, verification]
 status: stable
 scope: digital-status
-stale_after: 2026-11-10
+stale_after: 2026-12-15
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T18:20:00Z
+  at: 2026-11-15T20:00:00Z
 sources:
   - id: api
-    resource: ../../apps/adyen-digital/api.ts
+    resource: ../../apps/adyen-digital/src/server/api.ts
     title: Server behaviour verified below
   - id: workbench
-    resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
+    resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
     title: Client behaviour verified below
   - id: policy
     resource: ../policies/verification-and-reporting.md
     title: Meaning of the levels
 verified:
+  - at: 2026-11-15
+    check: "Next.js 16 + Elysia + Eden on Bun, dev server :8001: Advanced Components and API only card payments Authorised, Back Office capture received, Pay by Link created and re-read, Sessions Drop-in mounted; every page 200, an unknown flow 404."
   - at: 2026-10-16
     check: "Adyen Web 6.47.0: gift card partial (Givex 50.00 + card 59.99) in Sessions Components/Drop-in and Advanced Components; native 3DS switch on Sessions and Advanced; Advanced Drop-in order cancelled through /orders/cancel."
   - at: 2026-10-13
     check: "Advanced Drop-in on localhost:5173: /payments carries shopperIP and a deliveryAddress without names; Authorised on Adyen TEST."
-  - at: 2026-10-09
-    check: "Rows dated 2026-10-09/10: redirect return, Pay by Link, MIT, API only, Components in dark mode, headless Firefox with analytics blocked on digital and styling."
 ---
 
 # adyen-digital: what is verified, and what is still open
 
-As of 2026-10-16, Adyen Web 6.47.0, Checkout API v72. Re-verify before 2026-11-10 or mark STALE.
+As of 2026-11-15, Adyen Web 6.48.1, Checkout API v72, on Next.js 16 with Elysia and Eden on Bun
+(rows before that date ran on Fresh and Hono). Re-verify before 2026-12-15 or mark STALE.
 
 ## Verified
 
@@ -56,6 +57,7 @@ As of 2026-10-16, Adyen Web 6.47.0, Checkout API v72. Re-verify before 2026-11-1
 | Retry after a refusal keeps the session and the gift card order (2026-10-16)        | PASS   | BROWSER VERIFIED                  | Sessions Drop-in, order `8eb7bb62`: one `/sessions` (`expiresAt` 25 min), Givex 50.00 > `onOrderUpdated` > card `DECLINED` > `onPaymentFailed` > result "59,99 € left to pay" > Try again: Drop-in still lists the paid gift card > stored Visa > `onPaymentCompleted`, no second session. Advanced Drop-in: refused card, Try again remounts with no new Adyen call.                                                                                     |
 | Five refusals close a session; Try again then opens a new one (2026-10-16)          | PASS   | BROWSER VERIFIED                  | Sessions Components. Before the fix: 5 × `DECLINED` = `200 Refused`, then a valid card = HTTP 422 `14_0422` (onError + onPaymentFailed) and Try again would have reused the dead session. After: 5 × `Refused`, the card says a new session opens, Try again creates `CSB297991D5FA78EE5BFF627E`, valid card `Authorised`. A lone `14_0422`/`14_0423` after the fix is handled in code, not re-observed.                                                  |
 | Advanced Drop-in, `shopperIP` sent, `deliveryAddress` without names (2026-10-13)    | PASS   | BROWSER VERIFIED                  | Order `fddfac4a`, stored Visa: `/payments` request has `shopperIP: 127.0.0.1` (dev server, from the socket) and `deliveryAddress` with postal fields only; Authorised `TN9S74RKTVL4C5V5`. On Render the IP comes from `X-Forwarded-For`, not yet observed.                                                                                                                                                                                                |
+| Next.js port: Advanced, API only, Back Office, Pay by Link (2026-11-15)             | PASS   | BROWSER VERIFIED                  | Dev server :8001. Advanced Components, 4111 1111 1111 1111: `/payments` Authorised `TQGXS48Z7Q8TRTV5` with `shopperIP: 127.0.0.1` (from Next's `X-Forwarded-For`) and no names in `deliveryAddress`. API only Custom Card Authorised through the shared payment handler. Back Office capture `202` received, the browser's Idempotency-Key stored. Pay by Link created and re-read (`GET /paymentLinks/{id}`). Webhooks not delivered locally.            |
 
 ## Not observed
 

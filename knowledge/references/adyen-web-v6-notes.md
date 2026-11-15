@@ -9,7 +9,7 @@ generated:
   at: 2026-11-15T10:00:00Z
 sources:
   - id: workbench
-    resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
+    resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
     title: Callbacks and configuration in use
   - id: methods
     resource: ../../packages/ui/paymentMethods.ts

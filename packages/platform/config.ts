@@ -81,6 +81,21 @@ export const REQUIRED_SECRETS: Array<keyof ProfileSecrets> = [
   "clientKey",
 ];
 
+// Next bundles the proxy, the pages and the route handlers separately, so each loads this module
+// on its own; one value per process keeps a cookie one of them signed valid for the others.
+const EPHEMERAL = Symbol.for("suite.platform.ephemeralSigningSecrets");
+
+function ephemeralSecret(appId: AppId): string {
+  const store = globalThis as typeof globalThis & { [EPHEMERAL]?: Map<AppId, string> };
+  const secrets = store[EPHEMERAL] ??= new Map();
+  let secret = secrets.get(appId);
+  if (!secret) {
+    secret = `ephemeral-${appId}-${crypto.randomUUID()}`;
+    secrets.set(appId, secret);
+  }
+  return secret;
+}
+
 export function loadServerConfig(appId: AppId): ServerConfig {
   const values = environmentWithLocalFallback();
   const secrets = secretsFrom(values);
@@ -98,8 +113,7 @@ export function loadServerConfig(appId: AppId): ServerConfig {
     port,
     publicOrigin,
     databasePath: values.DATABASE_PATH || defaultDb,
-    signingSecret: values.SESSION_SIGNING_SECRET ||
-      `ephemeral-${appId}-${crypto.randomUUID()}`,
+    signingSecret: values.SESSION_SIGNING_SECRET || ephemeralSecret(appId),
     defaultProfile: {
       id: "default",
       label: "Default TEST profile",

@@ -15,7 +15,7 @@ sources:
     resource: ../../packages/platform/state-machine.test.ts
     title: Invariant tests
   - id: api
-    resource: ../../apps/adyen-digital/api.ts
+    resource: ../../apps/adyen-digital/src/server/api.ts
     title: settleAttempt, resolveAndStore, webhook handler
 ---
 

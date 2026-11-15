@@ -10,8 +10,8 @@ generated:
   at: 2026-10-16T15:15:00Z
 sources:
   - id: vite-config
-    resource: ../../apps/adyen-digital/vite.config.ts
-    title: The digital app's Vite configuration (styling's is the same, without devClientAddress)
+    resource: ../../apps/adyen-digital/next.config.ts
+    title: The digital app's Next.js configuration, which replaced its Vite one on 2026-11-15
   - id: dev-bundle
     resource: ../../tools/dev/adyen-web-dev-bundle.ts
     title: Adyen Web served as one bundle in dev

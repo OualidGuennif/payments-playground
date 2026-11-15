@@ -1,8 +1,8 @@
 ---
 type: Component
 title: "adyen-digital: online checkout playground"
-description: "Pages, API routes and islands of the online checkout playground (Sessions, Advanced, API only, MIT, Pay by Link) and the Back Office that correlates what each flow produced."
-tags: [component, digital, api, islands]
+description: "Pages, API routes and client components of the online checkout playground (Sessions, Advanced, API only, MIT, Pay by Link) and the Back Office that correlates what each flow produced."
+tags: [component, digital, api, nextjs]
 status: stable
 scope: component-adyen-digital
 generated:
@@ -10,20 +10,20 @@ generated:
   at: 2026-11-15T18:00:00Z
 sources:
   - resource: ../../apps/adyen-digital
-    title: "The app's pages, API, islands and components"
-  - resource: ../../apps/adyen-digital/main.ts
-    title: "Fresh app, optional Basic Auth, API hand-off, security headers"
-  - resource: ../../apps/adyen-digital/api.ts
-    title: "Every digital API route"
-  - resource: ../../apps/adyen-digital/client.ts
-    title: "Stylesheet entry point"
-  - resource: ../../apps/adyen-digital/vite.config.ts
-    title: "Vite and Fresh plugin configuration"
-  - resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
-    title: "Checkout and inspector island"
-  - resource: ../../apps/adyen-digital/routes
-    title: "Pages"
-  - resource: ../../apps/adyen-digital/components
+    title: "The Next.js app: pages, Elysia API, client components"
+  - resource: ../../apps/adyen-digital/src/proxy.ts
+    title: "Proxy: optional Basic Auth and the CSRF cookie on page responses"
+  - resource: ../../apps/adyen-digital/src/server/api.ts
+    title: "Every digital API route, on Elysia, and the Eden App type"
+  - resource: ../../apps/adyen-digital/src/app/layout.tsx
+    title: "Root layout: theme script and stylesheets"
+  - resource: ../../apps/adyen-digital/next.config.ts
+    title: "Next.js configuration: standalone build, security headers, tracing excludes"
+  - resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
+    title: "Checkout and inspector client component"
+  - resource: ../../apps/adyen-digital/src/app
+    title: "Pages and the route handlers for /api, /healthz and /webhook"
+  - resource: ../../apps/adyen-digital/src/components
     title: "Flow list, status wording, sheet, timeline, result card"
   - resource: ../../apps/adyen-digital/README.md
     title: "Environment variables and quick start"
@@ -49,12 +49,12 @@ in the [README](../../README.md) since 2026-10-10 (commit `8678cc9`); what is ve
 | Environment and stored profiles                                                         | TEST credentials, `PUBLIC_ORIGIN`, profile encryption key                                                    | operator   | boot, on profile change  |
 | `packages/platform/markets.ts`                                                          | 36 markets: currency, locale, default amount; zero-decimal currencies                                        | repository | static                   |
 | `packages/platform/payment-methods.ts`, `lifecycle.ts`, `packages/ui/paymentMethods.ts` | per-method capabilities, link and partial-order validity, installment countries                              | repository | static                   |
-| Browser (Adyen Web 6.48.1 and this island)                                              | shopper choices, Adyen Web callbacks, `redirectResult`                                                       | browser    | per event                |
+| Browser (Adyen Web 6.48.1 and the client components)                                   | shopper choices, Adyen Web callbacks, `redirectResult`                                                       | browser    | per event                |
 | [current/digital-status.md](../current/digital-status.md)                               | what was verified, at which level                                                                            | docs       | per verification         |
 
 ## Inputs
 
-**Pages** (`apps/adyen-digital/routes`).
+**Pages** (`apps/adyen-digital/src/app`).
 
 | Route                                                         | Accepts                                                                                                                         |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -108,7 +108,7 @@ Shapes the routes rely on:
   `shopperConversionId` minted by `/payment-methods`.
 - `validityHours` is clamped to 1 hour through 70 days; `description` is cut to 280 characters;
   `requiredShopperFields` defaults to `["shopperEmail", "billingAddress", "deliveryAddress"]`.
-- The island labels orders `sessions-<integration>`, `advanced-<integration>` and `api-only-pci`;
+- The workbench labels orders `sessions-<integration>`, `advanced-<integration>` and `api-only-pci`;
   the server adds `pay-by-link`, `mit` and `partial-payment`.
 - `storedPaymentMethodId` and the `shopperReference` the card was stored under (at least 3
   characters) are required for MIT; `recurringProcessingModel` is `Subscription` or
@@ -117,7 +117,7 @@ Shapes the routes rely on:
 - An action's `amount` is an integer from 1 to what the permission allows, and the full amount when
   the method does not support partials.
 
-**Browser callbacks.** The island sends Adyen Web callbacks to `POST /api/callbacks` under the
+**Browser callbacks.** The workbench sends Adyen Web callbacks to `POST /api/callbacks` under the
 current run's correlation id: `onChange`, `onSubmit`, `beforeSubmit`, `onAdditionalDetails`,
 `onPaymentCompleted`, `onPaymentFailed`, `onOrderUpdated`, `onError`, `onBinLookup`, `onBinValue`,
 `onBrand`; Advanced also reports `onBalanceCheck`, `onOrderRequest`, `onOrderCancel` and
@@ -145,7 +145,7 @@ browser's same-host `Origin`
 | Page                                                          | What it renders                                                                                                                                                                                                  |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/`                                                           | only the flow tiles, grouped as checkout and beyond checkout; width and type scale with the viewport up to a cap, centred between header and footer                                                              |
-| `/sessions`, `/advanced`, `/api-only`, `/mit`, `/pay-by-link` | `routes/[flow].tsx` and `FlowWorkbench`; bootstrap is fetched in-process before first paint                                                                                                                      |
+| `/sessions`, `/advanced`, `/api-only`, `/mit`, `/pay-by-link` | `src/app/[flow]/page.tsx` answers the bootstrap in-process; `FlowWorkbench` renders in the browser only, its first market coming from the browser                                                               |
 | `/back-office`                                                | orders in plain words, search and filters, detail with capture/cancel/refund and the reason an action is refused                                                                                                 |
 | `/settings`                                                   | the Connection card (profile, merchant account, client key, webhook HMAC key set or not, webhook URL to copy) and the TEST profiles                                                                              |
 | `/wiki`                                                       | in-app notes on each flow                                                                                                                                                                                        |
@@ -178,7 +178,7 @@ the method manually, the ledger (authorised, captured, refunded, pending), captu
 an editable amount where partial is allowed, a disabled "Waiting for the ... webhook" button while
 one is awaited, why the other actions are refused, and every capture, cancel and refund with its
 outcome, PSP reference and Idempotency-Key. `ProfileManager` is the Connection card, then add,
-select and delete TEST profiles. `RedirectReturn` is the `/result` island.
+select and delete TEST profiles. `RedirectReturn` is the `/result` client component.
 
 **JSON responses.**
 
@@ -259,23 +259,23 @@ the set. Markets are 36 countries with their own currency, locale and default am
    through `settleAttempt` and `resolveAndStore`, and `/webhook`'s AUTHORISATION branch writes the
    attempt before the same derivation.
 4. **A refusal ends an attempt, not an order.** `packages/platform/state-machine.test.ts` ("a
-   refused attempt never closes a still-valid order"); the island's retry keeps the session and its
-   gift card order (`islands/FlowWorkbench.tsx`).
+   refused attempt never closes a still-valid order"); the workbench's retry keeps the session and its
+   gift card order (`src/components/FlowWorkbench.tsx`).
 5. **Request bodies are built per endpoint; `state.data` is never forwarded wholesale.**
-   `apps/adyen-digital/api.ts` (`requestBase`, `FORWARDED_STATE_DATA`) and
+   `apps/adyen-digital/src/server/api.ts` (`requestBase`, `FORWARDED_STATE_DATA`) and
    `packages/platform/adyen.ts`; `packages/platform/adyen.test.ts` pins the session endpoint, the
    balance endpoint and upstream error handling.
-6. **Money is integer minor units.** `amountFrom` in `apps/adyen-digital/api.ts` accepts 1 to
+6. **Money is integer minor units.** `amountFrom` in `apps/adyen-digital/src/server/api.ts` accepts 1 to
    100000000; `packages/platform/markets.test.ts` ("zero-decimal currencies are never given
-   fractional minor units") and `apps/adyen-digital/components/partial.test.ts` pin the rest.
+   fractional minor units") and `apps/adyen-digital/src/components/partial.test.ts` pin the rest.
 7. **Only HMAC-valid webhook items are processed; one invalid item refuses the delivery.**
    `packages/platform/hmac.test.ts` ("standard webhook HMAC accepts the signed item and rejects
-   mutation"); `apps/adyen-digital/api.ts` returns 401 and records the verdict.
+   mutation"); `apps/adyen-digital/src/server/api.ts` returns 401 and records the verdict.
 8. **A capture, cancel or refund is idempotent per key, and a request awaiting its webhook blocks
    another of its kind.** `packages/platform/lifecycle.test.ts` ("a received capture blocks the next
-   one until its webhook arrives"); `apps/adyen-digital/api.ts` returns 409 or the stored request.
-9. **A partial payment never exceeds its order.** `apps/adyen-digital/api.ts` refuses it with 400;
-   `apps/adyen-digital/components/partial.test.ts` ("a gift card pays what its balance covers,
+   one until its webhook arrives"); `apps/adyen-digital/src/server/api.ts` returns 409 or the stored request.
+9. **A partial payment never exceeds its order.** `apps/adyen-digital/src/server/api.ts` refuses it with 400;
+   `apps/adyen-digital/src/components/partial.test.ts` ("a gift card pays what its balance covers,
    anything else pays the rest") and `packages/platform/state-machine.test.ts` ("partial tender
    remains open for the balance").
 10. **Raw card data is refused; only Adyen-encrypted values or tokens pass.** `rejectRawCardData` in
@@ -295,24 +295,20 @@ a webhook arrives are external input: a payment whose webhook never arrives stay
 ## Acceptance checks
 
 ```bash
-deno task check
-deno task test
-deno task --cwd apps/adyen-digital build
-deno task ssr:assert
-deno task knowledge:check
+bun test packages apps/adyen-digital      # platform, integration and digital helper tests
+bun run --cwd apps/adyen-digital typecheck
+bun run build:digital                     # next build, standalone output
+python3 tools/knowledge/doc-links
 ```
 
-`deno task check` is the gate: `fmt:check`, `lint`, `knowledge:check`, `types`, `test` (all packages
-and apps), the app builds and `ssr:assert`. The digital build fails on a type or import error; the
-SSR assertion (`tools/build/assert-built-ssr.ts apps/adyen-digital "Digital Checkout"`) fails when
-the built page no longer contains the app's name. `deno task test` alone runs
-`deno test -A --parallel packages apps tools/knowledge`.
+The build fails on a type or import error; `packages/platform/apps.integration.test.ts` answers
+`/api/health` without credentials, refuses a POST without the CSRF token with no cookie issued, and
+refuses a webhook whose HMAC matches no profile with 401, all through the exported `handle`.
 
-Not automated: the browser paths. A person runs `deno task --cwd apps/adyen-digital dev` (:5173) or
-`deno task dev:digital` (:8001) with TEST credentials and completes Sessions (Drop-in and
-Components), Advanced with a 3DS challenge, a redirect method back through `/result`, a Back Office
-capture/refund whose webhook arrives, Native 3DS off, a gift card partial payment, MIT, Pay by Link
-and API only. Webhooks need a public URL locally
+Not automated: the browser paths. A person runs `bun run dev:digital` (:8001) with TEST credentials
+and completes Sessions (Drop-in and Components), Advanced with a 3DS challenge, a redirect method
+back through `/result`, a Back Office capture/refund whose webhook arrives, Native 3DS off, a gift
+card partial payment, MIT, Pay by Link and API only. Webhooks need a public URL locally
 ([runbook](../operations/webhooks-without-a-tunnel.md)); the evidence and level of each past run are
 in [current/digital-status.md](../current/digital-status.md).
 

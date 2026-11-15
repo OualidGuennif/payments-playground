@@ -126,12 +126,24 @@ export async function ensureSession(
       maxAge: 60 * 60 * 24 * 30,
     });
   }
+  return { id: sessionId, csrfToken: ensureCsrfToken(request, jar) };
+}
+
+/**
+ * The double-submit token, issued when the request carried none. It needs no
+ * secret, so a page response can carry it before the page's first POST.
+ */
+export function ensureCsrfToken(request: Request, jar: CookieJar): string {
   let csrfToken = jar.get("adyen_csrf");
   if (!csrfToken) {
     csrfToken = crypto.randomUUID();
-    jar.set("adyen_csrf", csrfToken, { httpOnly: false, secure, maxAge: 60 * 60 * 24 });
+    jar.set("adyen_csrf", csrfToken, {
+      httpOnly: false,
+      secure: isSecure(request),
+      maxAge: 60 * 60 * 24,
+    });
   }
-  return { id: sessionId, csrfToken };
+  return csrfToken;
 }
 
 // "localhost" and "127.0.0.1" are the same loopback host for local dev

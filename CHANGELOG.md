@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Move `apps/adyen-digital` to Next.js 16 on Bun: pages under `src/app`, one Elysia API in
+  `src/server/api.ts` behind `/api/*`, `/healthz` and `/webhook` route handlers, every browser call
+  on Eden, the checkout workbench rendered client-only. The proxy sets Basic Auth and the CSRF
+  cookie without reading config, so no `.env` or database is traced into the standalone build.
+  `ensureCsrfToken` is split out of `ensureSession`; the ephemeral signing secret is shared per
+  process; Eden keeps dates as strings. Tooling, Docker and CI are still on Deno.
 - Start the move off Deno and Fresh: one Bun workspace (`package.json`, `bunfig.toml`, one root
   `bun.lock`); `packages/platform` on `bun:sqlite`, `process.env` and an Elysia base API with the
   same basic auth, rate limit, CSRF, session and security headers; `packages/ui` on React 19 with

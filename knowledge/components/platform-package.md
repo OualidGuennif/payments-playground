@@ -35,10 +35,10 @@ sources:
     title: "The order/attempt model the state machine implements"
   - resource: ../architecture/data-model.md
     title: "The tables storage.ts reads and writes"
-  - resource: ../../apps/adyen-digital/api.ts
+  - resource: ../../apps/adyen-digital/src/server/api.ts
     title: "How the focus app builds its API on the package"
-  - resource: ../../apps/adyen-digital/main.ts
-    title: "Basic Auth and security headers applied before Fresh"
+  - resource: ../../apps/adyen-digital/src/proxy.ts
+    title: "Basic Auth and the CSRF cookie applied before the Next.js pages"
 ---
 
 # packages/platform

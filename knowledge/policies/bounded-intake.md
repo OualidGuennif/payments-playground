@@ -4,11 +4,13 @@ title: "Bounded tool intake"
 description: "Refuse obvious large dumps before execution; use targeted reads and summary commands."
 status: stable
 generated:
-  by: aeion-factory/1.6.2
-  at: 2026-10-29
+  by: aeion-template/4.0.3
+  at: 2026-11-15T18:00:00Z
 sources:
   - resource: ../../.claude/hooks/guard-path.py
   - resource: ../../.claude/hooks/guard-bash.py
+  - resource: ../../.claude/hooks/session-start.py
+  - resource: ../../tools/agents/hook.py
   - resource: ../../.claude/hooks/token-feedback.py
   - resource: https://developers.openai.com/api/docs/guides/reasoning-best-practices
     title: "Simple, direct instructions for reasoning models"
@@ -34,8 +36,11 @@ positive `limit` and an `offset` of 0 or more (0 and 1 both mean the first line)
 and 64 KiB, with at most 1 MiB of local scanning. Use a bounded shell selection when a distant
 window exceeds that scan budget. Large-file Grep uses an explicit positive `head_limit`/native
 `limit` of at most 400, or an explicit count/file-name output mode. Directory searches are not
-recursively pre-counted, but an explicit unlimited (`head_limit: 0`) content search is refused on
-any path.
+pre-counted for intake, but an explicit unlimited (`head_limit: 0`) content search is refused on any
+path. A recursive Bash `grep` (or `rg -u`), and a Grep tool search of a folder outside a git work
+tree, are checked for secret files by walking at most 10,000 entries; a larger tree is refused, and
+`git grep`, plain `rg` or a Grep inside the git work tree stays available ([security](security.md)).
+The path guard sizes and judges a symlink's target, not only its name.
 
 ## Outputs and refusals
 
@@ -47,6 +52,12 @@ bounded pipeline separate from unrelated shell commands. Use `cp` for file copie
 its cause: the file over the limit, a variable or glob path, or a `cat` of a relative path after a
 `cd` (an absolute path is sized whatever the directory). Tests remain runnable; quiet/fail-fast
 flags and error summaries are guidance in this version.
+
+Prompt defense (`.claude/hooks/prompt-defense.py`) never refuses either: it reads at most 64 KiB in
+total of a tool result the harness forwards, flags hidden characters, role markers, override phrases
+and an encoded payload once per session, and stays silent when no result arrives. The dsh, Pi and
+OpenCode plugins forward a result under 256 KiB; Claude Code and Codex pass it through, and the scan
+still stops at 64 KiB.
 
 Token feedback (`.claude/hooks/token-feedback.py`) never refuses. Keep reasoning private and use
 tools directly; do not emit optional progress narration or intermediate JSON notes. After a tool
@@ -75,13 +86,15 @@ thresholds, long lines, explicit ranges, real native fields and misleading limit
 
 Local regular-file metadata and bounded reads establish the decision; no model or new package is
 involved. Owner tuning changes the checked-in constants and tests, not an ambient override. Durable
-facts belong in Knowledge; session noise stays out of AGENTS.md and handovers.
+facts belong in Knowledge; session noise stays out of AGENTS.md and handovers. The session start
+shows these intake limits first, then the flow mode, the doc gate's mode and framework mode; the
+owner's settings never change an intake limit.
 
 ## Acceptance
 
 Run `python3 .claude/hooks/test_hooks.py` and `python3 tools/agents/tests/test_hooks.py`, then the
-existing Knowledge, context, architecture and native-plugin checks. Check real workflow friction
-before extending the recognized command patterns.
+existing Knowledge, context and native-plugin checks. Check real workflow friction before extending
+the recognized command patterns.
 
 ## Out of scope
 

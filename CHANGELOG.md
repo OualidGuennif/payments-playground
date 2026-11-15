@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Bring the bounded-intake and specs-first policies to their v4.0.3 text, so they describe the
+  updated path and bash guards and the doc-links checker.
 - Remove the IPP Endless Aisle app, its `ipp-endless-aisle` Render service, its landing card, dev
   tasks and docs, at the owner's request; the other apps keep ports 8001, 8003 and 8004.
 - Update to Æion Template v4.0.3 with `template-update` (from Æion Factory v1.7.0): doc gate in

@@ -9,9 +9,10 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-15, drop Deno and Fresh everywhere, port every app like the agentic store,
   remove IPP, follow Æion Template v4.0.3 without Graphify/Archify, framework mode off.
-- State: agentic store done; template v4.0.3 applied; IPP removed; port design set, no code yet.
-- Next: Bun workspace and the platform/ui packages, port styling then digital, tooling (who:
-  Claude); deploy and the TEST webhook on the public origin (who: owner).
+- State: agentic store done; template v4.0.3 applied; IPP removed; Bun workspace, platform/ui
+  packages and styling ported (Next.js, Elysia, Eden); digital still Fresh, so Deno checks are red.
+- Next: port digital, then tooling, Docker, CI and docs (who: Claude); deploy and the TEST webhook
+  on the public origin (who: owner).
 - Blocker: none.
 - Evidence: work/handovers/a38bcec0-13c5-437d-9c40-1f317f1b63c6.md.
 

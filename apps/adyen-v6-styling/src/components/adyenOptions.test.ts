@@ -1,3 +1,4 @@
+import { test } from "bun:test";
 /**
  * The panel claims to expose "every custom property Adyen Web actually reads".
  * Merchants copy the output straight into their own stylesheet, so a token
@@ -7,7 +8,7 @@
  * These read the real adyen.css for the pinned version and fail on drift, so
  * an SDK bump has to be looked at rather than merged on green.
  */
-import { assertEquals } from "@std/assert";
+import { assertEquals } from "../../../../testing/assert.ts";
 import { ADYEN_CSS_URL, ADYEN_WEB_VERSION, CSS_TOKEN_SPECS } from "./adyenOptions.ts";
 
 /** Minified CSS drops leading zeroes and spaces; those are the same value. */
@@ -33,21 +34,21 @@ function tokensIn(css: string): Map<string, Set<string>> {
   return found;
 }
 
-Deno.test(`adyen.css ${ADYEN_WEB_VERSION}: every exposed token exists`, async () => {
+test(`adyen.css ${ADYEN_WEB_VERSION}: every exposed token exists`, async () => {
   const real = tokensIn(await adyenStylesheet());
   const exposed = CSS_TOKEN_SPECS.map((spec) => spec.token);
   const doesNothing = exposed.filter((token) => !real.has(token));
   assertEquals(doesNothing, [], "these tokens are offered but Adyen Web never reads them");
 });
 
-Deno.test(`adyen.css ${ADYEN_WEB_VERSION}: no token is left unexposed`, async () => {
+test(`adyen.css ${ADYEN_WEB_VERSION}: no token is left unexposed`, async () => {
   const real = [...tokensIn(await adyenStylesheet()).keys()];
   const exposed = new Set(CSS_TOKEN_SPECS.map((spec) => spec.token));
   const undocumented = real.filter((token) => !exposed.has(token)).sort();
   assertEquals(undocumented, [], "Adyen Web reads these but the panel doesn't offer them");
 });
 
-Deno.test(`adyen.css ${ADYEN_WEB_VERSION}: shown defaults match the stylesheet`, async () => {
+test(`adyen.css ${ADYEN_WEB_VERSION}: shown defaults match the stylesheet`, async () => {
   const real = tokensIn(await adyenStylesheet());
   const wrong = CSS_TOKEN_SPECS
     .filter((spec) => {

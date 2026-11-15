@@ -1,5 +1,5 @@
-import type { ComponentChildren } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import type { ControlSpec } from "./adyenOptions.ts";
 
 const HEX_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
@@ -16,25 +16,25 @@ export function OptionGroup(props: {
   count?: number;
   open: boolean;
   onToggle: (open: boolean) => void;
-  children: ComponentChildren;
+  children: ReactNode;
 }) {
   return (
     <details
-      class="option-group"
+      className="option-group"
       // Lets a closed panel show which sections you have actually touched. The
       // count badge alone only says so once you have found the right row.
       data-changed={props.count ? "true" : "false"}
       open={props.open}
       onToggle={(event) => props.onToggle(event.currentTarget.open)}
     >
-      <summary class="option-group__summary">
-        <span class="option-group__title">{props.title}</span>
-        {props.count ? <span class="option-group__count">{props.count} set</span> : null}
+      <summary className="option-group__summary">
+        <span className="option-group__title">{props.title}</span>
+        {props.count ? <span className="option-group__count">{props.count} set</span> : null}
       </summary>
       {props.hint
         ? (
           <p
-            class={`option-group__hint${
+            className={`option-group__hint${
               props.hintTone === "danger" ? " option-group__hint--danger" : ""
             }`}
           >
@@ -42,7 +42,7 @@ export function OptionGroup(props: {
           </p>
         )
         : null}
-      <div class="option-group__body">{props.children}</div>
+      <div className="option-group__body">{props.children}</div>
     </details>
   );
 }
@@ -55,7 +55,7 @@ export function SwitchRow(props: {
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label class="switch-row">
+    <label className="switch-row">
       <span>
         {props.label}
         {props.hint ? <small>{props.hint}</small> : null}
@@ -99,21 +99,21 @@ export function CheckboxDropdown(props: {
     : `${props.selected.length} selected`;
 
   return (
-    <div class="checkbox-dropdown" data-open={open ? "true" : "false"}>
+    <div className="checkbox-dropdown" data-open={open ? "true" : "false"}>
       <button
         type="button"
         id={props.id}
-        class="checkbox-dropdown__toggle"
+        className="checkbox-dropdown__toggle"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        <span class="checkbox-dropdown__value">{summary}</span>
-        <span class="checkbox-dropdown__chevron" aria-hidden="true">▾</span>
+        <span className="checkbox-dropdown__value">{summary}</span>
+        <span className="checkbox-dropdown__chevron" aria-hidden="true">▾</span>
       </button>
       {open
         ? (
-          <div class="checkbox-dropdown__list" role="group">
-            <label class="checkbox-dropdown__item">
+          <div className="checkbox-dropdown__list" role="group">
+            <label className="checkbox-dropdown__item">
               <input
                 type="checkbox"
                 checked={props.selected.length === 0}
@@ -124,7 +124,7 @@ export function CheckboxDropdown(props: {
             {props.items.map(([value, label]) => {
               const on = props.selected.includes(value);
               return (
-                <label key={value} class="checkbox-dropdown__item">
+                <label key={value} className="checkbox-dropdown__item">
                   <input
                     type="checkbox"
                     checked={on}
@@ -161,12 +161,12 @@ function ColorControl(
   const [text, setText] = useState(props.value);
   useEffect(() => setText(props.value), [props.value]);
   return (
-    <div class="color-field">
+    <div className="color-field">
       <input
         id={props.id}
         type="color"
         value={props.value || props.fallback}
-        onInput={(event) => {
+        onChange={(event) => {
           const next = event.currentTarget.value;
           setText(next);
           props.onChange(next);
@@ -174,12 +174,12 @@ function ColorControl(
       />
       <input
         type="text"
-        class="color-field__hex"
+        className="color-field__hex"
         value={text}
         placeholder={props.fallback}
-        spellcheck={false}
+        spellCheck={false}
         aria-label="Value"
-        onInput={(event) => {
+        onChange={(event) => {
           const next = event.currentTarget.value;
           setText(next);
           if (isCommittableColor(next)) props.onChange(next);
@@ -205,14 +205,14 @@ export function OptionRow(props: {
   const { spec } = props;
   const fallback = spec.fallback ?? "";
   return (
-    <div class={`field option-row${props.value ? " option-row--set" : ""}`}>
-      <div class="option-row__head">
-        <label for={props.id}>{props.label}</label>
+    <div className={`field option-row${props.value ? " option-row--set" : ""}`}>
+      <div className="option-row__head">
+        <label htmlFor={props.id}>{props.label}</label>
         {props.value
           ? (
             <button
               type="button"
-              class="option-row__clear"
+              className="option-row__clear"
               title="Back to the Adyen default"
               aria-label={`Reset ${props.label}`}
               onClick={() => props.onChange("")}
@@ -248,7 +248,7 @@ export function OptionRow(props: {
         )
         : spec.kind === "range"
         ? (
-          <div class="range-field">
+          <div className="range-field">
             <input
               id={props.id}
               type="range"
@@ -256,7 +256,7 @@ export function OptionRow(props: {
               max={spec.max ?? 64}
               step={spec.step ?? 1}
               value={Number.parseFloat(props.value || fallback) || 0}
-              onInput={(event) =>
+              onChange={(event) =>
                 props.onChange(`${event.currentTarget.valueAsNumber}${spec.unit ?? ""}`)}
             />
             <small>{props.value || `${fallback} (default)`}</small>
@@ -268,8 +268,8 @@ export function OptionRow(props: {
             type="text"
             value={props.value}
             placeholder={fallback}
-            spellcheck={false}
-            onInput={(event) => props.onChange(event.currentTarget.value)}
+            spellCheck={false}
+            onChange={(event) => props.onChange(event.currentTarget.value)}
           />
         )}
       {props.hint ? <small>{props.hint}</small> : null}

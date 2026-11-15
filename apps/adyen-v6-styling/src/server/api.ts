@@ -1,7 +1,12 @@
 // Spec: knowledge/components/adyen-v6-styling.md
 import { AdyenTestClient } from "@suite/platform/adyen.ts";
 import { buildCheckoutAddresses, normalizeCountryCode } from "@suite/platform/addresses.ts";
-import { createPlatformContext, selectedSecrets } from "@suite/platform/base-api.ts";
+import {
+  createPlatformApi,
+  createPlatformContext,
+  selectedSecrets,
+  serveSecurely,
+} from "@suite/platform/base-api.ts";
 import {
   currencyForCountry,
   defaultAmountForCountry,
@@ -15,9 +20,9 @@ import {
 } from "@suite/platform/sessionContext.ts";
 import { weeklyShopperReference } from "@suite/platform/shopper.ts";
 import { INSTALLMENT_COUNTRIES } from "@suite/ui/paymentMethods.ts";
+import { status } from "elysia";
 
 const context = createPlatformContext("styling");
-export const api = context.api;
 
 /** Market for a request body, falling back to a supported European default. */
 function marketFrom(value: unknown): string {
@@ -28,12 +33,12 @@ function marketFrom(value: unknown): string {
 // Side lookup only, used to populate the "pre-select payment method" dropdown
 // with the merchant's real available methods for a country, unrelated to
 // (and doesn't affect) the /sessions call the Drop-in preview actually uses.
-api.post("/api/styling/payment-methods", async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { countryCode?: unknown };
+const app = createPlatformApi(context).post("/api/styling/payment-methods", async ({ body: raw, request: http }) => {
+  const body = (raw ?? {}) as { countryCode?: unknown };
   const countryCode = marketFrom(body.countryCode);
-  const selected = await selectedSecrets(context, c.req.raw);
+  const selected = await selectedSecrets(context, http);
   if (!selected.secrets.merchantAccount) {
-    return c.json({ error: "The server needs an Adyen TEST merchant account." }, 409);
+    return status(409, { error: "The server needs an Adyen TEST merchant account." });
   }
   // Amount/currency have to match the market: Adyen filters the available
   // methods on both, so a hardcoded EUR amount would return the euro-zone
@@ -49,11 +54,9 @@ api.post("/api/styling/payment-methods", async (c) => {
   });
   const methods = (response as { paymentMethods?: Array<{ type: string; name: string }> })
     .paymentMethods ?? [];
-  return c.json({ paymentMethods: methods.map(({ type, name }) => ({ type, name })) });
-});
-
-api.post("/api/styling/session", async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as {
+  return { paymentMethods: methods.map(({ type, name }) => ({ type, name })) };
+}).post("/api/styling/session", async ({ body: raw, request: http }) => {
+  const body = (raw ?? {}) as {
     countryCode?: unknown;
     shopperLocale?: unknown;
     installments?: unknown;
@@ -67,11 +70,11 @@ api.post("/api/styling/session", async (c) => {
   // paymentMethodsConfiguration.card.installmentOptions override is ignored.
   const installmentsRequested = body.installments === true &&
     INSTALLMENT_COUNTRIES.includes(countryCode);
-  const selected = await selectedSecrets(context, c.req.raw);
+  const selected = await selectedSecrets(context, http);
   if (!selected.secrets.merchantAccount || !selected.secrets.clientKey) {
-    return c.json({
+    return status(409, {
       error: "The server needs ADYEN_API_KEY, ADYEN_MERCHANT_ACCOUNT and a TEST client key.",
-    }, 409);
+    });
   }
   const order = context.repository.createOrder({
     appId: "styling",
@@ -132,7 +135,7 @@ api.post("/api/styling/session", async (c) => {
       state: "created",
       expiresAt: String((response as { expiresAt?: string }).expiresAt ?? ""),
     });
-    return c.json({ correlationId: order.id, session: response }, 201);
+    return status(201, { correlationId: order.id, session: response });
   } catch (error) {
     context.repository.recordApiCall({
       appId: "styling",
@@ -149,3 +152,8 @@ api.post("/api/styling/session", async (c) => {
     throw error;
   }
 });
+
+export type App = typeof app;
+
+/** What every route file under src/app exports: the platform's security pass around this app. */
+export const handle = serveSecurely(app, context);

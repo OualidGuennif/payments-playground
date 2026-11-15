@@ -29,7 +29,7 @@ sources:
     title: "Dark mode is one data-theme attribute over two token sets"
   - resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
     title: "The focus app's Drop-in and Components usage"
-  - resource: ../../apps/adyen-v6-styling/components/adyenOptions.test.ts
+  - resource: ../../apps/adyen-v6-styling/src/components/adyenOptions.test.ts
     title: "The only automated check of an Adyen Web surface"
 ---
 

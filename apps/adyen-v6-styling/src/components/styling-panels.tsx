@@ -1,5 +1,5 @@
 // Spec: knowledge/components/adyen-v6-styling.md
-import { useState } from "preact/hooks";
+import { useState } from "react";
 import { Field } from "@suite/ui/components.tsx";
 import {
   INSTALLMENT_COUNTRIES,
@@ -76,9 +76,9 @@ function DownloadIcon() {
       <path
         d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 21h16"
         stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -89,13 +89,13 @@ function RawOutput(
 ) {
   const [copied, setCopied] = useState(false);
   return (
-    <div class="raw-output">
-      <div class="raw-output__header">
+    <div className="raw-output">
+      <div className="raw-output__header">
         <span>Raw output</span>
-        <div class="raw-output__actions">
+        <div className="raw-output__actions">
           <button
             type="button"
-            class="button button--quiet button--small"
+            className="button button--quiet button--small"
             onClick={() => {
               navigator.clipboard?.writeText(props.content).then(() => {
                 setCopied(true);
@@ -107,7 +107,7 @@ function RawOutput(
           </button>
           <button
             type="button"
-            class="button button--quiet button--small raw-output__icon-btn"
+            className="button button--quiet button--small raw-output__icon-btn"
             aria-label="Download"
             title="Download"
             onClick={() => download(props.filename, props.content, props.mime)}
@@ -116,7 +116,7 @@ function RawOutput(
           </button>
         </div>
       </div>
-      <pre class="code-block raw-output__pre">{props.content}</pre>
+      <pre className="code-block raw-output__pre">{props.content}</pre>
     </div>
   );
 }
@@ -144,13 +144,13 @@ export function FieldStylesPanel(props: {
   } = props;
   return (
     <>
-      <p class="css-note">
+      <p className="css-note">
         The card number, expiry date and security code are rendered inside Adyen-hosted iframes, so
         no page CSS can reach them: they are styled only through this object. All{" "}
         {SECURE_PROPERTY_SPECS.length}{" "}
         properties Adyen accepts are below, for each of its four states.
       </p>
-      <div class="styling-segmented" role="tablist" aria-label="Field state">
+      <div className="styling-segmented" role="tablist" aria-label="Field state">
         {SECURE_STATES.map((state) => {
           const count = secureSetCount(secureStyles, state);
           return (
@@ -162,12 +162,12 @@ export function FieldStylesPanel(props: {
               onClick={() => setSecureState(state)}
             >
               {SECURE_STATE_META[state].label}
-              {count ? <span class="styling-segmented__count">{count}</span> : null}
+              {count ? <span className="styling-segmented__count">{count}</span> : null}
             </button>
           );
         })}
       </div>
-      <p class="option-group__hint">{SECURE_STATE_META[secureState].hint}</p>
+      <p className="option-group__hint">{SECURE_STATE_META[secureState].hint}</p>
       {SECURE_GROUPS.map((group) => {
         const specs = SECURE_PROPERTY_SPECS
           .filter((spec) => spec.group === group);
@@ -359,7 +359,7 @@ export function ComponentsPanel(props: {
             value={cardOptions.holderNamePrefill}
             placeholder="J. Smith"
             disabled={!cardOptions.hasHolderName}
-            onInput={(event) => updateCard("holderNamePrefill", event.currentTarget.value)}
+            onChange={(event) => updateCard("holderNamePrefill", event.currentTarget.value)}
           />
           <small>data.holderName</small>
         </Field>
@@ -423,7 +423,7 @@ export function ComponentsPanel(props: {
             type="text"
             value={walletOptions.applePayTotalPriceLabel}
             placeholder="Your store name"
-            onInput={(event) => updateWallet("applePayTotalPriceLabel", event.currentTarget.value)}
+            onChange={(event) => updateWallet("applePayTotalPriceLabel", event.currentTarget.value)}
           />
           <small>
             applepay.totalPriceLabel, the name shown beside the total on the Apple Pay sheet.
@@ -435,7 +435,7 @@ export function ComponentsPanel(props: {
             type="text"
             value={walletOptions.applePayButtonRadius}
             placeholder="4px"
-            onInput={(event) => updateWallet("applePayButtonRadius", event.currentTarget.value)}
+            onChange={(event) => updateWallet("applePayButtonRadius", event.currentTarget.value)}
           />
           <small>
             {APPLE_PAY_RADIUS_VARIABLE}{" "}
@@ -490,7 +490,7 @@ export function ComponentsPanel(props: {
             inputMode="numeric"
             value={walletOptions.googlePayButtonRadius}
             placeholder="4"
-            onInput={(event) => updateWallet("googlePayButtonRadius", event.currentTarget.value)}
+            onChange={(event) => updateWallet("googlePayButtonRadius", event.currentTarget.value)}
           />
           <small>googlepay.buttonRadius, in pixels.</small>
         </Field>
@@ -595,8 +595,8 @@ export function ComponentsPanel(props: {
                 </select>
                 <small>billingAddressMode</small>
               </Field>
-              <div class="field">
-                <label for="card-billing-required">Required fields</label>
+              <div className="field">
+                <label htmlFor="card-billing-required">Required fields</label>
                 <CheckboxDropdown
                   id="card-billing-required"
                   items={ADDRESS_FIELDS}
@@ -609,8 +609,8 @@ export function ComponentsPanel(props: {
                   schema.
                 </small>
               </div>
-              <div class="field">
-                <label for="card-billing-countries">Allowed countries</label>
+              <div className="field">
+                <label htmlFor="card-billing-countries">Allowed countries</label>
                 <CheckboxDropdown
                   id="card-billing-countries"
                   items={COUNTRY_ITEMS}
@@ -648,7 +648,7 @@ export function ComponentsPanel(props: {
         <SwitchRow
           label="Legacy input mode"
           hint={"legacyInputMode, gives the fields type=tel instead of " +
-            'type=text inputmode="numeric", for keyboards that ignore inputmode.'}
+            'type=text inputMode="numeric", for keyboards that ignore inputmode.'}
           checked={cardOptions.legacyInputMode}
           onChange={(value) => updateCard("legacyInputMode", value)}
         />
@@ -673,11 +673,11 @@ export function ComponentsPanel(props: {
             type="text"
             value={cardOptions.minimumExpiryDate}
             placeholder="mm/yy"
-            onInput={(event) => updateCard("minimumExpiryDate", event.currentTarget.value)}
+            onChange={(event) => updateCard("minimumExpiryDate", event.currentTarget.value)}
           />
           {cardOptions.minimumExpiryDate &&
               !isValidExpiryDate(cardOptions.minimumExpiryDate)
-            ? <small class="field-warning">Use the mm/yy format.</small>
+            ? <small className="field-warning">Use the mm/yy format.</small>
             : <small>minimumExpiryDate, rejects cards expiring before this.</small>}
         </Field>
       </OptionGroup>
@@ -712,7 +712,7 @@ export function ComponentsPanel(props: {
             {installmentMarket
               ? (
                 <>
-                  <p class="option-note">
+                  <p className="option-note">
                     installmentOptions is automatically sent in the /sessions request for this
                     market (Brazil, Mexico, Japan), no toggle needed. This only controls whether the
                     per-installment amount is displayed.
@@ -743,7 +743,7 @@ export function ComponentsPanel(props: {
         {cardOptions.disclaimerEnabled
           ? (
             <>
-              <p class="option-note">
+              <p className="option-note">
                 A valid http(s):// Link URL is required to render the message, add one below even if
                 you don't need clickable link text.
               </p>
@@ -753,7 +753,7 @@ export function ComponentsPanel(props: {
                   type="text"
                   value={cardOptions.disclaimerMessage}
                   placeholder="By continuing you agree to %{linkText}"
-                  onInput={(event) => updateCard("disclaimerMessage", event.currentTarget.value)}
+                  onChange={(event) => updateCard("disclaimerMessage", event.currentTarget.value)}
                 />
                 <small>{"Use %{linkText} to reference the link text below."}</small>
               </Field>
@@ -762,7 +762,7 @@ export function ComponentsPanel(props: {
                   id="disclaimer-link-text"
                   type="text"
                   value={cardOptions.disclaimerLinkText}
-                  onInput={(event) => updateCard("disclaimerLinkText", event.currentTarget.value)}
+                  onChange={(event) => updateCard("disclaimerLinkText", event.currentTarget.value)}
                 />
               </Field>
               <Field label="Link URL" htmlFor="disclaimer-link">
@@ -771,12 +771,12 @@ export function ComponentsPanel(props: {
                   type="url"
                   value={cardOptions.disclaimerLink}
                   placeholder="https://example.com/terms"
-                  onInput={(event) => updateCard("disclaimerLink", event.currentTarget.value)}
+                  onChange={(event) => updateCard("disclaimerLink", event.currentTarget.value)}
                 />
                 {cardOptions.disclaimerMessage &&
                     !isValidHttpUrl(cardOptions.disclaimerLink)
                   ? (
-                    <small class="field-warning">
+                    <small className="field-warning">
                       Add a valid http(s):// URL above to display the message.
                     </small>
                   )
@@ -829,24 +829,24 @@ export function ThemePanel(props: {
   } = props;
   return (
     <>
-      <p class="css-note">
+      <p className="css-note">
         The {CSS_TOKEN_SPECS.length}{" "}
         custom properties below are the ones Adyen Web actually reads, taken from the stylesheet it
         ships. They are the supported way to theme the Drop-in; the class-name rules at the end are
         not, and can break on any upgrade.
       </p>
-      <p class="css-cdn-link">
+      <p className="css-cdn-link">
         Base stylesheet:{" "}
         <a href={ADYEN_CSS_URL} target="_blank" rel="noopener noreferrer">
           adyen.css ({ADYEN_WEB_VERSION})
         </a>
       </p>
-      <div class="styling-filter-row">
+      <div className="styling-filter-row">
         {tokenOverrides
           ? (
             <button
               type="button"
-              class="button button--quiet button--small"
+              className="button button--quiet button--small"
               onClick={() => setCssTokens({})}
             >
               Clear {tokenOverrides}
@@ -917,10 +917,10 @@ export function ThemePanel(props: {
         }
         {cssRuleSetCount(cssRules) > 0
           ? (
-            <div class="option-group__actions">
+            <div className="option-group__actions">
               <button
                 type="button"
-                class="button button--quiet button--small"
+                className="button button--quiet button--small"
                 onClick={() => setCssRules(DEFAULT_CSS_RULES)}
               >
                 Remove all class-name rules

@@ -18,7 +18,9 @@ sources:
   - resource: ../../.claude/hooks/project_files.py
     title: The file enumeration shared with doc-links and repo-health
   - resource: ../../tools/dev/bun-app.ts
-    title: "The Bun app runner that loads its env file with @std/dotenv"
+    title: "The Bun app runner that loads its env file without $ expansion"
+  - resource: ../../testing/assert.ts
+    title: "The @std/assert subset the bun:test suites import"
   - resource: ../../tools/template-tests
     title: The template test runner
   - resource: ../../tools/knowledge/orphans

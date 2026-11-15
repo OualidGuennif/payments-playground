@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import { test } from "bun:test";
+import { assertEquals } from "../../testing/assert.ts";
 import { ledgerOf, reconcile } from "./modifications.ts";
 import type { ModificationEvent, ModificationRequest } from "./types.ts";
 
@@ -20,7 +21,7 @@ const event = (
   ...overrides,
 });
 
-Deno.test("a received capture is pending until its webhook, then settled by it", () => {
+test("a received capture is pending until its webhook, then settled by it", () => {
   const capture = request({ kind: "capture", value: 4_000, pspReference: "CAP-1" });
   const pending = reconcile([capture], []);
   assertEquals(pending[0].status, "pending");
@@ -33,7 +34,7 @@ Deno.test("a received capture is pending until its webhook, then settled by it",
   assertEquals(ledger.capturePending, 0);
 });
 
-Deno.test("a refused capture and a later CAPTURE_FAILED leave nothing captured", () => {
+test("a refused capture and a later CAPTURE_FAILED leave nothing captured", () => {
   const refused = reconcile(
     [request({ kind: "capture", value: 10_000, pspReference: "CAP-1" })],
     [event({ eventCode: "CAPTURE", pspReference: "CAP-1", success: false, reason: "Expired" })],
@@ -56,7 +57,7 @@ Deno.test("a refused capture and a later CAPTURE_FAILED leave nothing captured",
   assertEquals(ledgerOf(10_000, overturned).captured, 0);
 });
 
-Deno.test("multiple partial refunds add up; a reversed one does not count", () => {
+test("multiple partial refunds add up; a reversed one does not count", () => {
   const modifications = reconcile(
     [
       request({ kind: "refund", value: 2_000, pspReference: "REF-1" }),
@@ -78,7 +79,7 @@ Deno.test("multiple partial refunds add up; a reversed one does not count", () =
   assertEquals(ledger.refundPending, 1_000);
 });
 
-Deno.test("a request the API rejected is never pending", () => {
+test("a request the API rejected is never pending", () => {
   const modifications = reconcile(
     [request({ kind: "capture", value: 10_000, state: "rejected", reason: "422" })],
     [],
@@ -87,7 +88,7 @@ Deno.test("a request the API rejected is never pending", () => {
   assertEquals(ledgerOf(10_000, modifications).capturePending, 0);
 });
 
-Deno.test("a capture made in the Customer Area still counts, from its webhook", () => {
+test("a capture made in the Customer Area still counts, from its webhook", () => {
   const modifications = reconcile([], [
     event({ eventCode: "CAPTURE", pspReference: "CAP-9", value: 10_000 }),
   ]);
@@ -95,7 +96,7 @@ Deno.test("a capture made in the Customer Area still counts, from its webhook", 
   assertEquals(ledgerOf(10_000, modifications).captured, 10_000);
 });
 
-Deno.test("an old request without its PSP reference takes the next event of its kind", () => {
+test("an old request without its PSP reference takes the next event of its kind", () => {
   const modifications = reconcile(
     [request({ kind: "capture", createdAt: "2026-10-09T10:00:00.000Z" })],
     [event({
@@ -110,7 +111,7 @@ Deno.test("an old request without its PSP reference takes the next event of its 
   assertEquals(ledgerOf(10_000, modifications).captured, 10_000);
 });
 
-Deno.test("a cancellation is pending, then cancels the authorisation", () => {
+test("a cancellation is pending, then cancels the authorisation", () => {
   const cancel = request({ kind: "cancel", pspReference: "CAN-1" });
   assertEquals(ledgerOf(10_000, reconcile([cancel], [])).cancelPending, true);
   const done = reconcile([cancel], [event({ eventCode: "CANCELLATION", pspReference: "CAN-1" })]);

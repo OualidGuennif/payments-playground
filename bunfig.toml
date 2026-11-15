@@ -1,0 +1,5 @@
+[install]
+# One hoisted node_modules at the root: every app resolves the same React and Adyen Web copy, and
+# Next's file tracing finds the shared packages without symlink chains.
+linker = "hoisted"
+exact = true

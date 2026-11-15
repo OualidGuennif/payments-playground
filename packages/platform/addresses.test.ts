@@ -1,7 +1,8 @@
-import { assert, assertEquals } from "@std/assert";
+import { test } from "bun:test";
+import { assert, assertEquals } from "../../testing/assert.ts";
 import { addressDataset, buildCheckoutAddresses, SUPPORTED_COUNTRY_CODES } from "./addresses.ts";
 
-Deno.test("every selectable country has separate billing and delivery fixtures", () => {
+test("every selectable country has separate billing and delivery fixtures", () => {
   assert(SUPPORTED_COUNTRY_CODES.length >= 30);
   for (const country of SUPPORTED_COUNTRY_CODES) {
     const pair = addressDataset(country);
@@ -11,7 +12,7 @@ Deno.test("every selectable country has separate billing and delivery fixtures",
   }
 });
 
-Deno.test("US and Canada datasets include stateOrProvince", () => {
+test("US and Canada datasets include stateOrProvince", () => {
   for (const country of ["US", "CA"]) {
     const pair = buildCheckoutAddresses({ countryCode: country });
     assert(pair.billingAddress.stateOrProvince);
@@ -19,7 +20,7 @@ Deno.test("US and Canada datasets include stateOrProvince", () => {
   }
 });
 
-Deno.test("provided countries dynamically select each address dataset", () => {
+test("provided countries dynamically select each address dataset", () => {
   const pair = buildCheckoutAddresses({
     countryCode: "FR",
     billingAddress: { country: "CA", city: "Montreal" },

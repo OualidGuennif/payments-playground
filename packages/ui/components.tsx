@@ -1,7 +1,7 @@
 // Spec: knowledge/components/ui-package.md
-import type { ComponentChildren } from "preact";
-import { useEffect, useState } from "preact/hooks";
-import { THEME_SCRIPT } from "./theme.ts";
+"use client";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 interface TestDataLink {
   href: string;
@@ -46,9 +46,9 @@ export function TestDataAndTools() {
   return (
     <>
       <style>{EXTENSION_LINK_CSS}</style>
-      <details class="header-tools">
-        <summary class="header-tools__toggle">Testing dataset</summary>
-        <div class="header-tools__menu">
+      <details className="header-tools">
+        <summary className="header-tools__toggle">Testing dataset</summary>
+        <div className="header-tools__menu">
           {TEST_DATA_LINKS.map((link) => (
             <a
               key={link.href}
@@ -77,9 +77,9 @@ export function TestDataAndTools() {
  */
 export function DisclaimerPage(props: { appName: string; repositoryUrl?: string }) {
   return (
-    <article class="legal">
+    <article className="legal">
       <h1>Disclaimer</h1>
-      <p class="legal__lede">
+      <p className="legal__lede">
         <strong>{props.appName}</strong>{" "}
         is a playground for exploring and testing Adyen integrations against the Adyen{" "}
         <strong>TEST</strong>{" "}
@@ -132,7 +132,7 @@ export function DisclaimerPage(props: { appName: string; repositoryUrl?: string 
 
       {props.repositoryUrl
         ? (
-          <p class="legal__source">
+          <p className="legal__source">
             Source and full terms:{" "}
             <a href={props.repositoryUrl} target="_blank" rel="noopener noreferrer">
               {props.repositoryUrl.replace(/^https?:\/\//, "")}
@@ -144,14 +144,6 @@ export function DisclaimerPage(props: { appName: string; repositoryUrl?: string 
   );
 }
 
-/** Inline in every app's <head>, before any stylesheet paints. */
-export function ThemeScript() {
-  // A constant written in this repo, never user input. As a text child it
-  // would be HTML-escaped by the server renderer and stop being JavaScript.
-  // deno-lint-ignore react-no-danger
-  return <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />;
-}
-
 /**
  * The light/dark switch. Its position and aria-checked come from the theme
  * script, not from props, so it is correct on first paint and needs no island.
@@ -160,24 +152,24 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      class="theme-toggle"
+      className="theme-toggle"
       role="switch"
       data-theme-toggle
       aria-label="Dark mode"
       title="Dark mode"
     >
-      <span class="theme-toggle__track" aria-hidden="true">
-        <span class="theme-toggle__thumb">
-          <svg class="theme-toggle__sun" viewBox="0 0 24 24" width="14" height="14">
+      <span className="theme-toggle__track" aria-hidden="true">
+        <span className="theme-toggle__thumb">
+          <svg className="theme-toggle__sun" viewBox="0 0 24 24" width="14" height="14">
             <circle cx="12" cy="12" r="4.2" fill="currentColor" />
             <path
               d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"
               stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
+              strokeWidth="1.8"
+              strokeLinecap="round"
             />
           </svg>
-          <svg class="theme-toggle__moon" viewBox="0 0 24 24" width="14" height="14">
+          <svg className="theme-toggle__moon" viewBox="0 0 24 24" width="14" height="14">
             <path
               d="M20.3 14.6A8.5 8.5 0 0 1 9.4 3.7a8.5 8.5 0 1 0 10.9 10.9z"
               fill="currentColor"
@@ -196,7 +188,7 @@ export function ThemeToggle() {
 export function TestPill() {
   return (
     <span
-      class="env-pill"
+      className="env-pill"
       title="Test environment only, never use production credentials or live endpoints."
     >
       TEST
@@ -216,9 +208,9 @@ export function TestPill() {
  */
 export function PlaygroundWordmark(props: { label: string }) {
   return (
-    <span class="wordmark">
-      <span class="wordmark__dot" aria-hidden="true" />
-      <span class="wordmark__text">{props.label}</span>
+    <span className="wordmark">
+      <span className="wordmark__dot" aria-hidden="true" />
+      <span className="wordmark__text">{props.label}</span>
     </span>
   );
 }
@@ -237,8 +229,8 @@ function GearIcon() {
         d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zm8.1-2.3.1-.9-.1-.9 2-1.6-2-3.4-2.4.9a7.6 7.6 0 0 0-1.6-.9L15.7 3h-3.9l-.4 2.5c-.6.2-1.1.5-1.6.9l-2.4-.9-2 3.4 2 1.6-.1.9.1.9-2 1.6 2 3.4 2.4-.9c.5.4 1 .7 1.6.9l.4 2.5h3.9l.4-2.5c.6-.2 1.1-.5 1.6-.9l2.4.9 2-3.4z"
         fill="none"
         stroke="currentColor"
-        stroke-width="1.6"
-        stroke-linejoin="round"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -247,7 +239,7 @@ function GearIcon() {
 export function AppShell(props: {
   title: string;
   currentPath: string;
-  children: ComponentChildren;
+  children: ReactNode;
   compact?: boolean;
   /**
    * Header with only the theme toggle and settings, plus Home and Back Office
@@ -260,30 +252,30 @@ export function AppShell(props: {
   const current = (href: string) => props.currentPath === href ? "page" : undefined;
   return (
     <>
-      <a class="skip-link" href="#main-content">Skip to content</a>
+      <a className="skip-link" href="#main-content">Skip to content</a>
       {props.minimal
         ? <MinimalHeader currentPath={props.currentPath} />
         : (
-          <header class="shell-header">
-            <div class="shell-header__bar">
-              <div class="shell-header__start">
-                <a class="brand" href="/" aria-label={props.title}>
+          <header className="shell-header">
+            <div className="shell-header__bar">
+              <div className="shell-header__start">
+                <a className="brand" href="/" aria-label={props.title}>
                   <PlaygroundWordmark label={props.title} />
                 </a>
                 <TestPill />
               </div>
-              <nav class="shell-nav" aria-label="Main navigation">
+              <nav className="shell-nav" aria-label="Main navigation">
                 {NAV.map((item) => (
                   <a key={item.href} href={item.href} aria-current={current(item.href)}>
                     {item.label}
                   </a>
                 ))}
               </nav>
-              <div class="shell-header__actions">
+              <div className="shell-header__actions">
                 <TestDataAndTools />
                 <ThemeToggle />
                 <a
-                  class="shell-icon-button shell-settings"
+                  className="shell-icon-button shell-settings"
                   href="/settings"
                   aria-label="Settings"
                   title="Settings"
@@ -291,18 +283,18 @@ export function AppShell(props: {
                 >
                   <GearIcon />
                 </a>
-                <details class="shell-menu">
-                  <summary class="shell-icon-button" aria-label="Menu">
+                <details className="shell-menu">
+                  <summary className="shell-icon-button" aria-label="Menu">
                     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                       <path
                         d="M4 8h16M4 16h16"
                         stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
                       />
                     </svg>
                   </summary>
-                  <nav class="shell-menu__sheet" aria-label="Menu">
+                  <nav className="shell-menu__sheet" aria-label="Menu">
                     {NAV.map((item) => (
                       <a key={item.href} href={item.href} aria-current={current(item.href)}>
                         {item.label}
@@ -317,15 +309,15 @@ export function AppShell(props: {
             </div>
           </header>
         )}
-      <div class={props.compact ? "app-frame app-frame--compact" : "app-frame"}>
-        <div class="app-content">
-          <main id="main-content" tabindex={-1}>{props.children}</main>
-          <footer class={props.minimal ? "app-footer app-footer--wide" : "app-footer"}>
-            <span class="app-footer__meta">
+      <div className={props.compact ? "app-frame app-frame--compact" : "app-frame"}>
+        <div className="app-content">
+          <main id="main-content" tabIndex={-1}>{props.children}</main>
+          <footer className={props.minimal ? "app-footer app-footer--wide" : "app-footer"}>
+            <span className="app-footer__meta">
               {props.minimal ? <TestPill /> : null}
               Adyen Web 6.48.1 · Checkout API v72
             </span>
-            <nav class="app-footer__links" aria-label="Footer">
+            <nav className="app-footer__links" aria-label="Footer">
               <a href="/wiki" aria-current={current("/wiki")}>Wiki</a>
               <a href={DOCS_URL} target="_blank" rel="noopener noreferrer">Adyen docs ↗</a>
               <a href="/disclaimer" aria-current={current("/disclaimer")}>Disclaimer</a>
@@ -339,12 +331,12 @@ export function AppShell(props: {
 
 function MinimalHeader(props: { currentPath: string }) {
   return (
-    <header class="shell-header shell-header--minimal">
-      <div class="shell-float">
+    <header className="shell-header shell-header--minimal">
+      <div className="shell-float">
         {props.currentPath === "/"
           ? <span />
           : (
-            <nav class="shell-glass shell-nav" aria-label="Main navigation">
+            <nav className="shell-glass shell-nav" aria-label="Main navigation">
               {NAV.map((item) => (
                 <a
                   key={item.href}
@@ -356,10 +348,10 @@ function MinimalHeader(props: { currentPath: string }) {
               ))}
             </nav>
           )}
-        <div class="shell-glass">
+        <div className="shell-glass">
           <ThemeToggle />
           <a
-            class="shell-icon-button"
+            className="shell-icon-button"
             href="/settings"
             aria-label="Settings"
             title="Settings"
@@ -377,36 +369,36 @@ export function PageHeader(props: {
   eyebrow?: string;
   title: string;
   description: string;
-  actions?: ComponentChildren;
+  actions?: ReactNode;
 }) {
   return (
-    <header class="page-header">
+    <header className="page-header">
       <div>
-        {props.eyebrow ? <span class="eyebrow">{props.eyebrow}</span> : null}
+        {props.eyebrow ? <span className="eyebrow">{props.eyebrow}</span> : null}
         <h1>{props.title}</h1>
         <p>{props.description}</p>
       </div>
-      {props.actions ? <div class="page-actions">{props.actions}</div> : null}
+      {props.actions ? <div className="page-actions">{props.actions}</div> : null}
     </header>
   );
 }
 
 export function StatusPill(props: {
-  children: ComponentChildren;
+  children: ReactNode;
   tone?: "neutral" | "positive" | "warning" | "danger" | "info";
 }) {
-  return <span class={`status-pill status-pill--${props.tone ?? "neutral"}`}>{props.children}
+  return <span className={`status-pill status-pill--${props.tone ?? "neutral"}`}>{props.children}
   </span>;
 }
 
 export function EmptyState(props: {
   title: string;
   description: string;
-  children?: ComponentChildren;
+  children?: ReactNode;
 }) {
   return (
-    <div class="empty-state">
-      <span class="empty-state__icon" aria-hidden="true">◎</span>
+    <div className="empty-state">
+      <span className="empty-state__icon" aria-hidden="true">◎</span>
       <h2>{props.title}</h2>
       <p>{props.description}</p>
       {props.children}
@@ -418,11 +410,11 @@ export function Field(props: {
   label: string;
   hint?: string;
   htmlFor: string;
-  children: ComponentChildren;
+  children: ReactNode;
 }) {
   return (
-    <div class="field">
-      <label for={props.htmlFor}>{props.label}</label>
+    <div className="field">
+      <label htmlFor={props.htmlFor}>{props.label}</label>
       {props.children}
       {props.hint ? <small>{props.hint}</small> : null}
     </div>
@@ -442,14 +434,14 @@ export function ColorField(
   const [text, setText] = useState(props.value);
   useEffect(() => setText(props.value), [props.value]);
   return (
-    <div class="field">
-      <label for={props.htmlFor}>{props.label}</label>
-      <div class="color-field">
+    <div className="field">
+      <label htmlFor={props.htmlFor}>{props.label}</label>
+      <div className="color-field">
         <input
           id={props.htmlFor}
           type="color"
           value={props.value}
-          onInput={(event) => {
+          onChange={(event) => {
             const next = event.currentTarget.value;
             setText(next);
             props.onChange(next);
@@ -457,12 +449,12 @@ export function ColorField(
         />
         <input
           type="text"
-          class="color-field__hex"
+          className="color-field__hex"
           value={text}
-          spellcheck={false}
+          spellCheck={false}
           maxLength={7}
           aria-label={`${props.label} hex value`}
-          onInput={(event) => {
+          onChange={(event) => {
             const next = event.currentTarget.value;
             setText(next);
             if (HEX_PATTERN.test(next)) props.onChange(next);
@@ -475,13 +467,13 @@ export function ColorField(
 
 export function Callout(props: {
   title: string;
-  children: ComponentChildren;
+  children: ReactNode;
   tone?: "info" | "warning" | "danger";
   compact?: boolean;
 }) {
   return (
     <aside
-      class={`callout callout--${props.tone ?? "info"}${props.compact ? " callout--compact" : ""}`}
+      className={`callout callout--${props.tone ?? "info"}${props.compact ? " callout--compact" : ""}`}
       role="note"
     >
       <strong>{props.title}</strong>

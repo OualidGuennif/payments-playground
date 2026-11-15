@@ -1,6 +1,6 @@
 // Spec: knowledge/components/platform-package.md
-import { getCookie, setCookie } from "jsr:@hono/hono@4.12.31/cookie";
-import type { Context, MiddlewareHandler } from "hono";
+// Framework-free on purpose: base-api.ts runs these before Elysia sees a request, the Next proxy runs
+// the Basic Auth check before a page renders, and the tests call them on plain Requests.
 import { isIP } from "node:net";
 
 const encoder = new TextEncoder();
@@ -55,35 +55,81 @@ export async function verifySignedValue(
   return difference === 0 ? value : undefined;
 }
 
+export interface CookieOptions {
+  httpOnly: boolean;
+  secure: boolean;
+  maxAge: number;
+}
+
+/** The cookies a request carried, and the Set-Cookie lines issued in answer to it. */
+export class CookieJar {
+  readonly #values = new Map<string, string>();
+  readonly #issued = new Map<string, string>();
+
+  constructor(request: Request) {
+    for (const part of (request.headers.get("cookie") ?? "").split(";")) {
+      const separator = part.indexOf("=");
+      if (separator < 1) continue;
+      const name = part.slice(0, separator).trim();
+      const raw = part.slice(separator + 1).trim().replace(/^"(.*)"$/, "$1");
+      try {
+        this.#values.set(name, decodeURIComponent(raw));
+      } catch {
+        this.#values.set(name, raw);
+      }
+    }
+  }
+
+  get(name: string): string | undefined {
+    return this.#values.get(name);
+  }
+
+  set(name: string, value: string, options: CookieOptions): void {
+    this.#values.set(name, value);
+    const attributes = [
+      `${name}=${encodeURIComponent(value)}`,
+      `Max-Age=${options.maxAge}`,
+      "Path=/",
+      ...(options.httpOnly ? ["HttpOnly"] : []),
+      ...(options.secure ? ["Secure"] : []),
+      "SameSite=Strict",
+    ];
+    this.#issued.set(name, attributes.join("; "));
+  }
+
+  get issued(): string[] {
+    return [...this.#issued.values()];
+  }
+}
+
 export interface SessionContext {
   id: string;
   csrfToken: string;
 }
 
-export async function ensureSession(c: Context, signingSecret: string): Promise<SessionContext> {
-  const secure = new URL(c.req.url).protocol === "https:";
-  const signedSession = getCookie(c, "adyen_session");
-  let sessionId = await verifySignedValue(signingSecret, signedSession);
+function isSecure(request: Request): boolean {
+  return new URL(request.url).protocol === "https:";
+}
+
+export async function ensureSession(
+  request: Request,
+  jar: CookieJar,
+  signingSecret: string,
+): Promise<SessionContext> {
+  const secure = isSecure(request);
+  let sessionId = await verifySignedValue(signingSecret, jar.get("adyen_session"));
   if (!sessionId) {
     sessionId = crypto.randomUUID();
-    setCookie(c, "adyen_session", await signedValue(signingSecret, sessionId), {
+    jar.set("adyen_session", await signedValue(signingSecret, sessionId), {
       httpOnly: true,
-      sameSite: "Strict",
       secure,
-      path: "/",
       maxAge: 60 * 60 * 24 * 30,
     });
   }
-  let csrfToken = getCookie(c, "adyen_csrf");
+  let csrfToken = jar.get("adyen_csrf");
   if (!csrfToken) {
     csrfToken = crypto.randomUUID();
-    setCookie(c, "adyen_csrf", csrfToken, {
-      httpOnly: false,
-      sameSite: "Strict",
-      secure,
-      path: "/",
-      maxAge: 60 * 60 * 24,
-    });
+    jar.set("adyen_csrf", csrfToken, { httpOnly: false, secure, maxAge: 60 * 60 * 24 });
   }
   return { id: sessionId, csrfToken };
 }
@@ -122,9 +168,9 @@ function sameOriginHost(request: Request, publicOrigin: string, origin: string):
 /**
  * The origin the shopper's browser is actually on, for `returnUrl` and the
  * 3DS `origin` field. PUBLIC_ORIGIN is right in a deployment, but locally the
- * same app is reached on 8001 through `dev:digital`, on Vite's 5173 through
- * `deno task dev`, or on a tunnel, and a redirect back to the wrong one lands
- * on a dead page. Only a same-origin Origin header is trusted.
+ * same app is reached on its documented port, on Next's default 3000 or on a
+ * tunnel, and a redirect back to the wrong one lands on a dead page. Only a
+ * same-origin Origin header is trusted.
  */
 export function requestOrigin(request: Request, publicOrigin: string): string {
   const origin = request.headers.get("origin");
@@ -136,16 +182,13 @@ export function requestOrigin(request: Request, publicOrigin: string): string {
 /**
  * The shopper's IP, for Adyen's risk checks (`shopperIP` on /payments).
  * Behind Render the connection is the proxy's, so the first X-Forwarded-For
- * entry wins, as in rateLimit. A shopper can forge it, which on this TEST
+ * entry wins, as in the rate limit. A shopper can forge it, which on this TEST
  * playground only misleads the risk checks on their own payment. Without the
- * header (the Docker image run locally) the connection's address is used.
+ * header the connection's address, when the caller knows it, is used.
  */
-export function shopperIp(request: Request, info?: Deno.ServeHandlerInfo): string | undefined {
+export function shopperIp(request: Request, remoteAddress?: string): string | undefined {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const remote = info?.remoteAddr && "hostname" in info.remoteAddr
-    ? info.remoteAddr.hostname
-    : undefined;
-  for (const candidate of [forwarded, remote]) {
+  for (const candidate of [forwarded, remoteAddress]) {
     // A dual-stack socket reports an IPv4 shopper as ::ffff:a.b.c.d.
     const ip = candidate?.replace(/^::ffff:(?=\d{1,3}(\.\d{1,3}){3}$)/i, "");
     if (ip && isIP(ip)) return ip;
@@ -153,29 +196,36 @@ export function shopperIp(request: Request, info?: Deno.ServeHandlerInfo): strin
   return undefined;
 }
 
-export function csrfProtection(signingSecret: string, publicOrigin: string): MiddlewareHandler {
-  return async (c, next) => {
-    // Checked before ensureSession, so a rejected request never issues
-    // cookies. A first visit's POST can race the page's own GET
-    // /api/bootstrap; answering it with a fresh token replaced the one
-    // bootstrap had just set, and the next POST failed with a stale header.
-    if (["POST", "PUT", "PATCH", "DELETE"].includes(c.req.method)) {
-      // The real protection: a double-submit token the browser only ever
-      // exposes to same-origin script, backed by SameSite=Strict on the
-      // session cookie. A genuine cross-site attacker can't read either.
-      const cookieToken = getCookie(c, "adyen_csrf");
-      const headerToken = c.req.header("x-csrf-token");
-      if (!cookieToken || !headerToken || cookieToken !== headerToken) {
-        return c.json({ error: "CSRF validation failed." }, 403);
-      }
-      const origin = c.req.header("origin");
-      if (origin && !sameOriginHost(c.req.raw, publicOrigin, origin)) {
-        return c.json({ error: "Cross-origin request rejected." }, 403);
-      }
-    }
-    c.set("session", await ensureSession(c, signingSecret));
-    await next();
-  };
+function json(body: unknown, status: number, headers: Record<string, string> = {}): Response {
+  return Response.json(body, { status, headers });
+}
+
+/**
+ * The 403 for a mutation that fails the CSRF checks, otherwise undefined.
+ * Checked before ensureSession, so a rejected request never issues cookies. A
+ * first visit's POST can race the page's own GET /api/bootstrap; answering it
+ * with a fresh token replaced the one bootstrap had just set, and the next
+ * POST failed with a stale header.
+ */
+export function csrfRejection(
+  request: Request,
+  jar: CookieJar,
+  publicOrigin: string,
+): Response | undefined {
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) return undefined;
+  // The real protection: a double-submit token the browser only ever
+  // exposes to same-origin script, backed by SameSite=Strict on the
+  // session cookie. A genuine cross-site attacker can't read either.
+  const cookieToken = jar.get("adyen_csrf");
+  const headerToken = request.headers.get("x-csrf-token");
+  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    return json({ error: "CSRF validation failed." }, 403);
+  }
+  const origin = request.headers.get("origin");
+  if (origin && !sameOriginHost(request, publicOrigin, origin)) {
+    return json({ error: "Cross-origin request rejected." }, 403);
+  }
+  return undefined;
 }
 
 export function preferredProfileCookieName(appId: string): string {
@@ -183,24 +233,23 @@ export function preferredProfileCookieName(appId: string): string {
 }
 
 export async function readPreferredProfile(
-  c: Context,
+  jar: CookieJar,
   appId: string,
   signingSecret: string,
 ): Promise<string | undefined> {
-  return await verifySignedValue(signingSecret, getCookie(c, preferredProfileCookieName(appId)));
+  return await verifySignedValue(signingSecret, jar.get(preferredProfileCookieName(appId)));
 }
 
 export async function writePreferredProfile(
-  c: Context,
+  request: Request,
+  jar: CookieJar,
   appId: string,
   profileId: string,
   signingSecret: string,
 ): Promise<void> {
-  setCookie(c, preferredProfileCookieName(appId), await signedValue(signingSecret, profileId), {
+  jar.set(preferredProfileCookieName(appId), await signedValue(signingSecret, profileId), {
     httpOnly: true,
-    sameSite: "Strict",
-    secure: new URL(c.req.url).protocol === "https:",
-    path: "/",
+    secure: isSecure(request),
     maxAge: 60 * 60 * 24 * 365,
   });
 }
@@ -210,11 +259,15 @@ interface RateBucket {
   resetsAt: number;
 }
 
-export function rateLimit(maxRequests = 120, windowMs = 60_000): MiddlewareHandler {
+/** Per client and path; answers the 429 once a client is over the limit, otherwise undefined. */
+export function rateLimiter(
+  maxRequests = 120,
+  windowMs = 60_000,
+): (request: Request) => Response | undefined {
   const buckets = new Map<string, RateBucket>();
-  return async (c, next) => {
-    const forwarded = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
-    const key = `${forwarded ?? "local"}:${new URL(c.req.url).pathname}`;
+  return (request) => {
+    const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const key = `${forwarded ?? "local"}:${new URL(request.url).pathname}`;
     const now = Date.now();
     const bucket = buckets.get(key);
     if (!bucket || bucket.resetsAt <= now) {
@@ -222,8 +275,8 @@ export function rateLimit(maxRequests = 120, windowMs = 60_000): MiddlewareHandl
     } else {
       bucket.count += 1;
       if (bucket.count > maxRequests) {
-        c.header("Retry-After", String(Math.ceil((bucket.resetsAt - now) / 1000)));
-        return c.json({ error: "Rate limit exceeded." }, 429);
+        const retryAfter = String(Math.ceil((bucket.resetsAt - now) / 1000));
+        return json({ error: "Rate limit exceeded." }, 429, { "Retry-After": retryAfter });
       }
     }
     if (buckets.size > 5_000) {
@@ -231,41 +284,38 @@ export function rateLimit(maxRequests = 120, windowMs = 60_000): MiddlewareHandl
         if (value.resetsAt <= now) buckets.delete(bucketKey);
       }
     }
-    await next();
+    return undefined;
   };
 }
 
-export function securityHeaders(): MiddlewareHandler {
-  return async (c, next) => {
-    await next();
-    applySecurityHeaders(c.res.headers);
-  };
-}
-
-export function applySecurityHeaders(headers: Headers): void {
-  headers.set("X-Content-Type-Options", "nosniff");
-  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  headers.set("X-Frame-Options", "DENY");
-  headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+/** Also listed in each app's next.config.ts headers(), which covers the pages. */
+export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "X-Frame-Options": "DENY",
+  "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
   // No Content-Security-Policy: on this TEST playground it kept blocking
   // legitimate Adyen/wallet subresources one host at a time (icons, wallet
   // SDKs, 3DS). Adyen's own iframes remain the real PCI boundary regardless
   // of our page CSP, so it wasn't buying real protection here, only churn.
+};
+
+export function applySecurityHeaders(headers: Headers): void {
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) headers.set(name, value);
 }
 
 const BASIC_AUTH_REALM = 'Basic realm="Adyen TEST Playground"';
 
 /**
  * The 401 to answer with when PLAYGROUND_BASIC_AUTH_* is set and the request
- * does not carry those credentials, otherwise undefined. Framework-free so
- * each app's main.ts can run it before Fresh: as a Hono middleware alone it
- * only ever covered /api/*, leaving every page public and flow pages
- * crashing on their in-process bootstrap call.
+ * does not carry those credentials, otherwise undefined. Each app's Next
+ * proxy runs it before a page renders and base-api.ts before the API, so no
+ * page or route is public by omission.
  */
 export function basicAuthChallenge(request: Request): Response | undefined {
-  const username = Deno.env.get("PLAYGROUND_BASIC_AUTH_USER");
-  const password = Deno.env.get("PLAYGROUND_BASIC_AUTH_PASSWORD");
+  const username = process.env.PLAYGROUND_BASIC_AUTH_USER;
+  const password = process.env.PLAYGROUND_BASIC_AUTH_PASSWORD;
   if (!username || !password) return undefined;
   const path = new URL(request.url).pathname;
   if (path === "/healthz" || path === "/api/health") return undefined;
@@ -282,8 +332,4 @@ export function basicAuthChallenge(request: Request): Response | undefined {
     status: 401,
     headers: { "WWW-Authenticate": BASIC_AUTH_REALM },
   });
-}
-
-export function optionalBasicAuth(): MiddlewareHandler {
-  return async (c, next) => basicAuthChallenge(c.req.raw) ?? await next();
 }

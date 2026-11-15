@@ -1,24 +1,24 @@
+// Spec: knowledge/components/adyen-v6-styling.md
 import { DisclaimerPage, ThemeToggle } from "@suite/ui/components.tsx";
-import { define } from "../utils.ts";
 
 const REPOSITORY = "https://github.com/OualidGuennif/payments-playground";
 
-export default define.page(function Disclaimer() {
+export default function Disclaimer() {
   return (
-    <main class="styling-main" id="main-content">
+    <main className="styling-main" id="main-content">
       {
         /* This app has no shared shell, so the page carries its own toolbar,
           otherwise there is no way back to the playground. */
       }
-      <div class="legal-toolbar">
-        <a class="shell-glass styling-back" href="/">← Back to the playground</a>
-        <div class="shell-glass">
+      <div className="legal-toolbar">
+        <a className="shell-glass styling-back" href="/">← Back to the playground</a>
+        <div className="shell-glass">
           <ThemeToggle />
         </div>
       </div>
-      <div class="legal-shell">
+      <div className="legal-shell">
         <DisclaimerPage appName="Drop-in Styling" repositoryUrl={REPOSITORY} />
       </div>
     </main>
   );
-});
+}

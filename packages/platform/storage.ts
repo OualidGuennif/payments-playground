@@ -1,6 +1,7 @@
 // Spec: knowledge/components/platform-package.md
-import { Database } from "@db/sqlite";
-import { dirname } from "@std/path";
+import { Database, type SQLQueryBindings } from "bun:sqlite";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { SCHEMA_SQL } from "./migrations.ts";
 import { sanitize } from "./sanitize.ts";
 import type {
@@ -17,6 +18,8 @@ import type {
   TimelineEntry,
 } from "./types.ts";
 import { isModificationEvent } from "./modifications.ts";
+
+type Bindings = SQLQueryBindings[];
 
 interface OrderRow {
   id: string;
@@ -124,7 +127,7 @@ export class Repository {
   readonly database: Database;
 
   constructor(path: string) {
-    if (path !== ":memory:") Deno.mkdirSync(dirname(path), { recursive: true });
+    if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
     this.database = new Database(path);
     this.database.exec(SCHEMA_SQL);
   }
@@ -176,19 +179,19 @@ export class Repository {
   }
 
   getOrder(id: string): OrderAggregate | undefined {
-    const row = this.database.prepare<OrderRow>("SELECT * FROM orders WHERE id = ?").get(id);
+    const row = this.database.prepare<OrderRow, Bindings>("SELECT * FROM orders WHERE id = ?").get(id);
     return row ? mapOrder(row) : undefined;
   }
 
   getOrderByReference(reference: string): OrderAggregate | undefined {
-    const row = this.database.prepare<OrderRow>("SELECT * FROM orders WHERE reference = ?").get(
+    const row = this.database.prepare<OrderRow, Bindings>("SELECT * FROM orders WHERE reference = ?").get(
       reference,
     );
     return row ? mapOrder(row) : undefined;
   }
 
   findOrderByPaymentLinkId(linkId: string): OrderAggregate | undefined {
-    const row = this.database.prepare<OrderRow>(
+    const row = this.database.prepare<OrderRow, Bindings>(
       "SELECT * FROM orders WHERE payment_link_id = ?",
     ).get(linkId);
     return row ? mapOrder(row) : undefined;
@@ -196,7 +199,7 @@ export class Repository {
 
   /** A modification webhook names its payment only through originalReference. */
   findOrderByPspReference(pspReference: string): OrderAggregate | undefined {
-    const row = this.database.prepare<OrderRow>(
+    const row = this.database.prepare<OrderRow, Bindings>(
       `SELECT orders.* FROM orders JOIN attempts ON attempts.order_id = orders.id
        WHERE attempts.psp_reference = ? LIMIT 1`,
     ).get(pspReference);
@@ -204,7 +207,7 @@ export class Repository {
   }
 
   listOrders(appId: AppId, limit = 100): OrderAggregate[] {
-    return this.database.prepare<OrderRow>(
+    return this.database.prepare<OrderRow, Bindings>(
       "SELECT * FROM orders WHERE app_id = ? ORDER BY updated_at DESC LIMIT ?",
     ).all(appId, limit).map(mapOrder);
   }
@@ -290,7 +293,7 @@ export class Repository {
       now,
     );
     return mapAttempt(
-      this.database.prepare<AttemptRow>("SELECT * FROM attempts WHERE id = ?").get(id)!,
+      this.database.prepare<AttemptRow, Bindings>("SELECT * FROM attempts WHERE id = ?").get(id)!,
     );
   }
 
@@ -303,7 +306,7 @@ export class Repository {
       refusalReason?: string;
     },
   ): AttemptAggregate {
-    const existing = this.database.prepare<AttemptRow>("SELECT * FROM attempts WHERE id = ?").get(
+    const existing = this.database.prepare<AttemptRow, Bindings>("SELECT * FROM attempts WHERE id = ?").get(
       id,
     );
     if (!existing) throw new Error("Attempt not found.");
@@ -319,12 +322,12 @@ export class Repository {
       id,
     );
     return mapAttempt(
-      this.database.prepare<AttemptRow>("SELECT * FROM attempts WHERE id = ?").get(id)!,
+      this.database.prepare<AttemptRow, Bindings>("SELECT * FROM attempts WHERE id = ?").get(id)!,
     );
   }
 
   listAttempts(orderId: string): AttemptAggregate[] {
-    return this.database.prepare<AttemptRow>(
+    return this.database.prepare<AttemptRow, Bindings>(
       "SELECT * FROM attempts WHERE order_id = ? ORDER BY created_at",
     ).all(orderId).map(mapAttempt);
   }
@@ -339,7 +342,7 @@ export class Repository {
     // The /payments response and the AUTHORISATION webhook both report the
     // same authorisation; one PSP reference is one part, whichever lands first.
     if (input.pspReference) {
-      const existing = this.database.prepare<{ id: string }>(
+      const existing = this.database.prepare<{ id: string }, Bindings>(
         `SELECT id FROM payment_parts
          WHERE order_id = ? AND psp_reference = ? AND state = ?`,
       ).get(input.orderId, input.pspReference, input.state);
@@ -433,7 +436,7 @@ export class Repository {
     payload: unknown;
   }): { id: string; duplicate: boolean } {
     const id = crypto.randomUUID();
-    const changes = this.database.prepare(
+    const { changes } = this.database.prepare(
       `INSERT OR IGNORE INTO webhooks
        (id, app_id, dedupe_key, correlation_id, event_type, psp_reference,
         hmac_valid, payload, received_at, processed_at)
@@ -464,7 +467,7 @@ export class Repository {
   }): { id: string; duplicate: boolean } {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    const changes = this.database.prepare(
+    const { changes } = this.database.prepare(
       `INSERT OR IGNORE INTO lifecycle_actions
        (id, app_id, order_id, correlation_id, action, state, idempotency_key,
         payload, created_at, updated_at)
@@ -493,7 +496,7 @@ export class Repository {
       idempotency_key: string;
       payload: string;
       created_at: string;
-    }>(
+    }, Bindings>(
       "SELECT * FROM lifecycle_actions WHERE order_id = ? ORDER BY created_at",
     ).all(orderId).map((row) => mapAction(row));
   }
@@ -506,7 +509,7 @@ export class Repository {
       idempotency_key: string;
       payload: string;
       created_at: string;
-    }>("SELECT * FROM lifecycle_actions WHERE idempotency_key = ?").get(idempotencyKey);
+    }, Bindings>("SELECT * FROM lifecycle_actions WHERE idempotency_key = ?").get(idempotencyKey);
     return row ? mapAction(row) : undefined;
   }
 
@@ -515,7 +518,7 @@ export class Repository {
     id: string,
     input: { state: ModificationRequest["state"]; pspReference?: string; reason?: string },
   ): void {
-    const row = this.database.prepare<{ payload: string }>(
+    const row = this.database.prepare<{ payload: string }, Bindings>(
       "SELECT payload FROM lifecycle_actions WHERE id = ?",
     ).get(id);
     if (!row) return;
@@ -535,7 +538,7 @@ export class Repository {
       event_type: string;
       payload: string;
       received_at: string;
-    }>(
+    }, Bindings>(
       "SELECT event_type, payload, received_at FROM webhooks WHERE correlation_id = ? AND hmac_valid = 1",
     ).all(correlationId).filter((row) => isModificationEvent(row.event_type)).map((row) => {
       const payload = parseJson(row.payload) as Record<string, unknown>;
@@ -591,7 +594,7 @@ export class Repository {
       request_payload: string;
       response_payload: string;
       error: string | null;
-    }>("SELECT * FROM api_calls WHERE correlation_id = ?").all(correlationId);
+    }, Bindings>("SELECT * FROM api_calls WHERE correlation_id = ?").all(correlationId);
     for (const row of apiRows) {
       entries.push({
         id: row.id,
@@ -617,7 +620,7 @@ export class Repository {
       name: string;
       payload: string;
       occurred_at: string;
-    }>("SELECT * FROM frontend_callbacks WHERE correlation_id = ?").all(correlationId);
+    }, Bindings>("SELECT * FROM frontend_callbacks WHERE correlation_id = ?").all(correlationId);
     for (const row of callbackRows) {
       entries.push({
         id: row.id,
@@ -637,7 +640,7 @@ export class Repository {
       hmac_valid: number;
       payload: string;
       received_at: string;
-    }>("SELECT * FROM webhooks WHERE correlation_id = ?").all(correlationId);
+    }, Bindings>("SELECT * FROM webhooks WHERE correlation_id = ?").all(correlationId);
     for (const row of webhookRows) {
       entries.push({
         id: row.id,
@@ -658,7 +661,7 @@ export class Repository {
       state: string;
       payload: string;
       created_at: string;
-    }>("SELECT * FROM lifecycle_actions WHERE correlation_id = ?").all(correlationId);
+    }, Bindings>("SELECT * FROM lifecycle_actions WHERE correlation_id = ?").all(correlationId);
     for (const row of actionRows) {
       entries.push({
         id: row.id,

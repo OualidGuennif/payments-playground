@@ -31,7 +31,8 @@ deno task --cwd apps/adyen-digital dev     # Vite's default port: http://localho
 
 Both read `apps/adyen-digital/.env` (copy `.env.example`; four Adyen values are required: API key,
 merchant account, `test_` client key, HMAC key). Process environment wins over the file; values may
-be quoted. The client key's allowed origins in the Customer Area must include the origin you browse
+be quoted. The file is read by `packages/platform/dotenv.ts`, which never expands `$name`. The
+client key's allowed origins in the Customer Area must include the origin you browse
 on.
 
 `PUBLIC_ORIGIN` only has to be right for webhooks and deployments. Redirects (`returnUrl`) and the

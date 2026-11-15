@@ -39,4 +39,5 @@ Sessions outcomes and CAPTURE/CANCELLATION webhooks never reached the order, so 
 
 **Consequences.** Without webhooks, a card order stops at `payment_pending` (authorised); only a
 CAPTURE webhook makes it `paid`. See [the lifecycle](../architecture/payment-lifecycle.md) and the
-open gaps in [current/digital-status.md](../current/digital-status.md).
+open gaps in [current/digital-status.md](../current/digital-status.md). Since 2026-11-15 the
+state-machine tests run under `bun test`, with the same assertions.

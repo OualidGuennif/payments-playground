@@ -1,6 +1,8 @@
 // Spec: knowledge/components/platform-package.md
-import { dirname } from "@std/path";
-import type { Database } from "@db/sqlite";
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
+import { REQUIRED_SECRETS } from "./config.ts";
 import type { AppId, ProfileSecrets, PublicProfile } from "./types.ts";
 import { profileIsTestOnly } from "./test-only.ts";
 
@@ -49,10 +51,10 @@ function localKeyPath(databasePath: string): string {
 }
 
 function resolveEncryptionKey(databasePath: string): Uint8Array {
-  const configured = Deno.env.get("PROFILE_ENCRYPTION_KEY");
+  const configured = process.env.PROFILE_ENCRYPTION_KEY;
   if (configured) return parseKey(configured);
 
-  if (Deno.env.get("RENDER") || Deno.env.get("DENO_DEPLOYMENT_ID")) {
+  if (process.env.RENDER) {
     throw new Error(
       "PROFILE_ENCRYPTION_KEY is required before saving custom profiles in a hosted environment.",
     );
@@ -60,13 +62,13 @@ function resolveEncryptionKey(databasePath: string): Uint8Array {
 
   const keyPath = localKeyPath(databasePath);
   try {
-    return decodeBase64(Deno.readTextFileSync(keyPath).trim());
+    return decodeBase64(readFileSync(keyPath, "utf8").trim());
   } catch {
     const key = crypto.getRandomValues(new Uint8Array(32));
-    Deno.mkdirSync(dirname(keyPath), { recursive: true });
-    Deno.writeTextFileSync(keyPath, encodeBase64(key), { mode: 0o600 });
+    mkdirSync(dirname(keyPath), { recursive: true });
+    writeFileSync(keyPath, encodeBase64(key), { mode: 0o600 });
     try {
-      Deno.chmodSync(keyPath, 0o600);
+      chmodSync(keyPath, 0o600);
     } catch {
       // chmod is not available on every host; file remains inside ignored data/.
     }
@@ -74,17 +76,11 @@ function resolveEncryptionKey(databasePath: string): Uint8Array {
   }
 }
 
-function requiredFields(appId: AppId): Array<keyof ProfileSecrets> {
-  if (appId === "ipp") return ["apiKey", "merchantAccount", "terminalId"];
-  if (appId === "agentic") return ["apiKey", "merchantAccount"];
-  return ["apiKey", "merchantAccount", "clientKey"];
-}
-
 function publicFrom(
   row: ProfileRow,
   secrets: ProfileSecrets,
 ): PublicProfile {
-  const missingFields = requiredFields(row.app_id).filter((field) => !secrets[field]);
+  const missingFields = REQUIRED_SECRETS.filter((field) => !secrets[field]);
   return {
     id: row.id,
     label: row.label,
@@ -93,12 +89,7 @@ function publicFrom(
     isConfigured: missingFields.length === 0,
     missingFields,
     merchantAccount: secrets.merchantAccount,
-    capabilities: row.app_id === "agentic"
-      ? [
-        "mock-ready",
-        secrets.agenticBearerToken ? "real-token-configured" : "real-token-unavailable",
-      ]
-      : ["adyen-test"],
+    capabilities: ["adyen-test"],
     updatedAt: row.updated_at,
   };
 }
@@ -156,7 +147,7 @@ export class ProfileStore {
   }
 
   async listPublic(): Promise<PublicProfile[]> {
-    const rows = this.#database.prepare<ProfileRow>(
+    const rows = this.#database.prepare<ProfileRow, SQLQueryBindings[]>(
       "SELECT * FROM profiles WHERE app_id = ? ORDER BY updated_at DESC",
     ).all(this.#appId);
     const profiles: PublicProfile[] = [this.#defaultProfile];
@@ -181,7 +172,7 @@ export class ProfileStore {
 
   async getPublic(id: string): Promise<PublicProfile | undefined> {
     if (id === "default") return this.#defaultProfile;
-    const row = this.#database.prepare<ProfileRow>(
+    const row = this.#database.prepare<ProfileRow, SQLQueryBindings[]>(
       "SELECT * FROM profiles WHERE app_id = ? AND id = ?",
     ).get(this.#appId, id);
     return row ? publicFrom(row, await this.#decrypt(row)) : undefined;
@@ -189,7 +180,7 @@ export class ProfileStore {
 
   async getSecrets(id: string): Promise<ProfileSecrets | undefined> {
     if (id === "default") return { ...this.#defaultSecrets };
-    const row = this.#database.prepare<ProfileRow>(
+    const row = this.#database.prepare<ProfileRow, SQLQueryBindings[]>(
       "SELECT * FROM profiles WHERE app_id = ? AND id = ?",
     ).get(this.#appId, id);
     return row ? await this.#decrypt(row) : undefined;
@@ -232,6 +223,6 @@ export class ProfileStore {
     }
     return this.#database.prepare(
       "DELETE FROM profiles WHERE app_id = ? AND id = ?",
-    ).run(this.#appId, id) > 0;
+    ).run(this.#appId, id).changes > 0;
   }
 }

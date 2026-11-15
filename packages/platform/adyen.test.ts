@@ -1,4 +1,5 @@
-import { assertEquals, assertExists, assertRejects } from "@std/assert";
+import { test } from "bun:test";
+import { assertEquals, assertExists, assertRejects } from "../../testing/assert.ts";
 import adyenApiLibrary from "@adyen/api-library";
 import { type AdyenHttpClient, AdyenRequestError, AdyenTestClient } from "./adyen.ts";
 
@@ -24,7 +25,7 @@ function jsonText(body: Call[1]): string {
   return body;
 }
 
-Deno.test("sessions uses the exact Checkout v72 TEST endpoint and TEST credentials", async () => {
+test("sessions uses the exact Checkout v72 TEST endpoint and TEST credentials", async () => {
   const { calls, httpClient } = recordingHttpClient(() =>
     Promise.resolve(JSON.stringify({ id: "CS_TEST", sessionData: "session-data" }))
   );
@@ -51,7 +52,7 @@ Deno.test("sessions uses the exact Checkout v72 TEST endpoint and TEST credentia
   assertEquals(response, { id: "CS_TEST", sessionData: "session-data" });
 });
 
-Deno.test("a gift card balance is a POST to /paymentMethods/balance", async () => {
+test("a gift card balance is a POST to /paymentMethods/balance", async () => {
   const { calls, httpClient } = recordingHttpClient(() =>
     Promise.resolve(JSON.stringify({ resultCode: "NotEnoughBalance" }))
   );
@@ -66,7 +67,7 @@ Deno.test("a gift card balance is a POST to /paymentMethods/balance", async () =
   assertEquals(JSON.parse(jsonText(json)).paymentMethod.brand, "givex");
 });
 
-Deno.test("Adyen HTTP errors preserve the upstream status and safe message", async () => {
+test("Adyen HTTP errors preserve the upstream status and safe message", async () => {
   const responseBody = JSON.stringify({
     status: 422,
     errorCode: "901",
@@ -97,7 +98,7 @@ Deno.test("Adyen HTTP errors preserve the upstream status and safe message", asy
   assertEquals(error.errorCode, "901");
 });
 
-Deno.test("a transport failure is reported as a connection error, not a 500", async () => {
+test("a transport failure is reported as a connection error, not a 500", async () => {
   const { httpClient } = recordingHttpClient(() =>
     // The shape the library rejects with when the socket itself fails.
     Promise.reject({

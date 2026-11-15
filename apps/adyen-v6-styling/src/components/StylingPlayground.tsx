@@ -1,14 +1,17 @@
+"use client";
+// Spec: knowledge/components/adyen-v6-styling.md
 import { AdyenCheckout, Dropin } from "@adyen/adyen-web";
 import type { Core } from "@adyen/adyen-web";
-import { apiFetch } from "@suite/ui/client.ts";
+import { apiClient, unwrap } from "@suite/ui/client.ts";
+import type { App } from "@/server/api";
 import { ThemeToggle } from "@suite/ui/components.tsx";
-import { OptionRow } from "../components/OptionFields.tsx";
+import { OptionRow } from "./OptionFields.tsx";
 import { localeForCountry } from "@suite/platform/markets.ts";
 import { INSTALLMENT_COUNTRIES, isNonFatalWalletError } from "@suite/ui/paymentMethods.ts";
 import "@suite/ui/registerPaymentMethods.ts";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { TestCards } from "../components/TestCards.tsx";
-import { ComponentsPanel, FieldStylesPanel, ThemePanel } from "../components/styling-panels.tsx";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { TestCards } from "./TestCards.tsx";
+import { ComponentsPanel, FieldStylesPanel, ThemePanel } from "./styling-panels.tsx";
 import {
   cardDefaultsFor,
   COUNTRIES,
@@ -16,15 +19,15 @@ import {
   detectInitialCountry,
   flagEmoji,
   LOCALES,
-} from "../components/styling-data.ts";
+} from "./styling-data.ts";
 import type {
   AvailableMethod,
   Bootstrap,
   Mounted,
   SessionResponse,
-} from "../components/styling-data.ts";
-import { clearStored, STORAGE_KEY, stored } from "../components/styling-persistence.ts";
-import type { Persisted } from "../components/styling-persistence.ts";
+} from "./styling-data.ts";
+import { clearStored, STORAGE_KEY, stored } from "./styling-persistence.ts";
+import type { Persisted } from "./styling-persistence.ts";
 import {
   cssPreviewVariables,
   cssText,
@@ -37,7 +40,7 @@ import {
   dropinProps,
   THEME_PRESETS,
   themeSignature,
-} from "../components/adyenOptions.ts";
+} from "./adyenOptions.ts";
 import type {
   CardOptions,
   CssRules,
@@ -49,7 +52,7 @@ import type {
   SecureState,
   SecureStyles,
   WalletOptions,
-} from "../components/adyenOptions.ts";
+} from "./adyenOptions.ts";
 
 function ResetIcon() {
   return (
@@ -57,13 +60,16 @@ function ResetIcon() {
       <path
         d="M3 12a9 9 0 1 0 3.5-7.1M3 4v5h5"
         stroke="currentColor"
-        stroke-width="2.2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
 }
+
+// Typed calls to this app's Elysia routes; only the App type crosses into the bundle.
+const api = () => apiClient<App>();
 
 export default function StylingPlayground() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
@@ -232,30 +238,26 @@ export default function StylingPlayground() {
   // be refused, leaving the dropdown empty.
   useEffect(() => {
     if (!bootstrap) return;
-    apiFetch<{ paymentMethods: AvailableMethod[] }>("/api/styling/payment-methods", {
-      method: "POST",
-      body: JSON.stringify({ countryCode: country }),
-    })
-      .then((response) => setAvailableMethods(response.paymentMethods))
+    api().api.styling["payment-methods"].post({ countryCode: country })
+      .then((result) => setAvailableMethods(unwrap(result).paymentMethods))
       .catch(() => setAvailableMethods([]));
   }, [country, bootstrap]);
 
   async function initialize() {
-    const boot = await apiFetch<Bootstrap>("/api/bootstrap");
+    const boot: Bootstrap = unwrap(await api().api.bootstrap.get());
     setBootstrap(boot);
     if (!boot.clientKey || !boot.profile.isConfigured) {
       throw new Error(
         `Complete the default server profile: ${boot.profile.missingFields.join(", ")}.`,
       );
     }
-    const created = await apiFetch<SessionResponse>("/api/styling/session", {
-      method: "POST",
-      body: JSON.stringify({
+    const created = unwrap(
+      await api().api.styling.session.post({
         countryCode: country,
         shopperLocale: locale,
         installments: INSTALLMENT_COUNTRIES.includes(country.toUpperCase()),
       }),
-    });
+    ) as SessionResponse;
     setSession(created);
     await mountDropin(boot, created, country, locale);
     setLoading(false);
@@ -267,14 +269,13 @@ export default function StylingPlayground() {
     if (!bootstrap?.clientKey) return;
     setLoading(true);
     try {
-      const created = await apiFetch<SessionResponse>("/api/styling/session", {
-        method: "POST",
-        body: JSON.stringify({
+      const created = unwrap(
+        await api().api.styling.session.post({
           countryCode,
           shopperLocale,
           installments: INSTALLMENT_COUNTRIES.includes(countryCode.toUpperCase()),
         }),
-      });
+      ) as SessionResponse;
       setSession(created);
       await mountDropin(bootstrap, created, countryCode, shopperLocale);
     } finally {
@@ -524,28 +525,28 @@ export default function StylingPlayground() {
       <style>{generatedCss}</style>
       {error
         ? (
-          <div class="callout callout--danger" role="alert">
+          <div className="callout callout--danger" role="alert">
             <strong>Configuration error</strong>
             <div>{error}</div>
           </div>
         )
         : null}
-      <div class="styling-layout">
+      <div className="styling-layout">
         {
           /* Dark mode darkens the tool around the checkout: this canvas and the
             test data. The Drop-in column alone keeps the light tokens, so the
             checkout shows exactly what the merchant configured. */
         }
-        <section class="styling-preview" style={previewVariables}>
+        <section className="styling-preview" style={previewVariables}>
           {
             /* Four blocks of one height: the shopper's country and locale, the
               theme preset, and the light/dark switch. They sit in the preview
               column so their edges are the checkout's and the test data's; the
               name and SDK version moved to the footer (owner, 2026-10-10). */
           }
-          <div class="styling-toolbar">
-            <label class="toolbar-field">
-              <span class="toolbar-field__label">Country</span>
+          <div className="styling-toolbar">
+            <label className="toolbar-field">
+              <span className="toolbar-field__label">Country</span>
               <select
                 id="preview-country"
                 aria-label="Checkout market"
@@ -553,14 +554,14 @@ export default function StylingPlayground() {
                 onChange={(event) => updateCountry(event.currentTarget.value)}
               >
                 {COUNTRIES.map(([code, name]) => (
-                  <option value={code}>
+                  <option key={code} value={code}>
                     {flagEmoji(code)} {name}
                   </option>
                 ))}
               </select>
             </label>
-            <label class="toolbar-field">
-              <span class="toolbar-field__label">Locale</span>
+            <label className="toolbar-field">
+              <span className="toolbar-field__label">Locale</span>
               <select
                 id="preview-locale"
                 aria-label="Shopper locale"
@@ -572,8 +573,8 @@ export default function StylingPlayground() {
                 ))}
               </select>
             </label>
-            <label class="toolbar-field">
-              <span class="toolbar-field__label">Theme</span>
+            <label className="toolbar-field">
+              <span className="toolbar-field__label">Theme</span>
               <select
                 id="preview-theme"
                 aria-label="Theme preset"
@@ -596,11 +597,11 @@ export default function StylingPlayground() {
               /* The switch alone, no caption: its sun and moon say it (owner,
                 2026-10-10); screen readers get its "Dark mode" label. */
             }
-            <div class="toolbar-field toolbar-field--mode">
+            <div className="toolbar-field toolbar-field--mode">
               <ThemeToggle />
             </div>
           </div>
-          <div class="dropin-column keep-light">
+          <div className="dropin-column keep-light">
             {
               /* A sibling of the host, never a child: Adyen owns that node and
                 calls replaceChildren on it, so anything Preact renders inside
@@ -608,9 +609,9 @@ export default function StylingPlayground() {
             }
             {completed && !loading
               ? (
-                <div class="dropin-done" role="status">
-                  <span class="dropin-done__mark" aria-hidden="true">✓</span>
-                  <div class="dropin-done__text">
+                <div className="dropin-done" role="status">
+                  <span className="dropin-done__mark" aria-hidden="true">✓</span>
+                  <div className="dropin-done__text">
                     <strong>Payment completed</strong>
                     <span>
                       {donation === "donated"
@@ -622,31 +623,32 @@ export default function StylingPlayground() {
                         : "Sessions are single-use."}
                     </span>
                   </div>
-                  <button type="button" class="button" onClick={startNewPayment}>
+                  <button type="button" className="button" onClick={startNewPayment}>
                     New payment
                   </button>
                 </div>
               )
               : null}
             <div
-              class={`dropin-host${completed && !loading ? " dropin-host--spent" : ""}`}
-              ref={host}
+              className={`dropin-host${completed && !loading ? " dropin-host--spent" : ""}`}
               aria-busy={loading}
             >
-              {loading ? <div class="dropin-placeholder">Loading Adyen TEST Drop-in…</div> : null}
+              {loading ? <div className="dropin-placeholder">Loading Adyen TEST Drop-in…</div> : null}
+              {/* Adyen Web owns this node's children; React never renders into it. */}
+              <div ref={host} />
             </div>
           </div>
           <TestCards />
         </section>
-        <aside id="styling-panel" class="styling-panel">
+        <aside id="styling-panel" className="styling-panel">
           {
             /* The tabs already say what this panel is, so they are the header ,
               a "Customisation" caption above them only repeated it. Reset ends
               the same row: it belongs to the panel, and this is the panel's
               one piece of chrome. */
           }
-          <div class="styling-tabs">
-            <div class="styling-tabs__list" role="tablist">
+          <div className="styling-tabs">
+            <div className="styling-tabs__list" role="tablist">
               <button
                 type="button"
                 role="tab"
@@ -673,14 +675,14 @@ export default function StylingPlayground() {
               </button>
             </div>
             <button
-              class={`styling-reset${successFlash ? " styling-reset--success" : ""}`}
+              className={`styling-reset${successFlash ? " styling-reset--success" : ""}`}
               type="button"
               title="Reset every option to the Adyen default"
               aria-label="Reset every option to the Adyen default"
               onClick={() => setConfirmingReset(true)}
             >
               <ResetIcon />
-              <span class="styling-reset__text">{successFlash ? "Done" : "Reset"}</span>
+              <span className="styling-reset__text">{successFlash ? "Done" : "Reset"}</span>
             </button>
           </div>
           {
@@ -690,7 +692,7 @@ export default function StylingPlayground() {
           }
           {section === "css"
             ? (
-              <div class="styling-controls styling-controls--shape">
+              <div className="styling-controls styling-controls--shape">
                 <OptionRow
                   id="shape-radius-s"
                   label="Small radius"
@@ -708,7 +710,7 @@ export default function StylingPlayground() {
               </div>
             )
             : null}
-          <div class="styling-controls">
+          <div className="styling-controls">
             {section === "styling"
               ? (
                 <FieldStylesPanel
@@ -762,13 +764,13 @@ export default function StylingPlayground() {
       {confirmingReset
         ? (
           <div
-            class="confirm-backdrop"
+            className="confirm-backdrop"
             onClick={(event) => {
               if (event.target === event.currentTarget) setConfirmingReset(false);
             }}
           >
             <div
-              class="confirm-card"
+              className="confirm-card"
               role="alertdialog"
               aria-modal="true"
               aria-labelledby="confirm-reset-title"
@@ -778,15 +780,15 @@ export default function StylingPlayground() {
                 Your styles, component options and theme go back to Adyen's defaults, here and on
                 your next visit. This can't be undone.
               </p>
-              <div class="confirm-card__actions">
+              <div className="confirm-card__actions">
                 <button
                   type="button"
-                  class="button button--quiet"
+                  className="button button--quiet"
                   onClick={() => setConfirmingReset(false)}
                 >
                   Cancel
                 </button>
-                <button type="button" class="button button--danger" onClick={reset} autofocus>
+                <button type="button" className="button button--danger" onClick={reset} autoFocus>
                   Reset everything
                 </button>
               </div>

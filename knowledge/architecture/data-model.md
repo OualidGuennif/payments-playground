@@ -23,9 +23,10 @@ sources:
 # Data model
 
 Each app owns one SQLite database in WAL mode
-([ADR-003](../decisions/ADR-003-sqlite-single-instance.md)). The path is `DATABASE_PATH`, by default
-`./data/<app>.sqlite` relative to the process's working directory: `apps/<app>/data/` for
-`deno task dev` inside the app, the repository's `data/` when the tests import the APIs, and
+([ADR-003](../decisions/ADR-003-sqlite-single-instance.md)), opened with `bun:sqlite` on the first
+request rather than when the API module loads, so `next build` workers never open it together. The
+path is `DATABASE_PATH`, by default `./data/<app>.sqlite` relative to the process's working
+directory: `apps/<app>/data/` for the app's dev server, the repository's `data/` when the tests import the APIs, and
 `/var/data/` on Render's persistent disk.
 
 ## Tables

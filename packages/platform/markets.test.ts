@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "jsr:@std/assert@1";
+import { test } from "bun:test";
+import { assert, assertEquals } from "../../testing/assert.ts";
 import {
   currencyForCountry,
   defaultAmountForCurrency,
@@ -8,7 +9,7 @@ import {
   ZERO_DECIMAL_CURRENCIES,
 } from "./markets.ts";
 
-Deno.test("default amounts land in a believable price range for every market", () => {
+test("default amounts land in a believable price range for every market", () => {
   // Regression guard: the amount table is in MAJOR units and converted on
   // read. Storing minor units there once produced R$5.49 and ₹89.99 orders.
   const EXPECTED_MAJOR_RANGE: Record<string, [number, number]> = {
@@ -48,7 +49,7 @@ Deno.test("default amounts land in a believable price range for every market", (
   }
 });
 
-Deno.test("zero-decimal currencies are never given fractional minor units", () => {
+test("zero-decimal currencies are never given fractional minor units", () => {
   for (const currency of ZERO_DECIMAL_CURRENCIES) {
     const minor = defaultAmountForCurrency(currency);
     assert(Number.isInteger(minor), `${currency} produced ${minor}`);
@@ -57,14 +58,14 @@ Deno.test("zero-decimal currencies are never given fractional minor units", () =
   }
 });
 
-Deno.test("every market resolves a currency and a locale", () => {
+test("every market resolves a currency and a locale", () => {
   for (const country of ["FR", "NL", "US", "BR", "JP", "MX", "KE", "AE"]) {
     assert(/^[A-Z]{3}$/.test(currencyForCountry(country)), country);
     assert(/^[a-z]{2}-[A-Z]{2}$/.test(localeForCountry(country)), country);
   }
 });
 
-Deno.test("country detection prefers a supported region, then language home", () => {
+test("country detection prefers a supported region, then language home", () => {
   assertEquals(detectCountryFromLanguages(["fr-FR", "en-US"]), "FR");
   assertEquals(detectCountryFromLanguages(["en-US;q=0.9"]), "US");
   assertEquals(detectCountryFromLanguages(["nl_BE"]), "BE");

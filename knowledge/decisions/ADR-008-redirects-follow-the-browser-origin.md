@@ -27,5 +27,7 @@ would have returned the shopper to a dead page.
 host is one the CSRF check already accepts (forwarded host, host, request URL or `PUBLIC_ORIGIN`),
 otherwise `PUBLIC_ORIGIN`. `/sessions`, `/payments` and `/paymentLinks` use it.
 
-**Consequences.** `PUBLIC_ORIGIN` still anchors the webhook URL and is the fallback for calls
+**Consequences.** On Next.js (2026-11-15) the same app is reached on its documented port or on
+`next dev`'s default; the rule and its tests are unchanged. `PUBLIC_ORIGIN` still anchors the
+webhook URL and is the fallback for calls
 without an Origin. A foreign Origin can never steer a redirect.

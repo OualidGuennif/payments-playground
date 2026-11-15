@@ -3,20 +3,20 @@
   "configurations": [
     {
       "name": "adyen-digital",
-      "runtimeExecutable": "deno",
-      "runtimeArgs": ["task", "--cwd", "apps/adyen-digital", "dev"],
-      "port": 5173
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "dev:digital"],
+      "port": 8001
     },
     {
       "name": "adyen-styling",
-      "runtimeExecutable": "deno",
-      "runtimeArgs": ["task", "--cwd", "apps/adyen-v6-styling", "dev", "--port", "8004"],
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "dev:styling"],
       "port": 8004
     },
     {
       "name": "adyen-agentic",
-      "runtimeExecutable": "deno",
-      "runtimeArgs": ["task", "dev:agentic"],
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "dev:agentic"],
       "port": 8003
     }
   ]

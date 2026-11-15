@@ -1,4 +1,7 @@
 // Spec: knowledge/components/ui-package.md
+import { treaty } from "@elysiajs/eden";
+import type { Elysia } from "elysia";
+
 export function readCookie(name: string): string | undefined {
   if (typeof document === "undefined") return undefined;
   return document.cookie.split(";").map((value) => value.trim()).find((value) =>
@@ -31,6 +34,51 @@ export async function apiFetch<T>(
     );
   }
   return payload as T;
+}
+
+interface EdenResult<T> {
+  data: T | null;
+  error: { value: unknown } | null;
+  status: number;
+}
+
+/**
+ * An Eden answer's body, or the Error apiFetch would throw for it: the
+ * server's `error` string, else `Request failed (<status>).` The platform's
+ * error hook answers with a raw Response, which Eden adds to every route's
+ * type; it is never a 2xx, so it never reaches `data`.
+ */
+export function unwrap<T>(result: EdenResult<T>): Exclude<T, Response> {
+  if (result.error || result.data === null) {
+    const value = result.error?.value as { error?: unknown } | undefined;
+    throw new Error(
+      typeof value?.error === "string" ? value.error : `Request failed (${result.status}).`,
+    );
+  }
+  return result.data as Exclude<T, Response>;
+}
+
+// Eden's own constraint on the App type, spelled as treaty declares it.
+type AnyElysia = Elysia<any, any, any, any, any, any, any>;
+
+/**
+ * Eden's typed client for an app's Elysia routes, with the same headers as
+ * apiFetch: the CSRF token from its cookie and the selected profile id, read
+ * per call so a profile switch applies to the next request. Only the App type
+ * crosses into the browser bundle.
+ */
+export function apiClient<App extends AnyElysia>(profileId?: () => string | undefined) {
+  return treaty<App>(window.location.origin, {
+    fetch: { credentials: "same-origin" },
+    headers() {
+      const headers: Record<string, string> = {};
+      const csrfToken = readCookie("adyen_csrf");
+      if (csrfToken) headers["x-csrf-token"] = csrfToken;
+      const profile = profileId?.();
+      if (profile) headers["x-profile-id"] = profile;
+      return headers;
+    },
+  });
 }
 
 // Adyen's "minor units" are currency-exponent-aware, JPY and friends have no

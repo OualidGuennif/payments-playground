@@ -1,30 +1,46 @@
-FROM denoland/deno:2.9.4
-
+# Spec: knowledge/operations/docker-and-render.md
+# Next.js on the Bun runtime, built inside the Bun workspace. The build stage installs from the root
+# bun.lock and builds the standalone server; the runtime stage carries only that server, its traced
+# modules (the shared packages included) and the static files.
+FROM oven/bun:1.4.4 AS build
 WORKDIR /app
-ENV PORT=8000
-ENV DATABASE_PATH=/app/data/styling.sqlite
-
-COPY deno.json deno.lock ./
+COPY package.json bun.lock bunfig.toml tsconfig.json ./
+COPY packages/platform/package.json packages/platform/
+COPY packages/ui/package.json packages/ui/
+COPY apps/adyen-digital/package.json apps/adyen-digital/
+COPY apps/adyen-v6-styling/package.json apps/adyen-v6-styling/
+COPY apps/adyen-agentic-commerce/package.json apps/adyen-agentic-commerce/
+RUN bun install --frozen-lockfile
 COPY packages ./packages
-COPY tools/dev ./tools/dev
-COPY tools/build ./tools/build
-COPY tools/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY apps ./apps
+COPY apps/adyen-v6-styling ./apps/adyen-v6-styling
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN bun run --cwd apps/adyen-v6-styling typecheck && bun run --cwd apps/adyen-v6-styling build
 
+FROM oven/bun:1.4.4
+WORKDIR /app
+# __NEXT_PROCESSED_ENV keeps Next from re-expanding `$name` inside the Adyen key; HOSTNAME makes
+# the server listen beyond loopback.
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    __NEXT_PROCESSED_ENV=true \
+    HOSTNAME=0.0.0.0 \
+    PORT=8000 \
+    DATABASE_PATH=/app/data/styling.sqlite
+COPY --from=build /app/apps/adyen-v6-styling/.next/standalone ./
+COPY --from=build /app/apps/adyen-v6-styling/.next/static ./apps/adyen-v6-styling/.next/static
+COPY tools/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod 0755 /usr/local/bin/entrypoint.sh \
- && install -d -o 1993 -g 1993 /app/data /home/deno
-RUN deno task build:styling
-RUN deno run -A tools/build/assert-built-ssr.ts apps/adyen-v6-styling "Drop-in Styling"
+ && groupadd --gid 1993 app \
+ && useradd --uid 1993 --gid 1993 --home-dir /home/app --no-create-home --shell /usr/sbin/nologin app \
+ && install -d -o 1993 -g 1993 /app/data /home/app
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD deno eval "const p=Deno.env.get('PORT')??'8000';const r=await fetch('http://127.0.0.1:'+p+'/healthz');if(!r.ok)Deno.exit(1)"
+  CMD bun -e "fetch('http://127.0.0.1:'+(process.env.PORT??'8000')+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 
-# Render mounts /var/data as root:1000, so a plain USER deno cannot open the
-# SQLite files. The entrypoint starts as root only to chown the mount and
-# /app/data to uid 1993, then drops privileges before the app starts. The SAST
-# missing-user rules are waived because the runtime process is not root.
+# Render mounts /var/data as root:1000, so the entrypoint starts as root only to chown the mount
+# and /app/data to uid 1993, then drops privileges before the server starts.
 # nosemgrep: dockerfile.security.missing-user-entrypoint.missing-user-entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 # nosemgrep: dockerfile.security.missing-user.missing-user
-CMD ["deno", "task", "--cwd", "apps/adyen-v6-styling", "start"]
+CMD ["bun", "apps/adyen-v6-styling/server.js"]

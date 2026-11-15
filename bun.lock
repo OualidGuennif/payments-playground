@@ -3,6 +3,16 @@
   "configVersion": 1,
   "workspaces": {
     "": {
+      "name": "payments-playground",
+      "devDependencies": {
+        "@types/bun": "1.4.4",
+        "@types/node": "26.6.6",
+        "@types/react": "19.3.0",
+        "@types/react-dom": "19.3.0",
+        "typescript": "5.9.3",
+      },
+    },
+    "apps/adyen-agentic-commerce": {
       "name": "adyen-agentic-commerce",
       "dependencies": {
         "@adyen/adyen-web": "6.48.1",
@@ -22,6 +32,51 @@
         "@types/react-dom": "19.3.0",
         "tailwindcss": "4.3.3",
         "typescript": "5.9.3",
+      },
+    },
+    "apps/adyen-digital": {
+      "name": "adyen-digital",
+      "dependencies": {
+        "@adyen/adyen-web": "6.48.1",
+        "@adyen/api-library": "32.3.0",
+        "@elysiajs/eden": "1.4.9",
+        "@suite/platform": "workspace:*",
+        "@suite/ui": "workspace:*",
+        "elysia": "1.4.30",
+        "next": "16.4.3",
+        "react": "19.3.1",
+        "react-dom": "19.3.1",
+      },
+    },
+    "apps/adyen-v6-styling": {
+      "name": "adyen-v6-styling",
+      "dependencies": {
+        "@adyen/adyen-web": "6.48.1",
+        "@adyen/api-library": "32.3.0",
+        "@elysiajs/eden": "1.4.9",
+        "@suite/platform": "workspace:*",
+        "@suite/ui": "workspace:*",
+        "elysia": "1.4.30",
+        "next": "16.4.3",
+        "react": "19.3.1",
+        "react-dom": "19.3.1",
+      },
+    },
+    "packages/platform": {
+      "name": "@suite/platform",
+      "dependencies": {
+        "@adyen/api-library": "32.3.0",
+        "elysia": "1.4.30",
+      },
+    },
+    "packages/ui": {
+      "name": "@suite/ui",
+      "dependencies": {
+        "@adyen/adyen-web": "6.48.1",
+        "@elysiajs/eden": "1.4.9",
+        "elysia": "1.4.30",
+        "react": "19.3.1",
+        "react-dom": "19.3.1",
       },
     },
   },
@@ -124,6 +179,10 @@
 
     "@sinclair/typebox": ["@sinclair/typebox@0.34.52", "", {}, "sha512-XiMQh7qqVlxZzcVD+kkGMNGMzcTrDMLWI7S4x7z1MkCkbDPrekpZXEUK0eZqZFMuHQg2a2DZOcDIh9o5v3Gonw=="],
 
+    "@suite/platform": ["@suite/platform@workspace:packages/platform"],
+
+    "@suite/ui": ["@suite/ui@workspace:packages/ui"],
+
     "@swc/helpers": ["@swc/helpers@0.5.23", "", { "dependencies": { "tslib": "^2.8.0" } }, "sha512-5lSsMOTXURePglDfvuAQUqkGek9Hg2kksOYay2m0+XR++b2NWYL/4sWyuvVBIs8oKnJaxkdi9whaL/sqN13afw=="],
 
     "@tailwindcss/node": ["@tailwindcss/node@4.3.3", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.24.1", "jiti": "^2.7.0", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.3" } }, "sha512-/T8IKEsf9VTU6tLjgC7+sv2mOPtQxzE2jMw7u4Tt40Tx+QSZxpzh95/H6cMKoja9XuW7iMdLJYBB0o9G1CaAgg=="],
@@ -171,6 +230,12 @@
     "@types/react": ["@types/react@19.3.0", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg=="],
 
     "@types/react-dom": ["@types/react-dom@19.3.0", "", { "peerDependencies": { "@types/react": "^19.3.0" } }, "sha512-ZI7bU42mZXXKHn/qNLEw2IrbiINU7X5+vfgdixBHkCNpYWXjKgfQ/P+uyGb5CjOLB9UcnTeg3rylQtV2hym44Q=="],
+
+    "adyen-agentic-commerce": ["adyen-agentic-commerce@workspace:apps/adyen-agentic-commerce"],
+
+    "adyen-digital": ["adyen-digital@workspace:apps/adyen-digital"],
+
+    "adyen-v6-styling": ["adyen-v6-styling@workspace:apps/adyen-v6-styling"],
 
     "agent-base": ["agent-base@6.0.2", "", { "dependencies": { "debug": "4" } }, "sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ=="],
 

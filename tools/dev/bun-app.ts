@@ -1,43 +1,41 @@
-// Runs a Bun app's package script with its .env parsed by @std/dotenv, the parser every Deno app
-// here uses and the one tools/dev/migrate-legacy-env.ts writes for. Next's own loader re-expands
-// `$name` inside values the process already holds, which cut an Adyen TEST key and gave 401s.
+// Runs an app's package script with its .env parsed by the platform's dotenv reader, which never
+// expands `$name`. Next's own loader re-expands `$name` inside values the process already holds,
+// which cut an Adyen TEST key and gave 401s; __NEXT_PROCESSED_ENV tells it the work is done.
 // Spec: knowledge/operations/build-and-test.md
-import { parse } from "@std/dotenv";
-import { join, resolve } from "@std/path";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { parseDotenv } from "../../packages/platform/dotenv.ts";
 
-const [directory, script, ...rest] = Deno.args;
+const [directory, script, ...rest] = process.argv.slice(2);
 if (!directory || !script) {
-  throw new Error("Usage: bun-app.ts <app directory> <package script> [args]");
+  throw new Error("Usage: bun tools/dev/bun-app.ts <app directory> <package script> [args]");
 }
 const cwd = resolve(directory);
 
 function fileValues(path: string): Record<string, string> {
   try {
-    const text = Deno.readTextFileSync(path);
-    return parse(text.split("\n").map((line) => line.replace(/^\s*export\s+/, "")).join("\n"));
+    return parseDotenv(readFileSync(path, "utf8"));
   } catch {
     return {};
   }
 }
 
-// The shell and the host (Render, Docker) win over the file, as with the Deno apps.
-// __NEXT_PROCESSED_ENV is Next's own "already loaded" mark: it then leaves these values as they are.
-const env = {
+// The shell and the host (Render, Docker) win over the file.
+const env: Record<string, string | undefined> = {
   ...fileValues(join(cwd, ".env")),
-  ...Deno.env.toObject(),
+  ...process.env,
   __NEXT_PROCESSED_ENV: "true",
 };
-const child = new Deno.Command("bun", {
-  args: ["run", script, ...rest],
+const child = Bun.spawn(["bun", "run", script, ...rest], {
   cwd,
   env,
-  clearEnv: true,
   stdout: "inherit",
   stderr: "inherit",
-}).spawn();
+  stdin: "inherit",
+});
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  Deno.addSignalListener(signal, () => {
+  process.on(signal, () => {
     try {
       child.kill(signal);
     } catch {
@@ -45,4 +43,4 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
     }
   });
 }
-Deno.exit((await child.status).code);
+process.exit(await child.exited);

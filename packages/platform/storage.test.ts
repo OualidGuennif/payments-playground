@@ -1,7 +1,8 @@
-import { assertEquals } from "@std/assert";
+import { test } from "bun:test";
+import { assertEquals } from "../../testing/assert.ts";
 import { Repository } from "./storage.ts";
 
-Deno.test("webhooks and lifecycle actions are deduplicated idempotently", () => {
+test("webhooks and lifecycle actions are deduplicated idempotently", () => {
   const repository = new Repository(":memory:");
   try {
     const webhook = {
@@ -39,7 +40,7 @@ Deno.test("webhooks and lifecycle actions are deduplicated idempotently", () => 
   }
 });
 
-Deno.test("modification requests and their webhooks read back for reconciliation", () => {
+test("modification requests and their webhooks read back for reconciliation", () => {
   const repository = new Repository(":memory:");
   try {
     const order = repository.createOrder({
@@ -84,7 +85,7 @@ Deno.test("modification requests and their webhooks read back for reconciliation
   }
 });
 
-Deno.test("the timeline gives each API call its method and endpoint", () => {
+test("the timeline gives each API call its method and endpoint", () => {
   const repository = new Repository(":memory:");
   try {
     repository.recordApiCall({
@@ -106,7 +107,7 @@ Deno.test("the timeline gives each API call its method and endpoint", () => {
   }
 });
 
-Deno.test("orders beyond the retained cap are purged per app on creation", () => {
+test("orders beyond the retained cap are purged per app on creation", () => {
   const repository = new Repository(":memory:");
   try {
     for (let index = 0; index < 75; index++) {
@@ -122,7 +123,7 @@ Deno.test("orders beyond the retained cap are purged per app on creation", () =>
   }
 });
 
-Deno.test("one PSP reference records one payment part, however often it is reported", () => {
+test("one PSP reference records one payment part, however often it is reported", () => {
   const repository = new Repository(":memory:");
   try {
     const order = repository.createOrder({
@@ -138,7 +139,7 @@ Deno.test("one PSP reference records one payment part, however often it is repor
     };
     const first = repository.recordPaymentPart(part);
     assertEquals(repository.recordPaymentPart(part), first);
-    const count = repository.database.prepare<{ count: number }>(
+    const count = repository.database.prepare<{ count: number }, [string]>(
       "SELECT COUNT(*) AS count FROM payment_parts WHERE order_id = ?",
     ).get(order.id);
     assertEquals(count?.count, 1);
@@ -147,7 +148,7 @@ Deno.test("one PSP reference records one payment part, however often it is repor
   }
 });
 
-Deno.test("an order is found from an attempt's PSP reference", () => {
+test("an order is found from an attempt's PSP reference", () => {
   const repository = new Repository(":memory:");
   try {
     const order = repository.createOrder({

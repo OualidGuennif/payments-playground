@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useState } from "react";
 import { ALT_METHODS, KLARNA_DOCS, TEST_CARDS } from "@suite/ui/testData.ts";
 import { useCopy } from "@suite/ui/useCopy.ts";
 
@@ -26,48 +26,48 @@ export function TestCards() {
   const foldedAway = TEST_CARDS.length - PRIMARY_CARD_COUNT;
 
   return (
-    <div class="test-data">
+    <div className="test-data">
       <section
-        class="test-cards test-cards--primary"
+        className="test-cards test-cards--primary"
         data-open={cardsOpen ? "true" : "false"}
         data-expanded={showAllCards ? "true" : "false"}
         aria-label="Card dataset"
       >
         <button
-          class="test-cards__toggle"
+          className="test-cards__toggle"
           type="button"
           aria-expanded={cardsOpen}
           onClick={() => setCardsOpen(!cardsOpen)}
         >
           <span>Card dataset</span>
-          <span class="test-cards__chevron" aria-hidden="true">{cardsOpen ? "−" : "+"}</span>
+          <span className="test-cards__chevron" aria-hidden="true">{cardsOpen ? "−" : "+"}</span>
         </button>
-        <div class="test-cards__body">
-          <div class="test-cards__list">
+        <div className="test-cards__body">
+          <div className="test-cards__list">
             {TEST_CARDS.map((card, index) => (
               <button
-                class="test-card"
+                className="test-card"
                 type="button"
                 key={card.pan}
                 data-secondary={index >= PRIMARY_CARD_COUNT ? "true" : "false"}
                 title={`Copy ${card.pan}`}
                 onClick={() => copy(card.pan)}
               >
-                <span class="test-card__top">
-                  <span class="test-card__scheme">{card.scheme}</span>
-                  {card.note ? <span class="test-card__note">{card.note}</span> : null}
+                <span className="test-card__top">
+                  <span className="test-card__scheme">{card.scheme}</span>
+                  {card.note ? <span className="test-card__note">{card.note}</span> : null}
                 </span>
-                <span class="test-card__pan">{card.pan}</span>
-                <span class="test-card__bottom">
+                <span className="test-card__pan">{card.pan}</span>
+                <span className="test-card__bottom">
                   <span>{card.expiry}</span>
                   <span>CVC {card.cvc}</span>
-                  <span class="test-card__copy">{copied === card.pan ? "Copied" : "Copy"}</span>
+                  <span className="test-card__copy">{copied === card.pan ? "Copied" : "Copy"}</span>
                 </span>
               </button>
             ))}
           </div>
           <button
-            class="test-cards__more"
+            className="test-cards__more"
             type="button"
             onClick={() => setShowAllCards(!showAllCards)}
           >
@@ -77,33 +77,33 @@ export function TestCards() {
       </section>
 
       <section
-        class="test-cards"
+        className="test-cards"
         data-open={altOpen ? "true" : "false"}
         aria-label="Alternative payment dataset"
       >
         <button
-          class="test-cards__toggle"
+          className="test-cards__toggle"
           type="button"
           aria-expanded={altOpen}
           onClick={() => setAltOpen(!altOpen)}
         >
           <span>Alternative payment dataset</span>
-          <span class="test-cards__chevron" aria-hidden="true">{altOpen ? "−" : "+"}</span>
+          <span className="test-cards__chevron" aria-hidden="true">{altOpen ? "−" : "+"}</span>
         </button>
-        <div class="test-cards__body">
-          <div class="test-cards__list">
+        <div className="test-cards__body">
+          <div className="test-cards__list">
             {ALT_METHODS.map((method) => {
               const key = `${method.name}-${method.note ?? ""}`;
               const content = (
                 <>
-                  <span class="test-card__top">
-                    <span class="test-card__scheme">{method.name}</span>
-                    {method.note ? <span class="test-card__note">{method.note}</span> : null}
+                  <span className="test-card__top">
+                    <span className="test-card__scheme">{method.name}</span>
+                    {method.note ? <span className="test-card__note">{method.note}</span> : null}
                   </span>
                   {method.value
                     ? (
                       <span
-                        class={`test-card__pan${
+                        className={`test-card__pan${
                           method.value.length > 20 ? " test-card__pan--long" : ""
                         }`}
                       >
@@ -113,7 +113,7 @@ export function TestCards() {
                     : null}
                   {method.disclaimer
                     ? (
-                      <span class="test-card__disclaimer">
+                      <span className="test-card__disclaimer">
                         {method.disclaimer.text}{" "}
                         <a
                           href={method.disclaimer.href}
@@ -126,9 +126,9 @@ export function TestCards() {
                       </span>
                     )
                     : (
-                      <span class="test-card__bottom">
+                      <span className="test-card__bottom">
                         {method.detail ? <span>{method.detail}</span> : null}
-                        <span class="test-card__copy">
+                        <span className="test-card__copy">
                           {copied === method.value ? "Copied" : "Copy"}
                         </span>
                       </span>
@@ -140,7 +140,7 @@ export function TestCards() {
               return method.value
                 ? (
                   <button
-                    class="test-card"
+                    className="test-card"
                     type="button"
                     key={key}
                     title={`Copy ${method.value}`}
@@ -149,11 +149,11 @@ export function TestCards() {
                     {content}
                   </button>
                 )
-                : <div class="test-card test-card--static" key={key}>{content}</div>;
+                : <div className="test-card test-card--static" key={key}>{content}</div>;
             })}
           </div>
           <a
-            class="test-cards__more test-cards__more--link"
+            className="test-cards__more test-cards__more--link"
             href={KLARNA_DOCS}
             target="_blank"
             rel="noopener noreferrer"

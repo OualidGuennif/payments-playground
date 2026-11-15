@@ -1,4 +1,4 @@
-export type AppId = "digital" | "ipp" | "agentic" | "styling";
+export type AppId = "digital" | "styling";
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -102,10 +102,8 @@ export interface ProfileSecrets {
   merchantAccount?: string;
   clientKey?: string;
   hmacKey?: string;
-  terminalId?: string;
   webhookBasicAuthUser?: string;
   webhookBasicAuthPassword?: string;
-  agenticBearerToken?: string;
 }
 
 /**

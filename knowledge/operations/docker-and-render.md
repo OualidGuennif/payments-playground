@@ -15,6 +15,9 @@ sources:
   - id: agentic-dockerfile
     resource: ../../apps/adyen-agentic-commerce/Dockerfile
     title: "Agentic image: oven/bun build stage, Next standalone server"
+  - id: styling-dockerfile
+    resource: ../../apps/adyen-v6-styling/Dockerfile
+    title: "Styling image: built in the Bun workspace, Next standalone server"
   - id: entrypoint
     resource: ../../tools/docker/entrypoint.sh
     title: Root chown, then drop to the deno user
@@ -57,7 +60,11 @@ disk) and `/app/data` to uid 1993, then `exec setpriv ...` drops to the image's 
 the app starts. A plain `USER deno` would fail because Render mounts `/var/data` as `root:1000` with
 `644` SQLite files.
 
-The agentic image is the exception to the Deno base: `oven/bun:1.4.4` builds the Next.js app (types,
+Moving to Bun (2026-11-15, in progress): the styling image now builds inside the Bun workspace
+(root `bun.lock`, `bun run --cwd apps/adyen-v6-styling build`) and runs
+`bun apps/adyen-v6-styling/server.js` from the standalone output; the entrypoint's user is now
+`app`, still uid 1993. Not yet built with Docker. The agentic image is the exception to the Deno
+base: `oven/bun:1.4.4` builds the Next.js app (types,
 `bun test`, `next build`) and the runtime stage keeps only `.next/standalone`, its static files and
 the shared entrypoint, with a `deno` user created at uid 1993 so the same drop works. It runs
 `bun server.js` on `PORT` with `HOSTNAME=0.0.0.0`.

@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Start the move off Deno and Fresh: one Bun workspace (`package.json`, `bunfig.toml`, one root
+  `bun.lock`); `packages/platform` on `bun:sqlite`, `process.env` and an Elysia base API with the
+  same basic auth, rate limit, CSRF, session and security headers; `packages/ui` on React 19 with
+  an Eden client; `apps/adyen-v6-styling` rebuilt as a Next.js 16 app on Bun with a standalone
+  image. The platform and styling tests run under `bun test`. Digital is still on Fresh until its
+  port, so the Deno checks are red in between.
 - Bring the bounded-intake and specs-first policies to their v4.0.3 text, so they describe the
   updated path and bash guards and the doc-links checker.
 - Remove the IPP Endless Aisle app, its `ipp-endless-aisle` Render service, its landing card, dev

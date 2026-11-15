@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useState } from "react";
 
 /**
  * Copies a value and flags it as copied for 1.6 s. Spaces are dropped by

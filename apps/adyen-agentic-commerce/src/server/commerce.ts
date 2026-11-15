@@ -84,6 +84,8 @@ export type PaymentRecord = {
   // The lines this amount was priced from: the order is placed from them, not from the checkout,
   // which stays editable while a Drop-in session is open.
   lines?: Line[];
+  // An agent payment's hold on the grant's budget: settled once, by whichever path learns first.
+  reservation?: "held" | "released";
   sessionId?: string;
   resultCode?: string;
   pspReference?: string;
@@ -517,6 +519,28 @@ function placeOrder(
 }
 
 /**
+ * Gives an agent payment's reservation back, once: the synchronous answer and the webhook can both
+ * report a refusal, and only the first gives the budget back.
+ */
+function releaseReservation(record: PaymentRecord, grantId: string | undefined): PaymentRecord {
+  const fresh = get<PaymentRecord>("payments", record.id) ?? record;
+  if (fresh.reservation !== "held" || !grantId) return fresh;
+  chargeGrant(grantId, -fresh.amount);
+  return put("payments", fresh.id, { ...fresh, reservation: "released", updatedAt: now() });
+}
+
+/**
+ * Charges an agent payment Adyen authorised whose reservation was given back on an unknown outcome
+ * (a network error after Adyen had already authorised it), so the budget counts every payment.
+ */
+function holdReservation(record: PaymentRecord, grantId: string | undefined): void {
+  const fresh = get<PaymentRecord>("payments", record.id) ?? record;
+  if (fresh.reservation !== "released" || !grantId) return;
+  chargeGrant(grantId, fresh.amount);
+  put("payments", fresh.id, { ...fresh, reservation: "held", updatedAt: now() });
+}
+
+/**
  * The order for a payment Adyen authorised, or why none is placed. The lines come from the payment
  * record, and the amount Adyen reports, when it reports one, must be the amount that was sent.
  */
@@ -631,6 +655,7 @@ export async function completeCheckout(
     reference,
     amount: assessment.total,
     lines: checkout.lines,
+    reservation: "held",
     agentName: live.grant.clientName,
     createdAt: now(),
     updatedAt: now(),
@@ -647,9 +672,11 @@ export async function completeCheckout(
       metadata: { checkoutId: checkout.id, agent: live.grant.clientName.slice(0, 80) },
     });
   } catch (error) {
-    chargeGrant(live.grant.id, -assessment.total);
+    // The retry reserves again under the same reference; if Adyen did authorise this call, its
+    // webhook charges the budget again before the order is placed.
+    const released = releaseReservation(record, live.grant.id);
     put("payments", record.id, {
-      ...record,
+      ...released,
       resultCode: "Error",
       refusalReason: (error as Error).message.slice(0, 200),
       updatedAt: now(),
@@ -675,7 +702,12 @@ export async function completeCheckout(
       },
     });
   }
-  put("payments", record.id, { ...record, ...result, updatedAt: now() });
+  // Re-read: a webhook may have settled this payment while the call was in flight.
+  const answered = put("payments", record.id, {
+    ...(get<PaymentRecord>("payments", record.id) ?? record),
+    ...result,
+    updatedAt: now(),
+  });
   trace({
     channel: "adyen",
     actor: "server",
@@ -692,14 +724,15 @@ export async function completeCheckout(
     },
   });
   if (result.resultCode === "Authorised") {
-    const placed = placePaidOrder(claimed, record, result.pspReference, undefined, live);
+    holdReservation(answered, live.grant.id);
+    const placed = placePaidOrder(claimed, answered, result.pspReference, undefined, live);
     if (typeof placed === "string") holdMismatch(claimed, placed);
     return loadCheckout(checkout.id, "browser");
   }
   // Pending keeps the reservation until the webhook settles it.
   if (result.resultCode === "Pending" || result.resultCode === "Received") return claimed;
   // A refusal ends this attempt, not the order: the shopper can still pay at continue_url.
-  chargeGrant(live.grant.id, -assessment.total);
+  releaseReservation(answered, live.grant.id);
   return saveCheckout({
     ...claimed,
     phase: "open",
@@ -885,6 +918,7 @@ export function applyNotification(item: adyen.NotificationItem): string {
     return "order confirmed";
   }
   if (success) {
+    if (record.purpose === "agent") holdReservation(record, checkout.grantId);
     const placed = placePaidOrder(checkout, record, item.pspReference, item.amount?.value);
     if (typeof placed === "string") {
       holdMismatch(checkout, placed);
@@ -897,9 +931,8 @@ export function applyNotification(item: adyen.NotificationItem): string {
   // attempt must not reopen it while a newer one is pending, nor give back budget never reserved.
   const current = [`${checkout.id}-a${checkout.attempts}`, `${checkout.id}-s${checkout.attempts}`];
   if (checkout.phase === "complete_in_progress" && current.includes(record.reference)) {
-    // The agent's budget was reserved when the payment was sent; a refusal gives it back.
-    if (record.purpose === "agent" && checkout.grantId)
-      chargeGrant(checkout.grantId, -record.amount);
+    // The agent's budget was reserved when the payment was sent; a refusal gives it back once.
+    if (record.purpose === "agent") releaseReservation(record, checkout.grantId);
     saveCheckout({
       ...checkout,
       phase: "open",

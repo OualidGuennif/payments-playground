@@ -25,14 +25,20 @@ export const fake = {
   answers: [] as PaymentAnswer[],
   payments: [] as AgentPayment[],
   session: NO_PAYMENT,
+  // Runs while the next payment call is in flight, before it answers.
+  during: undefined as (() => void) | undefined,
   reset() {
     this.cards = [VISA];
     this.answers = [];
     this.payments = [];
     this.session = NO_PAYMENT;
+    this.during = undefined;
   },
   answer(input: AgentPayment) {
     this.payments.push(input);
+    const during = this.during;
+    this.during = undefined;
+    during?.();
     const next = this.answers.shift() ?? {
       resultCode: "Authorised",
       pspReference: `PSP${this.payments.length}`,

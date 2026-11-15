@@ -4,7 +4,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { hmacValidator } from "@adyen/api-library";
 import { handle } from "./api";
-import type * as commerce from "./commerce";
+import * as commerce from "./commerce";
 import { ConfigError, readConfig } from "./config";
 import { basicAuthAllows, crossSiteRefused } from "../proxy";
 import { list, put } from "./db";
@@ -264,6 +264,56 @@ describe("webhooks", () => {
       };
       expect((await notification(odd)).status).toBe(200);
       expect(list<commerce.Order>("orders")).toHaveLength(0);
+    } finally {
+      agent.stop();
+    }
+  });
+
+  test("a network error then Adyen's success webhook charges the budget once", async () => {
+    const agent = await TestAgent.start("Lost answer agent");
+    try {
+      await agent.signIn();
+      const { content } = await agent.tool("create_checkout", {
+        checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] },
+      });
+      fake.answers.push(new Error("socket hang up"));
+      await agent.tool("complete_checkout", {
+        id: content.id,
+        checkout: { payment: { instruments: [{ id: content.payment.instruments[0].id }] } },
+      });
+      expect(
+        (await agent.tool("get_checkout", { id: content.id })).content.agent_budget.spent.amount,
+      ).toBe(0);
+      expect((await notification(authorisation(`${content.id}-a1`, true))).status).toBe(200);
+      expect(list<commerce.Order>("orders")).toHaveLength(1);
+      const after = (await agent.tool("get_checkout", { id: content.id })).content;
+      expect(after.agent_budget.spent.amount).toBe(1695);
+    } finally {
+      agent.stop();
+    }
+  });
+
+  test("a refusal webhook during the call and the refused answer give the budget back once", async () => {
+    const agent = await TestAgent.start("Double refusal agent");
+    try {
+      await agent.signIn();
+      const { content } = await agent.tool("create_checkout", {
+        checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] },
+      });
+      fake.during = () => {
+        commerce.applyNotification({
+          ...authorisation(`${content.id}-a1`, false),
+          pspReference: "PSPREFUSED",
+        });
+      };
+      fake.answers.push({ resultCode: "Refused" });
+      await agent.tool("complete_checkout", {
+        id: content.id,
+        checkout: { payment: { instruments: [{ id: content.payment.instruments[0].id }] } },
+      });
+      const after = (await agent.tool("get_checkout", { id: content.id })).content;
+      expect(after.agent_budget.spent.amount).toBe(0);
+      expect(after.status).toBe("ready_for_complete");
     } finally {
       agent.stop();
     }

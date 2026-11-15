@@ -1,5 +1,5 @@
 import { test } from "bun:test";
-import { assertEquals } from "../../testing/assert.ts";
+import { assertEquals, assertExists } from "../../testing/assert.ts";
 import { Repository } from "./storage.ts";
 
 test("webhooks and lifecycle actions are deduplicated idempotently", () => {
@@ -30,11 +30,9 @@ test("webhooks and lifecycle actions are deduplicated idempotently", () => {
 
     const timeline = repository.timeline("order-1");
     assertEquals(timeline.length, 2);
-    assertEquals(
-      (timeline.find((entry) => entry.kind === "webhook")?.payload as Record<string, unknown>)
-        .apiKey,
-      "[redacted]",
-    );
+    const stored = timeline.find((entry) => entry.kind === "webhook");
+    assertExists(stored);
+    assertEquals((stored.payload as Record<string, unknown>).apiKey, "[redacted]");
   } finally {
     repository.close();
   }

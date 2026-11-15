@@ -43,7 +43,7 @@ import { field as valueAt } from "./read.ts";
 import { type PaymentOutcome, ResultCard } from "./ResultCard.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { TestData } from "./TestData.tsx";
-import { type TimelineEntry } from "./Timeline.tsx";
+import type { TimelineEntry } from "./Timeline.tsx";
 import type { App } from "@/server/api";
 
 export type { Bootstrap };
@@ -191,6 +191,7 @@ export default function FlowWorkbench({
   }, []);
 
   const autoInitRef = useRef(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: starts once when bootstrap arrives; hasAutoInit is fixed per page and start is rebuilt every render.
   useEffect(() => {
     if (!hasAutoInit || autoInitRef.current || !bootstrap?.clientKey) return;
     autoInitRef.current = true;
@@ -201,6 +202,7 @@ export default function FlowWorkbench({
   // its own, debounced so typing an amount doesn't refire on every keystroke.
   // The theme is part of it: secured fields only take their colours at mount.
   const skipFirstAutoRestart = useRef(true);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the list is the scenario whose change reloads the checkout; start is rebuilt every render.
   useEffect(() => {
     if (!hasAutoInit || !autoInitRef.current) return;
     if (skipFirstAutoRestart.current) {
@@ -213,6 +215,7 @@ export default function FlowWorkbench({
 
   // MIT charges a card saved earlier: list the ones Adyen holds for this
   // week's shopper, instead of asking for a token by hand.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: flow is fixed per page, and the amount or locale does not change which cards Adyen stores.
   useEffect(() => {
     if (flow !== "mit" || !bootstrap?.clientKey) return;
     setStoredMethods(null);
@@ -890,6 +893,7 @@ export default function FlowWorkbench({
 
   // Follow new events like a console does, unless the reader scrolled up to
   // look at an earlier one.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new event or reopening the inspector is what scrolls it to the end.
   useEffect(() => {
     const body = inspectorBody.current;
     if (body && followEvents.current) body.scrollTop = body.scrollHeight;
@@ -1156,7 +1160,7 @@ export default function FlowWorkbench({
         <div className={`dropin-host${outcome ? " is-hidden" : ""}`} aria-live="polite">
           <div ref={dropinHost} />
           {!checkoutMounted ? (
-            <div className="pay-skeleton" aria-label="Loading the checkout">
+            <div className="pay-skeleton" role="status" aria-label="Loading the checkout">
               <span />
               <span />
               <span />

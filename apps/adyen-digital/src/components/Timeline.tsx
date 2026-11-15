@@ -681,6 +681,7 @@ export function Timeline(props: { entries: TimelineEntry[]; empty: string }) {
                   {summary.length ? (
                     <span className="ev__summary">
                       {summary.map((part, index) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: chips can repeat and are rebuilt whole on each render.
                         <span className="ev__chip" key={`${part}-${index}`}>
                           {part}
                         </span>

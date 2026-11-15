@@ -89,7 +89,8 @@ const EPHEMERAL = Symbol.for("suite.platform.ephemeralSigningSecrets");
 
 function ephemeralSecret(appId: AppId): string {
   const store = globalThis as typeof globalThis & { [EPHEMERAL]?: Map<AppId, string> };
-  const secrets = (store[EPHEMERAL] ??= new Map());
+  store[EPHEMERAL] ??= new Map();
+  const secrets = store[EPHEMERAL];
   let secret = secrets.get(appId);
   if (!secret) {
     secret = `ephemeral-${appId}-${crypto.randomUUID()}`;

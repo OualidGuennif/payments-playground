@@ -178,19 +178,22 @@ export function createPlatformContext(appId: AppId): PlatformContext {
   const context: PlatformContext = {
     appId,
     get config() {
-      return (config ??= loadServerConfig(appId));
+      config ??= loadServerConfig(appId);
+      return config;
     },
     get repository() {
-      return (repository ??= new Repository(context.config.databasePath));
+      repository ??= new Repository(context.config.databasePath);
+      return repository;
     },
     get profiles() {
-      return (profiles ??= new ProfileStore({
+      profiles ??= new ProfileStore({
         database: context.repository.database,
         databasePath: context.config.databasePath,
         appId,
         defaultProfile: context.config.defaultProfile,
         defaultSecrets: context.config.defaultSecrets,
-      }));
+      });
+      return profiles;
     },
   };
   return context;

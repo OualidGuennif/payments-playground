@@ -6,7 +6,9 @@ import {
   decodeProtectedHeader,
   importJWK,
   type JWK,
+  type JWTPayload,
   jwtVerify,
+  type ProtectedHeaderParameters,
 } from "jose";
 import { config, PAP_VERSION } from "./config";
 import { claimJti } from "./db";
@@ -77,7 +79,8 @@ export async function verifyPoppy(
   if (!jwt) return undefined;
   const invalid = (why: string) => new PapError("invalid_session", why, 400);
 
-  let header, claims;
+  let header: ProtectedHeaderParameters;
+  let claims: JWTPayload;
   try {
     header = decodeProtectedHeader(jwt);
     claims = decodeJwt(jwt);
@@ -89,7 +92,8 @@ export async function verifyPoppy(
   if (typeof claims.poppy_dlg !== "string") throw invalid("poppy_dlg is required");
 
   // The delegation binds the session key to the client: signed by a key from its jwks_uri.
-  let dlgHeader, dlgClaims;
+  let dlgHeader: ProtectedHeaderParameters;
+  let dlgClaims: JWTPayload;
   try {
     dlgHeader = decodeProtectedHeader(claims.poppy_dlg);
     dlgClaims = decodeJwt(claims.poppy_dlg);
@@ -104,7 +108,7 @@ export async function verifyPoppy(
   }
   if (typeof dlgClaims.iss !== "string" || dlgClaims.iss !== claims.iss)
     throw invalid("delegation iss mismatch");
-  let client;
+  let client: Awaited<ReturnType<typeof resolveClient>>;
   try {
     client = await resolveClient(dlgClaims.iss);
     await verifyWithClientKeys(client, claims.poppy_dlg, { typ: "poppy-delegation+jwt" });

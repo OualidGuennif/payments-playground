@@ -112,6 +112,7 @@ export function CheckboxDropdown(props: {
         </span>
       </button>
       {open ? (
+        // biome-ignore lint/a11y/useSemanticElements: a fieldset brings its own border, padding and min-width into the dropdown list.
         <div className="checkbox-dropdown__list" role="group">
           <label className="checkbox-dropdown__item">
             <input

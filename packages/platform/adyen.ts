@@ -62,7 +62,8 @@ let cachedHttpClient: AdyenHttpClient | undefined;
 
 /** Built once, on first request rather than at module load. */
 function sharedHttpClient(): AdyenHttpClient {
-  return (cachedHttpClient ??= new (library().HttpURLConnectionClient)());
+  cachedHttpClient ??= new (library().HttpURLConnectionClient)();
+  return cachedHttpClient;
 }
 
 function responseObject(value: unknown): Record<string, unknown> {

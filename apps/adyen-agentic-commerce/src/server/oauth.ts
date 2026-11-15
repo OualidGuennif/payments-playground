@@ -291,7 +291,7 @@ async function authenticateClient(form: URLSearchParams): Promise<Client> {
     const client = await resolveClient(clientId);
     if (client.authMethod !== "private_key_jwt")
       throw new OAuthError("invalid_client", "Client is public", 401);
-    let payload;
+    let payload: Awaited<ReturnType<typeof verifyWithClientKeys>>["payload"];
     try {
       ({ payload } = await verifyWithClientKeys(client, assertion, {}));
     } catch (error) {

@@ -7,5 +7,6 @@ import { THEME_SCRIPT } from "./theme.ts";
 export function ThemeScript() {
   // A constant written in this repo, never user input. As a text child it
   // would be HTML-escaped by the server renderer and stop being JavaScript.
+  // biome-ignore lint/security/noDangerouslySetInnerHtml: THEME_SCRIPT is a constant from this repository, never input.
   return <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />;
 }

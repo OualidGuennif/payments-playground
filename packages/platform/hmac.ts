@@ -13,7 +13,7 @@ export interface StandardWebhookItem {
   [key: string]: unknown;
 }
 
-function escape(value: unknown): string {
+function escapeField(value: unknown): string {
   return String(value ?? "")
     .replaceAll("\\", "\\\\")
     .replaceAll(":", "\\:");
@@ -30,7 +30,7 @@ export function standardWebhookSigningString(item: StandardWebhookItem): string 
     item.eventCode,
     item.success,
   ]
-    .map(escape)
+    .map(escapeField)
     .join(":");
 }
 

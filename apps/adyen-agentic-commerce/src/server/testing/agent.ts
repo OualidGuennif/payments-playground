@@ -23,6 +23,7 @@ type Keys = Awaited<ReturnType<typeof generateKeyPair>>;
 
 // Each test starts on an empty store, the default Adyen double and no cached cards.
 export function freshStore() {
+  // biome-ignore lint/correctness/useHookAtTopLevel: useDatabase swaps the store's database; it is not a React hook.
   useDatabase(openDatabase(":memory:"));
   fake.reset();
   forgetCardCache();

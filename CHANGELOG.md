@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Gate `bun run check` on Biome (`biome:ci`; `fmt` and `lint` scripts). Its 44 lint errors are
+  fixed (typed `let`s, lazy initialisers as statements, a renamed `escape`, a test that asserts
+  the webhook exists, decorative SVGs hidden, the checkout skeleton a `status`) or justified with
+  `biome-ignore` where the code is deliberate (effect triggers, a constant theme script).
 - Format the code with Biome 2.6.7 (`biome.json`: spaces, indent 2, line width 100, double
   quotes, semicolons; Markdown left out because Biome's Markdown formatter rewrites YAML
   frontmatter). Formatting only: no behaviour changes.
@@ -18,7 +22,7 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   in the Bun workspace with the SSR assertion and run as uid 1993 (user `app`). Turbopack no longer
   watches the SQLite files, which made the dev Sessions page re-create sessions in a loop. The
   agentic proxy strips `--env-file` quotes from the Basic Auth pair. ADR-014 supersedes ADR-004 and
-  ADR-006; no formatter or linter runs until the owner picks one.
+  ADR-006.
 - Move `apps/adyen-digital` to Next.js 16 on Bun: pages under `src/app`, one Elysia API in
   `src/server/api.ts` behind `/api/*`, `/healthz` and `/webhook` route handlers, every browser call
   on Eden, the checkout workbench rendered client-only. The proxy sets Basic Auth and the CSRF

@@ -42,6 +42,7 @@ export default function ProfileManager() {
     setBootstrap(unwrap(await api().api.bootstrap.get()));
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loads once on mount; load reads nothing from render scope.
   useEffect(() => {
     load().catch((cause) => setError(cause instanceof Error ? cause.message : "Load failed."));
   }, []);

@@ -17,6 +17,7 @@ export function Sheet(props: {
 }) {
   const panel = useRef<HTMLDivElement>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the parent passes a new onClose each render; re-running would refocus the panel.
   useEffect(() => {
     if (!props.open) return;
     const previous = document.activeElement as HTMLElement | null;

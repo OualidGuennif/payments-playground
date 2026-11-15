@@ -5,7 +5,7 @@ description: "Steps that read top to bottom, comments that say why, no needless 
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-16T00:30:00Z
 sources:
   - resource: ../../tools/git-hooks/pre-push
     title: "pre-push, which names this doc as its spec"
@@ -51,9 +51,9 @@ story goes in the commit message.
 `repo-health` applies source-size/comment heuristics to its documented suffix set and to
 extensionless files that start with a shebang (`#!`), excluding `test_*` files. Its JSON scorecard
 reports that set and how many files were checked. This is a structural scorecard; each project's
-build, linter and tests provide language-specific validation. Here that is `tsc --noEmit` per
-package and app, `bun test`, the three Next.js builds and an SSR assertion on each standalone
-server, all through `bun run check`; no formatter or linter runs since Deno left (2026-11-15).
+build, linter and tests provide language-specific validation. Here that is Biome (formatter and
+linter), `tsc --noEmit` per package and app, `bun test`, the three Next.js builds and an SSR
+assertion on each standalone server, all through `bun run check`.
 
 ## Branch, review, release
 

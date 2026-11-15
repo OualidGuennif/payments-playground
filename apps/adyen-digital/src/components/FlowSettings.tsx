@@ -124,6 +124,7 @@ export function FlowSettings(props: {
       {hasIntegration ? (
         <section className="config-group">
           <h3>Integration</h3>
+          {/* biome-ignore lint/a11y/useSemanticElements: a fieldset brings its own border, padding and min-width into the segmented control. */}
           <div className="segmented-control" role="group" aria-label="Frontend integration">
             <button
               type="button"

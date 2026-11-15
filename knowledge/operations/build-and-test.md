@@ -7,11 +7,13 @@ status: stable
 scope: build-and-test
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-16T00:30:00Z
 sources:
   - id: tasks
     resource: ../../package.json
     title: Root scripts
+  - resource: ../../biome.json
+    title: The Biome formatter and linter settings
   - id: dockerfile
     resource: ../../apps/adyen-digital/Dockerfile
     title: The runtime image and its build-time SSR assertion
@@ -58,17 +60,26 @@ bun run test               # packages, digital, styling and tools tests, then th
 bun run knowledge:check    # this bundle, AGENTS.md and CLAUDE.md
 bun run docs:links         # knowledge sources and Spec: pointers, both ways
 bun run repo:health        # size, comment and top-level-folder caps
+bun run biome:ci           # Biome: formatting and lint errors, no writes
+bun run fmt                # Biome formats in place
+bun run lint               # Biome lint, warnings included
 bun run template:test      # the template suites (hooks, context, links, loops)
 bun run build              # the three Next.js standalone builds
 bun run ssr:assert         # each standalone server renders its home page as a TEST page
 bun run verify             # build, then start the standalone servers and check /healthz and pages
 ```
 
-`check` runs: `knowledge:check`, `docs:links`, `repo:health`, `types` (`tsc -p .` over packages,
-testing and tools, then each app's `tsc --noEmit`), `test`, `build`, `ssr:assert`, `template:test`.
-It is the local gate; run it before every push. CI repeats it on pull requests and `main` after
-`bun install --frozen-lockfile`. No formatter or linter runs since `deno fmt` and `deno lint` left
-with Deno on 2026-11-15; adding one needs the owner's yes.
+`check` runs: `knowledge:check`, `docs:links`, `repo:health`, `biome:ci`, `types` (`tsc -p .` over
+packages, testing and tools, then each app's `tsc --noEmit`), `test`, `build`, `ssr:assert`,
+`template:test`. It is the local gate; run it before every push. CI repeats it on pull requests and
+`main` after `bun install --frozen-lockfile`.
+
+Biome 2.6.7 replaced `deno fmt` and `deno lint` on 2026-11-15 with the same style (`biome.json`:
+spaces, indent 2, line width 100, double quotes, semicolons) and its recommended rules. `biome:ci`
+fails on a formatting difference or a lint error and hides warnings; `bun run lint` lists them (about
+110, mostly non-null assertions). Markdown is not formatted: Biome's Markdown formatter turns YAML
+frontmatter into a heading. Template-owned folders and `opencode.json` are excluded. A rule broken on
+purpose carries `biome-ignore <rule>: <why>` on the line above, never a config switch.
 
 `dev:<app>` and `dev:all` start Next through `tools/dev/bun-app.ts`, which parses the app's env file
 with the platform's dotenv reader and marks it loaded for Next: Next's own loader expands `$name`

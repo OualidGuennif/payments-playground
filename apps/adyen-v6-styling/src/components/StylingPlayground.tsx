@@ -144,6 +144,7 @@ export default function StylingPlayground() {
   const previewVariables = useMemo(() => cssPreviewVariables(cssTokens), [cssTokens]);
   const tokenOverrides = cssTokenSetCount(cssTokens);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: initializes once on mount and unmounts Drop-in on leave.
   useEffect(() => {
     initialize().catch((cause) => {
       setError(cause instanceof Error ? cause.message : "Drop-in initialization failed.");
@@ -157,6 +158,7 @@ export default function StylingPlayground() {
   // (not just rebuild the Core against the old one). Debounced so flipping
   // through the dropdowns doesn't refetch on every change.
   const skipFirstAutoRefresh = useRef(true);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: country, locale and donation are baked into the session; refreshSession is rebuilt every render.
   useEffect(() => {
     if (skipFirstAutoRefresh.current) {
       skipFirstAutoRefresh.current = false;
@@ -213,6 +215,7 @@ export default function StylingPlayground() {
   // call, only re-instantiating the Dropin element against the existing Core.
   // Debounced so dragging a slider doesn't remount on every tick.
   const skipFirstNativeRefresh = useRef(true);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: these are the Drop-in props whose change remounts it; remountDropinOnly is rebuilt every render.
   useEffect(() => {
     if (skipFirstNativeRefresh.current) {
       skipFirstNativeRefresh.current = false;
@@ -748,6 +751,7 @@ export default function StylingPlayground() {
         </aside>
       </div>
       {confirmingReset ? (
+        // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: a click on the backdrop is a mouse shortcut for Cancel, which keyboards reach as a button.
         <div
           className="confirm-backdrop"
           onClick={(event) => {
@@ -773,6 +777,7 @@ export default function StylingPlayground() {
               >
                 Cancel
               </button>
+              {/* biome-ignore lint/a11y/noAutofocus: a modal alertdialog has to take focus when it opens. */}
               <button type="button" className="button button--danger" onClick={reset} autoFocus>
                 Reset everything
               </button>

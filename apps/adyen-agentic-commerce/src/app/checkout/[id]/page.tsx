@@ -15,7 +15,7 @@ export default async function CheckoutPage({
   searchParams: Promise<{ sessionId?: string; redirectResult?: string }>;
 }) {
   const { id } = await params;
-  let view;
+  let view: ReturnType<typeof checkoutView>;
   try {
     view = checkoutView(loadCheckout(id, "browser"));
   } catch {

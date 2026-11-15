@@ -6,8 +6,8 @@ import {
   localeForCountry,
   ZERO_DECIMAL_CURRENCIES,
 } from "@suite/platform/markets.ts";
-import { type Theme } from "@suite/ui/theme.ts";
-import { type Flow } from "./flows.ts";
+import type { Theme } from "@suite/ui/theme.ts";
+import type { Flow } from "./flows.ts";
 // field() below reads strings only; orders and balances are objects and numbers.
 import { field as valueAt } from "./read.ts";
 

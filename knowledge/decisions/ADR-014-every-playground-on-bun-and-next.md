@@ -6,7 +6,7 @@ tags: [decision, bun, nextjs, elysia, eden, workspace]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-16T00:30:00Z
 sources:
   - id: workspace
     resource: ../../package.json
@@ -51,7 +51,8 @@ had to be kept in step by hand.
   traces the data folder, watches it, and refreshes every open dev page on each database write.
 
 **Consequences.** `deno fmt` and `deno lint` left with Deno; `bun run check` covers knowledge, links,
-repository health, `tsc` per package and app, `bun test`, the three builds, an SSR assertion on each
-standalone server and the template suites. No formatter or linter replaces them yet: adding one
-needs the owner's yes. Docker images build inside the workspace on `oven/bun:1.4.4` and run
+repository health, Biome, `tsc` per package and app, `bun test`, the three builds, an SSR assertion
+on each standalone server and the template suites. Biome 2.6.7 (owner's yes, 2026-11-15) replaces
+`deno fmt` and `deno lint` with the same style; Markdown stays unformatted because Biome's Markdown
+formatter rewrites YAML frontmatter. Docker images build inside the workspace on `oven/bun:1.4.4` and run
 `bun apps/<app>/server.js` as uid 1993. The required CI check "Deno check" became "Bun check".

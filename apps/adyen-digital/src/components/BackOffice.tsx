@@ -149,6 +149,7 @@ export default function BackOffice() {
     });
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount only; refresh reads nothing but setters, and the interval keeps it current.
   useEffect(() => {
     refresh().catch((cause) => setError(cause instanceof Error ? cause.message : "Load failed."));
     // Named in the manual-capture warning; not a secret.
@@ -166,6 +167,7 @@ export default function BackOffice() {
 
   const selected = orders?.find((order) => order.id === selectedId);
   const selectedSignature = selected ? `${selected.id}:${selected.updatedAt}` : "";
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selectedSignature refetches the timeline when the selected order is updated.
   useEffect(() => {
     if (!selectedId) return;
     api()

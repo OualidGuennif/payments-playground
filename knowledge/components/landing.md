@@ -7,7 +7,7 @@ status: stable
 scope: component-landing
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-16T00:30:00Z
 sources:
   - id: app
     resource: ../../apps/landing
@@ -107,7 +107,7 @@ same document. A status or destination change is a source edit and a deploy, nev
 ## Acceptance checks
 
 ```bash
-git diff --check -- apps/landing   # whitespace errors; no formatter since Deno left
+bun run biome:ci                   # Biome formats and lints index.html and styles.css too
 rg -o 'https://[a-z]+\.payments-playground\.com' apps/landing/index.html | sort -u
 rg -n '<script|localStorage|cookie|@import|https://fonts' apps/landing
 ```

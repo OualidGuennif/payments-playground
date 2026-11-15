@@ -12,7 +12,7 @@ export function FlowIcon(props: { name: string; className: string; size?: number
   const size = props.size ?? 22;
   return (
     <span className={props.className} aria-hidden="true">
-      <svg viewBox="0 0 24 24" width={size} height={size}>
+      <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
         <path
           d={PATHS[props.name]}
           fill="none"

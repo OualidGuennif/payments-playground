@@ -4,7 +4,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { hmacValidator } from "@adyen/api-library";
 import { handle } from "./api";
-import * as commerce from "./commerce";
+import type * as commerce from "./commerce";
 import { ConfigError, readConfig } from "./config";
 import { basicAuthAllows } from "../proxy";
 import { list } from "./db";

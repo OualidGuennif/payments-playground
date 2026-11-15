@@ -310,6 +310,7 @@ export function LifecyclePanel(props: {
             {order.modifications.map((modification, index) => {
               const status = STATUS[modification.status];
               return (
+                // biome-ignore lint/suspicious/noArrayIndexKey: a modification can repeat a reference, and the history only grows at its end.
                 <li key={`${modification.pspReference ?? modification.idempotencyKey}-${index}`}>
                   <span className="lc-history__main">
                     <strong>

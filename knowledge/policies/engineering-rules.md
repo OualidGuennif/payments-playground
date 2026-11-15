@@ -7,7 +7,7 @@ status: deprecated
 superseded_by: engineering.md
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-16T00:30:00Z
 sources:
   - id: fmt-lint
     resource: git-history:deno.json
@@ -34,8 +34,8 @@ sources:
 
 ## Conventions
 
-- Deno 2, TypeScript, Preact. `deno fmt` (line width 100, double quotes, semicolons) and `deno lint`
-  are law; `deno task check` must stay green.
+- Bun, TypeScript, React on Next.js. Biome (line width 100, double quotes, semicolons, recommended
+  lint rules) is law; `bun run check` must stay green.
 - Comments say **why**: the Adyen behaviour, the failure that happened, the constraint. Never what
   the next line does. Match the density of the surrounding code.
 - Names and copy are plain and specific. English only, in code, comments, tests, docs, commits.

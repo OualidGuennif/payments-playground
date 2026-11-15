@@ -145,6 +145,7 @@ export function ThemeToggle() {
     <button
       type="button"
       className="theme-toggle"
+      // biome-ignore lint/a11y/useAriaPropsForRole: THEME_SCRIPT sets aria-checked before hydration.
       role="switch"
       data-theme-toggle
       aria-label="Dark mode"
@@ -154,7 +155,13 @@ export function ThemeToggle() {
     >
       <span className="theme-toggle__track" aria-hidden="true">
         <span className="theme-toggle__thumb">
-          <svg className="theme-toggle__sun" viewBox="0 0 24 24" width="14" height="14">
+          <svg
+            className="theme-toggle__sun"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            aria-hidden="true"
+          >
             <circle cx="12" cy="12" r="4.2" fill="currentColor" />
             <path
               d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"
@@ -163,7 +170,13 @@ export function ThemeToggle() {
               strokeLinecap="round"
             />
           </svg>
-          <svg className="theme-toggle__moon" viewBox="0 0 24 24" width="14" height="14">
+          <svg
+            className="theme-toggle__moon"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            aria-hidden="true"
+          >
             <path
               d="M20.3 14.6A8.5 8.5 0 0 1 9.4 3.7a8.5 8.5 0 1 0 10.9 10.9z"
               fill="currentColor"

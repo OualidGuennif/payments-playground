@@ -1,5 +1,5 @@
 {
-  "aeion-factory": {
+  "aeion-template": {
     "PreToolUse": [
       {
         "matcher": ".*",

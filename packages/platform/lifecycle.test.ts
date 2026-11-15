@@ -1,4 +1,5 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { test } from "bun:test";
+import { assertEquals, assertStringIncludes } from "../../testing/assert.ts";
 import {
   actionPermissions,
   CAPABILITIES_REVIEWED_ON,
@@ -15,7 +16,7 @@ const ledger = (overrides: Partial<Ledger> = {}): Ledger => ({
   ...overrides,
 });
 
-Deno.test("the capability table was checked against Adyen's docs within three months", () => {
+test("the capability table was checked against Adyen's docs within three months", () => {
   const ageDays = (Date.now() - Date.parse(CAPABILITIES_REVIEWED_ON)) / 86_400_000;
   if (ageDays > 92) {
     throw new Error(
@@ -26,7 +27,7 @@ Deno.test("the capability table was checked against Adyen's docs within three mo
   }
 });
 
-Deno.test("a manually captured card can be captured in part or cancelled, not refunded", () => {
+test("a manually captured card can be captured in part or cancelled, not refunded", () => {
   const permissions = actionPermissions("payment_pending", "scheme", ledger());
   assertEquals(permissions.capture.allowed, true);
   assertEquals(permissions.capture.maxValue, AUTHORISED);
@@ -35,7 +36,7 @@ Deno.test("a manually captured card can be captured in part or cancelled, not re
   assertEquals(permissions.refund.allowed, false);
 });
 
-Deno.test("a received capture blocks the next one until its webhook arrives", () => {
+test("a received capture blocks the next one until its webhook arrives", () => {
   const permissions = actionPermissions(
     "payment_pending",
     "scheme",
@@ -48,7 +49,7 @@ Deno.test("a received capture blocks the next one until its webhook arrives", ()
   assertEquals(permissions.refund.allowed, false);
 });
 
-Deno.test("cards take multiple partial captures up to what is authorised", () => {
+test("cards take multiple partial captures up to what is authorised", () => {
   const permissions = actionPermissions("paid", "scheme", ledger({ captured: 4_000 }));
   assertEquals(permissions.capture.allowed, true);
   assertEquals(permissions.capture.maxValue, 6_000);
@@ -58,7 +59,7 @@ Deno.test("cards take multiple partial captures up to what is authorised", () =>
   assertEquals(permissions.cancel.allowed, false);
 });
 
-Deno.test("Alma and Oney take one partial capture at most", () => {
+test("Alma and Oney take one partial capture at most", () => {
   for (const method of ["alma", "facilypay_3x", "facilypay_4x"]) {
     const permissions = actionPermissions("paid", method, ledger({ captured: 4_000 }));
     assertEquals(permissions.capture.allowed, false, method);
@@ -66,7 +67,7 @@ Deno.test("Alma and Oney take one partial capture at most", () => {
   }
 });
 
-Deno.test("refunds add up to what is captured, one webhook at a time", () => {
+test("refunds add up to what is captured, one webhook at a time", () => {
   const partly = actionPermissions(
     "paid",
     "scheme",
@@ -91,7 +92,7 @@ Deno.test("refunds add up to what is captured, one webhook at a time", () => {
   assertEquals(done.refund.allowed, false);
 });
 
-Deno.test("ANCV is refunded once and in full", () => {
+test("ANCV is refunded once and in full", () => {
   const first = actionPermissions("paid", "ancv", ledger({ captured: AUTHORISED }));
   assertEquals(first.refund.allowed, true);
   assertEquals(first.refund.partial, false);
@@ -104,7 +105,7 @@ Deno.test("ANCV is refunded once and in full", () => {
   assertStringIncludes(second.refund.reason, "one refund");
 });
 
-Deno.test("methods without separate capture are refunded, never captured or cancelled", () => {
+test("methods without separate capture are refunded, never captured or cancelled", () => {
   for (const method of ["ideal", "mbway", "wero", "wechatpayQR", "paybybank"]) {
     const permissions = actionPermissions("payment_pending", method, ledger());
     assertEquals(permissions.capture.allowed, false, method);
@@ -115,7 +116,7 @@ Deno.test("methods without separate capture are refunded, never captured or canc
   }
 });
 
-Deno.test("PayPal supports separate capture but this account captures it on authorisation", () => {
+test("PayPal supports separate capture but this account captures it on authorisation", () => {
   const capability = capabilitiesFor("paypal");
   assertEquals(capability.separateCapture, true);
   assertEquals(capability.multiplePartialCaptures, true);
@@ -126,19 +127,24 @@ Deno.test("PayPal supports separate capture but this account captures it on auth
   assertEquals(permissions.refund.allowed, true);
 });
 
-Deno.test("a method captured on authorisation has nothing to refund until authorised", () => {
+test("a method captured on authorisation has nothing to refund until authorised", () => {
   assertEquals(actionPermissions("open", "ideal", emptyLedger(0)).refund.allowed, false);
   assertEquals(actionPermissions("cancelled", "ideal", ledger()).refund.allowed, false);
 });
 
-Deno.test("a manually captured card still needs its CAPTURE before a refund", () => {
+test("a manually captured card still needs its CAPTURE before a refund", () => {
   assertEquals(actionPermissions("payment_pending", "scheme", ledger()).refund.allowed, false);
 });
 
-Deno.test("methods with separate capture follow the account's manual capture", () => {
-  for (
-    const method of ["googlepay", "applepay", "klarna_account", "alma", "facilypay_3x", "ancv"]
-  ) {
+test("methods with separate capture follow the account's manual capture", () => {
+  for (const method of [
+    "googlepay",
+    "applepay",
+    "klarna_account",
+    "alma",
+    "facilypay_3x",
+    "ancv",
+  ]) {
     const permissions = actionPermissions("payment_pending", method, ledger());
     assertEquals(permissions.capture.allowed, true, method);
     assertEquals(permissions.cancel.allowed, true, method);
@@ -148,7 +154,7 @@ Deno.test("methods with separate capture follow the account's manual capture", (
   assertEquals(capabilitiesFor("alma").validityMinutes, 30 * 24 * 60);
 });
 
-Deno.test("lifecycle actions target the latest authorised attempt, not a later refusal", () => {
+test("lifecycle actions target the latest authorised attempt, not a later refusal", () => {
   const attempt = (id: string, state: AttemptAggregate["state"]): AttemptAggregate => ({
     id,
     orderId: "order-1",

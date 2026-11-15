@@ -1,226 +1,145 @@
 ---
 type: Component
-title: "adyen-agentic-commerce: agent-initiated purchase, with the boundary labelled"
-description: "The Agentic Commerce playground: a deterministic local mock, an honest 501 for real agentic mode, and a separate human-confirmed Adyen TEST Checkout session."
-tags: [component, agentic, mock, checkout]
-status: stable
+title: "adyen-agentic-commerce: a store any AI agent can buy from, paid on Adyen TEST"
+description: "Bun app (Next.js 16, Elysia, Eden): a fashion store exposed over UCP 2026-08-25 (REST and MCP) behind PAP 1.0 sign-in, with human Drop-in checkout and agent payments on a saved card, all on Adyen TEST."
+tags: [component, agentic, pap, ucp, mcp, checkout, bun]
+status: draft
 scope: component-adyen-agentic-commerce
 generated:
-  by: aeion-adoption/1.0
-  at: 2026-10-31
+  by: claude-code/opus-5.5
+  at: 2026-11-16T02:00:00Z
+verified:
+  - at: 2026-11-15
+    check: "bun test: 123 cases pass (PAP conformance, OAuth, UCP and payment state machine, commerce, security, the budget race, reservations settled once, paid lines, amount mismatch, cross-site writes) against the Adyen double; tsc clean; next build."
+  - at: 2026-11-15
+    check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
 sources:
   - id: app
     resource: ../../apps/adyen-agentic-commerce
-    title: "The app's pages, API, islands and components"
-  - id: api
-    resource: ../../apps/adyen-agentic-commerce/api.ts
-    title: Offers, runs, the checkout handoff and the webhook
-  - id: providers
-    resource: ../../apps/adyen-agentic-commerce/providers.ts
-    title: Offers, the local mock run and the real-mode refusal reason
-  - id: main
-    resource: ../../apps/adyen-agentic-commerce/main.ts
-    title: Fresh, Hono and security middleware wiring
-  - id: playground
-    resource: ../../apps/adyen-agentic-commerce/islands/AgenticPlayground.tsx
-    title: Intent form, trace and human-confirmed Drop-in
-  - id: back-office
-    resource: ../../apps/adyen-agentic-commerce/islands/AgenticBackOffice.tsx
-    title: Run list and timeline
-  - id: profiles
-    resource: ../../apps/adyen-agentic-commerce/islands/AgenticProfileManager.tsx
-    title: Encrypted profiles and the future bearer field
-  - id: routes
-    resource: ../../apps/adyen-agentic-commerce/routes
-    title: Home, history, Back Office, settings, wiki and disclaimer
-  - id: layout
-    resource: ../../apps/adyen-agentic-commerce/components/Layout.tsx
-    title: The shared AppShell wrapper
-  - id: client
-    resource: ../../apps/adyen-agentic-commerce/client.ts
-    title: Browser stylesheet imports
-  - id: vite
-    resource: ../../apps/adyen-agentic-commerce/vite.config.ts
-    title: Fresh and SQLite hotfix plugins
-  - id: readme
-    resource: ../../apps/adyen-agentic-commerce/README.md
-    title: The two modes, environment variables and deployment
+    title: "The Bun app: Next.js pages, Elysia API, server modules"
+  - id: package
+    resource: ../../apps/adyen-agentic-commerce/package.json
+    title: Exact dependency pins and scripts
+  - id: next-config
+    resource: ../../apps/adyen-agentic-commerce/next.config.ts
+    title: "Standalone output; no rewrites: route files re-export the Elysia handler at the public paths"
+  - id: src
+    resource: ../../apps/adyen-agentic-commerce/src
+    title: Pages (app/), API (app/api), server modules (server/)
 ---
 
 # adyen-agentic-commerce
 
 ## Intent
 
-A teaching playground for agent-initiated purchases. Every step says what it actually is: executed
-locally, simulated, or unavailable. The mock contacts no provider; real mode answers `501` because
-no publicly verifiable Adyen Agentic Commerce TEST contract exists; the one path that does work end
-to end is a **human-confirmed standard Adyen Checkout TEST session**, and the UI labels it that way.
-Status: in progress (estimated Q1 2027); `deno task dev:agentic` runs it on port 8003, and it is not
-presented as a provider integration.
-
-Nothing here is a response from OpenAI, Copilot, Google or Adyen. The mock is a deterministic local
-fixture, not a convincing fake.
+A demo store (clothes, bags, accessories; fictional brand, original SVG product art) that a shopper
+can use directly and that **any MCP-capable LLM** can shop on their behalf from the site address
+alone. It shows merchants the full chain: discovery (PAP 1.0), catalogue, cart and checkout (UCP
+2026-08-25 over REST and MCP), sign-in with a spend limit, and a **real Adyen TEST payment** that
+appears in the Customer Area. Owner decision 2026-11-15: Bun + Elysia + Eden + Next.js replace the
+Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
 
 ## Data sources
 
-| Source                                               | What is read                                                                                                    | Owner      | Freshness                          |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
-| `providers.ts` `OFFERS`                              | Three fixed merchant offers (id, name, description, EUR minor-unit price, availability, tags)                   | Repository | Shipped with the build             |
-| `providers.ts` `runLocalAgenticMock`                 | The deterministic five-step run and its selected offer                                                          | Repository | Per mock request                   |
-| `providers.ts` `realAgenticUnavailableReason`        | The fixed reason returned by real mode and by `/capabilities`                                                   | Repository | Shipped with the build             |
-| `packages/platform/base-api.ts` `GET /api/bootstrap` | Selected public profile, client key (only a `test_` key is exposed), all profiles, agentic flags                | Platform   | Page load and profile switch       |
-| `GET /api/agentic/runs` and the SQLite repository    | Orders, API-call rows, audit rows and the timeline                                                              | App        | On page load; the UI does not poll |
-| Adyen Checkout TEST `/sessions`                      | The human-confirmed session token                                                                               | Adyen      | Per confirmation                   |
-| `POST /webhook`                                      | Standard notification items, HMAC-checked against every profile's key                                           | Adyen      | Asynchronous                       |
-| `.env` via `packages/platform/config.ts`             | `ADYEN_API_KEY`, `ADYEN_MERCHANT_ACCOUNT`, `ADYEN_CLIENT_KEY`, `ADYEN_HMAC_KEY`, optional real-mode flags/token | Server     | Boot                               |
-
-`AGENTIC_REAL_ENABLED` and `ADYEN_AGENTIC_BEARER_TOKEN` only shape the bootstrap flags and profile
-capabilities. They do **not** unlock the real run route, which refuses before any provider call.
+| Source                                    | What is read                                                   | Owner | Freshness           |
+| ----------------------------------------- | -------------------------------------------------------------- | ----- | ------------------- |
+| `src/server/catalog.ts`                   | Products, variants (colour, size), prices in EUR minor units   | Repo  | Shipped with build  |
+| SQLite (`DATABASE_PATH`, `bun:sqlite`)    | Carts, checkouts, orders, OAuth clients/codes/tokens, grants,  | App   | Per request         |
+|                                           | PAP sessions, idempotency records, protocol trace, webhooks    |       |                     |
+| Adyen Checkout API v72 TEST               | `/sessions`, `/payments`, stored payment methods               | Adyen | Per call            |
+| Adyen standard webhooks (HMAC)            | `AUTHORISATION` and other event codes                          | Adyen | Asynchronous        |
+| Agent client metadata document + jwks_uri | `client_id`, `redirect_uris`, `jwks_uri`, public keys          | Agent | Fetched per sign-in |
+| `.env` (never read by tooling or agents)  | `ADYEN_API_KEY`, `ADYEN_MERCHANT_ACCOUNT`, `ADYEN_CLIENT_KEY`, | Owner | Boot                |
+|                                           | `ADYEN_HMAC_KEY`, `PUBLIC_ORIGIN`, `DATABASE_PATH`, `PORT`     |       |                     |
 
 ## Inputs
 
-### HTTP
-
-| Route                                               | Input                                                                                                                                                                                                             |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/agentic/runs`                            | `{ "intent"?: unknown, "mode"?: unknown }`. `intent` is stringified, trimmed and cut to 1000 characters; fewer than 8 characters is `400`. Only the exact mode `real` selects real mode; anything else is `mock`. |
-| `POST /api/agentic/runs/:id/checkout-session`       | Path id only. The route ignores its body; the UI's confirmation click is the human confirmation. The order must exist, belong to this app and have flow `agentic-local-mock`.                                     |
-| `GET /api/agentic/offers`, `/capabilities`, `/runs` | No body.                                                                                                                                                                                                          |
-| `POST /webhook`                                     | Standard `{ "notificationItems": [{ "NotificationRequestItem": { ... } }] }`, with optional HMAC.                                                                                                                 |
-
-A mutation on `/api/*` needs the CSRF double-submit header; `X-Profile-Id` selects a non-default
-profile. The checkout route needs the selected profile to have a merchant account and a client key,
-or it answers `409`. The session request uses the order's amount, fixed `FR`/`en-US`, the shared
-weekly shopper reference, line items, addresses and risk fields; its `returnUrl` is
-`<publicOrigin>/?agenticRun=<order id>`.
-
-### UI
-
-The home page has a profile picker, a mode picker (`mock` or `real`), a free-text intent (default
-"Find a weekend trip to Amsterdam under EUR 350 with a flexible rail ticket.") and two buttons:
-**Run governed mock** / **Check real availability**, then **Confirm offer and open Drop-in**. The
-settings page posts `label`, `apiKey`, `merchantAccount`, `clientKey`, `hmacKey` and
-`agenticBearerToken` to `POST /api/profiles`; the last two are optional, and the bearer field is
-explicitly a placeholder for a future adapter.
-
-Deployment variables: `PUBLIC_ORIGIN` anchors CSRF and the session return URL,
-`PROFILE_ENCRYPTION_KEY` is required on Render or Deno Deploy, `SESSION_SIGNING_SECRET` signs the
-cookies, `PORT` defaults to 8000, `DATABASE_PATH` to `./data/agentic.sqlite`, and
-`PLAYGROUND_BASIC_AUTH_*` adds Basic Auth. The Render service is on the free plan with no disk, so
-it cold-starts and keeps nothing between deploys. The platform also serves `GET /api/health` and
-`GET /healthz`.
+- **Shopper (browser):** catalogue filters, variant choice, cart edits, shipping details, Drop-in
+  (Sessions flow), consent decisions, spend limit, agent revocation, card save (zero-value auth).
+- **Agent (HTTP):** UCP REST under `/ucp/v1` with `UCP-Agent: profile="<url>"`, `Request-Id`, and
+  `Idempotency-Key` (UUID) on every mutation; MCP JSON-RPC 2.0 at `POST /mcp` with
+  `meta["ucp-agent"].profile` and `meta["idempotency-key"]` (optional in MCP, honoured when sent);
+  OAuth 2 (authorization code + PKCE S256; `private_key_jwt` for PAP clients, public clients
+  registered by RFC 7591 for generic MCP clients); optional `Poppy-Session` + `Poppy-Version: 1.0`.
+  `/mcp` answers 401 with the resource metadata URL until the agent signs in; REST reads and carts
+  also work anonymously. Client metadata documents must be https, except loopback ones while
+  `PUBLIC_ORIGIN` is itself loopback (local runs and `scripts/pap-agent.ts`).
+- **Amounts:** integers in EUR minor units, computed by the server from the catalogue. An agent
+  never sends a price; any client-sent price or total is ignored.
 
 ## Outputs
 
-### Pages
-
-| Path           | What                                                                                   |
-| -------------- | -------------------------------------------------------------------------------------- |
-| `/`            | Intent, selected offer, the five-step trace, and the separate human-confirmed checkout |
-| `/history`     | Run table in compact form                                                              |
-| `/back-office` | Run table plus the selected run's timeline                                             |
-| `/settings`    | Profiles, capabilities and the encrypted-profile form, with the bearer-token boundary  |
-| `/wiki`        | Architecture, mock contract, payment handoff, pilot limits and the production path     |
-| `/disclaimer`  | The shared TEST disclaimer                                                             |
-
-### API
-
-| Route                                         | Shape / effect                                                                                                                                                                                                                                                                                                                                            |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/agentic/offers`                     | `{ "offers": [{ "id", "name", "description", "price", "currency", "available", "tags" }] }`                                                                                                                                                                                                                                                               |
-| `GET /api/agentic/capabilities`               | `{ "localMock": { "available": true, "execution": "local-deterministic" }, "merchantCatalogue": { "available": true, "execution": "local" }, "humanConfirmedAdyenSession": { "available": true, "execution": "Adyen TEST when configured" }, "realAgenticProvider": { "available": false, "status": "pilot-not-verifiable-in-test", "reason": string } }` |
-| `POST /api/agentic/runs`                      | `201 { "correlationId", "run": { "mode": "mock", "intent", "selectedOffer": Offer, "steps": Step[] } }`; `400` for a short intent; `501` for real mode                                                                                                                                                                                                    |
-| `POST /api/agentic/runs/:id/checkout-session` | `201 { "correlationId", "session": <Adyen session>, "boundary": { "agenticProviderCalled": false, "adyenCheckoutTestCalled": true, "humanConfirmationRequired": true } }`; `404` unknown/foreign run, `409` wrong flow or missing credentials                                                                                                             |
-| `GET /api/agentic/runs`                       | `{ "runs": [{ ...order, "timeline": TimelineEntry[] }] }`                                                                                                                                                                                                                                                                                                 |
-| `POST /webhook`                               | `202` text `[accepted]`; `401` when any item fails HMAC or no item is present                                                                                                                                                                                                                                                                             |
-
-Each mock step is
-`{ id, name, status: "executed" | "simulated" | "unavailable", system: "playground" | "merchant-catalogue" | "agent-provider" | "adyen", summary, payload }`:
-
-| Step                     | Status        | System               | What it says                                                                                        |
-| ------------------------ | ------------- | -------------------- | --------------------------------------------------------------------------------------------------- |
-| Intent capture           | `executed`    | `playground`         | The playground accepted the shopper-authored intent.                                                |
-| Merchant policy gate     | `executed`    | `playground`         | Local rules checked a 50 000 minor-unit ceiling, availability and the human-confirmation rule.      |
-| Offer discovery          | `executed`    | `merchant-catalogue` | A deterministic local catalogue search selected the best tag match.                                 |
-| External agent reasoning | `simulated`   | `agent-provider`     | No provider was called; `provider` is null and the proposed action is `request_human_confirmation`. |
-| Payment handoff          | `unavailable` | `adyen`              | Agentic payment execution is unavailable; a separate human-confirmed session can be created.        |
-
-The mock run creates the order with flow `agentic-local-mock`, the selected offer's amount and
-metadata `{ selectedOfferId, intent, simulated: true }`, and records every step as an `api_calls`
-row (with method `LOCAL` and a `system://agentic/...` endpoint). The human-confirmed route creates a
-`payment_sessions` row of kind `human-confirmed-checkout` and moves the order to `payment_pending`.
-An `AUTHORISATION` webhook with `success=true` moves it to `paid`; any other valid authorisation
-moves it to `open`. This app has no capture, refund or ledger.
-
-### Refusals
-
-| Status | When                                                                                                  |
-| ------ | ----------------------------------------------------------------------------------------------------- |
-| `400`  | Intent shorter than 8 characters                                                                      |
-| `401`  | Webhook HMAC invalid, missing or no notification items; optional Basic Auth on `/api/*` if configured |
-| `403`  | CSRF token missing/mismatched, or a foreign origin                                                    |
-| `404`  | Checkout session for an unknown order, or an order from another app                                   |
-| `409`  | Checkout session for a non-mock run, or without a merchant account and a client key                   |
-| `429`  | More than 120 requests a minute for one client and path                                               |
-| `501`  | Real mode; no external provider is called                                                             |
-| `500`  | Adyen rejected `/sessions` or an unexpected error; Hono answers `{ "error", "correlationId" }`        |
+- **Discovery:** `/.well-known/poppy.json`, `/.well-known/oauth-protected-resource` (and
+  `/.well-known/oauth-protected-resource/mcp`), `/.well-known/oauth-authorization-server`,
+  `/.well-known/ucp`.
+- **UCP:** Checkout statuses `incomplete`, `requires_escalation` (with `continue_url`),
+  `ready_for_complete`, `complete_in_progress`, `completed` (with `order {id, permalink_url}`),
+  `canceled`; `totals` with exactly one `subtotal` and one `total`; `messages` with
+  `type/code/content/severity`.
+- **Payment:** a signed-in agent within the spend limit pays with the shopper's saved card:
+  `/payments` with `storedPaymentMethodId`, `shopperInteraction: ContAuth`,
+  `recurringProcessingModel: UnscheduledCardOnFile`, `shopperReference: ogaccountnew`, idempotency
+  key bound to the checkout. Otherwise the checkout returns `requires_escalation` and the shopper
+  pays or approves at `continue_url`.
+- **Back Office:** orders, their checkout, every protocol exchange (secrets redacted), Adyen
+  `pspReference`, result code, webhooks.
+- **Refusals:** `invalid_session` 400, `session_ended` 400, `version_unsupported` 400,
+  `invalid_token` 401, `insufficient_scope` 403, `invalid_scope`/`invalid_client`/`invalid_grant`
+  (OAuth), 409 idempotency key reused with another body, 404 unknown or foreign resource.
 
 ## Invariants
 
-| #  | Invariant                                                                                                                                                                             | Test / file                                                                                                        |
-| -- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| 1  | Real mode returns `501` and contacts no endpoint, even with the real-mode env flag and a bearer token.                                                                                | `api.ts` real branch; `realAgenticUnavailableReason` in `providers.ts`; [KNOWN_LIMITS](../../docs/KNOWN_LIMITS.md) |
-| 2  | The mock calls no provider: offer selection, policy and steps are local, and only repository rows are written.                                                                        | `runLocalAgenticMock` in `providers.ts`; `api.ts`; `AgenticPlayground.tsx`                                         |
-| 3  | Offer selection is deterministic: tag intersection, then the fixed `OFFERS` order; the catalogue is three offers.                                                                     | `chooseOffer`, `OFFERS` in `providers.ts`                                                                          |
-| 4  | Every step carries one of the three statuses and its system; external reasoning is `simulated` with `provider: null`, never presented as real.                                        | `runLocalAgenticMock` in `providers.ts`; `AgenticPlayground.tsx`                                                   |
-| 5  | Only an `agentic-local-mock` order can be handed to checkout, and the confirmation click is the human review; the result is a standard Checkout v72 session, not an Agentic API call. | checkout route in `api.ts`; `AgenticPlayground.tsx`                                                                |
-| 6  | The checkout route needs a merchant account and a client key; the boundary object states which system was called.                                                                     | checkout route in `api.ts`; `base-api.ts`                                                                          |
-| 7  | A valid `AUTHORISATION` webhook sets `paid` only on `success=true`, otherwise `open`; invalid HMAC or an empty delivery is `401`.                                                     | webhook handler in `api.ts`; `packages/platform/hmac.test.ts`                                                      |
-| 8  | TEST only: a LIVE host or client key is refused before any call.                                                                                                                      | `packages/platform/test-only.ts`; `AdyenTestClient` in `packages/platform/adyen.ts`                                |
-| 9  | Stored non-default profile secrets are encrypted at rest and never returned; only a `test_` client key reaches the browser.                                                           | `packages/platform/profiles.ts`; `GET /api/bootstrap` in `packages/platform/base-api.ts`                           |
-| 10 | Intent is bounded: at least 8 characters after trimming, at most 1000 stored; only the exact mode `real` leaves the mock path.                                                        | `POST /api/agentic/runs` in `api.ts`                                                                               |
-| 11 | Every `/api/*` mutation carries the CSRF token; a cross-origin POST is refused even with a valid token.                                                                               | `packages/platform/security.test.ts`; `apiFetch` in `packages/ui/client.ts`                                        |
-| 12 | No post-payment state is invented in the browser: `onPaymentCompleted`/`onPaymentFailed` are no-ops, and the Back Office/timeline is the record.                                      | `AgenticPlayground.tsx`; `AgenticBackOffice.tsx`                                                                   |
-
-Only the health route has an app-level integration assertion
-([`packages/platform/apps.integration.test.ts`](../../packages/platform/apps.integration.test.ts));
-the mock trace is verified by reading `providers.ts` and the API branch, not by a dedicated test.
+1. TEST only: endpoints are fixed to `*-test.adyen.com`; a client key must start with `test_`.
+2. The server computes every price, total and currency; the order state comes only from Adyen's
+   answers and HMAC-valid webhooks. Each payment record keeps the lines its amount was priced from,
+   and the order is placed from those lines, not from the checkout, which stays editable while a
+   Drop-in session is open. When Adyen reports an amount other than the one sent, no order is
+   placed and the checkout is held with `amount_mismatch`. Payments are found by reference or
+   session id, never inside a window of recent rows. A late refusal of an earlier attempt neither
+   reopens the checkout nor gives budget back.
+3. An agent payment happens only with a valid access token carrying the checkout scope, a grant that
+   is not revoked, a saved card, and a total at or under the grant's remaining limit; otherwise
+   `requires_escalation`. The grant is re-read after the card lookup and the total is reserved on it
+   when the checkout is claimed, with nothing awaited in between, so completes on several checkouts
+   at once cannot together pass the limit. Each payment's reservation is settled once: the first of
+   the synchronous refusal, a network error or a refusal webhook gives it back, and a success
+   webhook for a payment whose reservation was given back charges it again before the order. The
+   synchronous answer re-reads the payment and the checkout first: when a webhook already placed
+   the order or held a mismatch during the call, it neither places a second order nor releases.
+4. A checkout is paid at most once: it is re-read after the card lookup and `complete_in_progress`
+   is claimed before the call with nothing awaited in between, so two completes at once send one
+   payment; the idempotency key is `agent-pay-<checkout id>-a<attempt>`; a refusal opens a new
+   attempt, a network error retries the same key; a completed checkout is immutable. A Drop-in
+   result is likewise re-read after Adyen answers, so a repeated result places one order.
+5. Every PAP MUST that applies to the merchant side maps to a test (matrix in the app's
+   `src/server/conformance.test.ts`).
+6. No secret, token, client assertion or stored payment method id appears in the trace, logs or
+   pages unredacted.
 
 ## Determinism
 
-Deterministic in code. The same intent always selects the same offer (tag matches, then the fixed
-`OFFERS` order), and the five steps have fixed names, systems, statuses and summaries. Only ids,
-timestamps and the order reference vary. The mock does not call a model, a vendor or Adyen.
-
-Real mode is a fixed refusal, so it is deterministic too. The only non-deterministic path is the
-human-confirmed Adyen session and its webhook, which are external Adyen TEST responses; this app
-stores and displays them rather than composing them.
+Deterministic: catalogue, pricing, state machine, token checks. No model runs in this app; the agent
+is whatever LLM the shopper points at it.
 
 ## Acceptance checks
 
-```bash
-deno fmt --check apps/adyen-agentic-commerce
-deno task --cwd apps/adyen-agentic-commerce check
-deno task --cwd apps/adyen-agentic-commerce test
-deno task build:agentic
-deno task dev:agentic
-```
-
-Manual pass without credentials: run the default intent in mock mode, see five labelled steps and
-the selected offer; switch to real mode and confirm the `501` with no provider call. The
-human-confirmed Drop-in is a separate manual pass with a configured TEST profile; without one the
-button is disabled and the route would answer `409`.
+- `bun run --cwd apps/adyen-agentic-commerce check` (types, `bun test` with the Adyen double from
+  `bunfig.toml`'s preload, `next build`); the root `bun run check` runs the same steps, then
+  `ssr:assert` boots the standalone server and expects "Agentic Commerce" on the home page.
+- Locally, `bun run scripts/pap-agent.ts` signs in as a PAP client, waits for the shopper's consent
+  (or `--auto-consent`) and buys one item over MCP.
+- On TEST: a human Drop-in payment Authorised; a zero-value card save; an agent `complete_checkout`
+  Authorised with ContAuth; the matching `AUTHORISATION` webhook accepted.
 
 ## Out of scope
 
-- No real agent provider, no OpenAI/Copilot/Google integration, no inferred endpoint or schema, and
-  no use of the bearer token beyond storing it and reporting that it is configured.
-- No mandate, signed consent, replay protection, liability allocation, fraud decision or dispute
-  ownership; those are named as production work in the wiki, not implemented.
-- No fulfilment, order management, capture, refund or ledger.
-- No post-payment result screen: the Drop-in callbacks are no-ops, so completion is visible in the
-  Back Office/timeline, not as a result card.
-- No multi-offer comparison, cart, quantity or shipping choice; the run selects one of three fixed
-  offers.
-- No production/LIVE path, no hosted guarantee that a pilot contract will match this shape, and no
-  claim that the mock proves an agentic integration.
+- LIVE payments, refunds and captures from this app.
+- Adyen's own UCP tokenizer until the owner's account has the role (the handler is behind config).
+- Real user accounts: one demo shopper (`ogaccountnew`). Consent, account and Back Office are
+  protected only by the playground's basic auth when it is set (the proxy strips the quotes
+  `docker run --env-file` keeps, like the config reader; `src/server/security.test.ts`). Because a
+  browser attaches that basic auth to a cross-site form POST, the proxy also refuses a state-changing
+  request on those paths whose `Sec-Fetch-Site`, or else `Origin`, names another site; the consent
+  decision cannot be forged from another page. Every response carries the platform's security
+  headers (`X-Frame-Options: DENY` among them), so the consent page cannot be framed.
+- Conversations, browser sign-in and the Operations extension of PAP.

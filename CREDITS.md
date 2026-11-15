@@ -1,6 +1,6 @@
 # Credits
 
-Æion Factory is an orchestration layer over other people's ideas and tools. Thank you.
+Æion Template is an orchestration layer over other people's ideas and tools. Thank you.
 
 ## Tools and plugins
 
@@ -10,8 +10,8 @@
   https://github.com/anthropics/claude-plugins-official · https://code.claude.com/docs
 - **Addy Osmani, `agent-skills`** (MIT) — the skill anatomy (overview, when to use, process,
   rationalizations, red flags, verification) and the DEFINE → PLAN → BUILD → VERIFY → REVIEW → SHIP
-  lifecycle that Æion Factory's skills follow. https://github.com/addyosmani/agent-skills · "Own the
-  Outer Loop" (2026).
+  lifecycle that Æion Template's skills follow. https://github.com/addyosmani/agent-skills · "Own
+  the Outer Loop" (2026).
 - **Vectorize, Hindsight** (MIT) — agent memory with retain, recall and reflect.
   https://github.com/vectorize-io/hindsight
 - **The language servers:** Microsoft TypeScript 7 (native `tsc --lsp`), Deno's built-in server,
@@ -20,15 +20,17 @@
 ## Research and practice
 
 - **Jesse Vincent / obra, Superpowers** (MIT) — investigation, evidence before completion, precise
-  plans and verified review feedback inspired the focused Æion Factory skill updates.
+  plans and verified review feedback inspired the focused Æion Template skill updates.
   https://github.com/obra/superpowers · [license notice](docs/licenses/superpowers-MIT.txt).
 - **Mert Koseoğlu, context-mode** (Elastic-2.0) — bounded output and pre-compaction recovery
   informed the context design. No context-mode code or MCP runtime is bundled.
   https://github.com/mksglu/context-mode
-- **Graphify Labs, Graphify** (Apache-2.0 with upstream notices) — pinned native code and Markdown
-  structural extraction. https://github.com/Graphify-Labs/graphify
-- **tt-a1i, Archify** (upstream Apache-2.0 / MIT notices) — pinned source-backed diagrams,
-  schema/provenance/browser checks. https://github.com/tt-a1i/archify
+- **Robert C. Martin, ub-mode** — the three passes and the build principles (the data's shape first,
+  a design fitted to the change, idempotent operations, one writer for shared state) are adapted in
+  our own words; no ub-mode text is copied. https://github.com/unclebob/ub-mode
+- **AxiomSpec** (aeion-framework, MIT) — the specification method the optional framework mode reads
+  through its service; nothing of it is vendored here.
+  https://github.com/OualidGuennif/aeion-framework
 
 - Chroma, _Context Rot_ (2025) — long inputs degrade every model measured.
 - Gloaguen et al., context files and agent success (arXiv 2602.11988, 2026).
@@ -55,7 +57,7 @@ Mistakes in how these ideas are combined here are ours, not theirs.
   specialist workflow references. https://github.com/anthropics/knowledge-work-plugins
 
 The versioned skills/catalog.json records exact source commits, entrypoint fingerprints and license
-files. Native Factory text is selectively adapted, not a wholesale copy of upstream prompts. The
+files. Native Template text is selectively adapted, not a wholesale copy of upstream prompts. The
 separate passive pool contains upstream skill/agent files and supporting resources, with three
 source-hash-bound scanner annotation comments recorded in tools/skills/annotations.json, with
 license texts under skills/licenses/. No upstream agent-launch mandate, model setting or generic

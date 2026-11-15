@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+# Spec: knowledge/components/framework-mode.md
+"""Read the project's AxiomSpec from its aeion-framework service (framework mode only).
+
+    tools/framework/axiom-api ready
+    tools/framework/axiom-api node ID [--full]                    what a requirement demands
+    tools/framework/axiom-api context ID[,ID...] [--scope change] what binds it; change: before changing behavior
+    tools/framework/axiom-api trace --path P | --symbol S | --id ID   where requirements sit in the code
+    tools/framework/axiom-api gaps [--phase implementation]       what is missing from the code
+
+--snapshot DIGEST names a release (default current, the one release a sandbox service serves).
+context, trace and gaps are paged: --budget BYTES per page (4096 to 32768, default 16384), --pages N
+followed (1 to 4, default 1), --cursor C to continue where a previous answer stopped.
+Exit 0 answered, 1 refused or unreachable, 2 bad arguments, 3 framework mode off."""
+import argparse
+import json
+import re
+import shlex
+import sys
+import time
+from pathlib import Path
+from urllib.parse import urlencode
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / ".claude/hooks"))
+import aeion_settings as settings  # noqa: E402
+
+TIMEOUT_SECONDS = 15
+RETRY_SECONDS = 5
+SNAPSHOT = re.compile(r"^([0-9a-f]{64}|current)$")
+BUDGET = (4096, 32768, 16384)
+PAGES = 4
+IDS_AT_ONCE = 100
+
+
+class Refused(Exception):
+    """An answer that is not the JSON the operation promises."""
+
+
+def fetch(base, path, query=None):
+    """The JSON answer at base+path; a 503 is asked once more after its Retry-After (five seconds at most)."""
+    url = base + path + (f"?{urlencode(query)}" if query else "")
+    for attempt in (1, 2):
+        try:
+            status, body, retry = settings.request(url, TIMEOUT_SECONDS)
+        except settings.InsecureToken as error:
+            raise Refused(str(error)) from None
+        except (OSError, ValueError) as error:
+            raise Refused(f"the service at {base} is unreachable ({type(error).__name__})") from None
+        if status != 503 or attempt == 2:
+            break
+        time.sleep(min(1 if retry is None else retry, RETRY_SECONDS))
+    if status >= 400 and isinstance(body, dict) and body.get("code"):
+        raise Refused(f"{body['code']} ({status}): {body.get('detail') or body.get('title', '')}")
+    if status != 200 or not isinstance(body, dict):
+        raise Refused(f"HTTP {status} without a JSON answer from {url}")
+    return body
+
+
+def paged(base, path, query, pages, cursor):
+    """Up to `pages` pages from cursor, merged: items and omissions in order, the last page's state."""
+    merged = None
+    for _ in range(pages):
+        page = fetch(base, path, {**query, **({"cursor": cursor} if cursor else {})})
+        if not isinstance(page.get("items"), list) or not isinstance(page.get("omissions"), list):
+            raise Refused(f"the answer at {path} is not a page (no items or omissions)")
+        if merged is None:
+            merged = dict(page)
+        else:
+            merged["items"] = merged["items"] + page["items"]
+            merged["omissions"] = merged["omissions"] + page["omissions"]
+            merged["returned_count"] = len(merged["items"])
+            for key in ("complete", "next_cursor", "total_visible_count", "analysis_limits"):
+                merged[key] = page.get(key)
+        cursor = page.get("next_cursor")
+        if not cursor:
+            break
+    return merged
+
+
+def ids(text):
+    """A comma list of requirement IDs, as the service accepts it."""
+    found = [part.strip() for part in text.split(",") if part.strip()]
+    if not found or len(found) > IDS_AT_ONCE or not all(settings.ID.match(i) for i in found):
+        raise argparse.ArgumentTypeError(f"IDs like REQ-001, comma separated, at most {IDS_AT_ONCE}")
+    return found
+
+
+def one_id(text):
+    if not settings.ID.match(text):
+        raise argparse.ArgumentTypeError("one ID like REQ-001")
+    return text
+
+
+def budget(text):
+    value = int(text) if text.isdigit() else -1
+    if not BUDGET[0] <= value <= BUDGET[1]:
+        raise argparse.ArgumentTypeError(f"a byte budget from {BUDGET[0]} to {BUDGET[1]}")
+    return value
+
+
+def pages(text):
+    value = int(text) if text.isdigit() else -1
+    if not 1 <= value <= PAGES:
+        raise argparse.ArgumentTypeError(f"from 1 to {PAGES} pages")
+    return value
+
+
+def bounded(limit):
+    def check(text):
+        if not text or len(text) > limit or "\0" in text:
+            raise argparse.ArgumentTypeError(f"a nonempty value of at most {limit} characters")
+        return text
+    return check
+
+
+def snapshot(text):
+    if not SNAPSHOT.match(text):
+        raise argparse.ArgumentTypeError("current, or a release digest of 64 lowercase hex digits")
+    return text
+
+
+def parser():
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--snapshot", type=snapshot, default="current")
+    common.add_argument("--root", default=str(ROOT), help=argparse.SUPPRESS)
+    page = argparse.ArgumentParser(add_help=False)
+    page.add_argument("--budget", type=budget, default=BUDGET[2])
+    page.add_argument("--pages", type=pages, default=1)
+    page.add_argument("--cursor", type=bounded(512))
+    main = argparse.ArgumentParser(prog="tools/framework/axiom-api", description=__doc__.split("\n")[0])
+    sub = main.add_subparsers(dest="command", required=True)
+    sub.add_parser("ready", parents=[common])
+    node = sub.add_parser("node", parents=[common])
+    node.add_argument("id", type=one_id)
+    node.add_argument("--full", action="store_true")
+    context = sub.add_parser("context", parents=[common, page])
+    context.add_argument("ids", type=ids)
+    context.add_argument("--scope", choices=("direct", "change"), default="direct")
+    trace = sub.add_parser("trace", parents=[common, page])
+    where = trace.add_mutually_exclusive_group(required=True)
+    where.add_argument("--path", type=bounded(1024))
+    where.add_argument("--symbol", type=bounded(256))
+    where.add_argument("--id", type=one_id)
+    gaps = sub.add_parser("gaps", parents=[common, page])
+    gaps.add_argument("--phase", choices=("design", "implementation"), default="design")
+    return main
+
+
+def continuation(argv, cursor):
+    """The command that reads the next page: the same one, with this cursor."""
+    kept, skip = [], False
+    for word in argv:
+        if skip:
+            skip = False
+        elif word == "--cursor":
+            skip = True
+        elif not word.startswith("--cursor="):
+            kept.append(word)
+    return shlex.join(["tools/framework/axiom-api", *kept, "--cursor", cursor])
+
+
+def main(argv):
+    args = parser().parse_args(argv)
+    url, _, problem = settings.framework(Path(args.root))
+    if problem or not url:
+        print(f"axiom-api: framework mode is off ({problem or 'no API address'}); "
+              "the owner connects it with tools/aeion-settings framework <url>", file=sys.stderr)
+        return 3
+    release = f"/v1/snapshots/{args.snapshot}"
+    try:
+        if args.command == "ready":
+            answer = fetch(url, "/health/ready")
+        elif args.command == "node":
+            answer = fetch(url, f"{release}/nodes/{args.id}", {"detail": "full" if args.full else "brief"})
+        else:
+            query = {"context": lambda: {"ids": ",".join(args.ids), "scope": args.scope},
+                     "trace": lambda: {k: v for k in ("path", "symbol", "id") if (v := getattr(args, k))},
+                     "gaps": lambda: {"phase": args.phase}}[args.command]()
+            answer = paged(url, f"{release}/{args.command}", {**query, "budget_bytes": args.budget}, args.pages, args.cursor)
+    except Refused as error:
+        print(f"axiom-api: {error}", file=sys.stderr)
+        return 1
+    print(json.dumps(answer, indent=1, ensure_ascii=False))
+    if answer.get("next_cursor"):
+        print(f"more: {continuation(argv, answer['next_cursor'])}", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

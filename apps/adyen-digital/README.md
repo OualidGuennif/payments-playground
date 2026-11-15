@@ -13,18 +13,18 @@ that correlates what each one produced.
 
 ```bash
 cp .env.example .env      # then fill in the four Adyen values below
-deno task dev             # http://localhost:5173 (Vite)
+cd ../.. && bun run dev:digital   # http://localhost:8001
 ```
 
-From the repository root, `deno task dev:digital` runs it on port 8001.
+The root script reads `.env` without `$` expansion and starts Next.js on Bun.
 
-| Task              | What it does                        |
-| ----------------- | ----------------------------------- |
-| `deno task dev`   | Development server with hot reload. |
-| `deno task build` | Production build.                   |
-| `deno task start` | Serve a build.                      |
-| `deno task test`  | Tests.                              |
-| `deno task check` | Format, lint and type-check.        |
+| In this folder      | What it does                         |
+| ------------------- | ------------------------------------ |
+| `bun run dev`       | Development server with hot reload.  |
+| `bun run build`     | Production build (standalone).       |
+| `bun run start`     | Serve a build.                       |
+| `bun run test`      | Tests.                               |
+| `bun run typecheck` | Type-check.                          |
 
 Health routes: `/healthz` and `/api/health`.
 

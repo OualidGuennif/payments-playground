@@ -12,11 +12,11 @@ description: Cuts a release from develop to main behind a review and a green CI,
    `pr-review` on it; wait for a green `gh pr checks`.
 3. Release gate: skill `security-scan` on the changes since the last tag, `tools/knowledge/doc-links`.
 4. `gh pr merge <n> --merge` (a merge commit: `develop` stays an ancestor of `main`; never squash a release).
-   Wait for the `Architecture refresh` workflow to pass on the exact merged main SHA. A failed round is
-   retried/corrected, never skipped.
+   Wait for CI to pass on the exact merged main SHA. A failed run is
+   corrected, never skipped.
 5. Tag and publish: `git fetch origin`, `git tag -a vX.Y.Z origin/main -m vX.Y.Z`, `git push origin vX.Y.Z`,
-   `gh release create vX.Y.Z --notes "$(tools/release/release --notes X.Y.Z)"`. The source archives leave
-   out `demo/` (`.gitattributes` export-ignore): `git archive vX.Y.Z | tar -t | grep -c '^demo/'` prints 0.
+   `gh release create vX.Y.Z --notes "$(tools/release/release --notes X.Y.Z)"`. The release name is exactly
+   `vX.Y.Z` (no sentence, no summary) and the body is that section unedited, like the first releases.
 6. Catch `develop` up: `git switch develop && git merge --ff-only origin/main && git push` (the pre-push
    hook accepts commits already on `main`). Fast-forward local `main` too.
 7. Deploy only through the project's deploy procedure and its guards, with a human's go when the project

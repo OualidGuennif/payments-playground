@@ -1,6 +1,0 @@
-.basket-line {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 12px;
-  align-items: center;
-}

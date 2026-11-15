@@ -6,7 +6,7 @@ tags: [reference, okf, format]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-11-15T22:00:00Z
 sources:
   - id: spec
     resource: https://github.com/GoogleCloudPlatform/open-knowledge-format
@@ -24,7 +24,8 @@ Markdown concepts with YAML frontmatter (`type`, `title`, `description`, `status
 `sources`), organised by directory, each directory with an `index.md` for progressive disclosure.
 The root `knowledge/index.md` declares `okf_version: "0.2"`.
 
-Local extensions, enforced by `tools/knowledge/knowledge-check.ts`:
+Local extensions, enforced by `tools/knowledge/knowledge-check.ts` (on Bun since 2026-11-15, YAML
+read with `Bun.YAML`, so dates arrive as strings and are parsed with `new Date`):
 
 - `stale_after`: past this date a stable concept must be re-verified or carry STALE near its top.
 - `verified`: a list of `{at, check}` entries for checks actually performed.
@@ -32,7 +33,8 @@ Local extensions, enforced by `tools/knowledge/knowledge-check.ts`:
 - `superseded_by`: required, and must exist, on a deprecated concept.
 - A source whose `resource` is a repository path must exist; `git-history:` and URL resources are
   not checked.
-- `AGENTS.md` stays under 200 lines and 20 KiB; `CLAUDE.md` is a symlink to it.
+- `AGENTS.md` stays at or under 120 lines and 20 KiB; `CLAUDE.md` is a symlink to it or the line
+  `@AGENTS.md`.
 
 The same conventions are used in the owner's Oualstreet repository, from which this layout was
 adapted.

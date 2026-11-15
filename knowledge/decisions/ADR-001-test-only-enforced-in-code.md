@@ -28,6 +28,8 @@ in Settings. The browser only ever receives a client key that starts with `test_
 permanent TEST marker (a header pill since
 [ADR-010](ADR-010-one-theme-attribute-and-token-sets.md)).
 
-**Consequences.** There is no switch to point the code at LIVE, and none must be added. The guard is
+**Consequences.** There is no switch to point the code at LIVE, and none must be added. The
+Device API calls left `adyen.ts` with IPP on 2026-11-15; the guard still refuses the device and
+terminal LIVE hosts, unchanged. The guard is
 a seatbelt, not a policy: [SECURITY.md](../../docs/SECURITY.md) still tells forkers never to use
 LIVE credentials.

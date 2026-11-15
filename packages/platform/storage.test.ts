@@ -1,7 +1,8 @@
-import { assertEquals } from "@std/assert";
+import { test } from "bun:test";
+import { assertEquals, assertExists } from "../../testing/assert.ts";
 import { Repository } from "./storage.ts";
 
-Deno.test("webhooks and lifecycle actions are deduplicated idempotently", () => {
+test("webhooks and lifecycle actions are deduplicated idempotently", () => {
   const repository = new Repository(":memory:");
   try {
     const webhook = {
@@ -29,17 +30,15 @@ Deno.test("webhooks and lifecycle actions are deduplicated idempotently", () => 
 
     const timeline = repository.timeline("order-1");
     assertEquals(timeline.length, 2);
-    assertEquals(
-      (timeline.find((entry) => entry.kind === "webhook")?.payload as Record<string, unknown>)
-        .apiKey,
-      "[redacted]",
-    );
+    const stored = timeline.find((entry) => entry.kind === "webhook");
+    assertExists(stored);
+    assertEquals((stored.payload as Record<string, unknown>).apiKey, "[redacted]");
   } finally {
     repository.close();
   }
 });
 
-Deno.test("modification requests and their webhooks read back for reconciliation", () => {
+test("modification requests and their webhooks read back for reconciliation", () => {
   const repository = new Repository(":memory:");
   try {
     const order = repository.createOrder({
@@ -63,7 +62,10 @@ Deno.test("modification requests and their webhooks read back for reconciliation
     assertEquals(stored.pspReference, "CAP-1");
     assertEquals(repository.findAction("key-1")?.id, action.id);
 
-    for (const [hmacValid, eventType] of [[true, "CAPTURE"], [false, "REFUND"]] as const) {
+    for (const [hmacValid, eventType] of [
+      [true, "CAPTURE"],
+      [false, "REFUND"],
+    ] as const) {
       repository.recordWebhook({
         appId: "digital",
         dedupeKey: `${eventType}:CAP-1`,
@@ -84,7 +86,7 @@ Deno.test("modification requests and their webhooks read back for reconciliation
   }
 });
 
-Deno.test("the timeline gives each API call its method and endpoint", () => {
+test("the timeline gives each API call its method and endpoint", () => {
   const repository = new Repository(":memory:");
   try {
     repository.recordApiCall({
@@ -106,7 +108,7 @@ Deno.test("the timeline gives each API call its method and endpoint", () => {
   }
 });
 
-Deno.test("orders beyond the retained cap are purged per app on creation", () => {
+test("orders beyond the retained cap are purged per app on creation", () => {
   const repository = new Repository(":memory:");
   try {
     for (let index = 0; index < 75; index++) {
@@ -122,7 +124,7 @@ Deno.test("orders beyond the retained cap are purged per app on creation", () =>
   }
 });
 
-Deno.test("one PSP reference records one payment part, however often it is reported", () => {
+test("one PSP reference records one payment part, however often it is reported", () => {
   const repository = new Repository(":memory:");
   try {
     const order = repository.createOrder({
@@ -138,16 +140,18 @@ Deno.test("one PSP reference records one payment part, however often it is repor
     };
     const first = repository.recordPaymentPart(part);
     assertEquals(repository.recordPaymentPart(part), first);
-    const count = repository.database.prepare<{ count: number }>(
-      "SELECT COUNT(*) AS count FROM payment_parts WHERE order_id = ?",
-    ).get(order.id);
+    const count = repository.database
+      .prepare<{ count: number }, [string]>(
+        "SELECT COUNT(*) AS count FROM payment_parts WHERE order_id = ?",
+      )
+      .get(order.id);
     assertEquals(count?.count, 1);
   } finally {
     repository.close();
   }
 });
 
-Deno.test("an order is found from an attempt's PSP reference", () => {
+test("an order is found from an attempt's PSP reference", () => {
   const repository = new Repository(":memory:");
   try {
     const order = repository.createOrder({

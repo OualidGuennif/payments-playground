@@ -19,6 +19,14 @@
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.py\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/doc-gate.py\""
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -53,6 +61,17 @@
             "onFailure": "block"
           }
         ]
+      },
+      {
+        "matcher": "Edit|MultiEdit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/doc-gate.py\"",
+            "timeout": 3,
+            "onFailure": "block"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -72,6 +91,24 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/after-edit.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Bash|Edit|MultiEdit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/doc-gate.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "WebFetch|WebSearch|Bash|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/prompt-defense.py\""
           }
         ]
       }
@@ -152,8 +189,17 @@
     ]
   },
   "autoCompactEnabled": true,
-  "autoCompactWindow": 250000,
+  "autoCompactWindow": 340000,
   "env": {
-    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "250000"
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "340000"
+  },
+  "permissions": {
+    "deny": [
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.git-credentials)",
+      "Read(~/.claude/.credentials.json)"
+    ]
   }
 }

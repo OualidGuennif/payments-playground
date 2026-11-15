@@ -4,15 +4,15 @@ title: "The owner's preferences"
 description: "Durable project preferences: Render at the root, TEST only, the factory scope, the toolchain and the pi worker model."
 status: stable
 generated:
-  by: aeion-adoption/1.0
-  at: 2026-10-31T19:05:00Z
+  by: claude-code/opus-5.5
+  at: 2026-11-15T18:00:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "Project rules and owner"
   - resource: ../../render.yaml
     title: "Root deployment blueprint"
-  - resource: ../../efficiency/00-EFFICIENCY.md
-    title: "The adoption guide"
+  - resource: ../../.aeion-template
+    title: "The template release followed"
 ---
 
 # The owner's preferences
@@ -21,8 +21,10 @@ What the owner asked for that a reviewer should not have to ask again.
 
 ## Delivery
 
-- `render.yaml` stays at the repository root; the five services, Docker contexts, health checks and
-  Render auto-deploy from `main` are not moved.
+- `render.yaml` stays at the repository root; its services, Docker contexts, health checks and
+  Render auto-deploy from `main` are not moved. The IPP app and its `ipp-endless-aisle` service were
+  removed at the owner's request (2026-11-15); every remaining app moves to Bun + Next.js + Elysia +
+  Eden, and Deno and Fresh leave the repository.
 - Work reaches `main` through `develop` and a reviewed release pull request. `main` is the deploy
   branch.
 - Git is enabled: `tools/git-hooks` pre-commit and pre-push, with review receipts in
@@ -34,21 +36,26 @@ What the owner asked for that a reviewer should not have to ask again.
 - The 525-folder passive skill pool and the `demo/` playground are deliberately omitted. The 16
   maintained procedures live in `.claude/skills`.
 - At most nine top-level folders, named by role; `tools/` is the one home for scripts and checks.
-- TEST only; never add a LIVE path. Adyen Web 6.47.0 and Checkout API v72 stay pinned.
+- TEST only; never add a LIVE path. Adyen Web 6.48.1 and Checkout API v72 stay pinned.
+- The agentic store is Bun inside Next.js, not beside it: one Next.js app on the Bun runtime with
+  Elysia in its route handlers and Eden in the browser (2026-11-15,
+  [ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)). Its Render service keeps its name
+  and place in the root Blueprint; only its env list changed.
 - Existing public docs (`README.md`, `docs/SECURITY.md`, `docs/KNOWN_LIMITS.md`) win over factory
   defaults where they differ; record the divergence here.
 
 ## Toolchain
 
-- Deno 2.9.4, Python 3.12+ (excluding 3.14.1) and Node 18+.
-- Graphify 0.9.97 and Archify v3.2.0 are pinned in `tools/architecture/integrations.json`.
-- Graphify/Archify are enabled: setup installs only into `.aeion/integrations`; refresh runs on
-  `main` and on pull requests.
+- Bun 1.4.4 and Python 3.12+ (excluding 3.14.1); Deno, Fresh, Hono and Vite are gone (2026-11-15).
+- Æion Template v4.0.3 through `template-update` (2026-11-15); Graphify and Archify are removed and
+  must not come back; aeion-framework mode stays off by default
+  ([ADR-013](../decisions/ADR-013-aeion-template-v4-without-source-analysis.md)). The owner sets
+  `aeion.mode team` in each clone.
 - Pi workers use `opencode-go/deepseek-v4.1-flash`, headless, `--thinking max`, one scoped brief per
   worker.
 - Docker images start as root only for `tools/docker/entrypoint.sh` to chown the Render disk and
-  `/app/data` to uid 1993, then drop to the `deno` user; the missing-user SAST rules stay waived
-  inline in the four Dockerfiles (2026-10-31, measured disk `root:1000`).
+  `/app/data` to uid 1993, then drop to the `app` user; the missing-user SAST rules stay waived
+  inline in the Dockerfiles (2026-10-31, measured disk `root:1000`).
 
 ## Workflow
 

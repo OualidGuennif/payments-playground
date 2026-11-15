@@ -22,5 +22,7 @@ sources:
 `X-Frame-Options: DENY` and `Cross-Origin-Opener-Policy: same-origin-allow-popups`, and no CSP. Card
 data lives in Adyen-hosted iframes, which remain the real PCI boundary whatever the page CSP.
 
-**Consequences.** A merchant copying this setup must add a CSP of their own; Adyen documents the
+**Consequences.** On Next.js the API adds these headers in `serveSecurely` and each app's
+`next.config.ts` sends the same list (`SECURITY_HEADERS` in `security.ts`) on its pages. A merchant
+copying this setup must add a CSP of their own; Adyen documents the
 hosts it needs. Adyen Web 6.45 added CSP nonce support for Google Pay, should one be reintroduced.

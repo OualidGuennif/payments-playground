@@ -6,7 +6,7 @@ tags: [decision, redirects, 3ds, origin]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: security
     resource: ../../packages/platform/security.ts
@@ -18,7 +18,7 @@ sources:
 
 # ADR-008: Redirects follow the browser's same-host origin
 
-**Context.** The same app is reached on 8001 (`dev:digital`), 5173 (`deno task dev`), a tunnel or
+**Context.** The same app is reached on 8001 (`dev:digital`), 5173 (the former Vite port), a tunnel or
 its production domain, while `PUBLIC_ORIGIN` is one fixed value. On 2026-10-09 a payment made from
 `localhost:5173` sent `returnUrl` and `origin` as `http://127.0.0.1:8001`: every redirect method
 would have returned the shopper to a dead page.
@@ -27,5 +27,7 @@ would have returned the shopper to a dead page.
 host is one the CSRF check already accepts (forwarded host, host, request URL or `PUBLIC_ORIGIN`),
 otherwise `PUBLIC_ORIGIN`. `/sessions`, `/payments` and `/paymentLinks` use it.
 
-**Consequences.** `PUBLIC_ORIGIN` still anchors the webhook URL and is the fallback for calls
+**Consequences.** On Next.js (2026-11-15) the same app is reached on its documented port or on
+`next dev`'s default; the rule and its tests are unchanged. `PUBLIC_ORIGIN` still anchors the
+webhook URL and is the fallback for calls
 without an Origin. A foreign Origin can never steer a redirect.

@@ -2,3 +2,5 @@
 # Verified false positives: one gitleaks fingerprint per line, with why.
 # A Fresh island key (an idea ULID) in a demo evidence file, not a credential.
 a3f76f74c2b609ee4de10afe93e9d6bdf53843e4:demo/codex/journal/evidence/03-quality-fixed.txt:generic-api-key:82
+# The agentic test preload's fixed HMAC key (00112233..EEFF), a fake that only signs test webhooks.
+b79c74e32020e7b5720c846d43396f4f38b94452:apps/adyen-agentic-commerce/src/server/testing/preload.ts:generic-api-key:12

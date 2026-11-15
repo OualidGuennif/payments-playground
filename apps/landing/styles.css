@@ -123,7 +123,10 @@ main {
   border-radius: var(--radius);
   background: var(--surface);
   text-decoration: none;
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    border-color 140ms ease;
 }
 
 .app:hover {

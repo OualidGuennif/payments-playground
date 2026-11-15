@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Spec: knowledge/operations/agent-compatibility.md
-"""Adapt native Codex/OpenCode/Pi/Devin/Droid/Antigravity payloads to existing guards and verified handovers."""
+"""Adapt native Codex/OpenCode/Pi/Devin/Droid/Antigravity/Grok payloads to existing guards and verified handovers."""
 import hashlib
 import json
 from pathlib import Path
@@ -20,16 +20,26 @@ DEVIN_TOOLS = {'exec': 'Bash', 'bash': 'Bash', 'shell': 'Bash', 'read': 'Read', 
 # Factory's Droid sends Claude-shaped payloads with its own names for the shell, create and patch tools.
 DROID_TOOLS = {'Execute': 'Bash', 'Create': 'Write', 'ApplyPatch': 'apply_patch'}
 DROID_KNOWN = {*DROID_TOOLS, 'Bash', 'Read', 'Edit', 'MultiEdit', 'Write', 'Grep', 'Glob', 'LS'}
+# Grok Build names its tools in snake_case. read_file's path is target_file; list_dir's is target_directory.
+GROK_TOOLS = {'run_terminal_command': 'Bash', 'read_file': 'Read', 'search_replace': 'Edit',
+              'write': 'Write', 'grep': 'Grep', 'list_dir': 'Glob'}
+GROK_KNOWN = {'Bash', 'Read', 'Edit', 'Write', 'Grep', 'Glob', 'LS', 'MultiEdit', 'apply_patch'}
 # Antigravity nests the call as toolCall {name, args}. Its own tools use PascalCase arguments, MCP tools any
 # case; an argument at any depth named like a path, file, directory or URI (AbsolutePath, TargetDirectories,
 # file_path, Uri) names files for the guards.
-ANTIGRAVITY_TOOLS = {'run_command': 'Bash', 'view_file': 'Read', 'write_to_file': 'Write',
-                     'replace_file_content': 'Edit', 'multi_replace_file_content': 'Edit', 'grep_search': 'Grep'}
+ANTIGRAVITY_TOOLS = {'run_command': 'Bash', 'view_file': 'Read', 'read_file': 'Read', 'write_to_file': 'Write',
+                     'write_file': 'Write', 'replace_file_content': 'Edit', 'multi_replace_file_content': 'Edit',
+                     'edit_file': 'Edit', 'grep_search': 'Grep'}
 ANTIGRAVITY_PATH_KEY = re.compile(r'(paths?|files?|dirs?|directory|directories|uris?)$')
 # view_code_item's NodePaths are code symbols (Cache.key), not files.
 ANTIGRAVITY_SYMBOL_KEYS = {'nodepath', 'nodepaths'}
 # An argument at any depth named like a file filter (Includes, glob, IncludePattern, file_pattern) picks files to read.
 ANTIGRAVITY_GLOB_KEY = re.compile(r'(includes?|globs?|patterns?)$')
+# Other harnesses name their grep filter include (OpenCode), glob (Pi) or a *Pattern; their `pattern` is the regex.
+FILTER_KEY = re.compile(r'^(includes?|globs?|(glob|file|include)patterns?)$')
+# Harness parsers trim a patch header and its path, and Codex forgives the marker's case.
+PATCH_HEADER = re.compile(r'\*\*\*\s*(add file|update file|delete file|move to)\s*:(.*)', re.I)
+PATCH_OTHER_HEADER = re.compile(r'\*\*\*\s*[a-z][a-z ]*:', re.I)
 
 
 class GuardRefusal(ValueError):
@@ -67,16 +77,55 @@ def advisory(root, event):
         return {}
 
 
+# A tool whose name says it reads outside text, and a shell command that does: both results are data.
+NETWORK_TOOL = re.compile(r'fetch|search|browse|scrape|mcp', re.I)
+NETWORK_COMMAND = re.compile(r'\b(curl|wget|httpie|http|https|fetch|nc|ncat|ssh|scp|dig|nslookup|ftp)\b', re.I)
+SHELL_TOOL = re.compile(r'^(bash|execute|shell|exec)$', re.I)
+
+
+def reads_outside(event):
+    """True when a tool result may carry text from outside the project."""
+    tool = str(event.get('tool_name', ''))
+    if NETWORK_TOOL.search(tool):
+        return True
+    if not SHELL_TOOL.match(tool):
+        return False
+    data = event.get('tool_input')
+    command = data.get('command') if isinstance(data, dict) else None
+    return isinstance(command, str) and bool(NETWORK_COMMAND.search(command))
+
+
+def defense(root, event):
+    """Flag a fetched result that carries an injected instruction; an advisory may fail, never stop work."""
+    if not reads_outside(event):
+        return ''
+    try:
+        result = script(root, 'prompt-defense.py', event)
+    except Exception:  # noqa: BLE001 - a warning that fails must not become a refusal.
+        return ''
+    return result.get('hookSpecificOutput', {}).get('additionalContext', '')
+
+
 def script(root, name, event):
     result = subprocess.run([sys.executable, str(root / '.claude/hooks' / name)], cwd=root,
                             input=json.dumps(event), capture_output=True, text=True, timeout=4)
     if result.returncode == 2:
-        raise GuardRefusal((result.stderr or 'Æion Factory check refused this action')[:1500])
+        raise GuardRefusal((result.stderr or 'Æion Template check refused this action')[:1500])
     if result.returncode:
-        raise ValueError('Æion Factory checker failed')
+        raise ValueError('Æion Template checker failed')
     if name == 'session-start.py':
         return {'hookSpecificOutput': {'hookEventName': 'SessionStart', 'additionalContext': result.stdout.strip()}}
     return json.loads(result.stdout) if result.stdout.lstrip().startswith('{') else {}
+
+
+# The tools whose files the doc gate checks before an edit; apply_patch once per file it names.
+GATED_TOOLS = {'Edit', 'MultiEdit', 'Write', 'NotebookEdit', 'apply_patch'}
+
+
+def absolute(root, raw):
+    """A harness path as the hooks see it: relative paths are the project's."""
+    path = Path(raw)
+    return path if path.is_absolute() else root / path
 
 
 def edit_paths(event, provider=None):
@@ -84,10 +133,25 @@ def edit_paths(event, provider=None):
     if not isinstance(data, dict):
         raise ValueError('tool_input must be an object')
     if event.get('tool_name') == 'apply_patch':
-        patch = next((data[field] for field in ('command', 'patchText', 'patch', 'input') if field in data), None)
+        # The guard reads one patch text; a second one could be the text the harness applies.
+        fields = [field for field in ('command', 'patchText', 'patch', 'input') if field in data]
+        if len(fields) > 1:
+            raise ValueError('apply_patch carries more than one patch text')
+        patch = data[fields[0]] if fields else None
         if not isinstance(patch, str):
             raise ValueError('apply_patch requires its native patch string')
-        paths = re.findall(r'^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$', '\n'.join(patch.splitlines()), re.M)
+        paths = []
+        for line in patch.split('\n'):
+            line = line.strip()
+            header = PATCH_HEADER.fullmatch(line)
+            if header:
+                path = header.group(2).strip()
+                # Parsers that split the header at a colon would read a shorter path than the guard checked.
+                if not path or ':' in path:
+                    raise ValueError('apply_patch names an empty path or a path with a colon')
+                paths.append(path)
+            elif PATCH_OTHER_HEADER.match(line):
+                raise ValueError('apply_patch has a header the guards cannot place')
         if not paths:
             raise ValueError('apply_patch has no recognized file paths')
         return paths
@@ -122,15 +186,15 @@ def antigravity_paths(value, named=False):
     return []
 
 
-def antigravity_globs(value, named=False):
+def filter_globs(value, key_re, named=False):
     # Walked like paths: a string is a file filter only under a filter-like name, and anything else there is refused.
     if isinstance(value, dict):
         return [glob for key, item in value.items()
-                for glob in antigravity_globs(item, named or ANTIGRAVITY_GLOB_KEY.search(argument_name(key)) is not None)]
+                for glob in filter_globs(item, key_re, named or key_re.search(argument_name(key)) is not None)]
     if isinstance(value, list):
-        return [glob for item in value for glob in antigravity_globs(item, named)]
+        return [glob for item in value for glob in filter_globs(item, key_re, named)]
     if named and not isinstance(value, str):
-        raise ValueError('the Antigravity include patterns must be strings')
+        raise ValueError('a file filter pattern must be a string')
     return [value] if named and value else []
 
 
@@ -162,14 +226,17 @@ def antigravity_event(event):
     if workdirs:
         data['workdir'] = unquote(urlsplit(workdirs[0]).path) if workdirs[0][:5].lower() == 'file:' else workdirs[0]
     # The guard cannot know which other argument a shell tool runs in, so on a shell call every argument
-    # besides the command and its directory must be a flag or a number (run_command's Blocking, WaitMsBeforeAsync).
+    # besides the command and its directory must be a flag or a number (run_command's Blocking, WaitMsBeforeAsync),
+    # or AGY 2.0's required toolSummary string, the line shown to the user, which is never run.
     if command is not None and any(argument_name(key) not in {'commandline', 'command', 'cwd', 'workdir'}
-                                   and not isinstance(value, (bool, int, float)) for key, value in args.items()):
+                                   and not isinstance(value, (bool, int, float))
+                                   and not (argument_name(key) == 'toolsummary' and isinstance(value, str))
+                                   for key, value in args.items()):
         raise ValueError('the Antigravity shell call carries an argument the guards cannot place')
     # Every path-like argument meets the guards, not only the first: one call can name several files.
     paths = antigravity_paths(args)
     # grep_search's Includes and any tool's file filters pick the files it reads, so each meets the Grep glob check.
-    globs = antigravity_globs(args)
+    globs = filter_globs(args, ANTIGRAVITY_GLOB_KEY)
     # view_file windows by StartLine/EndLine; the intake guard reads the same window as offset/limit.
     if type(args.get('StartLine')) is int and type(args.get('EndLine')) is int:
         data['offset'], data['limit'] = args['StartLine'], args['EndLine'] - args['StartLine'] + 1
@@ -183,8 +250,101 @@ def antigravity_event(event):
     return {**event, 'tool_name': tool, 'tool_input': data, 'antigravity_paths': paths, 'antigravity_globs': globs}
 
 
-# Harnesses that report their context usage share Claude's 250k/300k rule (tools/context/budget.py).
-MEASURED = {'codex', 'opencode', 'pi', 'dsh'}
+def grok_event(event):
+    """Map a Grok tool call onto the shared guards. Other events pass through."""
+    if event.get('hook_event_name') not in {'PreToolUse', 'PostToolUse'}:
+        return event
+    tool = event.get('tool_name')
+    if tool is None:
+        tool = event.get('toolName')
+    data = event.get('tool_input')
+    if data is None:
+        data = event.get('toolInput')
+    if not isinstance(data, dict):
+        if event.get('hook_event_name') == 'PreToolUse':
+            raise ValueError('the Grok pre-tool payload requires a tool_input object')
+        data = {}
+    else:
+        data = dict(data)
+    # The guards read file_path. Grok's read_file and list_dir use their own names.
+    if 'file_path' not in data and isinstance(data.get('target_file'), str):
+        data['file_path'] = data['target_file']
+    if 'file_path' not in data and isinstance(data.get('target_directory'), str):
+        data['file_path'] = data['target_directory']
+    mapped = GROK_TOOLS.get(tool, tool)
+    # An unknown tool that carries a command string is a shell call until proven otherwise.
+    if mapped not in GROK_KNOWN and isinstance(data.get('command'), str):
+        mapped = 'Bash'
+    if mapped == 'Bash':
+        # description and block_until_ms are shown to the user; the guard sees only the command it runs.
+        command = data.get('command')
+        data = {'command': command} if isinstance(command, str) else {}
+    return {**event, 'tool_name': mapped, 'tool_input': data}
+
+
+def grok_usage(event):
+    """Grok's context window: contextTokensUsed in signals.json beside the transcript.
+
+    usage.json is the billed ledger for the whole session. Those totals only grow, including
+    after compaction, so they are not the context size. A zero window is a real reading.
+    """
+    path = event.get('transcript_path')
+    if not isinstance(path, str) or not path:
+        return None
+    transcript = Path(path)
+    # Grok's hook transcript_path is the update stream (updates.jsonl). The session files sit
+    # beside it. chat_history.jsonl remains accepted for the older layout.
+    if transcript.is_symlink() or transcript.name not in {'chat_history.jsonl', 'updates.jsonl'}:
+        raise ValueError("usage must come from this session's updates.jsonl or chat_history.jsonl")
+    folder = transcript.parent
+    usage_path = folder / 'usage.json'
+    if usage_path.is_symlink():
+        raise ValueError('usage.json must be a regular file')
+    # The ledger's session id binds the directory. Its token sums are not the measurement.
+    if usage_path.is_file():
+        try:
+            data = json.loads(usage_path.read_text(encoding='utf-8'))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ValueError('invalid grok usage.json') from error
+        if not isinstance(data, dict) or data.get('sessionId') != event.get('session_id'):
+            raise ValueError('usage.json is for another session')
+    signals_path = folder / 'signals.json'
+    if signals_path.is_symlink():
+        raise ValueError('signals.json must be a regular file')
+    if not signals_path.is_file():
+        return None
+    try:
+        signals = json.loads(signals_path.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError('invalid grok signals.json') from error
+    if not isinstance(signals, dict):
+        raise ValueError('invalid grok signals.json')
+    used = signals.get('contextTokensUsed')
+    window = signals.get('contextWindowTokens', 0)
+    if type(used) is not int or used < 0 or type(window) is not int or window < 0 or (window and used > window):
+        raise ValueError('invalid grok context size')
+    return used
+
+
+# Harnesses that report their context usage share Claude's 340k/390k rule (tools/context/budget.py).
+MEASURED = {'codex', 'opencode', 'pi', 'dsh', 'grok'}
+# dsh compaction is not dependable in every profile. A verified handover is enough to recover, so the user is
+# told to end the session instead of working past the gate waiting for a compaction that may never run.
+DSH_STOP = ('After the handover, work/current.md and the checkpoint verify, stop this dsh session and start a new '
+            f'one from the handover if compaction does not start; do not keep working past {budget.WARN_K}.')
+
+
+def dsh_advice(result):
+    """Append the stop-after-verified instruction to a dsh gate message, without duplicating it."""
+    for field in ('systemMessage', 'stopReason'):
+        if result.get(field) and DSH_STOP not in result[field]:
+            result[field] = f"{result[field]} {DSH_STOP}"
+    decision = result.get('hookSpecificOutput')
+    if isinstance(decision, dict):
+        for field in ('permissionDecisionReason', 'additionalContext'):
+            if decision.get(field) and DSH_STOP not in decision[field]:
+                decision[field] = f"{decision[field]} {DSH_STOP}"
+    return result
 
 
 def codex_usage(event):
@@ -219,6 +379,8 @@ def observed_usage(provider, event):
     """The context size the harness measured; None while it has measured nothing yet."""
     if provider == 'codex':
         return codex_usage(event)
+    if provider == 'grok':
+        return grok_usage(event)
     value = event.get('observed_tokens')
     if value is not None and (type(value) is not int or value < 0):
         raise ValueError('observed_tokens must be a nonnegative integer')
@@ -232,12 +394,21 @@ def alert(result, measured):
         result['systemMessage'] = measured['systemMessage']
     if measured.get('aeion'):
         result['aeion'] = measured['aeion']
+    # The rule's own hookSpecificOutput must survive: a guard's answer wins field by field, and dropping the rest
+    # silently disarmed the additionalContext the rule had asked for.
+    if measured.get('hookSpecificOutput'):
+        result['hookSpecificOutput'] = {**measured['hookSpecificOutput'], **result.get('hookSpecificOutput', {})}
     return result
 
 
 def handle(root, provider, event):
-    if provider not in {'codex', 'opencode', 'pi', 'dsh', 'devin', 'droid', 'antigravity'} or not isinstance(event, dict):
+    if provider not in {'codex', 'opencode', 'pi', 'dsh', 'devin', 'droid', 'antigravity', 'grok'} or not isinstance(event, dict):
         raise ValueError('invalid provider or event')
+    if provider == 'grok':
+        event = grok_event(event)
+        # Grok compacts without a compact SessionStart. PostCompact is that boundary.
+        if event.get('hook_event_name') == 'PostCompact':
+            event = {**event, 'hook_event_name': 'SessionStart', 'source': 'compact'}
     if provider == 'antigravity':
         event = antigravity_event(event)
     if provider == 'devin':
@@ -265,32 +436,76 @@ def handle(root, provider, event):
         state = json.loads(file.read_text()) if file.exists() else {'epoch': 0, 'state': 'RUNNING', 'profile': provider}
         handover = budget.handover_path(root, session)
         if state.get('state') == 'STOPPED':
-            return fail(provider, name, 'Æion Factory session is stopped; use its handover in a new session.')
+            return fail(provider, name, 'Æion Template session is stopped; use its handover in a new session.')
         if name == 'SessionStart' and event.get('source') == 'compact':
             state.pop('checkpoint', None)
             state.pop('observed_tokens', None)
             state['epoch'] += 1
             state['state'] = 'RECOVERING'
-            # A compaction let through before its handover owes the closure first thing after it.
+            # A compaction let through before its handover owes the closure first thing after it. Codex, Droid
+            # and Grok resume in closure; every other provider resumes editable, because frozen code over a check
+            # that already failed is the deadlock the 390k stopgap exists to prevent.
             if state.pop('closure_owed', None):
                 state['closure_owed'] = 'due'
-                state['state'] = 'HANDOVER_REQUIRED'
+                if provider in {'codex', 'droid', 'grok'}:
+                    state['state'] = 'HANDOVER_REQUIRED'
+                    # This latch is not a threshold crossing that a later compaction may release: it is the
+                    # closure owed right after a compaction the harness ran itself. Mark it, so the shared
+                    # fall-back rule (which frees a dsh session that compacted unseen) does not reopen code
+                    # before the handover is verified.
+                    state['resumed_in_closure'] = True
                 state['warning_pending'] = True
         budget.atomic(file, json.dumps(state, sort_keys=True) + '\n')
         if name == 'PreCompact':
-            if not budget.ready(root, session, state) and provider in {'codex', 'droid'}:
-                # Codex ends its turn on a refused compaction and retries it before every turn, and Droid documents
-                # no way to refuse one, so a refusal would stall them: compaction runs, and the handover and
-                # checkpoint come right after.
+            if not budget.ready(root, session, state) and (provider in {'codex', 'droid', 'grok'}
+                    or provider == 'pi' and event.get('native') is True):
+                # Codex ends its turn on a refused compaction and retries it before every turn, Droid documents no
+                # way to refuse one, Pi cancels a native compaction at the model window, and Grok only reads a
+                # systemMessage from PreCompact: a refusal would stall them or be ignored. The compaction runs,
+                # and the handover and checkpoint come right after it.
                 budget.ensure_handover(root, session)
                 state['closure_owed'] = 'pending'
                 budget.atomic(file, json.dumps(state, sort_keys=True) + '\n')
-                return {'systemMessage': f'Æion Factory: compaction before a verified handover; after it, write '
+                return {'systemMessage': f'Æion Template: compaction before a verified handover; after it, write '
                                          f'{handover.relative_to(root)} and verify the checkpoint before any other work.'}
             if not budget.ready(root, session, state):
                 budget.ensure_handover(root, session)
-                return fail(provider, name, f'Fill {handover.relative_to(root)} and verify the docs before compaction: '
-                            + budget.checkpoint_command(root, session))
+                if state['state'] == 'COMPACT_REQUIRED':
+                    # 390k stopgap: code is frozen here, so a check that failed before this session could be neither
+                    # verified nor repaired. The compaction runs, the epoch stays editable, and the debt stays owed.
+                    state['closure_owed'] = 'due'
+                    # OpenCode sends no compact SessionStart, so this allowed compaction starts its own epoch.
+                    if provider == 'opencode':
+                        state.pop('checkpoint', None)
+                        state.pop('observed_tokens', None)
+                        state['epoch'] += 1
+                        state['state'] = 'RECOVERING'
+                    budget.atomic(file, json.dumps(state, sort_keys=True) + '\n')
+                    return {'systemMessage': f'Æion Template {budget.LIMIT_K}: compacting before a verified checkpoint; the closure '
+                                             f'stays owed until the failing check is fixed and '
+                                             f'{handover.relative_to(root)} is verified: '
+                                             + budget.checkpoint_command(root, session)}
+                if state.get('checkpoint') and not budget.handover_faults(handover):
+                    # The shared rule makes this same decision: the handover was verified, then an edit moved the
+                    # tree. The gate admits only the checkpoint command that could refresh the receipt, so refusing
+                    # here left a routine edit blocking compaction. Compact, keep the debt, and let Stop refuse
+                    # until a fresh receipt settles it; an incomplete handover still refuses below.
+                    state['closure_owed'] = 'due'
+                    # OpenCode sends no compact SessionStart, so this allowed compaction starts its own epoch.
+                    if provider == 'opencode':
+                        state.pop('checkpoint', None)
+                        state.pop('observed_tokens', None)
+                        state['epoch'] += 1
+                        state['state'] = 'RECOVERING'
+                    budget.atomic(file, json.dumps(state, sort_keys=True) + '\n')
+                    return {'systemMessage': f'Æion Template {budget.WARN_K}: {handover.relative_to(root)} was verified and the '
+                                             f'tree moved since; compacting now, and the closure stays owed until a '
+                                             f'fresh checkpoint: ' + budget.checkpoint_command(root, session)}
+                refusal = fail(provider, name, f'Fill {handover.relative_to(root)} and verify the docs before '
+                                               f'compaction: ' + budget.checkpoint_command(root, session))
+                # A refused compaction is where a dsh user is left with nothing to retry, so the refusal carries the
+                # same instruction to stop once the handover and the tree are in order.
+                return dsh_advice(refusal) if provider == 'dsh' else refusal
             # A verified compaction owes no closure after it.
             if state.pop('closure_owed', None):
                 budget.atomic(file, json.dumps(state, sort_keys=True) + '\n')
@@ -301,7 +516,7 @@ def handle(root, provider, event):
                 state['epoch'] += 1
                 state['state'] = 'RECOVERING'
                 budget.atomic(file, json.dumps(state, sort_keys=True) + '\n')
-            return {'systemMessage': f'Æion Factory verified handover: {handover.relative_to(root)}'}
+            return {'systemMessage': f'Æion Template verified handover: {handover.relative_to(root)}'}
         measured = {}
         # Droid measures nothing, so only the closure owed after its compaction applies the shared rule.
         owed = provider == 'droid' and state.get('closure_owed') == 'due'
@@ -311,10 +526,15 @@ def handle(root, provider, event):
             if usage is None:
                 usage = state.get('observed_tokens') or 0
             # The closure owed since an early compaction ends with its verified handover, without compacting again.
+            # Below the threshold that settlement also drops the receipt: the work resumes editable. At or above
+            # it, dropping the receipt would close the gate on the same event that re-latches the alert, so the
+            # verified handover must stay on file for the compaction it still owes.
             if state.get('closure_owed') == 'due' and budget.ready(root, session, state):
-                for field in ('closure_owed', 'checkpoint', 'warning_pending'):
-                    state.pop(field, None)
-                state['state'] = 'RUNNING'
+                state.pop('closure_owed', None)
+                if usage < budget.WARNING:
+                    for field in ('checkpoint', 'warning_pending', 'resumed_in_closure'):
+                        state.pop(field, None)
+                    state['state'] = 'RUNNING'
             # Closure judges a file edit by `file_path`; native tools name it `path`, `filePath` or a patch header.
             call = normalized
             if name == 'PreToolUse' and event.get('tool_name') in {'Edit', 'Write', 'apply_patch'}:
@@ -322,26 +542,47 @@ def handle(root, provider, event):
                 target = str(root / paths[0]) if len(paths) == 1 else ''
                 call = {**normalized, 'tool_name': 'Edit', 'tool_input': {'file_path': target}}
             measured = budget.apply_usage(root, session, state, name, call, usage)
+            if provider == 'dsh':
+                measured = dsh_advice(measured)
             budget.atomic(file, json.dumps(state, sort_keys=True) + '\n')
             reason = measured.get('stopReason') or measured.get('hookSpecificOutput', {}).get('permissionDecisionReason')
+            # Pi compacts from a settlement too: a verified checkpoint at Stop signals it instead of refusing
+            # the settlement, so a missed tool-result signal cannot leave the context growing.
+            if name in {'Stop', 'SubagentStop'} and provider == 'pi' and reason \
+                    and state['state'] in {'HANDOVER_REQUIRED', 'COMPACT_REQUIRED'} and budget.ready(root, session, state):
+                measured = {'aeion': {'compact': True}}
+                reason = None
             if reason:
                 return fail(provider, name, reason)
-            # Pi, OpenCode and dsh start compaction themselves once a closure's checkpoint is verified.
-            if state['state'] in {'HANDOVER_REQUIRED', 'COMPACT_REQUIRED'} and budget.ready(root, session, state):
+            # Pi, OpenCode and dsh start compaction themselves: at 340k once the checkpoint is verified, and at
+            # 390k always, because that compaction is what the stopgap uses to release a frozen session. A profile
+            # that gives the plugin no compaction service (dsh web) is not asked to start one it cannot reach.
+            if not event.get('compaction_unavailable') and (state['state'] == 'COMPACT_REQUIRED' \
+                    or (state['state'] == 'HANDOVER_REQUIRED' and budget.ready(root, session, state))):
                 measured['aeion'] = {'compact': True}
     if name == 'SessionStart':
+        # The doc gate forgets what was read: a compacted or resumed context no longer holds it.
+        script(root, 'doc-gate.py', normalized)
         result = script(root, 'session-start.py', normalized)
         pointer = 'Handover' if handover.is_file() else 'Handover (created at the first refused compaction)'
-        context = (f'Æion Factory {provider} checkpoint profile. {pointer}: {handover.relative_to(root)}. '
-                   f'Checkpoint key: {session}. 250k handover/compact, 300k forced handover and compaction; not a strict ceiling.')
+        context = (f'Æion Template {provider} checkpoint profile. {pointer}: {handover.relative_to(root)}. '
+                   f'Checkpoint key: {session}. {budget.WARN_K} handover/compact, {budget.LIMIT_K} forced handover and compaction; not a strict ceiling.')
         if provider in {'devin', 'antigravity'}:
-            context = f'Æion Factory {provider} profile: shared guards and edit feedback; no compaction checkpoint or token stop.'
+            context = f'Æion Template {provider} profile: shared guards and edit feedback; no compaction checkpoint or token stop.'
         if provider == 'droid':
-            context = (f'Æion Factory droid profile: shared guards and edit feedback; no 250k alert. Before compacting, fill '
+            context = (f'Æion Template droid profile: shared guards and edit feedback; no {budget.WARN_K} alert. Before compacting, fill '
                        f'{handover.relative_to(root)}, update work/current.md and verify: {budget.checkpoint_command(root, session)}. '
                        f'A compaction without it owes that closure right after.')
+        if provider == 'grok':
+            context += (' Grok cannot refuse compaction, so a compaction before the verified handover owes that closure '
+                        'right after. The context size is contextTokensUsed in signals.json beside updates.jsonl or chat_history.jsonl.')
+        if provider == 'dsh':
+            context += f' {DSH_STOP}'
         context += '\n' + result.get('hookSpecificOutput', {}).get('additionalContext', '')
         result['hookSpecificOutput'] = {'hookEventName': name, 'additionalContext': context}
+        # SessionStart only delivers a top-level systemMessage; additionalContext is not read.
+        if provider == 'grok':
+            result['systemMessage'] = context
         return result
     if name == 'PreToolUse':
         if event.get('tool_name') == 'Bash':
@@ -355,7 +596,9 @@ def handle(root, provider, event):
             for path in edit_paths(event, provider):
                 script(root, 'guard-path.py', {'tool_name': 'Edit', 'tool_input': {**data, 'file_path': path}})
             return alert(result, measured)
-        for pattern in event.get('antigravity_globs', []) if provider == 'antigravity' else []:
+        # A file filter under any harness's name picks the files a search reads, so each meets the Grep glob check.
+        globs = event.get('antigravity_globs', []) if provider == 'antigravity' else filter_globs(event.get('tool_input'), FILTER_KEY)
+        for pattern in globs:
             script(root, 'guard-path.py', {'tool_name': 'Grep', 'tool_input': {'glob': pattern}})
         paths = edit_paths(event, provider)
         if not paths and event.get('tool_name') == 'Grep':
@@ -364,6 +607,10 @@ def handle(root, provider, event):
             tool = 'Edit' if event.get('tool_name') == 'apply_patch' else event.get('tool_name')
             data = {**event['tool_input'], 'file_path': path}
             script(root, 'guard-path.py', {'tool_name': tool, 'tool_input': data})
+            # Each file a patch or an edit touches meets the doc gate, as a native Edit does.
+            if tool in GATED_TOOLS:
+                script(root, 'doc-gate.py', {**normalized, 'tool_name': tool,
+                                             'tool_input': {**data, 'file_path': str(absolute(root, path))}})
         return alert({}, measured)
     if name == 'PostToolUse':
         messages = [measured['systemMessage']] if measured.get('systemMessage') else []
@@ -379,13 +626,36 @@ def handle(root, provider, event):
             context = result.get('hookSpecificOutput', {}).get('additionalContext')
             if context:
                 messages.append(context)
+        # The doc gate remembers the docs read through the read tool or the shell, and the docs written.
+        tool = event.get('tool_name')
+        if tool == 'Bash':
+            # A shell result may come without its input (Pi's tool_result); then nothing is recorded.
+            data = event.get('tool_input')
+            records = [{'tool_name': 'Bash', 'tool_input': data}] if isinstance(data, dict) and isinstance(data.get('command'), str) else []
+        elif tool == 'Read' or tool in GATED_TOOLS:
+            try:
+                raws = edited if tool in {'apply_patch', 'Edit', 'Write'} else edit_paths(event, provider)
+            except ValueError:
+                # A result without a path records nothing; the gate then asks for the read again.
+                raws = []
+            records = [{'tool_name': 'Edit' if tool == 'apply_patch' else tool,
+                        'tool_input': {'file_path': str(absolute(root, raw))}} for raw in raws]
+        else:
+            records = []
+        for record in records:
+            context = script(root, 'doc-gate.py', {**normalized, **record}).get('hookSpecificOutput', {}).get('additionalContext')
+            if context:
+                messages.append(context)
         context = advisory(root, normalized).get('hookSpecificOutput', {}).get('additionalContext')
+        if context:
+            messages.append(context)
+        context = defense(root, normalized)
         if context:
             messages.append(context)
         return alert({'hookSpecificOutput': {'hookEventName': name, 'additionalContext': '\n'.join(messages)}} if messages else {}, measured)
     if name == 'Stop':
         advisory(root, normalized)
-        return script(root, 'sign-off.py', normalized)
+        return alert(script(root, 'sign-off.py', normalized), measured)
     return {}
 
 
@@ -399,7 +669,7 @@ def main():
         if not isinstance(event, dict):
             raise ValueError('hook payload must be an object')
     except (ValueError, OSError, RecursionError):
-        print('Æion Factory hook payload invalid or oversized; action refused.', file=sys.stderr)
+        print('Æion Template hook payload invalid or oversized; action refused.', file=sys.stderr)
         return 2
     provider = sys.argv[1] if len(sys.argv) > 1 else None
     # Antigravity's payload names no hook event, so its registration passes the event as an argument; Devin and Droid
@@ -417,7 +687,7 @@ def main():
         result = fail(provider, event.get('hook_event_name'), str(error))
     except (ValueError, KeyError, IndexError, TypeError, OSError, RecursionError, subprocess.SubprocessError):
         name = event.get('hook_event_name') if isinstance(event, dict) else None
-        result = fail(provider, name, 'Æion Factory adapter verification unavailable; resolve the hook/check error before continuing.')
+        result = fail(provider, name, 'Æion Template adapter verification unavailable; resolve the hook/check error before continuing.')
     print(json.dumps(result))
     return 0
 

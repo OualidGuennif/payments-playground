@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
     branches: [main, develop]
 
@@ -21,28 +21,28 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          deno-version: 2.9.4
-      - name: knowledge, links and health
+          bun-version: 1.4.4
+      - run: ./tools/knowledge/knowledge-check
+      - name: doc-links (with --diff on pull requests)
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          tools/knowledge/knowledge-check
-          tools/knowledge/doc-links
-          tools/repo-health/repo-health
-      - name: factory suites
-        run: tools/factory-tests
-      - name: efficiency bundle is current
-        run: tools/efficiency/bundle && git diff --exit-code efficiency/efficiency-bundle.md
+          if [[ -n "$BASE_REF" ]]; then ./tools/knowledge/doc-links --diff "origin/$BASE_REF"; else ./tools/knowledge/doc-links; fi
+      - run: ./tools/repo-health/repo-health
+      - run: ./tools/template-tests
 
   build-and-test:
-    name: Deno check
+    name: Bun check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          deno-version: 2.9.4
-      - run: deno task check
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run check
 
   secret-scan:
     runs-on: ubuntu-latest
@@ -67,7 +67,7 @@ jobs:
 
   sast-scan:
     runs-on: ubuntu-latest
-    container: semgrep/semgrep
+    container: semgrep/semgrep@sha256:451b3d875c00dac7ed5db5293e584a07de11449a409c10b3c2d2652f429630b6 # 1.182.1
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - run: semgrep scan --config p/owasp-top-ten --error --exclude .aeion --exclude .git

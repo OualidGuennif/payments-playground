@@ -1,0 +1,43 @@
+{
+  "name": "payments-playground",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/adyen-digital",
+    "apps/adyen-v6-styling",
+    "apps/adyen-agentic-commerce"
+  ],
+  "scripts": {
+    "dev:all": "bun tools/dev/run-all.ts dev",
+    "dev:digital": "bun tools/dev/bun-app.ts apps/adyen-digital dev --port 8001",
+    "dev:agentic": "bun tools/dev/bun-app.ts apps/adyen-agentic-commerce dev --port 8003",
+    "dev:styling": "bun tools/dev/bun-app.ts apps/adyen-v6-styling dev --port 8004",
+    "start:all": "bun tools/dev/run-all.ts start",
+    "env:migrate": "bun tools/dev/migrate-legacy-env.ts",
+    "build:digital": "bun run --cwd apps/adyen-digital build",
+    "build:agentic": "bun run --cwd apps/adyen-agentic-commerce build",
+    "build:styling": "bun run --cwd apps/adyen-v6-styling build",
+    "build": "bun run build:digital && bun run build:agentic && bun run build:styling",
+    "ssr:assert": "bun tools/build/assert-built-ssr.ts apps/adyen-digital \"Digital Checkout\" && bun tools/build/assert-built-ssr.ts apps/adyen-agentic-commerce \"Agentic Commerce\" && bun tools/build/assert-built-ssr.ts apps/adyen-v6-styling \"Drop-in Styling\"",
+    "types": "tsc -p . && bun run --cwd apps/adyen-digital typecheck && bun run --cwd apps/adyen-agentic-commerce typecheck && bun run --cwd apps/adyen-v6-styling typecheck",
+    "test": "bun test packages apps/adyen-digital apps/adyen-v6-styling tools/knowledge && bun run --cwd apps/adyen-agentic-commerce test",
+    "knowledge:check": "bun tools/knowledge/knowledge-check.ts",
+    "docs:links": "python3 tools/knowledge/doc-links",
+    "repo:health": "python3 tools/repo-health/repo-health",
+    "template:test": "tools/template-tests",
+    "fmt": "biome format --write .",
+    "lint": "biome lint .",
+    "biome:ci": "biome ci --diagnostic-level=error .",
+    "verify": "bun run build && bun tools/dev/verify.ts",
+    "check": "bun run knowledge:check && bun run docs:links && bun run repo:health && bun run biome:ci && bun run types && bun run test && bun run build && bun run ssr:assert && bun run template:test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6",
+    "@types/bun": "1.4.4",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "5.9.3"
+  }
+}

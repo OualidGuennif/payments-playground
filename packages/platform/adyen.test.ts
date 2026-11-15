@@ -1,4 +1,5 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { test } from "bun:test";
+import { assertEquals, assertExists, assertRejects } from "../../testing/assert.ts";
 import adyenApiLibrary from "@adyen/api-library";
 import { type AdyenHttpClient, AdyenRequestError, AdyenTestClient } from "./adyen.ts";
 
@@ -18,19 +19,31 @@ function recordingHttpClient(respond: () => Promise<string>) {
   return { calls, httpClient };
 }
 
-Deno.test("sessions uses the exact Checkout v72 TEST endpoint and TEST credentials", async () => {
-  const { calls, httpClient } = recordingHttpClient(() =>
-    Promise.resolve(JSON.stringify({ id: "CS_TEST", sessionData: "session-data" }))
-  );
-  const client = new AdyenTestClient({
-    apiKey: "test-api-key",
-    merchantAccount: "TestMerchant",
-  }, httpClient);
+// Since 32.3.0 the transport may also be handed a Buffer; this client always sends JSON text.
+function jsonText(body: Call[1]): string {
+  if (typeof body !== "string") throw new Error("expected a JSON string body");
+  return body;
+}
 
-  const response = await client.sessions({
-    merchantAccount: "TestMerchant",
-    amount: { currency: "EUR", value: 2599 },
-  }, "idem-test");
+test("sessions uses the exact Checkout v72 TEST endpoint and TEST credentials", async () => {
+  const { calls, httpClient } = recordingHttpClient(() =>
+    Promise.resolve(JSON.stringify({ id: "CS_TEST", sessionData: "session-data" })),
+  );
+  const client = new AdyenTestClient(
+    {
+      apiKey: "test-api-key",
+      merchantAccount: "TestMerchant",
+    },
+    httpClient,
+  );
+
+  const response = await client.sessions(
+    {
+      merchantAccount: "TestMerchant",
+      amount: { currency: "EUR", value: 2599 },
+    },
+    "idem-test",
+  );
 
   assertEquals(calls.length, 1);
   const [endpoint, json, config, isApiKeyRequired, requestOptions] = calls[0];
@@ -38,15 +51,16 @@ Deno.test("sessions uses the exact Checkout v72 TEST endpoint and TEST credentia
   assertEquals(config.apiKey, "test-api-key");
   assertEquals(config.environment, "TEST");
   assertEquals(isApiKeyRequired, true);
+  assertExists(requestOptions);
   assertEquals(requestOptions.method, "POST");
   assertEquals(requestOptions.idempotencyKey, "idem-test");
-  assertEquals(JSON.parse(json).merchantAccount, "TestMerchant");
+  assertEquals(JSON.parse(jsonText(json)).merchantAccount, "TestMerchant");
   assertEquals(response, { id: "CS_TEST", sessionData: "session-data" });
 });
 
-Deno.test("a gift card balance is a POST to /paymentMethods/balance", async () => {
+test("a gift card balance is a POST to /paymentMethods/balance", async () => {
   const { calls, httpClient } = recordingHttpClient(() =>
-    Promise.resolve(JSON.stringify({ resultCode: "NotEnoughBalance" }))
+    Promise.resolve(JSON.stringify({ resultCode: "NotEnoughBalance" })),
   );
   const client = new AdyenTestClient({ apiKey: "test-api-key" }, httpClient);
 
@@ -54,11 +68,12 @@ Deno.test("a gift card balance is a POST to /paymentMethods/balance", async () =
 
   const [endpoint, json, , , requestOptions] = calls[0];
   assertEquals(endpoint, "https://checkout-test.adyen.com/v72/paymentMethods/balance");
+  assertExists(requestOptions);
   assertEquals(requestOptions.method, "POST");
-  assertEquals(JSON.parse(json).paymentMethod.brand, "givex");
+  assertEquals(JSON.parse(jsonText(json)).paymentMethod.brand, "givex");
 });
 
-Deno.test("Adyen HTTP errors preserve the upstream status and safe message", async () => {
+test("Adyen HTTP errors preserve the upstream status and safe message", async () => {
   const responseBody = JSON.stringify({
     status: 422,
     errorCode: "901",
@@ -73,12 +88,15 @@ Deno.test("Adyen HTTP errors preserve the upstream status and safe message", asy
         responseBody,
         apiError: JSON.parse(responseBody),
       }),
-    )
+    ),
   );
-  const client = new AdyenTestClient({
-    apiKey: "test-api-key",
-    merchantAccount: "TestMerchant",
-  }, httpClient);
+  const client = new AdyenTestClient(
+    {
+      apiKey: "test-api-key",
+      merchantAccount: "TestMerchant",
+    },
+    httpClient,
+  );
 
   const error = await assertRejects(
     () => client.paymentMethods({ merchantAccount: "TestMerchant" }),
@@ -89,19 +107,22 @@ Deno.test("Adyen HTTP errors preserve the upstream status and safe message", asy
   assertEquals(error.errorCode, "901");
 });
 
-Deno.test("a transport failure is reported as a connection error, not a 500", async () => {
+test("a transport failure is reported as a connection error, not a 500", async () => {
   const { httpClient } = recordingHttpClient(() =>
     // The shape the library rejects with when the socket itself fails.
     Promise.reject({
       name: "ApiException",
       statusCode: 500,
       message: "connect ECONNREFUSED 1.2.3.4:443",
-    })
+    }),
   );
-  const client = new AdyenTestClient({
-    apiKey: "test-api-key",
-    merchantAccount: "TestMerchant",
-  }, httpClient);
+  const client = new AdyenTestClient(
+    {
+      apiKey: "test-api-key",
+      merchantAccount: "TestMerchant",
+    },
+    httpClient,
+  );
 
   const error = await assertRejects(
     () => client.paymentMethods({ merchantAccount: "TestMerchant" }),

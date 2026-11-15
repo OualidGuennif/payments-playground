@@ -5,16 +5,14 @@ description: "Adopt the factory repository and agent architecture while keeping 
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-16T03:00:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "The merged project and agent rules"
   - resource: ../../render.yaml
     title: "The root deployment blueprint that must not move"
-  - resource: ../../deno.json
-    title: "Root tasks, workspace and formatting scope"
-  - resource: ../../tools/architecture/integrations.json
-    title: "Pinned Graphify and Archify revisions and analysis scope"
+  - resource: ../../package.json
+    title: "Root scripts and workspace (deno.json until 2026-11-15)"
 ---
 
 # ADR-011: Adopt Æion Factory v1.7.0
@@ -52,3 +50,11 @@ Adopt the factory's phase 1–7 structure in this repository, merged with what a
   them.
 - The two legacy islands above 1,500 lines must be split before `repo-health` can pass.
 - The factory's upstream files are excluded from Deno fmt/lint so they stay diffable against v1.7.0.
+- Amended 2026-11-15: the agentic app left the Deno workspace for Bun
+  ([ADR-012](ADR-012-agentic-app-on-bun-and-next.md)); the root `deno.json` excludes it, and checks
+  now also need Bun 1.4+ for `check:agentic`. The factory layout and gates are unchanged.
+- Amended 2026-11-15: the project follows Æion Template v4.0.3 and Graphify, Archify and
+  `efficiency/` are removed ([ADR-013](ADR-013-aeion-template-v4-without-source-analysis.md)).
+- Amended 2026-11-15: Deno is gone ([ADR-014](ADR-014-every-playground-on-bun-and-next.md)); the
+  checks need Bun 1.4.4 and Python, and the Deno fmt/lint exclusions went with `deno.json`; the
+  same template-owned folders (and `opencode.json`) are excluded from Biome in `biome.json`.

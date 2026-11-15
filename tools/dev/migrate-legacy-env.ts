@@ -1,21 +1,20 @@
-import { parse } from "@std/dotenv";
-import { dirname, fromFileUrl, join, resolve } from "@std/path";
+// Spec: knowledge/operations/build-and-test.md
+import { chmodSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { parseDotenv } from "../../packages/platform/dotenv.ts";
 
 type AppEnv = {
   directory: string;
   values: Array<[key: string, value: string, comment?: string]>;
 };
 
-const suiteRoot = resolve(dirname(fromFileUrl(import.meta.url)), "..");
+// The repository root; the legacy playground is its sibling folder.
+const suiteRoot = resolve(import.meta.dir, "../..");
 const legacyPath = resolve(suiteRoot, "..", "checkoutPlayground copie", ".env");
 
 function readEnv(path: string): Record<string, string> {
   try {
-    const text = Deno.readTextFileSync(path)
-      .split("\n")
-      .map((line) => line.replace(/^\s*export\s+/, ""))
-      .join("\n");
-    return parse(text);
+    return parseDotenv(readFileSync(path, "utf8"));
   } catch {
     return {};
   }
@@ -71,31 +70,11 @@ const apps: AppEnv[] = [
     values: common(8001, "digital"),
   },
   {
-    directory: "apps/adyen-ipp-endless-aisle",
-    values: [
-      ...common(8002, "ipp", {
-        ADYEN_API_KEY: legacyValue("ADYEN_DEVICE_API_KEY", "ADYEN_API_KEY"),
-        ADYEN_MERCHANT_ACCOUNT: legacyValue(
-          "ADYEN_MERCHANT_ACCOUNT_POS",
-          "ADYEN_MERCHANT_ACCOUNT",
-        ),
-        ADYEN_CLIENT_KEY: "",
-      }).filter(([key]) => key !== "ADYEN_CLIENT_KEY"),
-      ["ADYEN_TERMINAL_ID", legacyValue("ADYEN_TERMINAL_ID", "OMNI_TERMINAL_ID")],
-      ["WEBHOOK_BASIC_AUTH_USER", ""],
-      ["WEBHOOK_BASIC_AUTH_PASSWORD", ""],
-    ],
-  },
-  {
     directory: "apps/adyen-agentic-commerce",
-    values: [
-      ...common(8003, "agentic"),
-      ["AGENTIC_REAL_ENABLED", "false", "Keep false until the real TEST contract is verified"],
-      [
-        "ADYEN_AGENTIC_BEARER_TOKEN",
-        legacyValue("ADYEN_AGENTIC_BEARER_TOKEN", "AGENTIC_AGENT_BEARER_TOKEN"),
-      ],
-    ],
+    // The Bun store keeps no encrypted profile or signed cookie, so it needs only the common keys.
+    values: common(8003, "agentic").filter(
+      ([key]) => !["PROFILE_ENCRYPTION_KEY", "SESSION_SIGNING_SECRET"].includes(key),
+    ),
   },
   {
     directory: "apps/adyen-v6-styling",
@@ -129,9 +108,9 @@ for (const app of apps) {
     else missing.push(key);
   }
 
-  Deno.writeTextFileSync(envPath, `${lines.join("\n")}\n`, { mode: 0o600 });
+  writeFileSync(envPath, `${lines.join("\n")}\n`, { mode: 0o600 });
   try {
-    Deno.chmodSync(envPath, 0o600);
+    chmodSync(envPath, 0o600);
   } catch {
     // File remains ignored even where chmod is not available.
   }

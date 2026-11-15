@@ -5,7 +5,9 @@ import type { Address, Amount } from "./types.ts";
 export const DEFAULT_DUMMY_SHOPPER_EMAIL = "test456789767545678@gmail.com";
 
 export function resolveShopperEmail(email?: unknown): string {
-  return String(email || DEFAULT_DUMMY_SHOPPER_EMAIL).trim().toLowerCase();
+  return String(email || DEFAULT_DUMMY_SHOPPER_EMAIL)
+    .trim()
+    .toLowerCase();
 }
 
 // Adyen requires lineItems to be present (and to sum to the order amount)
@@ -17,23 +19,27 @@ export function buildLineItems(
   amount: Amount,
   description = "Playground order",
 ): Array<Record<string, unknown>> {
-  return [{
-    id: "1",
-    quantity: 1,
-    description,
-    amountIncludingTax: amount.value,
-    amountExcludingTax: amount.value,
-    taxAmount: 0,
-    itemCategory: "PHYSICAL_GOODS",
-  }];
+  return [
+    {
+      id: "1",
+      quantity: 1,
+      description,
+      amountIncludingTax: amount.value,
+      amountExcludingTax: amount.value,
+      taxAmount: 0,
+      itemCategory: "PHYSICAL_GOODS",
+    },
+  ];
 }
 
 export function addressesAreEqual(a: Address, b: Address): boolean {
-  return a.street === b.street &&
+  return (
+    a.street === b.street &&
     a.houseNumberOrName === b.houseNumberOrName &&
     a.postalCode === b.postalCode &&
     a.city === b.city &&
-    a.country === b.country;
+    a.country === b.country
+  );
 }
 
 const SPLIT_CARD_FUNDING_COUNTRIES = new Set(["BR", "MX", "FI"]);

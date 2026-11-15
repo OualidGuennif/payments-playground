@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #1d1d1f;
+  --color-muted: #6b6760;
+  --color-paper: #f7f4ef;
+  --color-card: #ffffff;
+  --color-line: #e3ddd3;
+  --color-accent: #8a4b22;
+  --color-ok: #2f6b3c;
+  --color-warn: #9a5b00;
+  --color-bad: #a33a2b;
+  /* Adyen Web's stylesheet is light only, so Drop-in sits on a light surface in both themes. */
+  --color-dropin: #ffffff;
+  --color-dropin-ink: #00112c;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-ink: #f2efe9;
+    --color-muted: #b4ada3;
+    --color-paper: #161514;
+    --color-card: #201f1d;
+    --color-line: #3a3733;
+    --color-accent: #e0a070;
+    --color-ok: #7cc48b;
+    --color-warn: #e0b057;
+    --color-bad: #f08a7a;
+  }
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
+  a {
+    text-underline-offset: 3px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-paper transition hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line bg-card px-5 py-2.5 text-sm font-medium text-ink transition hover:border-ink disabled:opacity-40;
+  }
+  .panel {
+    @apply rounded-2xl border border-line bg-card p-5 sm:p-6;
+  }
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted;
+  }
+  .pill {
+    @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium;
+  }
+  .field {
+    @apply w-full rounded-xl border border-line bg-card text-ink px-3 py-2 text-sm outline-none focus:border-ink;
+  }
+  .dropin-surface {
+    @apply rounded-2xl border border-line bg-dropin p-3 text-dropin-ink sm:p-4;
+  }
+  .code {
+    @apply rounded-md bg-line/60 px-1.5 py-0.5 font-mono text-[0.8em];
+  }
+}

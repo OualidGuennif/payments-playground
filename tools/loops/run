@@ -7,7 +7,7 @@ import subprocess
 import signal
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'architecture'))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from process import run
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -27,8 +27,8 @@ signal.signal(signal.SIGTERM, interrupted)
 try:
     run(command, timeout=args.timeout)
 except subprocess.TimeoutExpired:
-    parser.exit(124, 'Æion Factory loop deadline reached; child processes terminated.\n')
+    parser.exit(124, 'Æion Template loop deadline reached; child processes terminated.\n')
 except KeyboardInterrupt:
-    parser.exit(130, 'Æion Factory loop interrupted; child processes terminated.\n')
+    parser.exit(130, 'Æion Template loop interrupted; child processes terminated.\n')
 except (OSError, subprocess.CalledProcessError) as error:
-    parser.exit(1, f'Æion Factory loop failed: {error}\n')
+    parser.exit(1, f'Æion Template loop failed: {error}\n')

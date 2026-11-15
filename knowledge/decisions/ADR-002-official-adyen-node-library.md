@@ -6,11 +6,11 @@ tags: [decision, adyen, server]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: client
     resource: ../../packages/platform/adyen.ts
-    title: The wrapper and its Deno workarounds
+    title: The wrapper, loaded lazily for Bun and Next's server bundle
   - id: tests
     resource: ../../packages/platform/adyen.test.ts
     title: Endpoint, method, params and error mapping tests
@@ -26,8 +26,12 @@ was never set.
 `adyen-library-*` headers, follows 308s and parses Adyen's error shapes. The two Deno workarounds
 live in `adyen.ts` only; they are harmless on Deno 2.9.4 (the pinned runtime) and keep older local
 runtimes working. Calls go through `HttpURLConnectionClient.request` directly so the endpoint,
-method and body stay explicit per call.
+method and body stay explicit per call. Amended 2026-11-15: the apps run on Bun
+([ADR-014](ADR-014-every-playground-on-bun-and-next.md)) and the Deno workarounds were removed
+from `adyen.ts`; Next keeps the library out of its server bundle (`serverExternalPackages`).
 
 **Consequences.** Library quirks apply: a query string written into the endpoint is dropped (only
 `url.pathname` is used), so query parameters go through `params`. Tests replace the transport to
-inspect each request without network.
+inspect each request without network. Since 32.3.0 the transport body type is `string | Buffer`;
+this wrapper always sends JSON text, and the tests assert it. The Bun app `adyen-agentic-commerce`
+uses the same library through its typed `CheckoutAPI` services, which need no workaround on Bun.

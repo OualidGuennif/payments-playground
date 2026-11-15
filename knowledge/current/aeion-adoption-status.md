@@ -6,14 +6,14 @@ status: stable
 stale_after: 2026-12-31
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31T19:05:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "The merged agent rules and repository map"
-  - resource: ../../deno.json
-    title: "The complete check task"
-  - resource: ../../tools/architecture/integrations.json
-    title: "Pinned analysis revisions"
+  - resource: git-history:deno.json
+    title: "The complete check task on 2026-10-31 (removed on 2026-11-15)"
+  - resource: ../../.aeion-template
+    title: "The template release this project follows"
   - resource: ../../render.yaml
     title: "The root deployment blueprint"
 ---
@@ -36,6 +36,20 @@ production or Adyen TEST call was made by the adoption itself.
 | Docker                          | four images built from the root context with the pinned Deno 2.9.4 image; the shared entrypoint drops to uid 1993                                                    |
 | `deno task verify`              | four apps: `/healthz` plus 18 rendered pages                                                                                                                         |
 | Render                          | root `render.yaml` and its five services unchanged; `main` `7b72543` is live, the four `/healthz` and the landing answer 200, and the logs show no permission errors |
+
+## Changed since
+
+- 2026-11-15: AGENTS.md and the root `deno.json` name Adyen Web 6.48.1 and `@adyen/api-library`
+  32.3.0. The root `deno.json` drops `apps/adyen-agentic-commerce` from the workspace (it is a Bun
+  app now) and adds `check:agentic` to `check`. The table above is the 2026-10-31 state and was not
+  re-run for these changes.
+- 2026-11-15: updated to Æion Template v4.0.3 (`.aeion-template`). Graphify, Archify, their receipt
+  and `efficiency/` are gone, so the Graphify/Archify row above no longer applies;
+  `tools/template-tests` replaces `tools/factory-tests`; the context rule is 340k/390k; the doc gate
+  runs in `enforce` and framework mode is off (no address set).
+- 2026-11-15: Deno, Fresh and Vite left the repository
+  ([ADR-014](../decisions/ADR-014-every-playground-on-bun-and-next.md)); the `deno task` rows above
+  are history, the gate is now `bun run check` and the images build on `oven/bun:1.4.4`.
 
 ## Open
 

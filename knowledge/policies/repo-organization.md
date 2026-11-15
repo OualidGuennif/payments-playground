@@ -7,9 +7,10 @@ generated:
   by: aeion-factory/1.0
   at: 2026-10-20T00:00:00Z
 sources:
-  - id: guide
-    resource: ../../efficiency/1-quarks.md
-    title: "Phase 1 of the guide"
+  - resource: ../../AGENTS.md
+    title: "The one repository map"
+  - resource: ../../tools/repo-health/repo-health
+    title: "The top-level folder cap it enforces"
 ---
 
 # Repository organization

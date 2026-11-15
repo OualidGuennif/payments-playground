@@ -1,9 +1,8 @@
 # OS
 .DS_Store
 
-# Deno / npm interop
+# Bun installs
 node_modules/
-.deno/
 
 # Secrets — never commit real credentials, only *.env.example templates
 .env
@@ -12,18 +11,25 @@ env.local
 .env.*
 !.env.example
 
-# Æion Factory local state: reference clone, sessions, analysis, reviews
+# Æion Template local state: reference clone, sessions, settings, reviews
 .aeion/
 work/handovers/
+# Evaluation records grow with every run and stay on this machine.
+tools/evals/results.jsonl
+# .factory/ belongs to Factory's Droid; only its config is tracked, older local state stays ignored.
+.factory/*
+!.factory/settings.json
+!.factory/README.md
 
-# Python tooling caches used by the factory checks
+# Python tooling caches used by the template checks
 __pycache__/
 *.pyc
+.venv/
 
-# Fresh / Vite build output
-_fresh/
-dist/
-.vite/
+# Next.js on Bun: build output and generated type stubs
+.next/
+next-env.d.ts
+*.tsbuildinfo
 
 # SQLite runtime data (per-app TEST databases, regenerated on first run)
 *.sqlite

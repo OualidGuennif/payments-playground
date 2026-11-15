@@ -12,34 +12,32 @@ platform and UI package.
 
 ## Applications
 
-**Drop-in Styling and Digital Checkout are ready to use.** The other two run and are worth
-exploring, but they are still being built, treat anything you see there as work in progress, not as
-a reference integration.
+**Drop-in Styling and Digital Checkout are ready to use.** Agentic Commerce runs and is worth
+exploring, but it is still being built: treat anything you see there as work in progress, not as a
+reference integration.
 
-| App                       | Covers                                                                | Status                     | Dev port |
-| ------------------------- | --------------------------------------------------------------------- | -------------------------- | -------: |
-| `adyen-v6-styling`        | **Drop-in Styling** · theming options and CSS overrides               | **Ready**                  |     8004 |
-| `adyen-digital`           | **Digital Checkout** · Sessions, Advanced, Pay by Link, MIT, API only | **Ready**                  |     8001 |
-| `adyen-ipp-endless-aisle` | **Endless Aisle** · in-person cart and Terminal API Cloud Device      | In progress · est. Q4 2026 |     8002 |
-| `adyen-agentic-commerce`  | **Agentic Commerce** · mock and real paths kept distinct              | In progress · est. Q1 2027 |     8003 |
+| App                      | Covers                                                                | Status                     | Dev port |
+| ------------------------ | --------------------------------------------------------------------- | -------------------------- | -------: |
+| `adyen-v6-styling`       | **Drop-in Styling** · theming options and CSS overrides               | **Ready**                  |     8004 |
+| `adyen-digital`          | **Digital Checkout** · Sessions, Advanced, Pay by Link, MIT, API only | **Ready**                  |     8001 |
+| `adyen-agentic-commerce` | **Agentic Commerce** · a store AI agents shop (UCP, PAP), TEST pay    | In progress · est. Q1 2027 |     8003 |
 
 Dates are estimates for the end of the quarter, not commitments.
 
-A fifth entry, `apps/landing/`, is the static front door that links to the four. It is plain HTML
+A fourth entry, `apps/landing/`, is the static front door that links to the three. It is plain HTML
 with no build step and no server.
 
 ## Getting started
 
-Requires Deno 2.9.4 for the apps. The repository checks also need Python 3.12+ (excluding 3.14.1)
-and Node 18+; `deno task arch:setup` installs the pinned Graphify/Archify tools into the ignored
-`.aeion/` directory once.
+Requires Bun 1.4.4. The repository checks also need Python 3.12+ (excluding 3.14.1).
 
 ```bash
-deno task dev:all
+bun install
+bun run dev:all
 ```
 
-That starts all four apps on ports 8001–8004 with hot reload; one `Ctrl+C` stops them. To run just
-one, use `dev:digital`, `dev:ipp`, `dev:agentic` or `dev:styling`.
+That starts the three apps on ports 8001, 8003 and 8004 with hot reload; one `Ctrl+C` stops them. To
+run just one, use `dev:digital`, `dev:agentic` or `dev:styling`.
 
 Each app reads its credentials from its own `.env`. Copy `apps/<app>/.env.example` to
 `apps/<app>/.env` and fill in your TEST values, no `.env` file is committed. The browser only ever
@@ -49,18 +47,17 @@ and extra profiles are encrypted at rest.
 ## Tasks
 
 ```bash
-deno task check         # fmt, lint, knowledge, types, tests and all four builds
-deno task test          # unit and integration tests
-deno task build         # four production builds
-deno task verify        # start the builds and check /healthz
-deno task docs:links    # knowledge sources and Spec: pointers, both ways
-deno task repo:health   # source-size, comment and folder caps
-deno task factory:test  # the adapted factory suites
-deno task arch:refresh  # exact-HEAD Graphify/Archify PASS receipt
+bun run check           # knowledge, links, health, types, tests, builds, SSR asserts, template
+bun run test            # unit and integration tests
+bun run build           # three production builds
+bun run verify          # build, start the standalone servers and check /healthz and the pages
+bun run docs:links      # knowledge sources and Spec: pointers, both ways
+bun run repo:health     # source-size, comment and folder caps
+bun run template:test   # the template suites (hooks, context, links, loops)
 ```
 
-Per app: `deno task --cwd apps/adyen-digital <dev|build|test|start>`. `start` serves the last
-production build, so it needs a `build` first. CI runs the same gates on pull requests and `main`.
+Per app: `bun run --cwd apps/adyen-digital <dev|build|test|start|typecheck>`. `start` serves the
+last production build, so it needs a `build` first. CI runs the same gates on pull requests and `main`.
 
 ## Deployment
 
@@ -71,12 +68,12 @@ docker build -f apps/adyen-digital/Dockerfile -t digital-checkout:test .
 docker run --rm --env-file apps/adyen-digital/.env -p 8000:8000 digital-checkout:test
 ```
 
-On Render, the root `render.yaml` describes all four services; each app also has its own for an
-isolated deploy. The Blueprint stays at the repository root and is not moved by the agent workflow.
-Create a Blueprint from the repo, add TEST credentials in the dashboard, let Render generate
-`PROFILE_ENCRYPTION_KEY` and `SESSION_SIGNING_SECRET`, then add the deployed HTTPS origin to the
-client key's allowed origins and point your TEST webhook at `/webhook`. Set `PUBLIC_ORIGIN` if a
-service name differs from the default.
+On Render, the root `render.yaml` describes the three app services and the landing; each app also
+has its own for an isolated deploy. The Blueprint stays at the repository root and is not moved by
+the agent workflow. Create a Blueprint from the repo, add TEST credentials in the dashboard, let
+Render generate `PROFILE_ENCRYPTION_KEY` and `SESSION_SIGNING_SECRET`, then add the deployed HTTPS
+origin to the client key's allowed origins and point your TEST webhook at `/webhook`. Set
+`PUBLIC_ORIGIN` if a service name differs from the default.
 
 ## Storage
 
@@ -89,18 +86,14 @@ same model on PostgreSQL plus a webhook queue.
 
 | Dependency           | Version | Notes                                             |
 | -------------------- | ------- | ------------------------------------------------- |
-| Deno                 | 2.9.4   | Shared runtime                                    |
-| Fresh                | 2.3.3   | SSR and islands                                   |
-| Hono                 | 4.12.31 | API router inside each Fresh server               |
-| Vite                 | 7.1.4   | Build and HMR (version linked to Fresh version)   |
-| Adyen Web            | 6.47.0  | Client-side components                            |
-| `@adyen/api-library` | 32.0.0  | Server-side calls, over its own node:https client |
+| Bun                  | 1.4.4   | Runtime, package manager, test runner             |
+| Next.js              | 16.4.3  | Pages, route handlers, standalone build           |
+| React                | 19.3.1  | Server and client components                      |
+| Elysia               | 1.4.30  | API router behind each app's `/api/*` handler     |
+| Eden                 | 1.4.9   | Typed browser client for that API                 |
+| Adyen Web            | 6.48.1  | Client-side components                            |
+| `@adyen/api-library` | 32.3.0  | Server-side calls, over its own node:https client |
 | Checkout API         | v72     | Explicit TEST endpoints                           |
-
-Server-side Adyen calls go through the library's `HttpURLConnectionClient`. Two details it relies on
-were missing from Deno's node:http layer before 2.8.0, so `packages/platform/adyen.ts` works around
-both. The pinned runtime no longer needs those workarounds, but they are harmless and keep the suite
-runnable on an older local Deno; the comments there explain what and why.
 
 ## Disclaimer
 
@@ -142,11 +135,10 @@ entirely at your own risk. See [SECURITY.md](./docs/SECURITY.md) and
 
 - [Knowledge base](./knowledge/index.md): architecture, decisions, runbooks, verified state (start
   there; [AGENTS.md](./AGENTS.md) is the short version for coding agents)
-- [Efficiency guide](./efficiency/00-EFFICIENCY.md) and [command reference](./command.md): the
-  seven-phase adoption method and the agent commands
+- [Command reference](./command.md): the agent skills, tools and loop commands
 - [Security and threat model](./docs/SECURITY.md)
 - [Known limits and simulated features](./docs/KNOWN_LIMITS.md)
-- Built-in wikis at `/wiki` in Digital, IPP and Agentic
+- A built-in wiki at `/wiki` in Digital; the agentic store explains itself at `/agents`
 
 Reference material: [Fresh](https://jsr.io/@fresh/core/doc),
 [Hono](https://jsr.io/@hono/hono/versions),

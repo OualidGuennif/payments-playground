@@ -1,0 +1,8 @@
+# Spec: knowledge/operations/agent-compatibility.md
+# Loads the Æion Template adapter into a dsh profile: dsh web|headless --patch .dsh/template.patch.yml
+# Web isolates compaction per agent preset, so only the second entry stays pending there.
+- insert:
+    - id: aeion-template
+      name: ./plugins/template/index.js
+    - id: aeion-template-compaction
+      name: ./plugins/template/compaction.js

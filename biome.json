@@ -1,0 +1,66 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!.aeion",
+      "!loops",
+      "!tech-watch",
+      "!.claude",
+      "!.agents",
+      "!.codex",
+      "!.opencode",
+      "!.pi",
+      "!.dsh",
+      "!.devin",
+      "!.factory",
+      "!tools/agents",
+      "!tools/context",
+      "!tools/git-hooks",
+      "!tools/loops",
+      "!tools/release",
+      "!tools/repo-health",
+      "!tools/skills",
+      "!opencode.json"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "assist": {
+    "enabled": false
+  },
+  "markdown": {
+    "formatter": {
+      "enabled": false
+    },
+    "linter": {
+      "enabled": false
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  }
+}

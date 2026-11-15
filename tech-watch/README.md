@@ -10,6 +10,9 @@ primary sources, and to hand it over as one small, dated package. Run it with th
 - Record the branch, whether the working tree is clean, the commit you inspected, and a cutoff date.
 - Inspect the real code: callers, contracts, tests, configuration, the versions actually pinned
   (lockfiles, images, the CI matrix). State what you could not inspect.
+- Include the aeion-framework service: the range framework mode accepts and the release it was
+  tested on are `SUPPORTED` and `TESTED` in `.claude/hooks/aeion_settings.py`. A new framework release
+  is checked against its OpenAPI and bumped there, with `tools/framework/tests/` updated to its shapes.
 
 ## 2. Form findings before reading older reports
 

@@ -7,9 +7,10 @@ generated:
   by: aeion-factory/1.0
   at: 2026-10-20T00:00:00Z
 sources:
-  - id: guide
-    resource: ../../efficiency/1-quarks.md
-    title: "Phase 1 of the guide"
+  - resource: ../../packages/ui/theme.ts
+    title: "The theme tokens"
+  - resource: ../../packages/ui/styles.css
+    title: "The shared light and dark token sets"
 ---
 
 # UI and UX

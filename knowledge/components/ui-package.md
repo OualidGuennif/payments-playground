@@ -1,18 +1,18 @@
 ---
 type: Component
 title: "packages/ui: browser-safe components, tokens and Adyen Web setup"
-description: "What packages/ui gives every app's pages and islands: design tokens and shell components, the theme bootstrap, the CSRF-aware fetch helper, per-method Adyen Web configuration and the registration of every Adyen Web component."
+description: "What packages/ui gives every app's pages and client components: design tokens and shell components, the theme bootstrap, the CSRF-aware fetch helper, per-method Adyen Web configuration and the registration of every Adyen Web component."
 status: stable
 scope: component-ui
 tags: [component, ui, adyen-web]
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-15T21:00:00Z
 sources:
   - resource: ../../packages/ui
     title: "The package: modules and stylesheet"
   - resource: ../../packages/ui/client.ts
-    title: "apiFetch, readCookie, formatMinorAmount, prettyJson"
+    title: "apiClient (Eden), unwrap, apiFetch, readCookie, formatMinorAmount, prettyJson"
   - resource: ../../packages/ui/components.tsx
     title: "AppShell and the shared page components"
   - resource: ../../packages/ui/theme.ts
@@ -23,13 +23,13 @@ sources:
     title: "Registering every component Adyen Web ships"
   - resource: ../../packages/ui/styles.css
     title: "The light and dark token sets"
-  - resource: ../decisions/ADR-004-one-adyen-web-and-one-preact.md
-    title: "One Adyen Web and one Preact across the workspace"
+  - resource: ../decisions/ADR-014-every-playground-on-bun-and-next.md
+    title: "One Adyen Web and one React across the Bun workspace"
   - resource: ../decisions/ADR-010-one-theme-attribute-and-token-sets.md
     title: "Dark mode is one data-theme attribute over two token sets"
-  - resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
+  - resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
     title: "The focus app's Drop-in and Components usage"
-  - resource: ../../apps/adyen-v6-styling/components/adyenOptions.test.ts
+  - resource: ../../apps/adyen-v6-styling/src/components/adyenOptions.test.ts
     title: "The only automated check of an Adyen Web surface"
 ---
 
@@ -50,19 +50,19 @@ Two boundaries define the package.
   on top; they do not define a second palette.
 - **Adyen Web.** This package configures Adyen Web and never wraps it: card fields are rendered by
   Adyen inside its own iframes, so no PAN or CVC enters this code or the DOM around it. The SDK
-  version is pinned once in the root `deno.json` and resolved through the root import map, so every
-  app and this package use the same `@adyen/adyen-web` and the same Preact
-  ([ADR-004](../decisions/ADR-004-one-adyen-web-and-one-preact.md)).
+  version is pinned exactly in every `package.json` and hoisted once into the root `node_modules`,
+  so every app and this package use the same `@adyen/adyen-web` and the same React
+  ([ADR-014](../decisions/ADR-014-every-playground-on-bun-and-next.md)).
 
 ## Data sources
 
 | Source                                                     | What is read                                                 | Owner               | Freshness                                   |
 | ---------------------------------------------------------- | ------------------------------------------------------------ | ------------------- | ------------------------------------------- |
-| `adyen_csrf` cookie                                        | The double-submit token, attached to mutating requests       | this server         | per `apiFetch` call                         |
+| `adyen_csrf` cookie                                        | The double-submit token, attached to mutating requests       | this server         | per `apiClient` or `apiFetch` call          |
 | Same-origin `/api/*`                                       | JSON bodies                                                  | this server         | per call                                    |
 | `localStorage["playground-theme"]`, `prefers-color-scheme` | The stored choice, else the system preference                | browser             | at load, then on toggle and system change   |
 | `<html data-theme>`, `<meta name="theme-color">`           | What the page currently shows                                | this browser        | read and updated by `THEME_SCRIPT`          |
-| Root `deno.json` import map                                | `@adyen/adyen-web` 6.47.0 and `preact` 10.29.8               | this repo           | pinned per release                          |
+| Each `package.json`, hoisted by `bunfig.toml`              | `@adyen/adyen-web` 6.48.1 and `react` 19.3.1                 | this repo           | pinned per release                          |
 | `packages/platform/markets.ts`                             | `ZERO_DECIMAL_CURRENCIES`                                    | this repo           | static; the only platform import, pure data |
 | Adyen's published TEST credentials                         | Card numbers and alternative-method samples in `testData.ts` | Adyen documentation | copied by hand, so it can drift             |
 | `styles.css`                                               | The token sets and shared shell, form and button styles      | this repo           | static                                      |
@@ -110,8 +110,13 @@ on anything but `GET`/`HEAD`, and `X-Profile-Id` when a profile id is given, alw
   no liability.
 - **Theme.** `ThemeScript` renders an inline script element, never text, so the stored or system
   theme is applied before first paint; it also sets `aria-checked` on every `[data-theme-toggle]`
-  and updates the `theme-color` meta. Toggles are handled by event delegation, so no island is
-  involved. `currentTheme()` returns `"light"` during SSR.
+  and updates the `theme-color` meta. Toggles are handled by event delegation, so no client
+  component is involved. `currentTheme()` returns `"light"` during SSR.
+- **`apiClient<App>(profileId?)`.** Eden's treaty for the app's Elysia `App` type on the page's
+  origin, sending the `adyen_csrf` cookie's value as `X-CSRF-Token` and the selected profile as
+  `X-Profile-Id`, read per call; `parseDate: false` keeps timestamps the strings the server sent
+  (Eden's Date objects broke the timeline sort). `unwrap(result)` returns `data` or throws like
+  `apiFetch`, and rethrows fetch's own `TypeError` when no answer arrived (Eden reports it as 503).
 - **`apiFetch`.** The parsed body as `T`. A non-OK answer throws `Error` with the server's `error`
   string, else `Request failed (<status>).`; an unparseable body becomes
   `{ error: "Invalid server response." }`, thrown when the answer was also non-OK.
@@ -144,10 +149,10 @@ This package has no test file of its own. Each invariant names the check that ac
 says when only one half is covered.
 
 1. Every app's rendered page contains a `<main>` element and the TEST marker —
-   `deno task ssr:assert` (`tools/build/assert-built-ssr.ts`, run per app).
-2. These modules type-check under the workspace's Preact and JSX settings, and each app bundles them
-   for the browser without a server-only import — `deno task types` and `deno task build`.
-3. The mutation contract `apiFetch` implements is enforced server-side: a request without a matching
+   `bun run ssr:assert` (`tools/build/assert-built-ssr.ts`, run per app).
+2. These modules type-check under React's JSX settings, and each app bundles them for the browser
+   without a server-only import — `bun run types` and `bun run build`.
+3. The mutation contract `apiClient` and `apiFetch` implement is enforced server-side: a request without a matching
    `adyen_csrf` cookie and `X-CSRF-Token` header gets 403 and no cookies, so the helper's header is
    load-bearing — `packages/platform/security.test.ts` "CSRF still rejects a cross-origin POST that
    carries a valid token" and "a rejected POST issues no cookies, so it cannot replace bootstrap's
@@ -178,11 +183,11 @@ stays fatal.
 ## Acceptance checks
 
 ```bash
-deno task types         # every component and helper type-checks
-deno task build         # the four apps bundle this package for the browser
-deno task ssr:assert    # <main> and the TEST marker in every built page
-deno task test          # the server-side half of the CSRF contract, and the market fixtures
-deno task check         # the full gate, including fmt and lint over packages/ui
+bun run types           # every component and helper type-checks
+bun run build           # the apps bundle this package for the browser
+bun run ssr:assert      # <main> and the TEST marker in every built page
+bun run test            # the server-side half of the CSRF contract, and the market fixtures
+bun run check           # the full gate
 ```
 
 ## Out of scope
@@ -191,6 +196,6 @@ deno task check         # the full gate, including fmt and lint over packages/ui
 - Collecting card data or touching Adyen's iframes; Adyen Web owns those fields.
 - Calling Adyen directly; every call goes through this server's `/api/*`.
 - Defining a second theme mechanism, palette or CSS-in-JS layer.
-- Bundling a second copy of Adyen Web or Preact, or choosing its version locally.
+- Bundling a second copy of Adyen Web or React, or choosing its version locally.
 - App-specific layout, copy or routes; those live in `apps/<app>/`.
 - Guaranteeing that the published test credentials in `testData.ts` stay current.

@@ -35,7 +35,7 @@ function outcome(event: ModificationEvent): Modification["status"] {
 /** Later events win: a CAPTURE_FAILED after a CAPTURE success is the result. */
 function settle(modification: Modification, events: ModificationEvent[]): Modification {
   const ordered = [...events].sort((left, right) =>
-    left.receivedAt.localeCompare(right.receivedAt)
+    left.receivedAt.localeCompare(right.receivedAt),
   );
   const last = ordered.at(-1);
   if (!last) return modification;
@@ -84,20 +84,23 @@ export function reconcile(
       continue;
     }
     let matched = request.pspReference
-      ? (byReference.get(request.pspReference) ?? []).filter((event) =>
-        EVENT_KIND[event.eventCode] === request.kind
-      )
+      ? (byReference.get(request.pspReference) ?? []).filter(
+          (event) => EVENT_KIND[event.eventCode] === request.kind,
+        )
       : [];
     if (!request.pspReference) {
-      const legacy = events.find((event) =>
-        !claimed.has(event) && EVENT_KIND[event.eventCode] === request.kind &&
-        event.receivedAt >= request.createdAt
+      const legacy = events.find(
+        (event) =>
+          !claimed.has(event) &&
+          EVENT_KIND[event.eventCode] === request.kind &&
+          event.receivedAt >= request.createdAt,
       );
       matched = legacy
-        ? events.filter((event) =>
-          event.pspReference === legacy.pspReference &&
-          EVENT_KIND[event.eventCode] === request.kind
-        )
+        ? events.filter(
+            (event) =>
+              event.pspReference === legacy.pspReference &&
+              EVENT_KIND[event.eventCode] === request.kind,
+          )
         : [];
     }
     for (const event of matched) claimed.add(event);
@@ -111,18 +114,23 @@ export function reconcile(
     external.set(key, [...(external.get(key) ?? []), event]);
   }
   for (const group of external.values()) {
-    modifications.push(settle({
-      kind: EVENT_KIND[group[0].eventCode],
-      status: "pending",
-      pspReference: group[0].pspReference,
-      external: true,
-    }, group));
+    modifications.push(
+      settle(
+        {
+          kind: EVENT_KIND[group[0].eventCode],
+          status: "pending",
+          pspReference: group[0].pspReference,
+          external: true,
+        },
+        group,
+      ),
+    );
   }
 
   return modifications.sort((left, right) =>
     (left.requestedAt ?? left.settledAt ?? "").localeCompare(
       right.requestedAt ?? right.settledAt ?? "",
-    )
+    ),
   );
 }
 
@@ -147,8 +155,8 @@ export function ledgerOf(authorised: number, modifications: Modification[]): Led
       continue;
     }
     if (modification.kind === "capture") {
-      const value = modification.value ??
-        Math.max(0, authorised - ledger.captured - ledger.capturePending);
+      const value =
+        modification.value ?? Math.max(0, authorised - ledger.captured - ledger.capturePending);
       if (modification.status === "succeeded") ledger.captured += value;
       if (modification.status === "pending") ledger.capturePending += value;
       continue;

@@ -1,8 +1,7 @@
 // Spec: knowledge/components/platform-package.md
-// The package is CommonJS and re-exports its classes through getters, which
-// Deno's CJS named-export detection cannot see, the default import is the
-// whole `module.exports`, so reading the classes off it is the shape that
-// works. See `library()` for why nothing is read at module load.
+// The package is CommonJS and re-exports its classes through getters; the default import is
+// the whole `module.exports`, so reading the classes off it is the shape that works under both
+// Bun and Next's server bundle. See `library()` for why nothing is read at module load.
 import adyenApiLibrary from "@adyen/api-library";
 import type { ProfileSecrets } from "./types.ts";
 import { assertTestOnly, profileIsTestOnly } from "./test-only.ts";
@@ -20,17 +19,15 @@ export type AdyenHttpClient = Pick<
 /**
  * Resolves the library's exports, on first use rather than at module load.
  *
- * `@adyen/api-library` is CommonJS and is kept out of the SSR bundle by
- * `ssr.external` in each vite.config.ts, so what actually lands in
- * `adyenApiLibrary` depends on which interop ran: importing under Deno hands
- * back `module.exports` itself, while an ESM namespace built around the same
- * module nests it one level deeper under `default`. Both are accepted here.
+ * `@adyen/api-library` is CommonJS and is kept out of Next's server bundle by
+ * `serverExternalPackages`, so what lands in `adyenApiLibrary` depends on which
+ * interop ran: Bun hands back `module.exports` itself, while an ESM namespace
+ * built around the same module nests it one level deeper under `default`.
+ * Both are accepted here.
  *
- * Doing this lazily matters: every app's `main.ts` reaches this module, so the
- * built `_fresh/server.js` evaluates it, and `tools/build/assert-built-ssr.ts`
- * imports that bundle. Anything thrown while this module initialises would
- * surface there as a bare import failure with no useful message, so importing
- * this file stays free of side effects and the cost is paid on first request.
+ * Doing this lazily keeps importing this file free of side effects: `next build`
+ * evaluates every route module while collecting page data, and a throw there
+ * would surface as a bare import failure with no useful message.
  */
 function library(): typeof adyenApiLibrary {
   const direct = adyenApiLibrary as unknown as Record<string, unknown> | undefined;
@@ -46,7 +43,6 @@ type Payload = Record<string, unknown>;
 type HttpMethod = "GET" | "POST";
 
 const CHECKOUT_BASE_URL = "https://checkout-test.adyen.com/v72";
-const DEVICE_BASE_URL = "https://device-api-test.adyen.com/v1";
 const APPLICATION_NAME = "adyen-test-playground-suite";
 const DEFAULT_TIMEOUT_MS = 45_000;
 
@@ -62,68 +58,17 @@ export class AdyenRequestError extends Error {
   }
 }
 
-type EventListener = (...args: never[]) => void;
-type ResponseLike = { complete?: boolean; on: (event: string, listener: () => void) => void };
-type RequestLike = {
-  flushHeaders: () => void;
-  on: (event: string, listener: EventListener) => unknown;
-};
-type CreateRequest = (
-  endpoint: string,
-  requestOptions: Record<string, unknown>,
-  applicationName?: string,
-) => RequestLike;
-
-/**
- * The library's node:https transport, adapted for pre-2.8 Deno. The pinned
- * runtime is past that; both workarounds are no-ops there and keep older
- * local Deno suites usable. Neither concerns CORS, TLS or the endpoints.
- *
- * `flushHeaders()` opened every call before 2.8.0 and stranded the request;
- * dropping it is safe because the following `write()`/`end()` flush the same
- * headers. `res.complete` was never set before 2.8.0, failing every call;
- * setting it as the message ends restores Node's meaning, and the listener
- * runs before the library's.
- */
-function nativeHttpClient(): AdyenHttpClient {
-  const client = new (library().HttpURLConnectionClient)();
-  // `createRequest` is declared private in the shipped typings but is an
-  // ordinary prototype method at runtime, and it is the only point where the
-  // ClientRequest is reachable before `doRequest()` starts using it.
-  const internals = client as unknown as { createRequest: CreateRequest };
-  const createRequest = internals.createRequest.bind(client);
-
-  internals.createRequest = (...args) => {
-    const request = createRequest(...args);
-    request.flushHeaders = () => {};
-    const on = request.on.bind(request);
-    request.on = (event, listener) => {
-      if (event !== "response") return on(event, listener);
-      return on(
-        "response",
-        ((response: ResponseLike) => {
-          response.on("end", () => {
-            if (response.complete !== true) response.complete = true;
-          });
-          (listener as unknown as (response: ResponseLike) => void)(response);
-        }) as unknown as EventListener,
-      );
-    };
-    return request;
-  };
-  return client;
-}
-
 let cachedHttpClient: AdyenHttpClient | undefined;
 
 /** Built once, on first request rather than at module load. */
 function sharedHttpClient(): AdyenHttpClient {
-  return cachedHttpClient ??= nativeHttpClient();
+  cachedHttpClient ??= new (library().HttpURLConnectionClient)();
+  return cachedHttpClient;
 }
 
 function responseObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : {};
 }
 
@@ -168,15 +113,19 @@ function asRequestError(error: unknown): AdyenRequestError {
     );
   }
 
-  const body = responseObject(parseBody(
-    text(thrown.responseBody) ?? (error instanceof Error ? error.message : ""),
-  ));
+  const body = responseObject(
+    parseBody(text(thrown.responseBody) ?? (error instanceof Error ? error.message : "")),
+  );
   const apiError = responseObject(thrown.apiError);
   const firstError = responseObject(Array.isArray(body.errors) ? body.errors[0] : undefined);
 
   const status = httpStatus(thrown.statusCode) ?? httpStatus(body.status);
-  const message = text(apiError.message) ?? text(body.message) ?? text(body.detail) ??
-    text(body.title) ?? text(firstError.message);
+  const message =
+    text(apiError.message) ??
+    text(body.message) ??
+    text(body.detail) ??
+    text(body.title) ??
+    text(firstError.message);
   const errorCode = text(apiError.errorCode) ?? text(body.errorCode) ?? text(firstError.errorCode);
 
   if (status !== undefined) {
@@ -360,33 +309,6 @@ export class AdyenTestClient {
       endpoint: `${CHECKOUT_BASE_URL}/payments/${encodeURIComponent(pspReference)}/refunds`,
       payload,
       idempotencyKey,
-      httpClient: this.#httpClient,
-    });
-  }
-
-  async terminalSync(payload: Payload): Promise<unknown> {
-    if (!this.#secrets.merchantAccount || !this.#secrets.terminalId) {
-      throw new Error("The selected TEST profile requires merchantAccount and terminalId.");
-    }
-    return await adyenRequest({
-      apiKey: this.#secrets.apiKey!,
-      endpoint: `${DEVICE_BASE_URL}/merchants/${
-        encodeURIComponent(this.#secrets.merchantAccount)
-      }/devices/${encodeURIComponent(this.#secrets.terminalId)}/sync`,
-      payload,
-      timeoutMs: 120_000,
-      httpClient: this.#httpClient,
-    });
-  }
-
-  async connectedDevices(): Promise<unknown> {
-    if (!this.#secrets.merchantAccount) throw new Error("merchantAccount is required.");
-    return await adyenRequest({
-      apiKey: this.#secrets.apiKey!,
-      endpoint: `${DEVICE_BASE_URL}/merchants/${
-        encodeURIComponent(this.#secrets.merchantAccount)
-      }/connectedDevices`,
-      method: "GET",
       httpClient: this.#httpClient,
     });
   }

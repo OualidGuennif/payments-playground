@@ -7,11 +7,11 @@ status: deprecated
 superseded_by: engineering.md
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-11-16T00:30:00Z
 sources:
   - id: fmt-lint
-    resource: ../../deno.json
-    title: fmt (line width 100, double quotes, semicolons), lint (fresh + recommended), tasks
+    resource: git-history:deno.json
+    title: "fmt (line width 100, double quotes, semicolons), lint, tasks; removed on 2026-11-15"
   - id: oualstreet
     resource: git-history:knowledge/policies/engineering-discipline.md
     title: "Adapted from the owner's Oualstreet engineering discipline (separate repository)"
@@ -20,6 +20,8 @@ sources:
 # Engineering rules
 
 > Superseded by [engineering](engineering.md); kept for the history of the project rules it merged.
+> Its Deno, Preact and `deno.lock` conventions ended on 2026-11-15 with the move to Bun
+> ([ADR-014](../decisions/ADR-014-every-playground-on-bun-and-next.md)).
 
 ## Before changing anything
 
@@ -32,8 +34,8 @@ sources:
 
 ## Conventions
 
-- Deno 2, TypeScript, Preact. `deno fmt` (line width 100, double quotes, semicolons) and `deno lint`
-  are law; `deno task check` must stay green.
+- Bun, TypeScript, React on Next.js. Biome (line width 100, double quotes, semicolons, recommended
+  lint rules) is law; `bun run check` must stay green.
 - Comments say **why**: the Adyen behaviour, the failure that happened, the constraint. Never what
   the next line does. Match the density of the surrounding code.
 - Names and copy are plain and specific. English only, in code, comments, tests, docs, commits.

@@ -1,0 +1,12 @@
+{
+  "name": "@suite/platform",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  },
+  "dependencies": {
+    "@adyen/api-library": "32.3.0",
+    "elysia": "1.4.30"
+  }
+}

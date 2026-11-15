@@ -15,7 +15,7 @@ import re
 import shlex
 import sys
 from pathlib import Path, PurePosixPath
-from secret_names import brace_variants, is_secret, named_secrets, shell_pattern
+from secret_names import brace_variants, inside_git, is_secret, named_secrets, secret_under, shell_pattern
 
 READERS = {"cat", "less", "more", "head", "tail", "grep", "rg", "awk", "sed", "strings", "base64",
            "xxd", "od", "source", ".", "cp", "scp", "rsync", "jq", "python3", "python", "node", "vim", "nano"}
@@ -87,6 +87,9 @@ def with_defaults(text):
     return text
 
 
+SHELL_SPLIT = r"[\s=;&|<>()`]+"
+
+
 def shell_words(text):
     """The words the shell globs: quotes and escapes dropped (they join a word: .e\\nv), defaults as
     their word (innermost first), and each word with a group (zsh (i|x)d_rsa, extglob @(i)d_rsa)
@@ -94,7 +97,7 @@ def shell_words(text):
     text = with_defaults(re.sub(r"\\(.)", r"\1", re.sub(r"['\"]", "", text)))
     # Split on whitespace first: one pattern scan per long word would be quadratic.
     grouped = [w for w in re.split(r"[\s;&<>`]+", text) if "(" in w]
-    return [t for t in re.split(r"[\s=;&|<>()`]+", text) if t] + grouped
+    return [t for t in re.split(SHELL_SPLIT, text) if t] + grouped
 
 
 def mentioned_secrets(tokens, shell_tokens, bases, unquoted_globs):
@@ -125,12 +128,13 @@ def mentioned_secrets(tokens, shell_tokens, bases, unquoted_globs):
 # recursively); then refused: printenv; env with no program to run;
 # declare, typeset, export and set that print variables; ps with BSD e or -E (process environments). And
 # anywhere in the command: the words environ, environb and ENVIRON; an interpreter together with
-# process.env, Deno.env or ENV; jq with env or $ENV. A seatbelt: search for these names with the
-# Grep tool, and put prose that names them in a file.
+# process.env, Deno.env or ENV; jq with env or $ENV. A seatbelt: search for these words from a
+# pattern file (grep -f), and put prose that names them in a file.
 ENV_WORD = re.compile(r"\b(environ|environb|ENVIRON)\b")
 INTERPRETER = re.compile(r"\b(python3?|node|deno|bun|tsx|ts-node|npx|ruby|perl)\b")
 ENV_IN_CODE = re.compile(r"process\.env\b|Deno\.env\b|%ENV\b|\bENV\b")
-JQ_ENV = re.compile(r"\bjq\b.*(\benv\b|\$ENV\b)", re.S)
+# jq, and gh's --jq or -q (gojq), with env or $ENV.
+JQ_ENV = re.compile(r"(\bjq\b|\bgh\b.*\s-[a-zA-Z]*q).*(\benv\b|\$ENV\b)", re.S)
 # The env= keyword argument of a call (subprocess) with os.environ copied, optionally with overrides: env=dict(os.environ,
 # K=V), env={**os.environ, K: V}, env=os.environ.copy() or env=os.environ. Overrides hold no parentheses.
 ENV_COPY = re.compile(r"([(,]\s*)env\s*=\s*(dict\(\s*os\.environ\b[^()]*\)|\{\s*\*\*os\.environ\b[^{}()]*\}"
@@ -421,7 +425,8 @@ def prints_environment(words):
 def env_dump(command):
     # A copy handed to a child process (env=dict(os.environ, K=V)) is not printed; printing it still is.
     command = ENV_COPY.sub(r"\1env=child_env", command)
-    if ENV_WORD.search(command) or JQ_ENV.search(command):
+    # The shell joins quoted pieces (en"v", e''nv) into the word jq reads.
+    if ENV_WORD.search(command) or JQ_ENV.search(command) or JQ_ENV.search(" ".join(shell_words(command))):
         return True
     if INTERPRETER.search(command) and ENV_IN_CODE.search(command):
         return True
@@ -455,35 +460,18 @@ def docker_inspect_dump(command):
     return False
 
 
-GRAPHIFY_LLM = {"extract": "runs semantic LLM extraction", "label": "names communities with an LLM",
-                "provider": "configures LLM providers", "add": "fetches a URL into the corpus",
-                "clone": "clones a repository for LLM extraction", "global": "writes the global graph in ~/.graphify"}
-GRAPHIFY_INSTALLERS = {"install", "uninstall", "hook"}
-
-
-def graphify_command(command):
-    """Graphify stays structural and read-only here: no LLM call, no rewrite of agent instructions."""
-    for words in simple_commands(command):
-        words = program(words)
-        if words and words[0] == "<script>":
-            reason = graphify_command(words[1])
-            if reason:
-                return reason
-            continue
-        if not words or PurePosixPath(words[0]).name != "graphify" or len(words) < 2:
-            continue
-        sub, rest = words[1], words[2:]
-        if sub in GRAPHIFY_LLM:
-            return f"graphify {sub} {GRAPHIFY_LLM[sub]}"
-        if sub == "cluster-only" and "--no-label" not in rest:
-            return "graphify cluster-only names communities with an LLM unless --no-label is given"
-        if sub in GRAPHIFY_INSTALLERS or rest[:1] in (["install"], ["uninstall"]):
-            return f"graphify {' '.join(words[1:3])} rewrites agent instructions or git hooks"
-    return ""
-
-
 GIT_VALUE_FLAGS = {"-C", "-c", "--config-env", "--git-dir", "--work-tree", "--namespace"}
 HOOKS_PATH = "tools/git-hooks"
+# Config keys whose value git runs as a program or command line; once set, later git commands run it out of
+# this guard's sight. Keys are matched case folded, as git reads them.
+PROGRAM_KEY = re.compile(r"core\.(fsmonitor|sshcommand|pager|editor|askpass|gitproxy|alternaterefscommand)|alias\..+"
+                         r"|credential\.(.+\.)?helper|diff\.external|(diff|difftool|mergetool)\..+\.(textconv|command|cmd)"
+                         r"|filter\..+\.(clean|smudge|process)|merge\..+\.driver|gpg\.(.+\.)?program|sequence\.editor"
+                         r"|pager\..+|include\.path|includeif\..+\.path|remote\..+\.(uploadpack|receivepack)"
+                         r"|uploadpack\.packobjectshook|protocol\.(.+\.)?allow")
+# Values that run nothing of note: a pager or editor that only prints or exits.
+SAFE_PROGRAM = {"", "cat", "true", "false", ":", "less"}
+PROGRAM_REASON = "{} names a program git runs later, out of this guard's sight; the user sets it."
 # Short options that take a value: in a cluster, the rest is that value, not more flags.
 SHORT_VALUE = {"commit": set("mFcCt"), "push": {"o"}}
 
@@ -499,6 +487,10 @@ def git_bypass(command):
         # GIT_CONFIG_* variables inject configuration into every later git run.
         if any(re.match(r"GIT_CONFIG_\w*=", w) and "core.hookspath" in w.lower() for w in words):
             return hooks_reason
+        for w in words:
+            keys = [k for k in re.split(r"[\s'\"=]+", w.lower()) if PROGRAM_KEY.fullmatch(k)]
+            if re.match(r"GIT_CONFIG_\w*=", w) and keys:
+                return PROGRAM_REASON.format(keys[0])
         words = program(words)
         if words and words[0] == "<script>":
             reason = git_bypass(words[1])
@@ -510,9 +502,14 @@ def git_bypass(command):
         rest = list(words[1:])
         while rest and rest[0].startswith("-"):
             flag = rest.pop(0)
-            value = rest.pop(0) if flag in GIT_VALUE_FLAGS and rest else flag
+            value = rest.pop(0) if flag in GIT_VALUE_FLAGS and rest else flag.partition("=")[2]
             if flag.split("=", 1)[0] in ("-c", "--config-env") and "core.hookspath" in value.lower():
                 return hooks_reason
+            key, _, setting = value.partition("=")
+            # --config-env takes its value from a variable this guard cannot see.
+            if flag.split("=", 1)[0] in ("-c", "--config-env") and PROGRAM_KEY.fullmatch(key.lower()) and (
+                    flag.startswith("--config-env") or setting not in SAFE_PROGRAM):
+                return PROGRAM_REASON.format(key)
         sub, args = (rest[0], rest[1:]) if rest else (None, [])
         if sub == "config":
             positional = [a for a in args if not a.startswith("-")]
@@ -522,7 +519,7 @@ def git_bypass(command):
                 unset = "unset" in positional[:keys[0]] or any(a.startswith("--unset") for a in args)
                 if unset or values and values[0] != HOOKS_PATH:
                     return hooks_reason
-            # Local mode relaxes the sign-off and the closure checkpoint, so only the user switches it.
+            # The mode turns the sign-off, the closure checkpoint and the push gate on or off, so only the user switches it.
             modes = [i for i, a in enumerate(positional) if a.lower() == "aeion.mode"]
             reads = {"get", "--get", "--get-all", "--get-regexp"} & set(args)
             if modes and not reads and (positional[modes[0] + 1:] or "unset" in positional[:modes[0]]
@@ -532,6 +529,12 @@ def git_bypass(command):
             sections = {"--rename-section", "rename-section", "--remove-section", "remove-section"}
             if sections & set(args) and any(a.lower() == "aeion" for a in positional):
                 return "aeion.mode is the user's switch between team and local flow; the user sets it."
+            programs = [i for i, a in enumerate(positional) if PROGRAM_KEY.fullmatch(a.lower())]
+            unsets = "unset" in positional[:programs[0]] if programs else False
+            if programs and not reads and not unsets and not any(a.startswith("--unset") for a in args):
+                values = positional[programs[0] + 1:]
+                if values and values[0] not in SAFE_PROGRAM:
+                    return PROGRAM_REASON.format(positional[programs[0]])
         value_next = False
         for arg in args:
             if value_next:
@@ -608,21 +611,67 @@ def names_git_directory(word, anywhere=False):
     return False
 
 
+GIT_CONFIG_REASON = "writing .git/config directly skips the git config checks; use git config."
+SETTINGS_REASON = ("the doc gate and the framework address are the owner's settings in .aeion/settings.json; "
+                   "the owner runs tools/aeion-settings.")
+# The settings tool's subcommands that write; showing the settings stays allowed.
+SETTINGS_WRITES = {"doc-gate", "framework"}
+
+
+SETTINGS_FILE = re.compile(r"(^|[^\w.-])\.aeion/settings\.json(?![\w.-])")
+
+
+def names_settings(word):
+    """Whether a word names the settings file: as a path, inside code (open('.aeion/settings.json')) or as a glob."""
+    for form in path_forms(word):
+        parts = PurePosixPath(form).parts
+        if SETTINGS_FILE.search(form) or len(parts) >= 2 and (parts[-2] == ".aeion" or globs_to(".aeion", parts[-2])) and (
+                parts[-1] == "settings.json" or any(char in parts[-1] for char in "*?[")
+                and fnmatch.fnmatchcase("settings.json", shell_pattern(parts[-1]))):
+            return True
+    return False
+
+
+def names_settings_directory(word, anywhere=False):
+    """Moving into .aeion/ or copying a file named settings.json there is not singled out: nothing
+    but the settings file there is the owner's, and a copy into .aeion/ under another name is inert."""
+    return False
+
+
 def config_write(command):
     """The reason a command writes the repository's git config file directly, or None: an editor
     or redirection there sets aeion.mode or core.hooksPath without git config's checks."""
-    reason = "writing .git/config directly skips the git config checks; use git config."
+    return protected_write(command, names_git_config, names_git_directory, GIT_CONFIG_REASON)
+
+
+def settings_write(command):
+    """The reason a command writes the owner's settings, or None: the doc gate the agent must pass
+    and the framework address it reads are the owner's to change, like aeion.mode."""
+    for words in simple_commands(command):
+        words = program(words)
+        if words and words[0] == "<script>":
+            if settings_write(words[1]):
+                return SETTINGS_REASON
+            continue
+        names = [PurePosixPath(w).name for w in words[:2]]
+        if "aeion-settings" in names and SETTINGS_WRITES & set(words):
+            return SETTINGS_REASON
+    return protected_write(command, names_settings, names_settings_directory, SETTINGS_REASON)
+
+
+def protected_write(command, names, directory, reason):
+    """The reason a command writes a file the names test matches, or None."""
     # >, >>, >|, zsh >! and >& all write their target. A quoted span with spaces is prose (a commit
     # message) and a heredoc fed to a program is text; sh -c scripts are judged below on their own.
     shell_text = re.sub(r"'[^']*'|\"[^\"]*\"", lambda m: " " if re.search(r"\s", m.group(0)) else m.group(0),
                         without_inert_heredocs(command))
-    if any(names_git_config(as_shell_sees(t)) for t in re.findall(r">[|!]?&?\s*([^\s;&|<>]+)", shell_text)):
+    if any(names(as_shell_sees(t)) for t in re.findall(r">[|!]?&?\s*([^\s;&|<>]+)", shell_text)):
         return reason
     quoted = {a or b for a, b in re.findall(r"'([^']*)'|\"([^\"]*)\"", command)}
     for words in simple_commands(command):
         words = program(words)
         if words and words[0] == "<script>":
-            if config_write(words[1]):
+            if protected_write(words[1], names, directory, reason):
                 return reason
             continue
         if not words:
@@ -631,13 +680,13 @@ def config_write(command):
         # A word with spaces is prose (a title, a message) unless an interpreter runs it as code.
         code = re.match(r"(python|perl|ruby|node|php)", name)
         args = [as_shell_sees(w, quoted) for w in words[1:] if code or not re.search(r"\s", w)]
-        if name not in CONFIG_READERS and any(names_git_config(w) for w in args):
+        if name not in CONFIG_READERS and any(names(w) for w in args):
             return reason
         # git log --output writes any text it formats.
         outputs = [i for i, w in enumerate(words) if w.startswith("--output")]
-        if name == "git" and any(names_git_config(as_shell_sees(" ".join(words[i:i + 2]), quoted)) for i in outputs):
+        if name == "git" and any(names(as_shell_sees(" ".join(words[i:i + 2]), quoted)) for i in outputs):
             return reason
-        if name in {"cd", "pushd"} and any(names_git_directory(w, anywhere=True) for w in args):
+        if name in {"cd", "pushd"} and any(directory(w, anywhere=True) for w in args):
             return reason
         targets = args[-1:] if name in INTO_DIRECTORY else []
         # A directory option names the destination too: cp -t .git, tar -C.git, unzip -d .git.
@@ -645,7 +694,7 @@ def config_write(command):
         targets += [args[i + 1] for i, w in enumerate(args[:-1]) if w in options]
         targets += [w.split("=", 1)[1] for w in args if w.split("=", 1)[0] in options and "=" in w]
         targets += [w[2:] for w in args if len(w) > 2 and w[:2] in options]
-        if any(names_git_directory(w) for w in targets):
+        if any(directory(w) for w in targets):
             return reason
     return None
 
@@ -694,6 +743,144 @@ def quotes_inert(command):
         if not run or run[0] not in QUOTE_SAFE or run[0] == "rg" and os.environ.get("RIPGREP_CONFIG_PATH"):
             return False
     return True
+
+
+# The options of grep, rg and git grep that take a value, so a value is never taken for the pattern.
+GREP_VALUES = {"-A", "-B", "-C", "-D", "-d", "-m", "--after-context", "--before-context", "--context", "--devices",
+               "--directories", "--exclude", "--exclude-dir", "--exclude-from", "--include", "--label", "--max-count",
+               "--binary-files", "--group-separator"}
+SEARCH_VALUES = {"grep": GREP_VALUES, "egrep": GREP_VALUES, "fgrep": GREP_VALUES,
+                 "rg": {"-A", "-B", "-C", "-E", "-M", "-T", "-d", "-g", "-j", "-m", "-r", "-t", "--after-context",
+                        "--before-context", "--context", "--color", "--colors", "--context-separator",
+                        "--dfa-size-limit", "--encoding", "--engine", "--field-context-separator",
+                        "--field-match-separator", "--glob", "--hostname-bin", "--hyperlink-format", "--iglob",
+                        "--ignore-file", "--max-columns", "--max-count", "--max-depth", "--max-filesize",
+                        "--path-separator", "--pre", "--pre-glob", "--regex-size-limit", "--replace", "--sort",
+                        "--sortr", "--threads", "--type", "--type-add", "--type-clear", "--type-not"},
+                 "git": {"-A", "-B", "-C", "-m", "--after-context", "--before-context", "--context", "--max-count",
+                         "--max-depth", "--threads"}}
+PATTERN_FLAGS, PATTERN_FILE_FLAGS = {"-e", "--regexp"}, {"-f", "--file"}
+GREP_LONG = sorted(o for o in GREP_VALUES | {"--recursive", "--dereference-recursive", "--regexp", "--file"}
+                   if o.startswith("--"))
+
+
+def search_parts(words):
+    """(tool, patterns, operands, options) of a grep, egrep, fgrep, rg or git grep command, or None.
+    The patterns are each -e value, else the first operand; a -f file supplies them instead, so every
+    operand is then a path. options are (name, value) pairs, a short cluster split into its letters."""
+    tool = PurePosixPath(words[0]).name if words else ""
+    if tool not in SEARCH_VALUES:
+        return None
+    rest = list(words[1:])
+    if tool == "git":
+        while rest and rest[0].startswith("-"):
+            if rest.pop(0) in GIT_VALUE_FLAGS and rest:
+                rest.pop(0)
+        if rest[:1] != ["grep"]:
+            return None
+        rest.pop(0)
+    takes = SEARCH_VALUES[tool] | PATTERN_FLAGS | PATTERN_FILE_FLAGS
+    operands, options = [], []
+    while rest:
+        word = rest.pop(0)
+        if word == "--":
+            operands += rest
+            break
+        if not word.startswith("-") or word == "-":
+            operands.append(word)
+        elif word.startswith("--"):
+            name, eq, value = word.partition("=")
+            # GNU grep takes any unique prefix of a long option (--recur is --recursive).
+            if tool not in ("rg", "git") and name not in GREP_LONG:
+                matches = [o for o in GREP_LONG if o.startswith(name)]
+                name = matches[0] if len(matches) == 1 else name
+            options.append((name, value if eq else rest.pop(0) if name in takes and rest else None))
+        else:
+            for i, letter in enumerate(word[1:], 2):
+                if "-" + letter in takes:
+                    options.append(("-" + letter, word[i:] or (rest.pop(0) if rest else "")))
+                    break
+                options.append(("-" + letter, None))
+    explicit = [value for name, value in options if name in PATTERN_FLAGS]
+    if explicit or any(name in PATTERN_FILE_FLAGS for name, _ in options):
+        return tool, explicit, operands, options
+    return tool, operands[:1], operands[1:], options
+
+
+def search_patterns(command):
+    """The patterns that a bare grep, rg or git grep reads as text and never opens: only words the shell
+    passes as typed, with no glob, expansion or escape unless quotes surely stay quotes."""
+    if re.search(r"`|<<", command):
+        return []
+    inert = quotes_inert(command)
+    found = []
+    for words in simple_commands(command):
+        words = program(words)
+        parts = search_parts(words)
+        # A path-qualified program (./grep) may be any script.
+        if parts and words[0] == parts[0]:
+            found += [p for p in parts[1] if not re.search(r"[*?\[{~$`\\]", p)
+                      or inert and (f"'{p}'" in command or f'"{p}"' in command)]
+    return found
+
+
+def without_patterns(tokens, patterns, split, aligned=None):
+    """The tokens, and a list aligned with them, less one occurrence of each piece of each pattern."""
+    tokens, aligned = list(tokens), list(tokens if aligned is None else aligned)
+    for piece in (p for pattern in patterns for p in re.split(split, pattern) if p):
+        if piece in tokens:
+            index = tokens.index(piece)
+            del tokens[index], aligned[index]
+    return tokens, aligned
+
+
+def recursive_secret_read(command, bases):
+    """Why a recursive grep, an rg that skips no ignore file, or ack/ag would read a secret file, or "":
+    they read every file under the folders they search, gitignored ones too."""
+    for words in simple_commands(command):
+        words = program(words)
+        if words and words[0] == "<script>":
+            reason = recursive_secret_read(words[1], bases)
+            if reason:
+                return reason
+            continue
+        hidden = True
+        if words and PurePosixPath(words[0]).name in ("ack", "ack-grep", "ag"):
+            # ack and ag search the current folder by default; their options differ, so every folder named counts.
+            tool, operands, follow, walks = words[0], [w for w in words[1:] if not w.startswith("-")][1:], False, True
+        else:
+            parts = search_parts(words)
+            if not parts or parts[0] == "git":
+                continue
+            tool, _, operands, options = parts
+            follow = any(n in (("-L", "--follow") if tool == "rg" else ("-R", "--dereference-recursive"))
+                         for n, _ in options)
+            if tool == "rg":
+                walks = ("RIPGREP_CONFIG_PATH" in command or os.environ.get("RIPGREP_CONFIG_PATH")
+                         or any(n in ("-u", "--unrestricted") or n.startswith("--no-ignore") for n, _ in options))
+                # Outside a git work tree rg ignores .gitignore and reads every file it does not count as hidden.
+                if not walks and not all(inside_git(base) for base in bases):
+                    walks = True
+                    hidden = any(n in ("--hidden", "-.") for n, _ in options) or [n for n, _ in options].count("-u") > 1
+            else:
+                walks = any(n in ("-r", "-R", "--recursive", "--dereference-recursive")
+                            or n in ("-d", "--directories") and v == "recurse" for n, v in options)
+        if not walks:
+            continue
+        for operand in operands or ["."]:
+            if re.search(r"[$`]", operand):
+                return f"{tool} searches {operand}, a folder that cannot be checked for secret files"
+            for base in bases:
+                path = os.path.join(base, os.path.expanduser(operand))
+                for folder in glob.glob(path) if any(c in operand for c in "*?[") else [path]:
+                    if not os.path.isdir(folder):
+                        continue
+                    found = secret_under(folder, follow, hidden)
+                    if found is None:
+                        return f"{tool} would search {operand}, too many files to check for secret files"
+                    if found:
+                        return f"{tool} would read the secret file {found} under {operand}"
+    return ""
 
 
 def intake_dump(command, base, changed_directory=False):
@@ -769,8 +956,12 @@ try:
         inert = re.sub(r"'[^']*'|\"[^\"]*\"", lambda m: m.group(0).translate(QUOTED_GLOB), inert)
     marked = shell_words(inert)
     unquoted_globs = [any(char in t for char in "*?[") for t in marked]
-    secrets = mentioned_secrets(secret_tokens, shell_tokens, directories(command, workdir if isinstance(workdir, str) else "."),
-                                unquoted_globs)
+    # A search pattern is text the program matches, never a file it opens.
+    patterns = search_patterns(command)
+    secret_tokens = without_patterns(secret_tokens, patterns, TOKEN_SPLIT)[0]
+    shell_tokens, unquoted_globs = without_patterns(shell_tokens, patterns, SHELL_SPLIT, unquoted_globs)
+    bases = directories(command, workdir if isinstance(workdir, str) else ".")
+    secrets = mentioned_secrets(secret_tokens, shell_tokens, bases, unquoted_globs)
 except (OSError, ValueError, RecursionError):
     deny("the files a glob names could not be verified; name the files explicitly.")
 
@@ -793,6 +984,12 @@ if os.environ.get("AEION_LOOP_READ_ONLY") == "1":
         deny(f"read-only loops do not accept shell composition; write finding text to {LOOP_BODIES}<name>.md.")
     # A body file is published: only the loop's own scratch files, never an arbitrary local file.
     if forge:
+        # --jq/-q run gojq (env prints the environment), --template/-t a Go template, --repo/-R another
+        # repository; on create, -t is the title.
+        short = "qR" + ("t" if words[2] in {"list", "view", "checks"} else "")
+        for word in words[3:]:
+            if word.split("=", 1)[0] in ("--jq", "--template", "--repo") or re.fullmatch(rf"-[^-]*[{short}].*", word):
+                deny("read-only loops print issues and pull requests as gh formats them, for this repository only.")
         workdir = Path(event["tool_input"].get("workdir", event["tool_input"].get("cwd", event.get("cwd", "."))))
         for i, word in enumerate(words):
             if word == "--recover" or word.startswith("--recover="):
@@ -809,22 +1006,27 @@ if os.environ.get("AEION_LOOP_READ_ONLY") == "1":
 if secrets:
     if READERS & set(tokens):
         deny(f"it reads a secret file ({', '.join(secrets)}). Secrets are never read or printed "
-             "(to search for the name itself, use the Grep tool).")
+             "(to find where a name is mentioned, make it the search pattern: grep -rn <name> <folder>).")
     ask(f"The command mentions a secret file ({', '.join(secrets)}).")
+
+# A recursive search reads every file under its folders, hidden and gitignored ones too.
+try:
+    recursive = refuses(lambda text: recursive_secret_read(text, bases), command)
+except OSError:
+    recursive = True
+if recursive:
+    deny((recursive if isinstance(recursive, str) else "the recursive search could not be verified")
+         + "; in a git repository, search with git grep, or rg without -u/--no-ignore: both skip ignored "
+           "files such as .env.")
 
 # Environment dumps hold keys.
 if "printenv" in tokens or refuses(env_dump, command):
-    deny("it prints an environment, which holds keys (to search for a name, use the Grep tool; for prose, write it to a file).")
+    deny("it prints an environment, which holds keys (to search for such a word, put it in a pattern file "
+         "for grep -f; for prose, write it to a file).")
 if refuses(docker_inspect_dump, command):
     deny("docker inspect without a narrow --format shows the container's environment.")
 if refuses(compose_config, command):
     deny("docker compose config prints the configuration with the secrets filled in.")
-
-# The code graph is deterministic: tools/architecture/ask answers structural questions without an LLM.
-graphify_reason = refuses(graphify_command, command)
-if graphify_reason:
-    deny((graphify_reason if isinstance(graphify_reason, str) else "the graphify command is nested too deeply to verify")
-         + "; use tools/architecture/ask (skill graph), which stays structural and calls no model.")
 
 # History and checks are not bypassed.
 if re.search(r"\bgit\s+push\b", command) and re.search(r"\s(-f|--force|--force-with-lease)(\s|=|$)", command):
@@ -837,6 +1039,9 @@ if bypass:
 written = refuses(config_write, command)
 if written:
     deny(written if isinstance(written, str) else "the command is nested too deeply to verify.")
+owned = refuses(settings_write, command)
+if owned:
+    deny(owned if isinstance(owned, str) else "the command is nested too deeply to verify.")
 try:
     base = event["tool_input"].get("workdir", event["tool_input"].get("cwd", event.get("cwd", ".")))
     reason = intake_dump(command, Path(base))

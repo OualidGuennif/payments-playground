@@ -9,10 +9,10 @@ generated:
   at: 2026-10-16T18:40:00Z
 sources:
   - id: api
-    resource: ../../apps/adyen-digital/api.ts
+    resource: ../../apps/adyen-digital/src/server/api.ts
     title: Request bodies and the comments recording each rejection
   - id: typings
-    resource: https://www.npmjs.com/package/@adyen/api-library/v/32.0.0
+    resource: https://www.npmjs.com/package/@adyen/api-library/v/32.3.0
     title: "@adyen/api-library 32: lib/src/typings/checkout/*.d.ts are the field lists"
   - id: docs
     resource: https://docs.adyen.com/api-explorer/Checkout/72/overview

@@ -1,5 +1,5 @@
 {
-  "description": "Æion Factory native adapters; trust this project and these hooks explicitly.",
+  "description": "Æion Template native adapters; trust this project and these hooks explicitly.",
   "hooks": {
     "SessionStart": [
       {

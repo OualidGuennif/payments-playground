@@ -1,20 +1,20 @@
 ---
 type: Component
-title: "landing: the static front door to the four playgrounds"
-description: "The plain HTML and CSS page that links to the four Adyen TEST playgrounds, with no build step, no server, no JavaScript and no data of its own."
+title: "landing: the static front door to the three playgrounds"
+description: "The plain HTML and CSS page that links to the three Adyen TEST playgrounds, with no build step, no server, no JavaScript and no data of its own."
 tags: [component, landing, static]
 status: stable
 scope: component-landing
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-16T00:30:00Z
 sources:
   - id: app
     resource: ../../apps/landing
     title: "The page and its stylesheet"
   - id: html
     resource: ../../apps/landing/index.html
-    title: The four destination cards, status labels and disclaimer
+    title: The three destination cards, status labels and disclaimer
   - id: css
     resource: ../../apps/landing/styles.css
     title: The self-contained presentation
@@ -33,7 +33,9 @@ sources:
 The front door: one page that says what the four playgrounds are, labels two as Ready and two as in
 progress, and links to each one's own subdomain. It is deliberately not a fifth app. It is plain
 HTML and CSS with no build, no server and no runtime data, deployed as a Render static site. The
-playgrounds do not link back to it.
+playgrounds do not link back to it. It mirrors the README's application table only; the README's
+stack versions (Adyen Web 6.48.1 and `@adyen/api-library` 32.3.0 since 2026-11-15) do not appear on
+the page, so a version bump leaves it unchanged.
 
 ## Data sources
 
@@ -54,14 +56,13 @@ or application header, and runs no JavaScript. The stylesheet is linked relative
 so the same files work from any static host and from the filesystem. The favicon is a data-URI SVG
 in the document, not a file request.
 
-The four destinations are fixed:
+The three destinations are fixed (the Endless Aisle card left with the IPP app, 2026-11-15):
 
-| Card             | Destination                                | Label on the page          |
-| ---------------- | ------------------------------------------ | -------------------------- |
-| Drop-in Styling  | `https://styling.payments-playground.com`  | Ready                      |
-| Digital Checkout | `https://digital.payments-playground.com`  | Ready                      |
-| Endless Aisle    | `https://terminal.payments-playground.com` | In progress · est. Q4 2026 |
-| Agentic Commerce | `https://agentic.payments-playground.com`  | In progress · est. Q1 2027 |
+| Card             | Destination                               | Label on the page          |
+| ---------------- | ----------------------------------------- | -------------------------- |
+| Drop-in Styling  | `https://styling.payments-playground.com` | Ready                      |
+| Digital Checkout | `https://digital.payments-playground.com` | Ready                      |
+| Agentic Commerce | `https://agentic.payments-playground.com` | In progress · est. Q1 2027 |
 
 The comment in the page notes that these hosts resolve once the custom domains are attached in
 Render; until then each app stays reachable at its own `.onrender.com` hostname.
@@ -89,8 +90,8 @@ a response.
 | # | Invariant                                                                                                                                    | Test / file                                                          |
 | - | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | 1 | There is no build step and no server: Render publishes `./apps/landing` directly with an empty build command.                                | `render.yaml`; [README](../../README.md)                             |
-| 2 | The page links to exactly the four playgrounds and no playground links back to it.                                                           | `apps/landing/index.html`; `packages/ui/components.tsx` (`AppShell`) |
-| 3 | Status labels match the README: Styling and Digital Ready, Endless Aisle Q4 2026, Agentic Commerce Q1 2027.                                  | `apps/landing/index.html`; [README](../../README.md)                 |
+| 2 | The page links to exactly the three playgrounds and no playground links back to it.                                                          | `apps/landing/index.html`; `packages/ui/components.tsx` (`AppShell`) |
+| 3 | Status labels match the README: Styling and Digital Ready, Agentic Commerce Q1 2027.                                                         | `apps/landing/index.html`; [README](../../README.md)                 |
 | 4 | The page is self-contained: no external font, image, script or analytics request; the favicon is a data URI.                                 | `apps/landing/index.html`; `apps/landing/styles.css`                 |
 | 5 | The TEST-only, independent-project disclaimer and the MIT/no-warranty wording are present, and Adyen is not implied to endorse it.           | `apps/landing/index.html`; [README](../../README.md)                 |
 | 6 | Render applies the security headers to every path; the page has no server middleware of its own.                                             | `render.yaml`                                                        |
@@ -106,12 +107,12 @@ same document. A status or destination change is a source edit and a deploy, nev
 ## Acceptance checks
 
 ```bash
-deno fmt --check apps/landing
+bun run biome:ci                   # Biome formats and lints index.html and styles.css too
 rg -o 'https://[a-z]+\.payments-playground\.com' apps/landing/index.html | sort -u
 rg -n '<script|localStorage|cookie|@import|https://fonts' apps/landing
 ```
 
-The first command passes when the HTML/CSS is formatted; the second lists exactly the four
+The first command passes when the HTML/CSS is formatted; the second lists exactly the three
 destinations; the third must print nothing. Manual pass: open `index.html` directly, follow each
 card, and confirm the page makes no request other than `styles.css`.
 

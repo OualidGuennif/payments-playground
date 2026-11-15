@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import { test } from "bun:test";
+import { assertEquals } from "../../testing/assert.ts";
 import {
   calculateStandardHmac,
   standardWebhookSigningString,
@@ -6,14 +7,14 @@ import {
   verifyStandardHmac,
 } from "./hmac.ts";
 
-Deno.test("header HMAC follows the RFC 4231 SHA-256 vector", async () => {
+test("header HMAC follows the RFC 4231 SHA-256 vector", async () => {
   const key = "0b".repeat(20);
   const signature = "sDRMYdjbOFNcqK/OrwvxK4gdwgDJgz2nJuk3bC4yz/c=";
   assertEquals(await verifyHeaderHmac("Hi There", signature, key), true);
   assertEquals(await verifyHeaderHmac("Hi There!", signature, key), false);
 });
 
-Deno.test("standard webhook signing string escapes colons and backslashes", () => {
+test("standard webhook signing string escapes colons and backslashes", () => {
   assertEquals(
     standardWebhookSigningString({
       pspReference: "PSP:1",
@@ -27,7 +28,7 @@ Deno.test("standard webhook signing string escapes colons and backslashes", () =
   );
 });
 
-Deno.test("standard webhook HMAC accepts the signed item and rejects mutation", async () => {
+test("standard webhook HMAC accepts the signed item and rejects mutation", async () => {
   const key = "11".repeat(32);
   const item = {
     pspReference: "PSP-TEST-1",

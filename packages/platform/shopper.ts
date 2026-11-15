@@ -5,11 +5,9 @@
 export function weeklyShopperReference(now = new Date()): string {
   const day = now.getUTCDay();
   const daysSinceMonday = (day + 6) % 7;
-  const monday = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate() - daysSinceMonday,
-  ));
+  const monday = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysSinceMonday),
+  );
   const anchor = monday.toISOString().slice(0, 10);
   return `playground-shopper-${anchor}`;
 }

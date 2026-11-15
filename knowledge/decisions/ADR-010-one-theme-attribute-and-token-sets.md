@@ -6,7 +6,7 @@ tags: [decision, ui, theme, dark-mode]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T15:45:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: theme
     resource: ../../packages/ui/theme.ts
@@ -18,23 +18,26 @@ sources:
     resource: ../../packages/ui/components.tsx
     title: ThemeScript, ThemeToggle, TestPill, AppShell
   - id: workbench
-    resource: ../../apps/adyen-digital/islands/FlowWorkbench.tsx
+    resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
     title: securedFieldStyles and the theme-driven remount
 ---
 
 # ADR-010: Dark mode is one data-theme attribute over two token sets
 
 **Context.** The owner asked for a dark mode in digital and styling, switched by a sliding toggle
-that is easy to find on a phone (2026-10-09). Colours were partly hard-coded, digital, IPP and
-agentic share `AppShell`, styling's preview must keep showing the merchant's configured look, and
-Adyen's secured-field iframes take their colours only when they mount.
+that is easy to find on a phone (2026-10-09). Colours were partly hard-coded, digital and IPP share
+`AppShell` (agentic did until it moved to Bun on 2026-11-15, see below), styling's preview must keep
+showing the merchant's configured look, and Adyen's secured-field iframes take their colours only
+when they mount. The `AppShell` footer reads "Adyen Web 6.48.1" since 2026-11-15. The Bun agentic
+store has its own light and dark tokens in `src/app/globals.css`, switched by `prefers-color-scheme`
+only.
 
 **Decision.**
 
-- `THEME_SCRIPT` runs inline in every `_app.tsx` `<head>`: it sets `data-theme` on `<html>` from the
+- `THEME_SCRIPT` runs inline in every root `layout.tsx` `<head>`: it sets `data-theme` on `<html>` from the
   stored choice (`localStorage` `playground-theme`) or `prefers-color-scheme`, so the first paint is
   already in the right theme. The same script handles the toggle by event delegation, so it works
-  before islands hydrate, and announces changes with `playground-themechange`.
+  before React hydrates, and announces changes with `playground-themechange`.
 - `packages/ui/styles.css` defines every colour as a token in a light set (`:root`) and a dark set
   (`:root[data-theme="dark"]`). Light values are the ones the playground had before.
 - Digital's checkout follows the theme: dark `--adyen-sdk-*` tokens on `.checkout-pay`,

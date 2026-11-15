@@ -1,6 +1,6 @@
 # Spec: knowledge/operations/agent-compatibility.md
 # Project/hook trust is still required. Provider, account and model settings remain user-owned.
-model_auto_compact_token_limit = 250000
+model_auto_compact_token_limit = 340000
 
 [features]
 hooks = true

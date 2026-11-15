@@ -5,19 +5,16 @@ description: "Steps that read top to bottom, comments that say why, no needless 
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-16T03:00:00Z
 sources:
-  - id: guide
-    resource: ../../efficiency/1-quarks.md
-    title: "Phase 1 of the guide"
   - resource: ../../tools/git-hooks/pre-push
     title: "pre-push, which names this doc as its spec"
   - resource: ../../tools/release/release
     title: "release, which names this doc as its spec"
   - resource: ../../tools/repo-health/repo-health
     title: "repo-health, which names this doc as its spec"
-  - resource: ../../deno.json
-    title: "Formatter, linter and check tasks"
+  - resource: ../../package.json
+    title: "The check script and its steps"
 ---
 
 # How code is written here
@@ -54,15 +51,18 @@ story goes in the commit message.
 `repo-health` applies source-size/comment heuristics to its documented suffix set and to
 extensionless files that start with a shebang (`#!`), excluding `test_*` files. Its JSON scorecard
 reports that set and how many files were checked. This is a structural scorecard; each project's
-build, linter and tests provide language-specific validation.
+build, linter and tests provide language-specific validation. Here that is Biome (formatter and
+linter), `tsc --noEmit` per package and app, `bun test`, the three Next.js builds and an SSR
+assertion on each standalone server, all through `bun run check`.
 
 ## Branch, review, release
 
 This is the team flow, under git only. In a plain folder there is no branch, review, CI or tag: the
-tests for what changed and the `CHANGELOG.md` line are the whole ritual. In local mode
-(`git config aeion.mode local`, see [build and test](../operations/build-and-test.md)) commits stay
-local, without review, CI or a `work/current.md` entry, and pre-push lets the user's own push
-through; tests for what changed still run.
+tests for what changed and the `CHANGELOG.md` line are the whole ritual. Without
+`git config aeion.mode team` (local mode, the template default; see
+[build and test](../operations/build-and-test.md)) commits stay local, without review, CI or a
+`work/current.md` entry, and pre-push lets the user's own push through; tests for what changed still
+run.
 
 - Daily work is committed on `develop`; a parallel session uses a worktree on `task/<slug>` cut from
   `develop` and merges back locally. Small commits, each with its `CHANGELOG.md` line under
@@ -71,16 +71,17 @@ through; tests for what changed still run.
   every finding and records `Review: OK` or `Review: NOT OK` (at most five findings) for the exact
   commit in `.aeion/reviews/<sha>.md`, then posts it on the commit. The hook
   `tools/git-hooks/pre-push` (`git config core.hooksPath tools/git-hooks`) refuses a push of
-  `develop` without `Review: OK` and any direct push to `main`. CI runs only for `main` and for pull
-  requests, so pushes stay free. A loop's pull request into `develop` merges after its `Review: OK`
+  `develop` without `Review: OK` and any direct push to `main`. CI runs on pushes to `main` and
+  `develop` and on pull requests into them (`.github/workflows/ci.yml`). A loop's pull request into `develop` merges after its `Review: OK`
   comment and a green CI; then the local `develop` pulls it before new commits.
 - A release (skill `ship`): `tools/release/release <part>` bumps `VERSION` (SemVer) and dates the
   changelog; a pull request `develop → main` is reviewed again and merged with a merge commit after
   a green CI; the merged commit is tagged `vX.Y.Z` with its changelog section as release notes.
 - A new project or a demo copy starts with `tools/release/release --new-project`: `VERSION` 0.1.0,
-  an empty `Unreleased`, and `work/current.md` holding only the "Adapt Æion Factory to this project"
-  entry, dated today. It refuses in Æion Factory's own clone (origin `OualidGuennif/aeion-factory`),
-  and running it twice changes nothing.
+  an empty `Unreleased`, and `work/current.md` holding only the "Adapt Æion Template to this
+  project" entry, dated today, and records the release in `.aeion-template`. It refuses in Æion
+  Template's own clone (origin `OualidGuennif/aeion-template`, or `aeion-factory` before the
+  rename), and running it twice changes nothing.
 - Independent review requires an authorized independent pass. Reading a pool agent profile does not
   authorize creating an agent; local self-assessment cannot issue the independent push-gate receipt.
 - A deploy or a human decision waits for that human. The owner's comments become preferences (skill
@@ -96,13 +97,15 @@ contracts unless the task requires changing them. No abstraction is created "for
 ## This project
 
 - TEST only. Never add a LIVE path or weaken `packages/platform/test-only.ts`.
-- Secrets stay server-side and out of git, logs, images, URLs and chat. Anything under `islands/` is
-  public.
+- Secrets stay server-side and out of git, logs, images, URLs and chat. Anything a `"use client"`
+  module imports is public.
 - Never forward Adyen Web `state.data` wholesale: add a field only after checking it in the
   `@adyen/api-library` typings; `/sessions`, `/payments` and `/paymentLinks` reject unknown fields.
 - An order's state comes from Adyen's answers and HMAC-valid webhooks, never from the browser. A
   refusal ends an attempt, not an order.
 - Money is an integer in minor units; display goes through `formatMinorAmount`.
+- A dependency is pinned exactly and only once it is a week old: `bunfig.toml`'s
+  `minimumReleaseAge` makes `bun install` refuse anything newer.
 - Component docs follow [specs first](specs-first.md) and carry its eight sections.
 - The public security model is [SECURITY.md](../../docs/SECURITY.md); the internal rules are
   [security](security.md). Verification levels are
@@ -111,5 +114,5 @@ contracts unless the task requires changing them. No abstraction is created "for
 ## Passive upstream data
 
 The 525-folder upstream skill/agent pool and the `demo/` playground are deliberately not imported.
-The 16 maintained procedures live in `.claude/skills`; the factory adaptations are checked by
-`tools/factory-tests`. No upstream executable is tracked or run.
+The 16 maintained procedures live in `.claude/skills`; the template adaptations are checked by
+`tools/template-tests`. No upstream executable is tracked or run.

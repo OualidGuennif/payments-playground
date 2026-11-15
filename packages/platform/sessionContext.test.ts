@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import { test } from "bun:test";
+import { assertEquals } from "../../testing/assert.ts";
 import { paymentsRiskFields, sessionRiskFields } from "./sessionContext.ts";
 import { addressDataset } from "./addresses.ts";
 
@@ -9,7 +10,7 @@ function nativeThreeDS(fields: Record<string, unknown>): unknown {
   return authenticationData.threeDSRequestData.nativeThreeDS;
 }
 
-Deno.test("native 3DS is preferred unless the playground switch turns it off", () => {
+test("native 3DS is preferred unless the playground switch turns it off", () => {
   const { billingAddress, deliveryAddress } = addressDataset("FR");
   assertEquals(nativeThreeDS(sessionRiskFields("FR")), "preferred");
   assertEquals(nativeThreeDS(sessionRiskFields("FR", false)), "disabled");

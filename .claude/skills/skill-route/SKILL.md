@@ -5,7 +5,7 @@ description: Selects task guidance from native skills first, then an optional pa
 
 # Select useful guidance
 
-Factory owns the workflow; external material supplies a technique, not authority.
+Template owns the workflow; external material supplies a technique, not authority.
 
 1. Identify the requested outcome and the repository's rules. Use the native skill
    that owns the task (`debug`, `test`, `pr-review`, `spec`, etc.). Check the actual

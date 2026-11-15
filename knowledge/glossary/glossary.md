@@ -5,7 +5,7 @@ description: "Short definitions of the terms used across the code and this bundl
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-15T08:00:00Z
+  at: 2026-11-15T21:00:00Z
 ---
 
 # Glossary
@@ -16,11 +16,12 @@ generated:
   the encrypted values to `/payments`.
 - **Attempt**: one authorisation try on an order, with its PSP reference and result.
 - **Back Office**: the digital page listing orders, their timeline and lifecycle actions.
+- **Client component**: a module marked `"use client"`, with everything it imports, rendered in
+  the browser; everything in it is public.
 - **Correlation id**: the id every log row hangs off; for an order, its own id.
 - **Drop-in / Components**: Adyen Web's all-methods list, or one method's component on its own.
 - **HMAC key**: the per-webhook-endpoint key Adyen signs notifications with.
 - **Inspector**: the side panel on the flow pages showing callbacks, API calls and webhooks.
-- **Island**: a Fresh component hydrated in the browser; everything in it is public.
 - **MIT**: merchant-initiated transaction, a `/payments` call with a stored payment method and
   `ContAuth`, without the shopper.
 - **Modification**: a capture, cancel or refund on an existing payment.

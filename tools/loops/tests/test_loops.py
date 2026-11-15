@@ -11,6 +11,40 @@ import time
 
 ROOT=Path(__file__).resolve().parents[3]
 
+# The read-only allowlist every non-writing job starts from, exactly as loops/orchestrator.sh spells it.
+READ_ONLY=("Read,Grep,Glob,Write(.aeion/loop-bodies/**),Bash(git log -5 --oneline),"
+           "Bash(git diff --stat),Bash(git diff --check),Bash(git status --short),"
+           "Bash(tools/knowledge/knowledge-check),Bash(tools/knowledge/doc-links),"
+           "Bash(tools/knowledge/doc-links --for *),Bash(tools/repo-health/repo-health),"
+           "Bash(gh issue list *),Bash(gh issue view *),Bash(gh issue create *),Bash(gh issue comment *)")
+# The git subcommands a writing job runs: none of them reads a config key or option that runs a program.
+GIT_WORK=("Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git show *),Bash(git fetch *),"
+          "Bash(git switch *),Bash(git checkout *),Bash(git add *),Bash(git commit *),Bash(git push *),"
+          "Bash(git branch *),Bash(git rev-parse *)")
+
+# One golden per job: the settings --dry-run prints and the exact argv the native runner receives.
+# setUp's fake gh answers severity:high, so inner's real run routes to opus/high while its dry run
+# prints the label-free default; both are recorded, because both are what the script really builds.
+GOLDEN={
+    'inner': dict(prompt='inner.md',extra=('--issue','42'),issue=42,
+                  dry=('sonnet','medium','acceptEdits'),run=('opus','high','acceptEdits'),
+                  tools="Read,Grep,Glob,Edit,Write,Agent,"+GIT_WORK+",Bash(gh issue *),Bash(gh pr *),Bash(tools/*),Bash(python3 *)"),
+    'middle': dict(prompt='middle.md',extra=(),dry=('sonnet','medium','dontAsk'),run=('sonnet','medium','dontAsk'),
+                   tools=READ_ONLY+",Agent,Bash(gh pr list *),Bash(gh pr view *),Bash(gh pr checks *),Bash(gh pr diff *),Bash(gh pr comment *)"),
+    'outer': dict(prompt='outer.md',extra=(),dry=('haiku','low','dontAsk'),run=('haiku','low','dontAsk'),
+                  tools=READ_ONLY+",Bash(gh issue *),Bash(gh run list *)"),
+    'docs': dict(prompt='docs.md',extra=(),dry=('haiku','low','dontAsk'),run=('haiku','low','dontAsk'),
+                 tools=READ_ONLY+",Bash(gh issue *)"),
+    'security': dict(prompt='security.md',extra=(),dry=('opus','high','dontAsk'),run=('opus','high','dontAsk'),
+                     tools=READ_ONLY+",Agent,Skill,Bash(gh issue *)"),
+    'watch': dict(prompt='watch.md',extra=(),dry=('sonnet','medium','acceptEdits'),run=('sonnet','medium','acceptEdits'),
+                  tools=READ_ONLY+",WebSearch,WebFetch,Write(tech-watch/**),Edit(tech-watch/**),"+GIT_WORK+",Bash(gh pr create *)"),
+    'retro': dict(prompt='retro.md',extra=(),dry=('sonnet','medium','acceptEdits'),run=('sonnet','medium','acceptEdits'),
+                  tools=READ_ONLY+",Agent,Write(knowledge/**),Edit(knowledge/**),Write(.claude/hookify.*.local.md),"
+                        "Edit(.claude/hookify.*.local.md),Write(.claude/skills/**),Edit(.claude/skills/**),"
+                        +GIT_WORK+",Bash(gh pr create *),Bash(gh pr list *),Bash(gh pr view *)"),
+}
+
 
 class LoopTests(unittest.TestCase):
     def setUp(self):
@@ -18,12 +52,15 @@ class LoopTests(unittest.TestCase):
         self.root=Path(self.tmp.name).resolve()
         shutil.copytree(ROOT/'loops',self.root/'loops')
         shutil.copytree(ROOT/'tools/loops',self.root/'tools/loops')
-        shutil.copytree(ROOT/'tools/architecture',self.root/'tools/architecture')
         (self.root/'tools/context').mkdir(parents=True)
         native=self.root/'tools/context/run'
-        native.write_text('#!/usr/bin/env python3\nimport json,sys\nfrom pathlib import Path\nPath("invocation.json").write_text(json.dumps(sys.argv[1:]))\n')
+        native.write_text('#!/usr/bin/env python3\nimport json,os,sys\nfrom pathlib import Path\n'
+                          'Path("invocation.json").write_text(json.dumps(sys.argv[1:]))\n'
+                          'Path("loop.txt").write_text(os.environ.get("AEION_LOOP",""))\n')
         native.chmod(0o755)
-        gh=self.root/'gh';gh.write_text('#!/bin/sh\nprintf "%s\\n" agent-ready severity:high\n');gh.chmod(0o755)
+        # The fake gh answers the issue author's association from the file association (OWNER by default).
+        gh=self.root/'gh';gh.write_text('#!/bin/sh\nif [ "$1" = api ]; then cat "$(dirname "$0")/association" 2>/dev/null || echo OWNER; exit 0; fi\n'
+                                        'printf "%s\\n" agent-ready severity:high\n');gh.chmod(0o755)
         self.env={**os.environ,'PATH':str(self.root)+os.pathsep+os.environ['PATH']}
 
     def call(self,*args):
@@ -32,6 +69,50 @@ class LoopTests(unittest.TestCase):
 
     def configure(self,extra=''):
         (self.root/'env.local').write_text('LOOPS_ENABLED=true\n'+extra)
+
+    def golden(self,job):
+        # The dry-run settings, then the exact native argv, in the order the script builds them.
+        spec=GOLDEN[job]
+        self.configure()
+        dry=self.call(job,*spec['extra'],'--dry-run')
+        self.assertEqual(dry.returncode,0,dry.stderr)
+        model,effort,mode=spec['dry']
+        self.assertEqual(dry.stderr.splitlines(),[
+            f'job={job} model={model} effort={effort} mode={mode} budget=none max_turns=30 timeout=900',
+            f'tools={spec["tools"]}','dry run: nothing executed'],job)
+        self.assertFalse((self.root/'invocation.json').exists(),f'{job}: --dry-run launched the native runner')
+        real=self.call(job,*spec['extra'])
+        self.assertEqual(real.returncode,0,real.stderr)
+        prompt=(ROOT/'loops/prompts'/spec['prompt']).read_text().rstrip('\n')
+        if spec.get('issue'):
+            prompt+=f"\n\nThe issue to fix: #{spec['issue']}."
+        model,effort,mode=spec['run']
+        self.assertEqual(json.loads((self.root/'invocation.json').read_text()),
+                         ['-p',prompt,'--model',model,'--effort',effort,'--permission-mode',mode,
+                          '--allowedTools',spec['tools'],'--output-format','text','--max-turns','30'],job)
+
+    def test_golden_command_inner(self):self.golden('inner')
+
+    def test_golden_command_middle(self):self.golden('middle')
+
+    def test_golden_command_outer(self):self.golden('outer')
+
+    def test_golden_command_docs(self):self.golden('docs')
+
+    def test_golden_command_security(self):self.golden('security')
+
+    def test_golden_command_watch(self):self.golden('watch')
+
+    def test_golden_command_retro(self):self.golden('retro')
+
+    def test_kill_switch_runs_nothing_for_every_job_and_argument(self):
+        (self.root/'env.local').write_text('LOOPS_ENABLED=false\n')
+        for job,extra in (('inner',('--issue','42')),('middle',()),('outer',()),('docs',()),
+                          ('security',()),('watch',()),('retro',())):
+            result=self.call(job,*extra)
+            self.assertEqual(result.returncode,0,f'{job}: {result.stderr}')
+            self.assertIn('LOOPS_ENABLED is not true',result.stderr,job)
+            self.assertFalse((self.root/'invocation.json').exists(),f'{job} launched the native runner')
 
     def test_disabled_and_dry_runs_never_launch_agent(self):
         self.assertEqual(self.call('outer').returncode,0)
@@ -45,6 +126,31 @@ class LoopTests(unittest.TestCase):
             writes=[tool for tool in tools[6:].split(',') if tool.startswith(('Write','Edit'))]
             self.assertEqual(writes,['Write(.aeion/loop-bodies/**)'],job)
             self.assertIn('Bash(tools/knowledge/doc-links --for *)',tools)
+
+    def test_every_job_names_its_loop_for_the_hooks(self):
+        self.configure()
+        for job,extra in (('inner',('--issue','42')),('middle',()),('outer',()),('docs',()),
+                          ('security',()),('watch',()),('retro',())):
+            self.assertEqual(self.call(job,*extra).returncode,0,job)
+            self.assertEqual((self.root/'loop.txt').read_text(),job)
+
+    def test_no_job_runs_any_git_command_or_the_raw_api(self):
+        for job,extra in (('inner',('--issue','42')),('middle',()),('outer',()),('docs',()),
+                          ('security',()),('watch',()),('retro',())):
+            tools=[line for line in self.call(job,*extra,'--dry-run').stderr.splitlines() if line.startswith('tools=')][0]
+            for grant in ('Bash(git *)','Bash(gh api *)','Write(.claude/**)','Edit(.claude/**)'):
+                self.assertNotIn(grant,tools[6:].split(','),job)
+
+    def test_inner_refuses_an_issue_written_from_outside(self):
+        self.configure()
+        for association in ('NONE','CONTRIBUTOR','FIRST_TIME_CONTRIBUTOR',''):
+            (self.root/'association').write_text(association+'\n')
+            result=self.call('inner','--issue','42')
+            self.assertEqual(result.returncode,3,association)
+            self.assertIn('not written by a maintainer',result.stderr)
+            self.assertFalse((self.root/'invocation.json').exists(),association)
+        (self.root/'association').write_text('COLLABORATOR\n')
+        self.assertEqual(self.call('inner','--issue','42').returncode,0)
 
     def test_enabled_high_severity_routes_model_and_supplies_turn_cap(self):
         self.configure()

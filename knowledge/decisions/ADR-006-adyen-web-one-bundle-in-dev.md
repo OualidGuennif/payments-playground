@@ -3,20 +3,25 @@ type: Decision
 title: "ADR-006: Adyen Web is served as one bundle in dev too"
 description: "A dev-only Vite plugin serves @adyen/adyen-web as a single esbuild bundle, because its ~620 unbundled modules include core/Analytics paths that ad blockers block."
 tags: [decision, dev, vite, adyen-web]
-status: stable
+status: deprecated
+superseded_by: ADR-014-every-playground-on-bun-and-next.md
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: plugin
-    resource: ../../tools/dev/adyen-web-dev-bundle.ts
-    title: adyenWebDevBundle
+    resource: git-history:tools/dev/adyen-web-dev-bundle.ts
+    title: adyenWebDevBundle, removed with Vite on 2026-11-15
   - id: config
-    resource: ../../apps/adyen-digital/vite.config.ts
-    title: Wired into digital
+    resource: ../../apps/adyen-digital/next.config.ts
+    title: Digital's Next.js configuration, which no longer loads the plugin
 ---
 
 # ADR-006: Adyen Web is served as one bundle in dev too
+
+Superseded on 2026-11-15 by [ADR-014](ADR-014-every-playground-on-bun-and-next.md): Vite and this
+plugin are gone. Next's dev server puts Adyen Web inside Turbopack chunks; on 2026-11-15 no local
+chunk URL of the digital Sessions page contained "analytics" (checked without an ad blocker).
 
 **Context.** On 2026-10-09 Drop-in did not load in Firefox with Adblock Plus on the dev server, and
 did in production. The HAR showed four `core/Analytics/*.js` modules never sent (status 0). Fresh

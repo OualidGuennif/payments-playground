@@ -9,10 +9,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / ".claude/hooks"))
 from project_files import git_active  # noqa: E402
+import aeion_settings  # noqa: E402
 
 
 def out(*command):
     return [l for l in subprocess.run(command, cwd=ROOT, capture_output=True, text=True).stdout.split("\n") if l.strip()]
+
+
+def capped(items):
+    """At most six lines: every item, or the first five and how many were left out."""
+    shown = items if len(items) <= 6 else items[:5] + [f"… and {len(items) - 5} more"]
+    return ["  " + item[:110] for item in shown]
 
 
 lines = []
@@ -28,25 +35,48 @@ elif not repository:
     # A plain folder: no branch, pull request, review, CI or tag; done means the tests pass.
     lines.append("git: inactive (plain folder); the branch, review, CI and release flow is skipped.")
 else:
-    # The flow mode decides whether work ends in a reviewed push or a local commit.
-    if out("git", "config", "--local", "--get", "aeion.mode") == ["local"]:
-        lines.append("Æion Factory mode: local (commits on main, no PR/CI/task-state ritual; safety guards stay on). "
-                     "Team flow: git config --unset aeion.mode")
+    # The flow mode decides whether work ends in a reviewed push or a local commit; local unless set to team.
+    if out("git", "config", "--local", "--get", "aeion.mode") != ["team"]:
+        lines.append("Æion Template mode: local (git lifecycle off: no develop, review, PR or release gate; "
+                     "safety guards stay on). Team flow: README.md#team-git-flow")
     else:
-        lines.append(f"Æion Factory mode: team on {' '.join(out('git', 'branch', '--show-current')) or 'a detached HEAD'} "
-                     "(develop: review before each push; main: release PR). Local play: git config aeion.mode local")
+        branch = " ".join(out("git", "branch", "--show-current")) or "a detached HEAD"
+        lines.append(f"Æion Template mode: team on {branch} "
+                     "(develop: review before each push; main: release PR). Local: git config --unset aeion.mode")
+        # Team work happens on develop; main moves only through the release pull request.
+        if branch == "main":
+            lines.append("branch: main; team work happens on develop (git switch develop)")
+        # The pre-commit checks and the pre-push review gate run only when git uses the repository's hooks.
+        hooks = out("git", "config", "--path", "--get", "core.hooksPath")
+        if not hooks or (ROOT / hooks[0]).resolve() != (ROOT / "tools/git-hooks").resolve():
+            lines.append("git hooks: off; enable with git config core.hooksPath tools/git-hooks")
     # Uncommitted changes: one you cannot explain is not yours.
     status = out("git", "status", "--short")
     lines.append(f"git status: {len(status)} changed path(s)" if status else "git status: clean")
-    lines += ["  " + s for s in status[:6]]
+    lines += capped(status)
     # The last commits.
     lines.append("last commits:")
     lines += ["  " + s for s in out("git", "log", "-5", "--oneline")]
+# The owner's settings: what the doc gate does before an edit, and whether the spec comes from aeion-framework.
+gate, gate_problem = aeion_settings.doc_gate(ROOT)
+url, _, framework_problem = aeion_settings.framework(ROOT)
+if framework_problem:
+    framework = f"off ({framework_problem})"
+elif url:
+    version, unready = aeion_settings.cached_health(ROOT, url)
+    framework = (f"on → {url} (aeion-framework {version}, ready)" if version
+                 else f"on → {url}, but {unready}; spec reads fail until it answers") + "; skill framework"
+else:
+    framework = "off"
+    # Committed @req annotations say this project is specified with aeion-framework; this clone is not connected.
+    if aeion_settings.annotated(ROOT):
+        framework += "; this code carries @req IDs: the owner connects it with tools/aeion-settings framework"
+lines.append(f"doc gate: {gate}" + (f" ({gate_problem})" if gate_problem else "") + f"; framework: {framework}")
 # Open tasks.
 work = ROOT / "work/current.md"
 titles = [l[3:] for l in work.read_text(encoding="utf-8").split("\n") if l.startswith("## ")] if work.exists() else []
 lines.append(f"work/current.md: {len(titles)} open task(s)")
-lines += ["  " + t[:110] for t in titles[:6]]
-# The scorecard.
-lines += out("tools/repo-health/repo-health")
-print("\n".join(lines[:25]))
+lines += capped(titles)
+# The scorecard always shows; the lists above give way to it within the 25 lines.
+score = out("tools/repo-health/repo-health")[:25]
+print("\n".join(lines[:25 - len(score)] + score))

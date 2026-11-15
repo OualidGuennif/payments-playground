@@ -11,8 +11,8 @@ sources:
     title: "Project rules and owner"
   - resource: ../../render.yaml
     title: "Root deployment blueprint"
-  - resource: ../../efficiency/00-EFFICIENCY.md
-    title: "The adoption guide"
+  - resource: ../../.aeion-template
+    title: "The template release followed"
 ---
 
 # The owner's preferences
@@ -45,9 +45,10 @@ What the owner asked for that a reviewer should not have to ask again.
 ## Toolchain
 
 - Deno 2.9.4, Python 3.12+ (excluding 3.14.1) and Node 18+.
-- Graphify 0.9.97 and Archify v3.2.0 are pinned in `tools/architecture/integrations.json`.
-- Graphify/Archify are enabled: setup installs only into `.aeion/integrations`; refresh runs on
-  `main` and on pull requests.
+- Æion Template v4.0.3 through `template-update` (2026-11-15); Graphify and Archify are removed and
+  must not come back; aeion-framework mode stays off by default
+  ([ADR-013](../decisions/ADR-013-aeion-template-v4-without-source-analysis.md)). The owner sets
+  `aeion.mode team` in each clone.
 - Pi workers use `opencode-go/deepseek-v4.1-flash`, headless, `--thinking max`, one scoped brief per
   worker.
 - Docker images start as root only for `tools/docker/entrypoint.sh` to chown the Render disk and

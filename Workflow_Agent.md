@@ -7,10 +7,9 @@ base.
 
 - Read `AGENTS.md` (it is short). The session starts with a summary from the `SessionStart` hook:
   git status, recent commits, open tasks.
-- Instructions that existed before Æion Factory, and the owner's words, win.
-- The Graphify/Archify baseline is strongly recommended and installed only on the user's yes
-  (`knowledge/operations/architecture-maintenance.md`). Start through
-  `tools/agents/run <claude|codex|opencode|pi|devin|droid|antigravity>`; Claude also retains
+- Instructions that existed before Æion Template, and the owner's words, win.
+- Nothing needs installing beyond Python 3 and the agent. Start through
+  `tools/agents/run <claude|codex|opencode|pi|devin|droid|antigravity|grok>`; Claude also retains
   `tools/context/run`.
 
 ## 1. Plan (skill `plan`)
@@ -21,20 +20,24 @@ change that fits; list what you will not do. Wait for a yes.
 
 ## 2. Spec (skill `spec`)
 
-For a feature or a component, write or update its spec sections first (intent, inputs, outputs,
-invariants and their tests, acceptance checks). The spec is the source of truth.
+For a feature or a component, update the component doc's spec sections first: intent, outputs and
+refusals, invariants with the test that proves each; a choice that is not yours goes to a decision
+record for the owner. Before editing code, read the doc that covers each file
+(`tools/knowledge/doc-links --for <file>`). The spec is the source of truth.
 
 ## 3. Branch
 
-Work on `develop` (`git switch develop`); a parallel session uses a worktree on `task/<slug>` cut
-from `develop` and merges back locally. Without git, skip sections 3, 6 and 7.
+Team flow (`git config aeion.mode team`, set by the owner): work on `develop`
+(`git switch develop`); a parallel session uses a worktree on `task/<slug>` cut from `develop` and
+merges back locally. In local mode, the default, commit on the current branch and skip sections 3, 6
+and 7, as without git.
 
 ## 4. Build in thin slices (skills `build`, `test`)
 
 Change a little, then let the feedback speak: language-server diagnostics and the edit hook after
 every edit, the tests after every slice. Commit each green slice. Never weaken a test to pass it.
-Claude context checkpoints run automatically: at observed 250k finish closure, update the active
-handover, current task and affected docs, then verify a checkpoint before compaction. Observed 300k
+Claude context checkpoints run automatically: at observed 340k finish closure, update the active
+handover, current task and affected docs, then verify a checkpoint before compaction. Observed 390k
 or lost usage blocks work; transient usage can recover. This is not a strict pre-request ceiling.
 Codex/OpenCode have their own native pre-compaction checkpoint adapters; see
 `knowledge/operations/agent-compatibility.md` and `knowledge/operations/context-safety.md`.
@@ -54,9 +57,8 @@ repeat until OK, then push: `tools/git-hooks/pre-push` refuses `develop` without
 ## 7. Release (skill `ship`)
 
 A pull request `develop → main`, reviewed again, merged with a merge commit after a green CI, then
-tagged `vX.Y.Z`. Anything that needs a deploy or a human decision waits for that human. Wait for
-Graphify/Archify's analysis round on the exact merged SHA, even for docs-only merges. Keep the
-complete architecture spec current; failed analysis leaves the work incomplete.
+tagged `vX.Y.Z`. Anything that needs a deploy or a human decision waits for that human. Keep the
+complete architecture spec current.
 
 ## 8. Learn (skills `pr-taste`, `retro`)
 

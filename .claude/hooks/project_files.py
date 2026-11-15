@@ -1,7 +1,7 @@
 # Spec: knowledge/operations/build-and-test.md
 """The project's files: from git when the folder is a repository, from the file system otherwise.
 
-Many people run Æion Factory in a plain folder, so no check may require git just to list files."""
+Many people run Æion Template in a plain folder, so no check may require git just to list files."""
 import fnmatch
 import os
 import subprocess
@@ -100,3 +100,20 @@ def nested_projects(files):
 
 def inside(rel, folders):
     return any(rel.startswith(folder + "/") for folder in folders)
+
+
+def export_ignored(root):
+    """Top-level folders that .gitattributes marks `/name export-ignore`: release archives leave them out."""
+    path = Path(root) / ".gitattributes"
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return set()
+    found = set()
+    for line in lines:
+        words = line.split()
+        if len(words) >= 2 and words[0].startswith("/") and "export-ignore" in words[1:]:
+            name = words[0][1:].rstrip("/")
+            if name and "/" not in name:
+                found.add(name)
+    return found

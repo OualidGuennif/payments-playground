@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / ".claude/hooks"))
 from secret_names import is_secret  # noqa: E402
-from project_files import git_active, project_files, inside, nested_projects  # noqa: E402
+from project_files import export_ignored, git_active, project_files, inside, nested_projects  # noqa: E402
 RESOURCE_RE = re.compile(r"^\s*(?:-\s+)?resource:\s*\"?([^\"\n]+?)\"?\s*$", re.MULTILINE)
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 SPEC_RE = re.compile(r"\bSpec:\s*(knowledge/[\w./-]+\.md)")
@@ -77,7 +77,8 @@ def tracked_headers():
     except (OSError, subprocess.SubprocessError) as error:
         print(f"FAIL Git file listing failed: {error}", file=sys.stderr)
         sys.exit(1)
-    nested = nested_projects(files)
+    # A nested project, or a folder releases leave out (export-ignore), keeps its own Spec pointers.
+    nested = nested_projects(files) | export_ignored(ROOT)
     for rel in files:
         path = ROOT / rel
         parts = Path(rel).parts
@@ -110,7 +111,7 @@ def base_coverage(base, changed):
     commit = git("merge-base", base, "HEAD").strip()
     coverage = {}
     rows = [row.split("\t", 1) for row in git("ls-tree", "-r", "-z", commit).split("\0") if row]
-    nested = nested_projects(rel for _, rel in rows)
+    nested = nested_projects(rel for _, rel in rows) | export_ignored(ROOT)
     for metadata, rel in rows:
         mode, kind, object_id = metadata.split()
         parts = Path(rel).parts

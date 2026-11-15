@@ -38,6 +38,20 @@ class RepoHealthTests(unittest.TestCase):
         self.assertIn("big.py", result.stdout)
         self.assertNotIn("huge.js", result.stdout)
 
+    def test_a_folder_releases_leave_out_does_not_count(self):
+        # With tools/ from the fixture, nine folders pass; a tenth fails unless one is export-ignore.
+        for name in ["a", "b", "c", "d", "e", "f", "g", "demo"]:
+            (self.root / name).mkdir(exist_ok=True)
+            (self.root / name / "x.md").write_text("x\n")
+        self.assertEqual(self.check_health().returncode, 0)
+        (self.root / "i").mkdir()
+        (self.root / "i/x.md").write_text("x\n")
+        self.assertEqual(self.check_health().returncode, 1)
+        (self.root / ".gitattributes").write_text("/demo export-ignore\nskills/** linguist-vendored\n")
+        result = self.check_health("--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["top_level_folders_not_shipped"], ["demo"])
+
     def test_desktop_files_and_build_output_are_not_walked(self):
         (self.root / ".DS_Store").write_bytes(b"\0" * 10)
         (self.root / "dist").mkdir()

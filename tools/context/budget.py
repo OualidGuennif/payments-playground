@@ -19,11 +19,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / ".claude/hooks"))
 from secret_names import is_secret  # noqa: E402
 from project_files import git_active, project_files  # noqa: E402
-WARNING = 250_000
-LIMIT = 300_000
+WARNING = 340_000
+LIMIT = 390_000
+# Every message names the thresholds from these labels, so the text never drifts from the numbers.
+WARN_K = f"{WARNING // 1000}k"
+LIMIT_K = f"{LIMIT // 1000}k"
 MAX_TAIL = 4 * 1024 * 1024
 FIELDS = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens")
-DOC_ROOTS = ("knowledge/", "work/", "efficiency/")
+DOC_ROOTS = ("knowledge/", "work/")
 DOC_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "command.md", "Workflow_Agent.md", "CREDITS.md"}
 CHECKS = (("tools/knowledge/knowledge-check",), ("tools/repo-health/repo-health",))
 
@@ -133,17 +136,26 @@ def git(root, *args):
     return subprocess.run(["git", *args], cwd=root, capture_output=True, check=True).stdout
 
 
+def base_ref(root):
+    """A ref this work merges into that actually exists: origin/develop, then origin/main, then HEAD."""
+    for ref in ("origin/develop", "origin/main", "HEAD"):
+        if subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"], cwd=root,
+                          capture_output=True, check=False).returncode == 0:
+            return ref
+    return None
+
+
 def checkpoint_command(root, session):
-    """The closure command for this folder: work merges into develop when it exists, else main; no git, no base."""
+    """The closure command for this folder: an existing base ref under git, and no base in a plain folder."""
     command = f"python3 tools/context/budget.py checkpoint --session {session}"
     try:
         if not git_active(root):
             return command + " --verify"
     except subprocess.SubprocessError:
         pass
-    develop = subprocess.run(["git", "rev-parse", "--verify", "--quiet", "origin/develop"], cwd=root,
-                             capture_output=True, check=False).returncode == 0
-    return command + f" --base {'origin/develop' if develop else 'origin/main'} --verify"
+    base = base_ref(root)
+    # A repository without a commit has no base; the refusal names --base rather than inventing one.
+    return command + (f" --base {base}" if base else "") + " --verify"
 
 
 def tree_files(root):
@@ -162,12 +174,32 @@ def tree_files(root):
     return files
 
 
+def head(root):
+    """The commit HEAD names; b"no-git" in a plain folder, b"no-commit" in a repository before its first commit."""
+    if not git_active(root):
+        return b"no-git"
+    found = subprocess.run(["git", "rev-parse", "--verify", "--quiet", "HEAD"], cwd=root, capture_output=True, check=False)
+    return found.stdout if found.returncode == 0 else b"no-commit"
+
+
 def fingerprint(root, files=None):
-    # A plain folder has no HEAD: its files alone make the fingerprint.
-    digest = hashlib.sha256(git(root, "rev-parse", "HEAD") if git_active(root) else b"no-git")
+    # Without a commit (a plain folder, or a repository not yet committed) the files alone make the fingerprint.
+    digest = hashlib.sha256(head(root))
     for rel, value in (tree_files(root) if files is None else files).items():
         digest.update(os.fsencode(rel) + b"\0" + value.encode())
     return digest.hexdigest()
+
+
+def failure_lines(output, limit=50):
+    """What a failing check said, for its refusal: every `RULE`/`FAIL` line whole and on its own line, so one pass
+    fixes them all (a tail cut the first violations off and split one mid-path); the output's tail when it names
+    none. Past `limit` the refusal counts the rest, so a large backlog never floods a context near its limit."""
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    named = [line for line in lines if line.startswith(("RULE ", "FAIL "))]
+    if not named:
+        return [" ".join(" ".join(lines).split())[-800:]] if lines else []
+    hidden = [f"... and {len(named) - limit} more; fix these, then verify again."] if len(named) > limit else []
+    return named[:limit] + hidden + [line for line in lines if line.startswith("RESULT:")][-1:]
 
 
 def changed_paths(before, after, limit=5):
@@ -191,6 +223,14 @@ def ensure_handover(root, session):
     return path
 
 
+def handover_faults(path):
+    """Named faults that keep a handover from being a checkpoint: a missing exact heading, a section still TODO."""
+    text = path.read_text()
+    missing = [f"## {key}" for key in HEADINGS if f"## {key}\n" not in text]
+    return ([f"missing heading{'s' if len(missing) > 1 else ''}: {', '.join(missing)} (exact line)"] if missing else []) \
+        + (["a section still reads TODO"] if "TODO" in text else [])
+
+
 def ready(root, session, state):
     handover = handover_path(root, session)
     receipt = state.get("checkpoint", {})
@@ -199,6 +239,9 @@ def ready(root, session, state):
 
 
 def closure_tool(root, event):
+    """What closure admits at 340k and 390k alike: reads, docs and task state, the fixed checks and this root's
+    checkpoint. The checkpoint verifies those docs (doc-links L3) and work/current.md, so 390k keeps them open too;
+    code stays frozen at both."""
     tool = event.get("tool_name")
     data = event.get("tool_input", {})
     if not isinstance(data, dict):
@@ -210,7 +253,8 @@ def closure_tool(root, event):
         if not path.is_relative_to(root):
             return False
         rel = path.relative_to(root).as_posix()
-        return rel in DOC_FILES or rel.startswith(DOC_ROOTS)
+        # "Affected docs" includes a project's own Markdown wherever it lives; code edits stay closed.
+        return rel in DOC_FILES or rel.startswith(DOC_ROOTS) or path.suffix.lower() in {".md", ".mdx"}
     if tool == "Bash":
         command = data.get("command", "")
         if not isinstance(command, str):
@@ -257,44 +301,27 @@ def checkpoint_call(root, event, words):
     if len(words) < 2 or words[0] != "python3" or (here / words[1]).resolve() != root / "tools/context/budget.py":
         return False
     rest = words[2:]
-    if rest[:3] != ["checkpoint", "--session", event["session_id"]] or rest[-1:] != ["--verify"]:
+    if rest[:2] != ["checkpoint", "--session"] or rest[-1:] != ["--verify"]:
+        return False
+    # The session token is not compared against this session: the CLI refuses a key that names no session, and the
+    # gate opens on this session's verified receipt (`ready`), never on the spelling. Comparing it refused the exit
+    # command of an agent that wrote the raw identifier instead of the hashed key, with no way back.
+    if re.fullmatch(r"[A-Za-z0-9_-]{1,200}", rest[2]) is None:
         return False
     # A plain folder has no base; a repository names one ref.
     return len(rest) == 4 or (len(rest) == 6 and rest[3] == "--base"
                               and re.fullmatch(r"[A-Za-z0-9_./-]+", rest[4]) is not None)
 
 
-def compact_tool(root, event):
-    """At 300k only what compaction needs remains: reading, the handover and its checkpoint."""
-    tool = event.get("tool_name")
-    data = event.get("tool_input", {})
-    if not isinstance(data, dict):
-        return False
-    if tool in {"Read", "Grep", "Glob"}:
-        return True
-    if tool in {"Edit", "Write"}:
-        return Path(data.get("file_path", "")).resolve() == handover_path(root, event["session_id"]).resolve()
-    if tool == "Bash":
-        command = data.get("command", "")
-        if not isinstance(command, str):
-            return False
-        try:
-            words = shlex.split(command)
-        except ValueError:
-            return False
-        return read_call(command, words) or checkpoint_call(root, event, words)
-    return False
-
-
 def apply_usage(root, session, state, name, event, usage):
-    """The 250k/300k rule every harness shares, from the context usage that harness measured."""
+    """The 340k/390k rule every harness shares, from the context usage that harness measured."""
     handover = handover_path(root, session)
     state["observed_tokens"] = usage
     result = {}
     if usage is None and name == "UserPromptSubmit" and not state.get("bootstrapped"):
         state["bootstrapped"] = True
     elif usage is None:
-        reason = "Æion Factory native usage temporarily unavailable; work is blocked. Retry after transcript persistence; no terminal stop was latched."
+        reason = "Æion Template native usage temporarily unavailable; work is blocked. Retry after transcript persistence; no terminal stop was latched."
         # Transcripts persist asynchronously: deny only this call so the agent can retry it, not stop the agent.
         if name == "PreToolUse":
             result = {"hookSpecificOutput": {"hookEventName": name, "permissionDecision": "deny", "permissionDecisionReason": reason}}
@@ -302,40 +329,93 @@ def apply_usage(root, session, state, name, event, usage):
             result = stop(name, reason)
     else:
         state["bootstrapped"] = True
-        # 300k never stops the run: it narrows closure to the handover and forces compaction again.
+        # A verified receipt settles the debt the 390k stopgap deferred; the state machine then continues as before.
+        if state.get("closure_owed") == "due" and ready(root, session, state):
+            state.pop("closure_owed", None)
+        # 390k never stops the run: it forces the handover and compaction again, with the same closure as 340k.
         if usage >= LIMIT and state["state"] != "COMPACT_REQUIRED":
             state["state"] = "COMPACT_REQUIRED"
             state["warning_pending"] = True
         elif usage >= WARNING and state["state"] not in {"HANDOVER_REQUIRED", "COMPACT_REQUIRED"}:
             state["state"] = "HANDOVER_REQUIRED"
             state["warning_pending"] = True
+        elif (0 < usage < WARNING and state["state"] in {"HANDOVER_REQUIRED", "COMPACT_REQUIRED"}
+                and not state.get("resumed_in_closure")):
+            # The context fell back under the threshold, so a compaction ran without the adapter seeing its
+            # SessionStart: dsh compacts on its own. Keeping the latch would gate a 127k session forever, so it
+            # ends here and the closure it owed becomes a debt Stop enforces instead. The debt must never keep a
+            # later fall latched: a session that climbs and compacts again is still under the threshold, and
+            # denying it would turn the escape hatch into a permanent gate. A latch a harness set because its own
+            # compaction resumed in closure is not a threshold latch: `resumed_in_closure` keeps it until the
+            # handover verifies, which is the whole point of that resume.
+            # A zero is the stand-in a harness that measures nothing (Droid) uses, never a real measurement.
+            state["state"] = "RUNNING"
+            state.pop("warning_pending", None)
+            if not ready(root, session, state):
+                state["closure_owed"] = "due"
         if name == "PreCompact":
             if not ready(root, session, state):
-                ensure_handover(root, session)
-                moved = changed_paths(state.get("checkpoint", {}).get("files", {}), tree_files(root)) if state.get("checkpoint") else ""
-                stale = f" The receipt is stale: {moved} changed since it (git-ignore a live log)." if moved else ""
-                result = stop(name, f"Fill {handover.relative_to(root)}, then create a verified checkpoint before compaction: {checkpoint_command(root, session)}.{stale}")
+                handover = ensure_handover(root, session)
+                if state["state"] == "COMPACT_REQUIRED":
+                    # 390k stopgap: code is already frozen here, so a check that failed before this session would
+                    # leave no way to verify and no way to repair. The compaction runs, the closure stays owed.
+                    state["closure_owed"] = "due"
+                    result = {"systemMessage": f"Æion Template {LIMIT_K}: compacting before a verified checkpoint; the "
+                                               f"closure stays owed until the failing check is fixed and "
+                                               f"{handover.relative_to(root)} is verified: {checkpoint_command(root, session)}."}
+                elif state.get("checkpoint") and not handover_faults(handover):
+                    # The handover was verified, then an edit moved the tree: refusing here is what left a latched
+                    # session unable to compact at all, because the receipt can only be refreshed by the same work
+                    # the closure gate is blocking. Compact, keep the debt, and let Stop refuse until a fresh
+                    # receipt settles it; an unverified handover still refuses below, so the rule keeps its teeth.
+                    state["closure_owed"] = "due"
+                    result = {"systemMessage": f"Æion Template {WARN_K}: {handover.relative_to(root)} was verified and the "
+                                               f"tree moved since; compacting now, and the closure stays owed until a "
+                                               f"fresh checkpoint: {checkpoint_command(root, session)}."}
+                else:
+                    moved = changed_paths(state.get("checkpoint", {}).get("files", {}), tree_files(root)) if state.get("checkpoint") else ""
+                    stale = f" The receipt is stale: {moved} changed since it (git-ignore a live log)." if moved else ""
+                    result = stop(name, f"Fill {handover.relative_to(root)}, then create a verified checkpoint before compaction: {checkpoint_command(root, session)}.{stale}")
         elif state["state"] in {"HANDOVER_REQUIRED", "COMPACT_REQUIRED"}:
             ensure_handover(root, session)
             first = state.pop("warning_pending", False)
             call = {**event, "session_id": session}
-            if state["state"] == "COMPACT_REQUIRED":
-                message = (f"Æion Factory 300k: write {handover.relative_to(root)} and verify the checkpoint now "
-                           f"({checkpoint_command(root, session)}); compaction follows; {SHAPE}.")
-                allowed = compact_tool(root, call)
+            if event.get("compaction_unavailable") is True:
+                # The harness reaches no compaction service from this plugin (dsh web keeps it inside each agent
+                # preset), so a hard gate would stall the run until a human typed /compact. Keep the alert and the
+                # handover so recovery survives the harness's own compaction, and never stop the work.
+                message = (f"Æion Template: this harness compacts on its own, so the {WARN_K}/{LIMIT_K} gate is advisory here. "
+                           f"Keep {handover.relative_to(root)} current so the session can recover, and continue; "
+                           f"verify before it compacts: {checkpoint_command(root, session)}.")
+                if first or name in {"Stop", "SubagentStop"}:
+                    result = {"systemMessage": message, "hookSpecificOutput": {"hookEventName": name, "additionalContext": message}}
             else:
-                message = f"Æion Factory 250k alert: finish closure only, update {handover.relative_to(root)}, work/current.md and affected docs; verify the checkpoint before compaction; {SHAPE}."
-                allowed = closure_tool(root, call)
-            if name == "PreToolUse" and not allowed:
-                result = {"hookSpecificOutput": {"hookEventName": name, "permissionDecision": "deny", "permissionDecisionReason": message}}
-            elif name in {"Stop", "SubagentStop"}:
-                result = stop(name, message + " Task has not been signed off.")
-            elif first and name in {"PreToolUse", "PostToolUse", "UserPromptSubmit"}:
-                result = {"systemMessage": message, "hookSpecificOutput": {"hookEventName": name, "additionalContext": message}}
-            if first:
-                result["systemMessage"] = message
+                # The gate exists to obtain one verified handover. Once the receipt matches, denying further calls
+                # only holds the session hostage until a compaction the plugin cannot guarantee actually lands.
+                if state["state"] == "COMPACT_REQUIRED":
+                    message = (f"Æion Template {LIMIT_K}: closure only, now: write {handover.relative_to(root)}, update "
+                               f"work/current.md and the docs the checks name, and verify the checkpoint "
+                               f"({checkpoint_command(root, session)}); compaction follows; {SHAPE}.")
+                else:
+                    message = (f"Æion Template {WARN_K} alert: finish closure only, update {handover.relative_to(root)}, work/current.md and affected docs; "
+                               f"verify the checkpoint before compaction ({checkpoint_command(root, session)}); {SHAPE}.")
+                allowed = ready(root, session, state) or closure_tool(root, call)
+                if name == "PreToolUse" and not allowed:
+                    result = {"hookSpecificOutput": {"hookEventName": name, "permissionDecision": "deny", "permissionDecisionReason": message}}
+                elif name in {"Stop", "SubagentStop"}:
+                    # An agent can claim closure without running the command; name the missing receipt, so it cannot.
+                    missing = "" if ready(root, session, state) else " No verified checkpoint receipt exists for this session yet."
+                    result = stop(name, message + missing + " Task has not been signed off.")
+                elif first and name in {"PreToolUse", "PostToolUse", "UserPromptSubmit"}:
+                    result = {"systemMessage": message, "hookSpecificOutput": {"hookEventName": name, "additionalContext": message}}
+                if first:
+                    result["systemMessage"] = message
         elif state["state"] == "RECOVERING":
             state["state"] = "RUNNING"
+        # A closure the 390k stopgap deferred is still owed: the run ends with its receipt, or not at all.
+        if not result and name in {"Stop", "SubagentStop"} and state.get("closure_owed") == "due" and not ready(root, session, state):
+            result = stop(name, f"Æion Template {LIMIT_K}: closure is still owed; fix the failing check and verify the "
+                                f"checkpoint: {checkpoint_command(root, session)}. Task has not been signed off.")
     return result
 
 
@@ -345,10 +425,31 @@ def stop(event_name, reason):
     return {"continue": False, "stopReason": reason, "systemMessage": reason}
 
 
+def claude_native_session(event):
+    """Whether Claude's budget hook owns this event.
+
+    Grok loads the same `.claude/settings.json`. It sends Claude's field names plus its own
+    camelCase envelope (`hookEventName` is `user_prompt_submit`) and an `updates.jsonl` or
+    `chat_history.jsonl` transcript. Judging that file as a broken Claude transcript latches STOPPED on the first
+    prompt. The Grok adapter owns that session.
+    """
+    native = event.get("hookEventName")
+    if isinstance(native, str) and re.fullmatch(r"[a-z][0-9a-z_]*", native):
+        return False
+    path = event.get("transcript_path")
+    # updates.jsonl is the path Grok puts in transcript_path. chat_history.jsonl is the older name.
+    if isinstance(path, str) and Path(path).name in {"chat_history.jsonl", "updates.jsonl"}:
+        return False
+    return True
+
+
 def handle(root, event):
     root = root.resolve()
     if not isinstance(event, dict):
         raise ValueError("hook input must be an object")
+    # Leave Grok's envelope untouched, including a session an older hook already marked STOPPED.
+    if not claude_native_session(event):
+        return {}
     session, transcript, transcript_id = identity(event)
     name = event.get("hook_event_name")
     if name not in {"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PreCompact", "Stop", "SubagentStop"}:
@@ -361,18 +462,25 @@ def handle(root, event):
         handover = handover_path(root, session)
         compact_verified = name == "SessionStart" and event.get("source") == "compact" and ready(root, session, state)
         if name == "SessionStart" and event.get("source") == "compact" and state.get("state") != "STOPPED":
+            # A compaction the 390k stopgap let through still owes its closure; the new epoch must not forget it.
+            owed = state.get("closure_owed") == "due"
             state = {"epoch": state["epoch"] + 1, "state": "RECOVERING", "warning_pending": state.get("warning_pending", False)}
+            if owed:
+                state["closure_owed"] = "due"
         result = {}
         if state.get("state") == "STOPPED":
-            result = stop(name, "Æion Factory context run is stopped; start a new validated session from its handover.")
+            result = stop(name, "Æion Template context run is stopped; start a new validated session from its handover.")
         elif name == "SessionStart":
-            context = "Æion Factory checkpoint profile: 250k handover/compact, 300k forced handover and compaction; not a strict ceiling."
+            context = f"Æion Template checkpoint profile: {WARN_K} handover/compact, {LIMIT_K} forced handover and compaction; not a strict ceiling."
             if handover.is_file():
                 context += f" Recovery: {handover.relative_to(root)}"
+            if state.get("closure_owed") == "due":
+                context += (f" Closure still owed from a compaction before the handover: fix the failing check, then verify the "
+                            f"checkpoint: {checkpoint_command(root, session)}.")
             result = {"hookSpecificOutput": {"hookEventName": name, "additionalContext": context}}
             if state.pop("warning_pending", False):
-                message = ("Æion Factory 250k alert: a verified handover was retained before compaction." if compact_verified
-                           else "Æion Factory 250k alert: closure remains required; verify the handover/docs before compaction.")
+                message = (f"Æion Template {WARN_K} alert: a verified handover was retained before compaction." if compact_verified
+                           else f"Æion Template {WARN_K} alert: closure remains required; verify the handover/docs before compaction.")
                 result["systemMessage"] = message
                 result["hookSpecificOutput"]["additionalContext"] += "\n" + message
         else:
@@ -381,7 +489,7 @@ def handle(root, event):
             except (ValueError, OSError, TypeError, AttributeError):
                 state["state"] = "STOPPED"
                 atomic(file, json.dumps(state, sort_keys=True) + "\n")
-                return stop(name, "Æion Factory native usage is invalid; refusing further work.")
+                return stop(name, "Æion Template native usage is invalid; refusing further work.")
             result = apply_usage(root, session, state, name, event, usage)
             state["source"] = "current-session native transcript usage"
         atomic(file, json.dumps(state, sort_keys=True) + "\n")
@@ -394,29 +502,34 @@ def checkpoint(root, session, base):
     if repository and base is None:
         raise ValueError("--base is required in a git repository")
     if repository:
-        base = git(root, "rev-parse", "--verify", "--end-of-options", f"{base}^{{commit}}").decode().strip()
+        try:
+            base = git(root, "rev-parse", "--verify", "--end-of-options", f"{base}^{{commit}}").decode().strip()
+        except subprocess.CalledProcessError:
+            raise ValueError(f"--base {base!r} is not a commit here; use {base_ref(root) or 'an existing ref'}") from None
     with locked(root, session) as file:
         state = json.loads(file.read_text())
         if state["state"] == "STOPPED":
             raise ValueError("a stopped run cannot request another closure pass")
         handover = ensure_handover(root, session)
-        text = handover.read_text()
         # Name each fault: a heading spelled `## Completed (commits)` reads as complete to a person.
-        missing = [f"## {key}" for key in HEADINGS if f"## {key}\n" not in text]
-        if missing or "TODO" in text:
-            faults = ([f"missing heading{'s' if len(missing) > 1 else ''}: {', '.join(missing)} (exact line)"] if missing else []) \
-                + (["a section still reads TODO"] if "TODO" in text else [])
+        faults = handover_faults(handover)
+        if faults:
             raise ValueError(f"complete all handover sections first: {'; '.join(faults)}")
         files = tree_files(root)
         before = fingerprint(root, files)
         diff = (("tools/knowledge/doc-links", "--diff", base, "--worktree"),) if repository else ()
+        # The check's own output is the only actionable part of a refusal; a bare exit status loops the agent.
         for command in (*CHECKS, *diff):
-            subprocess.run(command, cwd=root, check=True, timeout=30, stdout=subprocess.DEVNULL)
+            result = subprocess.run(command, cwd=root, timeout=30, capture_output=True, text=True)
+            if result.returncode:
+                detail = failure_lines(result.stdout + result.stderr)
+                raise ValueError(f"{command[0]} failed (exit {result.returncode})"
+                                 + (":\n" + "\n".join(detail) if detail else ""))
         changed = set() if not repository else set(git(root, "diff", "--name-only", "-z", base).decode().split("\0")) - {""}
         changed |= {os.fsdecode(path) for path in (git(root, "ls-files", "--others", "--exclude-standard", "-z") if repository else b"").split(b"\0")
                     if path and not os.fsdecode(path).startswith((".aeion/", "work/handovers/"))}
-        # Local play (git config aeion.mode local) keeps no work/current.md entry.
-        local = not repository or subprocess.run(["git", "config", "--local", "--get", "aeion.mode"], cwd=root, capture_output=True, text=True).stdout.strip() == "local"
+        # Local mode, the default, keeps no work/current.md entry; only the team flow (aeion.mode team) does.
+        local = not repository or subprocess.run(["git", "config", "--local", "--get", "aeion.mode"], cwd=root, capture_output=True, text=True).stdout.strip() != "team"
         if changed and not local and "work/current.md" not in changed:
             raise ValueError("update work/current.md before checkpointing")
         after = tree_files(root)
@@ -424,6 +537,8 @@ def checkpoint(root, session, base):
             raise ValueError(f"files changed during checkpoint validation: {changed_paths(files, after) or 'HEAD'} "
                              "(a live log in the tree makes every receipt stale: git-ignore it)")
         state["checkpoint"] = {"tree": before, "files": files, "handover": hashlib.sha256(handover.read_bytes()).hexdigest()}
+        # `closure_owed` stays until the next event reads this receipt: Codex and Droid leave their closure state
+        # only on that event, so dropping the flag here would strand them in a closure that is already satisfied.
         atomic(file, json.dumps(state, sort_keys=True) + "\n")
 
 

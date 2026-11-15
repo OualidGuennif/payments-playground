@@ -6,14 +6,14 @@ status: stable
 stale_after: 2026-12-31
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31T19:05:00Z
+  at: 2026-11-15T18:00:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "The merged agent rules and repository map"
   - resource: ../../deno.json
     title: "The complete check task"
-  - resource: ../../tools/architecture/integrations.json
-    title: "Pinned analysis revisions"
+  - resource: ../../.aeion-template
+    title: "The template release this project follows"
   - resource: ../../render.yaml
     title: "The root deployment blueprint"
 ---
@@ -43,6 +43,10 @@ production or Adyen TEST call was made by the adoption itself.
   32.3.0. The root `deno.json` drops `apps/adyen-agentic-commerce` from the workspace (it is a Bun
   app now) and adds `check:agentic` to `check`. The table above is the 2026-10-31 state and was not
   re-run for these changes.
+- 2026-11-15: updated to Æion Template v4.0.3 (`.aeion-template`). Graphify, Archify, their receipt
+  and `efficiency/` are gone, so the Graphify/Archify row above no longer applies;
+  `tools/template-tests` replaces `tools/factory-tests`; the context rule is 340k/390k; the doc gate
+  runs in `enforce` and framework mode is off (no address set).
 
 ## Open
 

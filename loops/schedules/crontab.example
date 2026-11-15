@@ -1,4 +1,4 @@
-# Æion Factory loops on an always-on machine (crontab -e). Times are local. Each job refuses to run
+# Æion Template loops on an always-on machine (crontab -e). Times are local. Each job refuses to run
 # while LOOPS_ENABLED is not true in env.local. Replace /path/to/repo.
 15 6 * * *   cd /path/to/repo && loops/orchestrator.sh outer
 30 6 * * *   cd /path/to/repo && loops/orchestrator.sh docs

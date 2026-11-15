@@ -7,8 +7,8 @@ generated:
   by: aeion-adoption/1.0
   at: 2026-11-15
 sources:
-  - resource: ../../.github/workflows/architecture-refresh.yml
-    title: "The analysis check required on main"
+  - resource: ../../.github/workflows/ci.yml
+    title: "The CI jobs required on main"
   - resource: ../../AGENTS.md
     title: "The delivery flow"
   - resource: ../../render.yaml
@@ -27,11 +27,12 @@ pull request `develop → main` merges with a merge commit so `develop` stays an
 deletion. Preserve stronger existing rules. Pin required checks to their actual GitHub App where
 available; do not invent check names or require disabled optional jobs.
 
-Æion Factory requires Knowledge/links/health, Graphify/Archify, secret-scan, dependency-scan and
-sast-scan. The fresh `Review: OK` comment remains required by the delivery workflow; it is not an
-approving forge review. The solo-owner workflow uses zero required human approvals, rather than
-making the author approve their own PR. This distinction is explicit: CI/PR requirements are
-server-enforced; the comment verdict is a reviewed procedure.
+The required checks are the CI jobs "Knowledge, links and repository health", "Deno check",
+secret-scan, dependency-scan and sast-scan; the Graphify/Archify check is gone since 2026-11-15. The
+fresh `Review: OK` comment remains required by the delivery workflow; it is not an approving forge
+review. The solo-owner workflow uses zero required human approvals, rather than making the author
+approve their own PR. This distinction is explicit: CI/PR requirements are server-enforced; the
+comment verdict is a reviewed procedure.
 
 Since 2026-11-15 `deno task check` also runs `check:agentic` (the Bun agentic store), so a required
 CI job that runs `check` must install Bun before it; the required check names do not change.

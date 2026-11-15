@@ -18,9 +18,10 @@ generated:
 | [Docker images and the Render deployment](docker-and-render.md)    | stable | Build context, env files, Blueprint, checking a deploy |
 | [Upgrading Adyen Web](adyen-web-upgrade.md)                        | stable | The seven-step checklist                               |
 | [The loops](loops.md)                                              | stable | Inner, middle and outer loops, off by default          |
-| [Graphify and Archify](architecture-maintenance.md)                | stable | Pinned analysis, source anchors, CI refresh            |
+| [Updating to a template release](template-update.md)               | stable | `tools/agents/template-update`, file classes, merges   |
+| [Local evaluation harness](evals.md)                               | draft  | Appended run records and a three-number report         |
 | [Agent compatibility](agent-compatibility.md)                      | stable | Claude, Codex, OpenCode, Pi, dsh, Devin, Droid         |
-| [Context safety](context-safety.md)                                | stable | 250k closure, verified handover, compaction            |
+| [Context safety](context-safety.md)                                | stable | 340k closure, verified handover, compaction            |
 | [Getting started](getting-started.md)                              | stable | First-run setup and managed launch commands            |
 | [GitHub main protection](github-protection.md)                     | stable | Required reviews and checks on `main`                  |
 | [Skills](skill-selection.md)                                       | stable | Native-first selection; no passive pool                |

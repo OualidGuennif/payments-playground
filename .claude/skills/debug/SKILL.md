@@ -17,7 +17,7 @@ description: Investigates a reproducible bug, failed check or unexpected runtime
    Stop accumulating fixes when the hypothesis fails; return to evidence.
 
 Adapted from the investigation sequence in obra/Superpowers `systematic-debugging` (MIT).
-Attribution: `CREDITS.md`. Æion Factory's existing authority, test and sign-off rules still apply.
+Attribution: `CREDITS.md`. Æion Template's existing authority, test and sign-off rules still apply.
 
 ## Diagnosis and stopping conditions
 For an intermittent failure, vary one factor at a time: input/state, dependency version,

@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Update to Æion Template v4.0.3 with `template-update` (from Æion Factory v1.7.0): doc gate in
+  `enforce`, 340k/390k context rule, `tools/template-tests`, framework mode off. Graphify, Archify,
+  their CI workflow and receipt, the `graph` skill and `efficiency/` are removed (ADR-013).
 - `deno task types` names the three Deno apps instead of `apps/**`, whose glob now reached the Bun
   store's `node_modules` and overflowed the argument list; the store keeps its own `tsc` check.
 - Rebuild `apps/adyen-agentic-commerce` as one Next.js 16 app on the Bun runtime (Elysia in the

@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+# Spec: knowledge/components/framework-mode.md
+"""The owner's switch for the doc gate and framework mode; the agent's guards refuse its write commands.
+
+    tools/aeion-settings                          show the settings and where each one comes from
+    tools/aeion-settings doc-gate enforce|warn|off
+    tools/aeion-settings framework [URL]          connect: asks for the address when none is given,
+                                                  checks /health/ready and the version, then saves it
+    tools/aeion-settings framework off            framework mode off
+
+Exit 0 when the setting is saved or shown, 1 when the service or the address is refused, 2 on usage."""
+import argparse
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / ".claude/hooks"))
+import aeion_settings as settings  # noqa: E402
+
+
+def show(root):
+    mode, problem = settings.doc_gate(root)
+    print(f"doc gate: {mode}" + (f" ({problem})" if problem else ""))
+    url, source, problem = settings.framework(root)
+    if problem:
+        print(f"framework: off ({problem})")
+    elif not url:
+        print("framework: off (no API address; turn it on with tools/aeion-settings framework <url>)")
+    else:
+        print(f"framework: on → {url} (from {'AEION_FRAMEWORK_URL' if source == 'env' else settings.SETTINGS})")
+    return 0
+
+
+def connect(root, url):
+    # No address on the command line: ask the owner, never guess one.
+    if url is None:
+        if not sys.stdin.isatty():
+            print("framework: give the address, e.g. tools/aeion-settings framework http://127.0.0.1:8787",
+                  file=sys.stderr)
+            return 2
+        url = input("aeion-framework API address (e.g. http://127.0.0.1:8787): ").strip()
+    problem = settings.address_problem(url)
+    if problem:
+        print(f"framework: refused, {problem}", file=sys.stderr)
+        return 1
+    url = url.strip().rstrip("/")
+    # A service that is not ready, or runs a release outside the supported range, is never saved.
+    version, problem = settings.health(url)
+    if problem:
+        print(f"framework: refused, {problem}; nothing saved", file=sys.stderr)
+        return 1
+    data, problem = settings.load(root)
+    settings.save(root, {**data, "framework": url})
+    # A probe cached while the service was down would tell the next session start it still is.
+    (root / settings.HEALTH_CACHE).unlink(missing_ok=True)
+    print(f"framework: on → {url} (aeion-framework {version}, ready), saved in {settings.SETTINGS}")
+    print("Agents read the spec with tools/framework/axiom-api. For native MCP tools in Claude Code:")
+    print(f"  claude mcp add --transport http aeion-axiom {url}/mcp/ --scope local")
+    print("Other harnesses: add the same /mcp/ address as a streamable HTTP MCP server in their settings.")
+    return 0
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--root", default=str(ROOT), help="project root (tests)")
+    sub = parser.add_subparsers(dest="command")
+    gate = sub.add_parser("doc-gate")
+    gate.add_argument("mode", choices=settings.GATES)
+    framework = sub.add_parser("framework")
+    framework.add_argument("url", nargs="?")
+    args = parser.parse_args(argv)
+    root = Path(args.root).resolve()
+    if args.command is None:
+        return show(root)
+    if args.command == "doc-gate":
+        data, problem = settings.load(root)
+        settings.save(root, {**data, "doc_gate": args.mode})
+        print(f"doc gate: {args.mode}" + (f" (the unreadable file was replaced: {problem})" if problem else ""))
+        return 0
+    if args.url == "off":
+        data, _ = settings.load(root)
+        data.pop("framework", None)
+        settings.save(root, data)
+        print("framework: off")
+        return 0
+    return connect(root, args.url)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

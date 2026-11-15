@@ -16,5 +16,5 @@ try:
     print(json.dumps(handle(ROOT, event)))
 except (ValueError, KeyError, TypeError, AttributeError, OSError, subprocess.SubprocessError):
     name = event.get("hook_event_name") if isinstance(event, dict) else None
-    print(json.dumps(stop(name, "Æion Factory context verification unavailable; refusing further work.")))
+    print(json.dumps(stop(name, "Æion Template context verification unavailable; refusing further work.")))
     sys.exit(0)

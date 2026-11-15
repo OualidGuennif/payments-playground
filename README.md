@@ -31,8 +31,7 @@ with no build step and no server.
 ## Getting started
 
 Requires Deno 2.9.4 for the apps. The repository checks also need Python 3.12+ (excluding 3.14.1)
-and Node 18+; `deno task arch:setup` installs the pinned Graphify/Archify tools into the ignored
-`.aeion/` directory once.
+and Node 18+.
 
 ```bash
 deno task dev:all
@@ -55,8 +54,7 @@ deno task build         # four production builds
 deno task verify        # start the builds and check /healthz
 deno task docs:links    # knowledge sources and Spec: pointers, both ways
 deno task repo:health   # source-size, comment and folder caps
-deno task factory:test  # the adapted factory suites
-deno task arch:refresh  # exact-HEAD Graphify/Archify PASS receipt
+deno task template:test # the template suites (hooks, context, links, loops)
 ```
 
 Per app: `deno task --cwd apps/adyen-digital <dev|build|test|start>`. `start` serves the last
@@ -142,8 +140,7 @@ entirely at your own risk. See [SECURITY.md](./docs/SECURITY.md) and
 
 - [Knowledge base](./knowledge/index.md): architecture, decisions, runbooks, verified state (start
   there; [AGENTS.md](./AGENTS.md) is the short version for coding agents)
-- [Efficiency guide](./efficiency/00-EFFICIENCY.md) and [command reference](./command.md): the
-  seven-phase adoption method and the agent commands
+- [Command reference](./command.md): the agent skills, tools and loop commands
 - [Security and threat model](./docs/SECURITY.md)
 - [Known limits and simulated features](./docs/KNOWN_LIMITS.md)
 - Built-in wikis at `/wiki` in Digital and IPP; the agentic store explains itself at `/agents`

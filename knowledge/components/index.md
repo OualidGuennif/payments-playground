@@ -20,4 +20,7 @@ generated:
 | [packages/platform](platform-package.md)              | stable | Server library, module by module                    |
 | [packages/ui](ui-package.md)                          | stable | Browser-safe components and Adyen Web configuration |
 
-| [Code graph queries](graph-queries.md) | stable | Graphify working graph and exact `ask` queries |
+| [Æion Template architecture](template-architecture.md) | stable | The template's authority, hooks,
+checkpoints, delivery | | [Doc gate](doc-gate.md) | draft | Covering docs are read before a file is
+edited | | [Framework mode](framework-mode.md) | draft | Off here: no aeion-framework address is set
+|

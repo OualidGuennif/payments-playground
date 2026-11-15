@@ -17,6 +17,7 @@ Any task beyond a typo. Not for a pure question (answer it) or a one-line fix wi
 ## Process
 1. Read `AGENTS.md`, then `knowledge/index.md` and the area's doc; `tools/knowledge/doc-links --for <file>` names a file's doc.
 2. Read the real code: callers, contracts, tests, configuration. Note what already exists to reuse.
+   Framework mode on (session start says so): the requirements come from the service; skill `framework`, steps 1 to 3.
 3. Write the plan: context (why), the change (files, functions, data), what is out of scope, the checks that will prove it.
    Name exact paths, existing interfaces, inputs/outputs and independently verifiable slices.
    Resolve uncertainty by reading the repository; ask only for a missing decision that changes behavior.

@@ -7,7 +7,7 @@ status: stable
 scope: build-and-test
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15T14:00:00Z
+  at: 2026-11-15T18:00:00Z
 sources:
   - id: tasks
     resource: ../../deno.json
@@ -19,10 +19,12 @@ sources:
     title: The file enumeration shared with doc-links and repo-health
   - resource: ../../tools/dev/bun-app.ts
     title: "The Bun app runner that loads its env file with @std/dotenv"
-  - resource: ../../tools/efficiency/bundle
-    title: The guide bundle builder
-  - resource: ../../tools/factory-tests
-    title: The factory test runner
+  - resource: ../../tools/template-tests
+    title: The template test runner
+  - resource: ../../tools/knowledge/orphans
+    title: Docs nothing links to
+  - resource: ../../tools/knowledge/stale
+    title: Docs past their review date
   - resource: ../../tools/git-hooks/pre-commit
     title: The commit gate
   - resource: ../../.claude/hooks/after-edit.py
@@ -41,14 +43,14 @@ deno task test             # packages, apps and tools tests, sequentially
 deno task knowledge:check  # this bundle, AGENTS.md and CLAUDE.md
 deno task docs:links       # knowledge sources and Spec: pointers, both ways
 deno task repo:health      # size, comment and top-level-folder caps
-deno task factory:test     # the adapted factory checks
+deno task template:test    # the template suites (hooks, context, links, loops)
 deno task build            # the four production builds
 deno task verify           # build, then start the builds and check /healthz
 ```
 
 `check` runs: `fmt:check`, `lint`, `knowledge:check`, `docs:links`, `repo:health`, `types`
 (`deno check` on every package, Deno app and tool), `test`, `check:agentic`, `build`, `ssr:assert`,
-`factory:test`. It is the local gate; run it before every push. CI repeats the whole set on pull
+`template:test`. It is the local gate; run it before every push. CI repeats the whole set on pull
 requests and `main`.
 
 `apps/adyen-agentic-commerce` is a Bun project outside the Deno workspace (root `deno.json`
@@ -62,13 +64,6 @@ containing `$` and gave 401s. Its `bun test` preload sets fixed settings and a f
 Per app: `deno task --cwd apps/adyen-digital <dev|build|test|start>`; `start` serves the last build.
 The suites run sequentially: the SQLite native library downloads on first use, and parallel workers
 raced that download on the CI runner.
-
-## The analysis baseline
-
-`deno task arch:setup` installs the pinned Graphify 0.9.97 and Archify v3.2.0 into the ignored
-`.aeion/integrations/`. `deno task arch:refresh` builds and verifies the exact-HEAD graph and the
-three diagrams; a PASS receipt is `.aeion/analysis/<sha>/receipt.json`. CI runs the same refresh on
-`main` and pull requests. The working graph for `tools/architecture/ask` rebuilds on demand.
 
 Python 3.12+ (excluding 3.14.1) and Node 18+ are required for the checks and adapters; the apps
 themselves stay on Deno 2.9.4.

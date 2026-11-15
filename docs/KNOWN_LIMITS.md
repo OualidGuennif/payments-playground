@@ -12,15 +12,22 @@ your Adyen account is configured.
 
 ## Agentic Commerce
 
-Mock mode is a deterministic local simulation, and every step carries its own status. **No output is
-presented as a response from OpenAI, Copilot, Google or Adyen.**
+The store speaks UCP 2026-08-25 (REST and MCP) behind PAP 1.0 sign-in. No language model runs in the
+app: the agent is whatever MCP client the shopper points at it, and `scripts/pap-agent.ts` is a
+scripted one for local runs. **No output is presented as a response from OpenAI, Google or Adyen.**
 
-Adyen's public material describes agentic integrations as a pilot, and no publicly verifiable TEST
-contract was available to build against. Real mode therefore answers `501` and contacts no endpoint,
-rather than shipping a convincing fake.
+An agent payment is an ordinary Adyen Checkout TEST `/payments` call on the demo shopper's saved
+card (`ContAuth`, `UnscheduledCardOnFile`). It is not Adyen's own agentic tokenizer or UCP payment
+handler, which needs an account role this repository does not have; the handler id `saved_card` is
+the store's own, not an Adyen one.
 
-The human-confirmed payment is a standard Adyen Checkout TEST session. It is not an Agentic Commerce
-API call, and the UI does not claim otherwise.
+There is one demo shopper (`ogaccountnew`) and no shopper login. The consent page, the account and
+the Back Office are protected only by the playground's basic auth when it is set; without it, anyone
+who can reach the store, an agent included, can approve its own sign-in request.
+
+Adyen cannot reach `localhost`, so a local run never receives the `AUTHORISATION` webhook; an order
+is still placed from the synchronous `/payments` answer. On Render's free plan the SQLite file lives
+in the container and is lost on each deploy.
 
 ## In-person payments (IPP)
 

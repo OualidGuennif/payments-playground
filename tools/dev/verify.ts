@@ -22,7 +22,7 @@ const targets: Target[] = [
     name: "adyen-agentic-commerce",
     directory: "apps/adyen-agentic-commerce",
     port: 8103,
-    pages: ["/", "/back-office", "/history", "/settings", "/wiki"],
+    pages: ["/", "/shop", "/agents", "/account", "/back-office", "/legal"],
   },
   {
     name: "adyen-v6-styling",
@@ -76,9 +76,12 @@ async function verifyPages(target: Target): Promise<void> {
 
 try {
   for (const target of targets) {
+    const bun = target.directory === "apps/adyen-agentic-commerce";
     const child = new Deno.Command(Deno.execPath(), {
-      args: ["run", "-A", "../../tools/dev/start.ts"],
-      cwd: target.directory,
+      args: bun
+        ? ["run", "-A", "tools/dev/bun-app.ts", target.directory, "start"]
+        : ["run", "-A", "../../tools/dev/start.ts"],
+      cwd: bun ? "." : target.directory,
       env: {
         ...Deno.env.toObject(),
         PORT: String(target.port),

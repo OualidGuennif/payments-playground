@@ -7,7 +7,7 @@ status: stable
 scope: build-and-test
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-15T14:00:00Z
 sources:
   - id: tasks
     resource: ../../deno.json
@@ -17,6 +17,8 @@ sources:
     title: The runtime image and its build-time SSR assertion
   - resource: ../../.claude/hooks/project_files.py
     title: The file enumeration shared with doc-links and repo-health
+  - resource: ../../tools/dev/bun-app.ts
+    title: "The Bun app runner that loads its env file with @std/dotenv"
   - resource: ../../tools/efficiency/bundle
     title: The guide bundle builder
   - resource: ../../tools/factory-tests
@@ -44,10 +46,18 @@ deno task build            # the four production builds
 deno task verify           # build, then start the builds and check /healthz
 ```
 
-`check` runs: `fmt:check`, `lint`, `knowledge:check`, `types` (`deno check` on every package, app
-and tool), `test`, `build`, `ssr:assert`. It is the local gate; run it before every push. The
-factory checks (`docs:links`, `repo:health`, `factory:test`) run beside it. CI repeats the whole set
-on pull requests and `main`.
+`check` runs: `fmt:check`, `lint`, `knowledge:check`, `docs:links`, `repo:health`, `types`
+(`deno check` on every package, Deno app and tool), `test`, `check:agentic`, `build`, `ssr:assert`,
+`factory:test`. It is the local gate; run it before every push. CI repeats the whole set on pull
+requests and `main`.
+
+`apps/adyen-agentic-commerce` is a Bun project outside the Deno workspace (root `deno.json`
+`exclude`), so Deno's fmt, lint, types and tests skip it. `check:agentic` runs
+`bun install --frozen-lockfile`, `tsc --noEmit` and `bun test` there, and `build:agentic` runs
+`next build` under Bun; both need Bun on the path. `dev:agentic` starts it through
+`tools/dev/bun-app.ts`, which parses the app's env file with `@std/dotenv` like the Deno apps and
+marks it loaded for Next: Next's own loader expands `$name` inside values, which cut an Adyen key
+containing `$` and gave 401s. Its `bun test` preload sets fixed settings and a fake Adyen client.
 
 Per app: `deno task --cwd apps/adyen-digital <dev|build|test|start>`; `start` serves the last build.
 The suites run sequentially: the SQLite native library downloads on first use, and parallel workers

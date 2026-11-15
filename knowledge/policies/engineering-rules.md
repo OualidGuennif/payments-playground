@@ -7,7 +7,7 @@ status: deprecated
 superseded_by: engineering.md
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-11-15T13:00:00Z
 sources:
   - id: fmt-lint
     resource: ../../deno.json
@@ -20,6 +20,8 @@ sources:
 # Engineering rules
 
 > Superseded by [engineering](engineering.md); kept for the history of the project rules it merged.
+> The Deno conventions below no longer cover `apps/adyen-agentic-commerce`, which the root
+> `deno.json` excludes since 2026-11-15 (a Bun app checked by `check:agentic`).
 
 ## Before changing anything
 

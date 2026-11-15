@@ -8,9 +8,12 @@ const directories = [
 
 const children = directories.map((directory, index) => {
   const port = basePort + index;
+  const bun = directory === "apps/adyen-agentic-commerce";
   return new Deno.Command(Deno.execPath(), {
-    args: ["run", "-A", "../../tools/dev/start.ts"],
-    cwd: directory,
+    args: bun
+      ? ["run", "-A", "tools/dev/bun-app.ts", directory, "start"]
+      : ["run", "-A", "../../tools/dev/start.ts"],
+    cwd: bun ? "." : directory,
     env: {
       ...Deno.env.toObject(),
       PORT: String(port),

@@ -7,7 +7,7 @@ status: stable
 scope: component-landing
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-15
 sources:
   - id: app
     resource: ../../apps/landing
@@ -33,7 +33,9 @@ sources:
 The front door: one page that says what the four playgrounds are, labels two as Ready and two as in
 progress, and links to each one's own subdomain. It is deliberately not a fifth app. It is plain
 HTML and CSS with no build, no server and no runtime data, deployed as a Render static site. The
-playgrounds do not link back to it.
+playgrounds do not link back to it. It mirrors the README's application table only; the README's
+stack versions (Adyen Web 6.48.1 and `@adyen/api-library` 32.3.0 since 2026-11-15) do not appear on
+the page, so a version bump leaves it unchanged.
 
 ## Data sources
 

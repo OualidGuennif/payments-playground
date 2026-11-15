@@ -37,6 +37,13 @@ production or Adyen TEST call was made by the adoption itself.
 | `deno task verify`              | four apps: `/healthz` plus 18 rendered pages                                                                                                                         |
 | Render                          | root `render.yaml` and its five services unchanged; `main` `7b72543` is live, the four `/healthz` and the landing answer 200, and the logs show no permission errors |
 
+## Changed since
+
+- 2026-11-15: AGENTS.md and the root `deno.json` name Adyen Web 6.48.1 and `@adyen/api-library`
+  32.3.0. The root `deno.json` drops `apps/adyen-agentic-commerce` from the workspace (it is a Bun
+  app now) and adds `check:agentic` to `check`. The table above is the 2026-10-31 state and was not
+  re-run for these changes.
+
 ## Open
 
 - Owner opens one real browser flow against the live services.

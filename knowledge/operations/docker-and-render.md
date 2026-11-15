@@ -6,12 +6,15 @@ tags: [runbook, docker, render, deploy]
 status: stable
 scope: docker-and-render
 generated:
-  by: deepseek-v4.1-flash
-  at: 2026-10-31T19:05:00Z
+  by: claude-code/opus-5.5
+  at: 2026-11-15T15:00:00Z
 sources:
   - id: dockerfile
     resource: ../../apps/adyen-digital/Dockerfile
     title: Digital image
+  - id: agentic-dockerfile
+    resource: ../../apps/adyen-agentic-commerce/Dockerfile
+    title: "Agentic image: oven/bun build stage, Next standalone server"
   - id: entrypoint
     resource: ../../tools/docker/entrypoint.sh
     title: Root chown, then drop to the deno user
@@ -26,6 +29,8 @@ verified:
     check: "digital-checkout:6.46.0 built from a clean context holds no .env or .sqlite; run with the quoted local .env it reported a configured profile and listed 14 payment methods from TEST; with quoted Basic Auth credentials every page answered 401 without them and 200 with them."
   - at: 2026-10-31
     check: "All four images built; a root:root 644 volume became 1993:1993 and the digital, IPP and agentic apps answered /healthz as uid 1993; styling wrote its disk; Render measured /var/data root:1000 2775 and the SQLite files 644."
+  - at: 2026-11-15
+    check: "The Bun agentic image built (types and bun test inside the build stage); the container ran as uid 1993, wrote /app/data/agentic.sqlite, reported healthy, served six pages with 200 and held no env file."
 ---
 
 # Docker images and the Render deployment
@@ -52,6 +57,11 @@ disk) and `/app/data` to uid 1993, then `exec setpriv ...` drops to the image's 
 the app starts. A plain `USER deno` would fail because Render mounts `/var/data` as `root:1000` with
 `644` SQLite files.
 
+The agentic image is the exception to the Deno base: `oven/bun:1.4.4` builds the Next.js app (types,
+`bun test`, `next build`) and the runtime stage keeps only `.next/standalone`, its static files and
+the shared entrypoint, with a `deno` user created at uid 1993 so the same drop works. It runs
+`bun server.js` on `PORT` with `HOSTNAME=0.0.0.0`.
+
 ## Render
 
 `render.yaml` is one Blueprint: a static site for `apps/landing`, and the four Docker services
@@ -62,7 +72,9 @@ deploy. Render builds from this repository's Dockerfiles; no image is pushed to 
 Per service, set the Adyen TEST values as secret env vars (`sync: false`), let Render generate
 `PROFILE_ENCRYPTION_KEY` and `SESSION_SIGNING_SECRET`, and keep `PUBLIC_ORIGIN` equal to the public
 URL (it anchors the webhook URL and the CSRF fallback). Add that origin to the client key's allowed
-origins and point a TEST webhook at `${PUBLIC_ORIGIN}/webhook`.
+origins and point a TEST webhook at `${PUBLIC_ORIGIN}/webhook`. The agentic store needs no generated
+secret; it takes `ADYEN_HMAC_KEY` and the optional basic auth pair, and its webhook path is
+`${PUBLIC_ORIGIN}/api/webhooks/adyen`.
 
 After a push to `main`, confirm what is live with `GET /api/health`: it reports the Adyen Web,
 Checkout API and library versions.

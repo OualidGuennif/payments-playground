@@ -6,7 +6,7 @@ tags: [decision, dependencies, adyen-web, preact]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-11-15T13:00:00Z
 sources:
   - id: root
     resource: ../../deno.json
@@ -27,8 +27,11 @@ Adyen Web 6.46.0 also pins `preact` exactly (10.29.8), which pulled Fresh and `@
 it while the apps still pinned 10.29.2: two Preacts, broken hooks.
 
 **Decision.** `@adyen/adyen-web` and `preact` are pinned to one version, identical in the root
-`deno.json` and in all four app `deno.json` files. The `preact` pin follows whatever Adyen Web pins.
-The SDK version is also written in the UI footer, `/api/health` and the styling token audit.
+`deno.json` and in every Deno app's `deno.json`. The `preact` pin follows whatever Adyen Web pins.
+The SDK version is also written in the UI footer, `/api/health` and the styling token audit. The Bun
+app `apps/adyen-agentic-commerce` ([ADR-012](ADR-012-agentic-app-on-bun-and-next.md)) is outside the
+import map and uses React, not Preact; its `package.json` pins the same Adyen Web version (6.48.1 on
+2026-11-15), and a bump updates it too.
 
 **Consequences.** An Adyen Web bump touches every app, even when only one asked for it; follow
 [the upgrade runbook](../operations/adyen-web-upgrade.md). Adyen Web's own runtime Preact is

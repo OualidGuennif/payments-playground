@@ -26,3 +26,4 @@ Each ADR states its context, the decision and its consequences. Supersede an ADR
 | [ADR-009: No secrets in Docker images](ADR-009-no-secrets-in-images.md)                            | stable | 2026-10-09               |
 | [ADR-010: One theme attribute, two token sets](ADR-010-one-theme-attribute-and-token-sets.md)      | stable | 2026-10-10               |
 | [ADR-011: Adopt Æion Factory v1.7.0](ADR-011-adopt-aeion-factory.md)                               | stable | 2026-10-31               |
+| [ADR-012: The agentic app on Bun and Next.js](ADR-012-agentic-app-on-bun-and-next.md)              | stable | 2026-11-15               |

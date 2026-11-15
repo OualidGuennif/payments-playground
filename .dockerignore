@@ -11,6 +11,7 @@
 
 # Rebuilt inside the image.
 **/_fresh
+**/.next
 **/node_modules
 
 # Æion Factory local state and adopted reference material never enter an image.

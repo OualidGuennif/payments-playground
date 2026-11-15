@@ -6,7 +6,7 @@ tags: [decision, docker, secrets]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-11-15T15:00:00Z
 sources:
   - id: dockerignore
     resource: ../../.dockerignore
@@ -23,9 +23,10 @@ HMAC and client keys) and their SQLite orders into every image built locally, so
 would have published them. Render was never affected: it builds from git.
 
 **Decision.** `.dockerignore` excludes `**/.env`, `**/.env.local`, `**/data`, SQLite files,
-`_fresh`, `node_modules` and `.git`. Credentials reach a container through `--env-file` or the
-host's environment. Quotes that `docker run --env-file` keeps around `KEY="value"` are stripped at
-startup and written back to `Deno.env`.
+`_fresh`, `.next` (the agentic store's Next build, redone in the image), `node_modules` and `.git`.
+Credentials reach a container through `--env-file` or the host's environment. Quotes that
+`docker run --env-file` keeps around `KEY="value"` are stripped at startup and written back to
+`Deno.env`; the agentic store, which runs on Bun, strips them in its own configuration reader.
 
 **Consequences.** An image is safe to push as far as this repo's secrets go. A local `.env` in
 dotenv style works unchanged with `docker run --env-file`.

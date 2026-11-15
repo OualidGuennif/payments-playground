@@ -7,7 +7,7 @@ scope: component-platform
 tags: [component, platform, server]
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-15
 sources:
   - resource: ../../packages/platform
     title: "The package, its tests next to each module, and its migrations"
@@ -45,10 +45,14 @@ sources:
 
 ## Intent
 
-One server-side library for the four playgrounds: every Adyen TEST call, the SQLite record of what
-was asked and answered, the HTTP security middleware, webhook HMAC verification, and the pure
-functions that derive an order's state, its ledger and what may be done next. A module belongs here
-when a second app could plausibly want it.
+One server-side library for the three Deno playgrounds (digital, IPP, styling): every Adyen TEST
+call, the SQLite record of what was asked and answered, the HTTP security middleware, webhook HMAC
+verification, and the pure functions that derive an order's state, its ledger and what may be done
+next. A module belongs here when a second app could plausibly want it. The Bun app
+`adyen-agentic-commerce` does not import it
+([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)); the `agentic` app id and the
+agentic config fields remain here, unused, until a cleanup removes them. `base-api.ts` reports Adyen
+Web 6.48.1 and `@adyen/api-library` 32.3.0 in `/api/health`.
 
 Two boundaries are absolute.
 

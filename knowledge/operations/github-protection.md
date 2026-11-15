@@ -5,7 +5,7 @@ description: "Required pull requests and real CI checks on main, including admin
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-15
 sources:
   - resource: ../../.github/workflows/architecture-refresh.yml
     title: "The analysis check required on main"
@@ -32,6 +32,9 @@ sast-scan. The fresh `Review: OK` comment remains required by the delivery workf
 approving forge review. The solo-owner workflow uses zero required human approvals, rather than
 making the author approve their own PR. This distinction is explicit: CI/PR requirements are
 server-enforced; the comment verdict is a reviewed procedure.
+
+Since 2026-11-15 `deno task check` also runs `check:agentic` (the Bun agentic store), so a required
+CI job that runs `check` must install Bun before it; the required check names do not change.
 
 On 2026-10-25, main protection was applied and re-read for OualidGuennif's aeion-factory,
 aeion-spaceship, aeion-playground, aeion-croa, aeion-ops, aeion-observability and aeion-website.

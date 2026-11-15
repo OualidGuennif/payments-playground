@@ -1,30 +1,40 @@
-FROM denoland/deno:2.9.4
-
+# Spec: knowledge/operations/docker-and-render.md
+# Next.js on the Bun runtime. The build stage installs from bun.lock and builds the standalone
+# server; the runtime stage carries only that server, its traced modules and the static files.
+FROM oven/bun:1.4.4 AS build
 WORKDIR /app
-ENV PORT=8000
-ENV DATABASE_PATH=/app/data/agentic.sqlite
+COPY apps/adyen-agentic-commerce/package.json apps/adyen-agentic-commerce/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY apps/adyen-agentic-commerce ./
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN bun run typecheck && bun test && bun run build
 
-COPY deno.json deno.lock ./
-COPY packages ./packages
-COPY tools/dev ./tools/dev
-COPY tools/build ./tools/build
+FROM oven/bun:1.4.4
+WORKDIR /app
+# Next would re-expand `$name` inside the Adyen key if an env file ever reached the image; this
+# mark tells it the environment is already loaded. HOSTNAME makes the server listen beyond loopback.
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    __NEXT_PROCESSED_ENV=true \
+    HOSTNAME=0.0.0.0 \
+    PORT=8000 \
+    DATABASE_PATH=/app/data/agentic.sqlite
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
 COPY tools/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY apps ./apps
-
+# The shared entrypoint drops to uid 1993 (the Deno images' user), so this image creates it too.
 RUN chmod 0755 /usr/local/bin/entrypoint.sh \
+ && groupadd --gid 1993 deno \
+ && useradd --uid 1993 --gid 1993 --home-dir /home/deno --no-create-home --shell /usr/sbin/nologin deno \
  && install -d -o 1993 -g 1993 /app/data /home/deno
-RUN deno task build:agentic
-RUN deno run -A tools/build/assert-built-ssr.ts apps/adyen-agentic-commerce "Agentic Commerce"
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD deno eval "const p=Deno.env.get('PORT')??'8000';const r=await fetch('http://127.0.0.1:'+p+'/healthz');if(!r.ok)Deno.exit(1)"
+  CMD bun -e "fetch('http://127.0.0.1:'+(process.env.PORT??'8000')+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 
-# Render mounts /var/data as root:1000, so a plain USER deno cannot open the
-# SQLite files. The entrypoint starts as root only to chown the mount and
-# /app/data to uid 1993, then drops privileges before the app starts. The SAST
-# missing-user rules are waived because the runtime process is not root.
+# Render mounts /var/data as root:1000, so the entrypoint starts as root only to chown the mount
+# and /app/data to uid 1993, then drops privileges before the server starts.
 # nosemgrep: dockerfile.security.missing-user-entrypoint.missing-user-entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 # nosemgrep: dockerfile.security.missing-user.missing-user
-CMD ["deno", "task", "--cwd", "apps/adyen-agentic-commerce", "start"]
+CMD ["bun", "server.js"]

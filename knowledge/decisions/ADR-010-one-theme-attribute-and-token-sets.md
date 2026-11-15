@@ -6,7 +6,7 @@ tags: [decision, ui, theme, dark-mode]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T15:45:00Z
+  at: 2026-11-15T13:00:00Z
 sources:
   - id: theme
     resource: ../../packages/ui/theme.ts
@@ -25,9 +25,12 @@ sources:
 # ADR-010: Dark mode is one data-theme attribute over two token sets
 
 **Context.** The owner asked for a dark mode in digital and styling, switched by a sliding toggle
-that is easy to find on a phone (2026-10-09). Colours were partly hard-coded, digital, IPP and
-agentic share `AppShell`, styling's preview must keep showing the merchant's configured look, and
-Adyen's secured-field iframes take their colours only when they mount.
+that is easy to find on a phone (2026-10-09). Colours were partly hard-coded, digital and IPP share
+`AppShell` (agentic did until it moved to Bun on 2026-11-15, see below), styling's preview must keep
+showing the merchant's configured look, and Adyen's secured-field iframes take their colours only
+when they mount. The `AppShell` footer reads "Adyen Web 6.48.1" since 2026-11-15. The Bun agentic
+store has its own light and dark tokens in `src/app/globals.css`, switched by `prefers-color-scheme`
+only.
 
 **Decision.**
 

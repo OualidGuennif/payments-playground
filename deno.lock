@@ -44,28 +44,27 @@
     "jsr:@std/uuid@^1.0.9": "1.1.1",
     "jsr:@std/yaml@1": "1.2.0",
     "jsr:@std/yaml@1.2.0": "1.2.0",
-    "npm:@adyen/adyen-web@6.48.1": "6.48.1",
+    "npm:@adyen/adyen-web@6.48.1": "6.48.1_preact-render-to-string@6.7.0",
     "npm:@adyen/api-library@32.3.0": "32.3.0",
     "npm:@babel/core@^7.28.0": "7.29.7",
     "npm:@babel/preset-react@^7.27.1": "7.29.7_@babel+core@7.29.7",
     "npm:@opentelemetry/api@^1.9.0": "1.9.1",
-    "npm:@preact/signals@2.9.0": "2.9.0_preact@10.29.8",
-    "npm:@preact/signals@^2.5.1": "2.9.0_preact@10.29.8",
-    "npm:@prefresh/vite@^2.4.8": "2.4.12_preact@10.29.8_vite@7.1.4__@types+node@24.2.0__picomatch@4.0.5_@types+node@24.2.0",
+    "npm:@preact/signals@2.9.0": "2.9.0_preact@10.29.8_preact-render-to-string@6.7.0",
+    "npm:@preact/signals@^2.5.1": "2.9.0_preact@10.29.8_preact-render-to-string@6.7.0",
+    "npm:@prefresh/vite@^2.4.8": "2.4.12_preact@10.29.8_vite@7.1.4_@types+node@26.6.6_preact-render-to-string@6.7.0",
     "npm:@remix-run/node-fetch-server@0.12": "0.12.0",
     "npm:@types/babel__core@^7.20.5": "7.20.5",
-    "npm:@types/node@*": "24.2.0",
     "npm:esbuild-wasm@~0.25.11": "0.25.12",
     "npm:esbuild@0.25.12": "0.25.12",
     "npm:esbuild@0.25.7": "0.25.7",
     "npm:esbuild@~0.25.5": "0.25.12",
     "npm:preact-render-to-string@^6.6.3": "6.7.0_preact@10.29.8",
-    "npm:preact@10.29.8": "10.29.8",
-    "npm:preact@^10.28.2": "10.29.8",
-    "npm:preact@^10.29.1": "10.29.8",
+    "npm:preact@10.29.8": "10.29.8_preact-render-to-string@6.7.0",
+    "npm:preact@^10.28.2": "10.29.8_preact-render-to-string@6.7.0",
+    "npm:preact@^10.29.1": "10.29.8_preact-render-to-string@6.7.0",
     "npm:rollup@^4.55.1": "4.62.3",
-    "npm:vite@7.1.4": "7.1.4_@types+node@24.2.0_picomatch@4.0.5",
-    "npm:vite@^7.1.4": "7.1.4_@types+node@24.2.0_picomatch@4.0.5"
+    "npm:vite@7.1.4": "7.1.4_@types+node@26.6.6",
+    "npm:vite@^7.1.4": "7.1.4_@types+node@26.6.6"
   },
   "jsr": {
     "@db/sqlite@0.13.0": {
@@ -226,7 +225,7 @@
     }
   },
   "npm": {
-    "@adyen/adyen-web@6.48.1": {
+    "@adyen/adyen-web@6.48.1_preact-render-to-string@6.7.0": {
       "integrity": "sha512-rBkXV+4qBZcMlwcImcNqOW9OpvhLzB/s62z6j3oYnDhV4HZIywUJ12VvFW1BkyWSXghXKdaK2s2FbXmoZMed2Q==",
       "dependencies": [
         "@paypal/paypal-js",
@@ -726,7 +725,7 @@
     "@preact/signals-core@1.14.4": {
       "integrity": "sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA=="
     },
-    "@preact/signals@2.9.0_preact@10.29.8": {
+    "@preact/signals@2.9.0_preact@10.29.8_preact-render-to-string@6.7.0": {
       "integrity": "sha512-hYrY0KyUqkDgOl1qba/JGn6y81pXnurn21PMaxfcMwdncdZ3M/oVdmpTvEnsGjh48dIwDVc7bjWHqIsngSjYug==",
       "dependencies": [
         "@preact/signals-core",
@@ -736,7 +735,7 @@
     "@prefresh/babel-plugin@0.5.3": {
       "integrity": "sha512-57LX2SHs4BX2s1IwCjNzTE2OJeEepRCNf1VTEpbNcUyHfMO68eeOWGDIt4ob9aYlW6PEWZ1SuwNikuoIXANDtQ=="
     },
-    "@prefresh/core@1.5.10_preact@10.29.8": {
+    "@prefresh/core@1.5.10_preact@10.29.8_preact-render-to-string@6.7.0": {
       "integrity": "sha512-7yPTFbG56sutaFu8krp3B4a200KOFUvrtlllKWRuLjsYXo9UUucHOZRcer+gtgMkFTpv6ob8TGcTwA32bSwa1w==",
       "dependencies": [
         "preact"
@@ -745,7 +744,7 @@
     "@prefresh/utils@1.2.1": {
       "integrity": "sha512-vq/sIuN5nYfYzvyayXI4C2QkprfNaHUQ9ZX+3xLD8nL3rWyzpxOm1+K7RtMbhd+66QcaISViK7amjnheQ/4WZw=="
     },
-    "@prefresh/vite@2.4.12_preact@10.29.8_vite@7.1.4__@types+node@24.2.0__picomatch@4.0.5_@types+node@24.2.0": {
+    "@prefresh/vite@2.4.12_preact@10.29.8_vite@7.1.4_@types+node@26.6.6_preact-render-to-string@6.7.0": {
       "integrity": "sha512-FY1fzXpUjiuosznMV0YM7XAOPZjB5FIdWS0W24+XnlxYkt9hNAwwsiKYn+cuTEoMtD/ZVazS5QVssBr9YhpCQA==",
       "dependencies": [
         "@babel/core",
@@ -936,10 +935,10 @@
         "undici-types@5.26.5"
       ]
     },
-    "@types/node@24.2.0": {
-      "integrity": "sha512-3xyG3pMCq3oYCNg7/ZP+E1ooTaGB4cG8JWRsqqOYQdbWNY4zbaV0Ennrd7stjiJEFZCaybcIgpTjJWHRfBSIDw==",
+    "@types/node@26.6.6": {
+      "integrity": "sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==",
       "dependencies": [
-        "undici-types@7.10.0"
+        "undici-types@8.9.0"
       ]
     },
     "agent-base@6.0.2": {
@@ -1230,8 +1229,8 @@
     "picomatch@4.0.5": {
       "integrity": "sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A=="
     },
-    "postcss@8.5.24": {
-      "integrity": "sha512-8RyVklq0owXUTa4xlpzu4l9AaVKIdQvAcOHZWaMh98HgySsUtxRVf/chRe3dsSLqb6i40BzGRzEUddRaI+9TSw==",
+    "postcss@8.5.23": {
+      "integrity": "sha512-g50586zr4bZmwFiTlflMu8E0bDTb5I5gertgwAKmsdUlTQIhZtunzUlD1WSzwcVWPoAVpsrA6vlfCD7oXvRwgg==",
       "dependencies": [
         "nanoid",
         "picocolors",
@@ -1244,8 +1243,14 @@
         "preact"
       ]
     },
-    "preact@10.29.8": {
-      "integrity": "sha512-ej2aVZ+vZ8WO7tvlQWRM9N63A0KzF9q4mWJfDUHgYaIofWY9hu74QdnQrjoPMmZi2/nZ5gN0bJCQF49xQqx09Q=="
+    "preact@10.29.8_preact-render-to-string@6.7.0": {
+      "integrity": "sha512-ej2aVZ+vZ8WO7tvlQWRM9N63A0KzF9q4mWJfDUHgYaIofWY9hu74QdnQrjoPMmZi2/nZ5gN0bJCQF49xQqx09Q==",
+      "dependencies": [
+        "preact-render-to-string"
+      ],
+      "optionalPeers": [
+        "preact-render-to-string"
+      ]
     },
     "promise-polyfill@8.3.0": {
       "integrity": "sha512-H5oELycFml5yto/atYqmjyigJoAo3+OXwolYiH7OfQuYlAqhxNvTfiNMbV9hsC6Yp83yE5r2KTVmtrG6R9i6Pg=="
@@ -1302,8 +1307,8 @@
     "undici-types@5.26.5": {
       "integrity": "sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA=="
     },
-    "undici-types@7.10.0": {
-      "integrity": "sha512-t5Fy/nfn+14LuOc2KNYg75vZqClpAiqscVvMygNnlsHBFpSXdJaYtXMcdNLpl/Qvc3P2cB3s6lOV51nqsFq4ag=="
+    "undici-types@8.9.0": {
+      "integrity": "sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg=="
     },
     "update-browserslist-db@1.2.3_browserslist@4.28.7": {
       "integrity": "sha512-Js0m9cx+qOgDxo0eMiFGEueWztz+d4+M3rGlmKPT+T4IS/jP4ylw3Nwpu6cpTTP8R1MAC1kF4VbdLt3ARf209w==",
@@ -1314,10 +1319,10 @@
       ],
       "bin": true
     },
-    "vite@7.1.4_@types+node@24.2.0_picomatch@4.0.5": {
+    "vite@7.1.4_@types+node@26.6.6": {
       "integrity": "sha512-X5QFK4SGynAeeIt+A7ZWnApdUyHYm+pzv/8/A57LqSGcI88U6R6ipOs3uCesdc6yl7nl+zNO0t8LmqAdXcQihw==",
       "dependencies": [
-        "@types/node@24.2.0",
+        "@types/node@26.6.6",
         "esbuild@0.25.12",
         "fdir",
         "picomatch@4.0.5",
@@ -1329,7 +1334,7 @@
         "fsevents"
       ],
       "optionalPeers": [
-        "@types/node@24.2.0"
+        "@types/node@26.6.6"
       ],
       "bin": true
     },
@@ -1355,22 +1360,6 @@
       "npm:vite@7.1.4"
     ],
     "members": {
-      "apps/adyen-agentic-commerce": {
-        "dependencies": [
-          "jsr:@db/sqlite@0.13.0",
-          "jsr:@fresh/core@2.3.3",
-          "jsr:@fresh/plugin-vite@1.1.2",
-          "jsr:@hono/hono@4.12.31",
-          "jsr:@std/assert@1.0.19",
-          "jsr:@std/dotenv@0.225.7",
-          "jsr:@std/path@1.1.6",
-          "npm:@adyen/adyen-web@6.48.1",
-          "npm:@adyen/api-library@32.3.0",
-          "npm:@preact/signals@2.9.0",
-          "npm:preact@10.29.8",
-          "npm:vite@7.1.4"
-        ]
-      },
       "apps/adyen-digital": {
         "dependencies": [
           "jsr:@db/sqlite@0.13.0",

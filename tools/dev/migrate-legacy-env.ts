@@ -88,14 +88,10 @@ const apps: AppEnv[] = [
   },
   {
     directory: "apps/adyen-agentic-commerce",
-    values: [
-      ...common(8003, "agentic"),
-      ["AGENTIC_REAL_ENABLED", "false", "Keep false until the real TEST contract is verified"],
-      [
-        "ADYEN_AGENTIC_BEARER_TOKEN",
-        legacyValue("ADYEN_AGENTIC_BEARER_TOKEN", "AGENTIC_AGENT_BEARER_TOKEN"),
-      ],
-    ],
+    // The Bun store keeps no encrypted profile or signed cookie, so it needs only the common keys.
+    values: common(8003, "agentic").filter(([key]) =>
+      !["PROFILE_ENCRYPTION_KEY", "SESSION_SIGNING_SECRET"].includes(key)
+    ),
   },
   {
     directory: "apps/adyen-v6-styling",

@@ -5,7 +5,7 @@ description: "Adopt the factory repository and agent architecture while keeping 
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-15
 sources:
   - resource: ../../AGENTS.md
     title: "The merged project and agent rules"
@@ -52,3 +52,6 @@ Adopt the factory's phase 1–7 structure in this repository, merged with what a
   them.
 - The two legacy islands above 1,500 lines must be split before `repo-health` can pass.
 - The factory's upstream files are excluded from Deno fmt/lint so they stay diffable against v1.7.0.
+- Amended 2026-11-15: the agentic app left the Deno workspace for Bun
+  ([ADR-012](ADR-012-agentic-app-on-bun-and-next.md)); the root `deno.json` excludes it, and checks
+  now also need Bun 1.4+ for `check:agentic`. The factory layout and gates are unchanged.

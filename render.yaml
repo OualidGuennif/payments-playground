@@ -78,19 +78,17 @@ services:
     envVars:
       - key: PUBLIC_ORIGIN
         value: https://agentic.payments-playground.com
-      - key: AGENTIC_REAL_ENABLED
-        value: "false"
-      - key: PROFILE_ENCRYPTION_KEY
-        generateValue: true
-      - key: SESSION_SIGNING_SECRET
-        generateValue: true
       - key: ADYEN_API_KEY
         sync: false
       - key: ADYEN_MERCHANT_ACCOUNT
         sync: false
       - key: ADYEN_CLIENT_KEY
         sync: false
-      - key: ADYEN_AGENTIC_BEARER_TOKEN
+      - key: ADYEN_HMAC_KEY
+        sync: false
+      - key: PLAYGROUND_BASIC_AUTH_USER
+        sync: false
+      - key: PLAYGROUND_BASIC_AUTH_PASSWORD
         sync: false
 
   - type: web

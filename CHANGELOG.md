@@ -5,6 +5,14 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Rebuild `apps/adyen-agentic-commerce` as one Next.js 16 app on the Bun runtime (Elysia in the
+  route handlers, Eden client, `bun:sqlite`): the Atelier Velune demo store over UCP 2026-08-25
+  (REST and MCP) behind PAP 1.0 sign-in, a human Drop-in checkout, a zero-value card save and agent
+  payments on the saved card (ContAuth), all on Adyen TEST; 107 `bun test` cases cover the PAP
+  merchant MUSTs, OAuth, UCP idempotency and the payment state machine; a checkout or a Drop-in
+  session completed twice at once now pays and orders once; an expired delegation ends the session.
+  Its Docker image builds on `oven/bun` with Next's standalone server, and `dev:all`, `start:all`,
+  `verify` and the env migration run it through `tools/dev/bun-app.ts`.
 - Move every app to Adyen Web 6.48.1 and `@adyen/api-library` 32.3.0 with a minimal lockfile change
   (Preact stays 10.29.8, `adyen.css` tokens unchanged); assert the JSON body type in the transport
   test now that the library's transport also accepts a Buffer.

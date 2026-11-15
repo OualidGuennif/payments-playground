@@ -21,7 +21,7 @@ a reference integration.
 | `adyen-v6-styling`        | **Drop-in Styling** · theming options and CSS overrides               | **Ready**                  |     8004 |
 | `adyen-digital`           | **Digital Checkout** · Sessions, Advanced, Pay by Link, MIT, API only | **Ready**                  |     8001 |
 | `adyen-ipp-endless-aisle` | **Endless Aisle** · in-person cart and Terminal API Cloud Device      | In progress · est. Q4 2026 |     8002 |
-| `adyen-agentic-commerce`  | **Agentic Commerce** · mock and real paths kept distinct              | In progress · est. Q1 2027 |     8003 |
+| `adyen-agentic-commerce`  | **Agentic Commerce** · a store AI agents shop (UCP, PAP), TEST pay    | In progress · est. Q1 2027 |     8003 |
 
 Dates are estimates for the end of the quarter, not commitments.
 
@@ -146,7 +146,7 @@ entirely at your own risk. See [SECURITY.md](./docs/SECURITY.md) and
   seven-phase adoption method and the agent commands
 - [Security and threat model](./docs/SECURITY.md)
 - [Known limits and simulated features](./docs/KNOWN_LIMITS.md)
-- Built-in wikis at `/wiki` in Digital, IPP and Agentic
+- Built-in wikis at `/wiki` in Digital and IPP; the agentic store explains itself at `/agents`
 
 Reference material: [Fresh](https://jsr.io/@fresh/core/doc),
 [Hono](https://jsr.io/@hono/hono/versions),

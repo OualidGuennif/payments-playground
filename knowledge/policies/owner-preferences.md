@@ -4,8 +4,8 @@ title: "The owner's preferences"
 description: "Durable project preferences: Render at the root, TEST only, the factory scope, the toolchain and the pi worker model."
 status: stable
 generated:
-  by: aeion-adoption/1.0
-  at: 2026-10-31T19:05:00Z
+  by: claude-code/opus-5.5
+  at: 2026-11-15T15:00:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "Project rules and owner"
@@ -35,6 +35,10 @@ What the owner asked for that a reviewer should not have to ask again.
   maintained procedures live in `.claude/skills`.
 - At most nine top-level folders, named by role; `tools/` is the one home for scripts and checks.
 - TEST only; never add a LIVE path. Adyen Web 6.48.1 and Checkout API v72 stay pinned.
+- The agentic store is Bun inside Next.js, not beside it: one Next.js app on the Bun runtime with
+  Elysia in its route handlers and Eden in the browser (2026-11-15,
+  [ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)). Its Render service keeps its name
+  and place in the root Blueprint; only its env list changed.
 - Existing public docs (`README.md`, `docs/SECURITY.md`, `docs/KNOWN_LIMITS.md`) win over factory
   defaults where they differ; record the divergence here.
 

@@ -7,7 +7,7 @@ status: stable
 scope: system-overview
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-11-15T13:00:00Z
 sources:
   - id: architecture-doc
     resource: git-history:docs/ARCHITECTURE.md
@@ -22,16 +22,18 @@ sources:
 
 # System overview
 
-Four Adyen TEST playgrounds in one Deno workspace. They share a server library, a UI library and a
-build pipeline, and each one deploys on its own. None of them is meant for production; see the
-[README disclaimer](../../README.md#disclaimer).
+Four Adyen TEST playgrounds. Three are members of one Deno workspace and share a server library, a
+UI library and a build pipeline; `adyen-agentic-commerce` is a Bun app (Next.js 16, Elysia, Eden)
+outside the workspace, excluded by the root `deno.json` and checked by `deno task check:agentic`
+([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)). Each one deploys on its own. None
+of them is meant for production; see the [README disclaimer](../../README.md#disclaimer).
 
 ```
 payments-playground/
 ├── apps/
 │   ├── adyen-digital/           online checkout: Sessions, Advanced, API only, MIT, Pay by Link
 │   ├── adyen-ipp-endless-aisle/ in-person payments against a Cloud terminal
-│   ├── adyen-agentic-commerce/  agent-initiated purchases, mock and real paths kept apart
+│   ├── adyen-agentic-commerce/  Bun app: a store agents shop over UCP and PAP (own package.json)
 │   ├── adyen-v6-styling/        Drop-in theming workbench (no orders, no Back Office)
 │   └── landing/                 static front door linking to the four (no build, no server)
 ├── packages/
@@ -90,7 +92,7 @@ accepts a different set of fields, so request bodies are built per endpoint; the
 | ------- | ---------------------------- | ------------------------------------------------------- |
 | digital | 8001                         | `deno task dev` inside the app uses Vite's default 5173 |
 | ipp     | 8002                         |                                                         |
-| agentic | 8003                         |                                                         |
+| agentic | 8003                         | Next on Bun via `tools/dev/bun-app.ts`, reads `PORT`    |
 | styling | 8004                         |                                                         |
 
 ## Adding a fifth playground

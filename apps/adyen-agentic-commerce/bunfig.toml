@@ -1,0 +1,3 @@
+[test]
+# Fixed test settings and a fake Adyen client: tests never read the app's env file values or call Adyen.
+preload = ["./src/server/testing/preload.ts"]

@@ -25,6 +25,11 @@ _fresh/
 dist/
 .vite/
 
+# Next.js on Bun (apps/adyen-agentic-commerce): build output and generated type stubs
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
 # SQLite runtime data (per-app TEST databases, regenerated on first run)
 *.sqlite
 *.sqlite-shm

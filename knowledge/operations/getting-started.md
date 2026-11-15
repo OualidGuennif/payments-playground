@@ -5,7 +5,7 @@ description: "First-run setup, new and existing projects, managed launch command
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-15
 sources:
   - resource: ../../README.md
     title: "Project setup and deployment"
@@ -30,7 +30,8 @@ described in [the overview](../../README.md#optional-tools).
 Git and **Python 3.12+** for the checks and hooks. Shell tools support macOS, Linux and WSL. The
 recommended architecture baseline also needs **Node 18+** and **Chrome/Chromium** (Python 3.14.1
 excluded for its pins); it is installed only when you say yes. Install `gh` for the GitHub PR
-workflow and your chosen agent separately:
+workflow and your chosen agent separately. The playgrounds run on Deno 2.9.4; the agentic store
+(`apps/adyen-agentic-commerce`) also needs **Bun 1.4+**, which `deno task check` calls:
 
 - [Claude Code](https://code.claude.com/docs/en/setup)
 - [Codex](https://learn.chatgpt.com/docs/cli)

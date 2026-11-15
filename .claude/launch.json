@@ -12,6 +12,12 @@
       "runtimeExecutable": "deno",
       "runtimeArgs": ["task", "--cwd", "apps/adyen-v6-styling", "dev", "--port", "8004"],
       "port": 8004
+    },
+    {
+      "name": "adyen-agentic",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": ["task", "dev:agentic"],
+      "port": 8003
     }
   ]
 }

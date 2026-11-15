@@ -2,10 +2,10 @@
   "workspace": [
     "apps/adyen-digital",
     "apps/adyen-ipp-endless-aisle",
-    "apps/adyen-agentic-commerce",
     "apps/adyen-v6-styling"
   ],
   "nodeModulesDir": "auto",
+  "exclude": ["apps/adyen-agentic-commerce"],
   "imports": {
     "@suite/platform/": "./packages/platform/",
     "@suite/ui/": "./packages/ui/",
@@ -49,13 +49,13 @@
     "dev:all": "deno run -A tools/dev/dev-all.ts",
     "dev:digital": "deno task --cwd apps/adyen-digital dev --port 8001",
     "dev:ipp": "deno task --cwd apps/adyen-ipp-endless-aisle dev --port 8002",
-    "dev:agentic": "deno task --cwd apps/adyen-agentic-commerce dev --port 8003",
+    "dev:agentic": "deno run -A tools/dev/bun-app.ts apps/adyen-agentic-commerce dev",
     "dev:styling": "deno task --cwd apps/adyen-v6-styling dev --port 8004",
     "env:migrate": "deno run -A tools/dev/migrate-legacy-env.ts",
     "start:all": "deno run -A tools/dev/start-all.ts",
     "build:digital": "deno task --cwd apps/adyen-digital build",
     "build:ipp": "deno task --cwd apps/adyen-ipp-endless-aisle build",
-    "build:agentic": "deno task --cwd apps/adyen-agentic-commerce build",
+    "build:agentic": "cd apps/adyen-agentic-commerce && bun install --frozen-lockfile && bun run build",
     "build:styling": "deno task --cwd apps/adyen-v6-styling build",
     "build": "deno task build:digital && deno task build:ipp && deno task build:agentic && deno task build:styling",
     "test": "deno test -A packages apps tools/knowledge",
@@ -70,8 +70,9 @@
     "arch:refresh": "tools/architecture/refresh --target HEAD",
     "arch:ask": "tools/architecture/ask",
     "types": "deno check packages/**/*.ts packages/**/*.tsx apps/**/*.ts apps/**/*.tsx tools/dev/**/*.ts tools/build/**/*.ts tools/knowledge/**/*.ts",
-    "ssr:assert": "deno run -A tools/build/assert-built-ssr.ts apps/adyen-digital \"Digital Checkout\" && deno run -A tools/build/assert-built-ssr.ts apps/adyen-ipp-endless-aisle \"Endless Aisle\" && deno run -A tools/build/assert-built-ssr.ts apps/adyen-agentic-commerce \"Agentic Commerce\" && deno run -A tools/build/assert-built-ssr.ts apps/adyen-v6-styling \"Drop-in Styling\"",
-    "check": "deno task fmt:check && deno task lint && deno task knowledge:check && deno task docs:links && deno task repo:health && deno task types && deno task test && deno task build && deno task ssr:assert && deno task factory:test",
+    "ssr:assert": "deno run -A tools/build/assert-built-ssr.ts apps/adyen-digital \"Digital Checkout\" && deno run -A tools/build/assert-built-ssr.ts apps/adyen-ipp-endless-aisle \"Endless Aisle\" && deno run -A tools/build/assert-built-ssr.ts apps/adyen-v6-styling \"Drop-in Styling\"",
+    "check:agentic": "cd apps/adyen-agentic-commerce && bun install --frozen-lockfile && bun run typecheck && bun test",
+    "check": "deno task fmt:check && deno task lint && deno task knowledge:check && deno task docs:links && deno task repo:health && deno task types && deno task test && deno task check:agentic && deno task build && deno task ssr:assert && deno task factory:test",
     "verify": "deno task build && deno run -A tools/dev/verify.ts"
   },
   "fmt": {

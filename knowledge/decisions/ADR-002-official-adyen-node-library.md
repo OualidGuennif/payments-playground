@@ -6,7 +6,7 @@ tags: [decision, adyen, server]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-11-15T13:00:00Z
 sources:
   - id: client
     resource: ../../packages/platform/adyen.ts
@@ -30,4 +30,6 @@ method and body stay explicit per call.
 
 **Consequences.** Library quirks apply: a query string written into the endpoint is dropped (only
 `url.pathname` is used), so query parameters go through `params`. Tests replace the transport to
-inspect each request without network.
+inspect each request without network. Since 32.3.0 the transport body type is `string | Buffer`;
+this wrapper always sends JSON text, and the tests assert it. The Bun app `adyen-agentic-commerce`
+uses the same library through its typed `CheckoutAPI` services, which need no workaround on Bun.

@@ -5,7 +5,7 @@ description: "Steps that read top to bottom, comments that say why, no needless 
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-10-31
+  at: 2026-11-15
 sources:
   - id: guide
     resource: ../../efficiency/1-quarks.md
@@ -54,7 +54,9 @@ story goes in the commit message.
 `repo-health` applies source-size/comment heuristics to its documented suffix set and to
 extensionless files that start with a shebang (`#!`), excluding `test_*` files. Its JSON scorecard
 reports that set and how many files were checked. This is a structural scorecard; each project's
-build, linter and tests provide language-specific validation.
+build, linter and tests provide language-specific validation. Here that is Deno's fmt, lint, types
+and tests for the workspace, and, for the Bun app the root `deno.json` excludes
+(`apps/adyen-agentic-commerce`), `tsc --noEmit` and `bun test` through `deno task check:agentic`.
 
 ## Branch, review, release
 

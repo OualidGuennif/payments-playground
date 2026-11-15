@@ -1,11 +1,12 @@
-interface Target {
-  name: string;
-  directory: string;
-  port: number;
-  pages: string[];
-}
+// Spec: knowledge/operations/build-and-test.md
+// Starts every built playground from its standalone output, on its own temporary database, and
+// checks /healthz and that each listed page renders as a TEST page.
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pageFailures, type Standalone, startStandalone } from "../build/standalone.ts";
 
-const targets: Target[] = [
+const targets = [
   {
     name: "adyen-digital",
     directory: "apps/adyen-digital",
@@ -26,83 +27,26 @@ const targets: Target[] = [
   },
 ];
 
-const temporaryData = await Deno.makeTempDir({ prefix: "adyen-suite-verify-" });
-const children: Deno.ChildProcess[] = [];
-
-async function waitForHealth(target: Target): Promise<void> {
-  const url = `http://127.0.0.1:${target.port}/healthz`;
-  let lastError = "server did not answer";
-  for (let attempt = 0; attempt < 60; attempt++) {
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(1_000) });
-      const body = await response.json();
-      if (response.ok && body.status === "ok") return;
-      lastError = `${response.status} ${JSON.stringify(body)}`;
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error(`${target.name} health check failed: ${lastError}`);
-}
-
-async function verifyPages(target: Target): Promise<void> {
-  for (const path of target.pages) {
-    const response = await fetch(`http://127.0.0.1:${target.port}${path}`, {
-      headers: { Accept: "text/html" },
-    });
-    const html = await response.text();
-    if (!response.ok) {
-      throw new Error(`${target.name}${path} returned ${response.status}.`);
-    }
-    if (!html.includes("TEST") || !html.includes("<main")) {
-      throw new Error(
-        `${target.name}${path} is missing the TEST marker or main landmark: ${
-          JSON.stringify(html.slice(0, 240))
-        }`,
-      );
-    }
-    if (html.includes("Internal Server Error")) {
-      throw new Error(`${target.name}${path} rendered an internal error.`);
-    }
-  }
-}
+const temporaryData = mkdtempSync(join(tmpdir(), "adyen-suite-verify-"));
+const servers: Standalone[] = [];
 
 try {
-  for (const target of targets) {
-    const bun = target.directory === "apps/adyen-agentic-commerce";
-    const child = new Deno.Command(Deno.execPath(), {
-      args: bun
-        ? ["run", "-A", "tools/dev/bun-app.ts", target.directory, "start"]
-        : ["run", "-A", "../../tools/dev/start.ts"],
-      cwd: bun ? "." : target.directory,
-      env: {
-        ...Deno.env.toObject(),
-        PORT: String(target.port),
+  servers.push(
+    ...await Promise.all(targets.map((target) =>
+      startStandalone(target.directory, target.port, {
         PUBLIC_ORIGIN: `http://127.0.0.1:${target.port}`,
-        DATABASE_PATH: `${temporaryData}/${target.name}.sqlite`,
-      },
-      stdout: "inherit",
-      stderr: "inherit",
-    }).spawn();
-    children.push(child);
-  }
-
-  await Promise.all(targets.map(waitForHealth));
-  await Promise.all(targets.map(verifyPages));
-  for (const target of targets) {
-    console.log(
-      `✓ ${target.name}: /healthz + ${target.pages.length} rendered page(s)`,
-    );
+        DATABASE_PATH: join(temporaryData, `${target.name}.sqlite`),
+      })
+    )),
+  );
+  for (const [index, target] of targets.entries()) {
+    for (const path of target.pages) {
+      const failures = await pageFailures(`${servers[index].origin}${path}`);
+      if (failures.length > 0) throw new Error(`${target.name}${path}: ${failures.join("; ")}`);
+    }
+    console.log(`✓ ${target.name}: /healthz + ${target.pages.length} rendered page(s)`);
   }
 } finally {
-  for (const child of children) {
-    try {
-      child.kill("SIGTERM");
-    } catch {
-      // The server may already have exited.
-    }
-  }
-  await Promise.allSettled(children.map((child) => child.status));
-  await Deno.remove(temporaryData, { recursive: true });
+  await Promise.allSettled(servers.map((server) => server.stop()));
+  rmSync(temporaryData, { recursive: true, force: true });
 }

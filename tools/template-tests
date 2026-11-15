@@ -12,7 +12,7 @@ run() {
 
 run python3 tools/knowledge/tests/test_doc_links.py
 # The knowledge checker is the project's own TypeScript one (more rules than the template's).
-run deno test -A tools/knowledge/knowledge-check.test.ts
+run bun test tools/knowledge/knowledge-check.test.ts
 run python3 tools/knowledge/tests/test_stale.py
 run python3 tools/knowledge/tests/test_orphans.py
 run python3 .claude/hooks/test_hooks.py

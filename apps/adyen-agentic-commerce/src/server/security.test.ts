@@ -6,6 +6,7 @@ import { hmacValidator } from "@adyen/api-library";
 import { handle } from "./api";
 import * as commerce from "./commerce";
 import { ConfigError, readConfig } from "./config";
+import { basicAuthAllows } from "../proxy";
 import { list } from "./db";
 import { rateLimited } from "./protocol";
 import { recentTrace, redact } from "./trace";
@@ -178,5 +179,26 @@ describe("rate limit", () => {
     const key = `rate-${crypto.randomUUID()}`;
     for (let i = 0; i < 240; i += 1) expect(rateLimited(key)).toBeUndefined();
     expect(rateLimited(key)).toBeGreaterThan(0);
+  });
+});
+
+describe("shopper pages basic auth", () => {
+  const header = (pair: string) => `Basic ${btoa(pair)}`;
+  const quoted = { PLAYGROUND_BASIC_AUTH_USER: '"shopper"', PLAYGROUND_BASIC_AUTH_PASSWORD: "'s3cret'" };
+
+  test("quotes kept by docker --env-file are stripped before comparing", () => {
+    expect(basicAuthAllows(header("shopper:s3cret"), quoted)).toBe(true);
+    expect(basicAuthAllows(header(`"shopper":'s3cret'`), quoted)).toBe(false);
+  });
+
+  test("a wrong, missing or malformed header is refused when a pair is set", () => {
+    expect(basicAuthAllows(header("shopper:wrong"), quoted)).toBe(false);
+    expect(basicAuthAllows(null, quoted)).toBe(false);
+    expect(basicAuthAllows("Basic %%%", quoted)).toBe(false);
+  });
+
+  test("without a configured pair the pages stay open", () => {
+    expect(basicAuthAllows(null, {})).toBe(true);
+    expect(basicAuthAllows(null, { PLAYGROUND_BASIC_AUTH_USER: "shopper" })).toBe(true);
   });
 });

@@ -2,13 +2,17 @@
  * Offline validator for the knowledge/ bundle (Open Knowledge Format v0.2) and
  * the root agent instructions. No network, no credentials.
  *
- *   deno task knowledge:check
- *   deno run --allow-read tools/knowledge/knowledge-check.ts --root <dir>   (tests)
+ *   bun run knowledge:check
+ *   bun tools/knowledge/knowledge-check.ts --root <dir>   (tests)
  *
  * Exit 0 when every required check passes (warnings may print), 1 otherwise.
  */
-import { parse as parseYaml } from "@std/yaml";
-import { dirname, join, relative, resolve } from "@std/path";
+import { lstatSync, readdirSync, readFileSync, readlinkSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+
+// Bun.YAML keeps dates as strings; every date field below goes through `new Date(String(...))`.
+const parseYaml = (text: string): unknown => Bun.YAML.parse(text);
+const readText = (path: string): string => readFileSync(path, "utf8");
 
 const VALID_STATUS = new Set(["draft", "stable", "deprecated"]);
 // Concepts that make factual or normative claims must say where they come from.
@@ -64,17 +68,17 @@ function splitFrontmatter(text: string): { meta?: Record<string, unknown>; body:
 
 function walk(dir: string): string[] {
   const files: string[] = [];
-  for (const entry of Deno.readDirSync(dir)) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
-    if (entry.isDirectory) files.push(...walk(path));
-    else if (entry.isFile && entry.name.endsWith(".md")) files.push(path);
+    if (entry.isDirectory()) files.push(...walk(path));
+    else if (entry.isFile() && entry.name.endsWith(".md")) files.push(path);
   }
   return files.sort();
 }
 
 function exists(path: string): boolean {
   try {
-    Deno.statSync(path);
+    statSync(path);
     return true;
   } catch {
     return false;
@@ -105,7 +109,7 @@ function checkAgentsFiles(root: string, report: Report) {
     report.errors.push("AGENTS.md is missing");
     return;
   }
-  const text = Deno.readTextFileSync(agents);
+  const text = readText(agents);
   const lines = text.split("\n").length;
   if (lines > AGENTS_MAX_LINES) {
     report.errors.push(`AGENTS.md has ${lines} lines (max ${AGENTS_MAX_LINES})`);
@@ -116,18 +120,18 @@ function checkAgentsFiles(root: string, report: Report) {
   checkLinks(agents, text, root, report);
 
   const claude = join(root, "CLAUDE.md");
-  let info: Deno.FileInfo;
+  let info: ReturnType<typeof lstatSync>;
   try {
-    info = Deno.lstatSync(claude);
+    info = lstatSync(claude);
   } catch {
     report.errors.push("CLAUDE.md is missing (symlink it to AGENTS.md)");
     return;
   }
-  if (info.isSymlink) {
-    if (resolve(root, Deno.readLinkSync(claude)) !== resolve(agents)) {
+  if (info.isSymbolicLink()) {
+    if (resolve(root, readlinkSync(claude)) !== resolve(agents)) {
       report.errors.push("CLAUDE.md is a symlink but not to AGENTS.md");
     }
-  } else if (Deno.readTextFileSync(claude).trim() !== "@AGENTS.md") {
+  } else if (readText(claude).trim() !== "@AGENTS.md") {
     report.errors.push("CLAUDE.md must be a symlink to AGENTS.md or the line @AGENTS.md");
   }
 }
@@ -135,7 +139,7 @@ function checkAgentsFiles(root: string, report: Report) {
 function readConcept(path: string, root: string, report: Report): Concept | undefined {
   let split: ReturnType<typeof splitFrontmatter>;
   try {
-    split = splitFrontmatter(Deno.readTextFileSync(path));
+    split = splitFrontmatter(readText(path));
   } catch (error) {
     report.errors.push(`${relative(root, path)}: invalid YAML frontmatter (${error})`);
     return undefined;
@@ -225,7 +229,7 @@ function checkConcept(concept: Concept, root: string, report: Report, now: Date)
 function checkIndexes(files: string[], concepts: Concept[], root: string, report: Report) {
   for (const index of files.filter((file) => file.endsWith("/index.md"))) {
     const dir = dirname(index);
-    const text = Deno.readTextFileSync(index);
+    const text = readText(index);
     checkLinks(index, text, root, report);
     const linked = new Set(internalLinks(text).map((target) => resolve(dir, target)));
     for (const concept of concepts) {
@@ -242,7 +246,7 @@ function checkIndexes(files: string[], concepts: Concept[], root: string, report
 function checkWork(root: string, report: Report) {
   const path = join(root, "work/current.md");
   if (!exists(path)) return;
-  const text = Deno.readTextFileSync(path);
+  const text = readText(path);
   if (text.split("\n").length - 1 > WORK_MAX_LINES) {
     report.errors.push(`work/current.md: over ${WORK_MAX_LINES} lines; delete finished tasks`);
   }
@@ -267,7 +271,7 @@ export function checkKnowledge(root: string, now = new Date()): Report {
     report.errors.push("knowledge/index.md is missing");
     return report;
   }
-  const rootIndex = splitFrontmatter(Deno.readTextFileSync(join(bundle, "index.md")));
+  const rootIndex = splitFrontmatter(readText(join(bundle, "index.md")));
   if (String(rootIndex.meta?.okf_version ?? "") !== "0.2") {
     report.errors.push('knowledge/index.md must declare okf_version: "0.2"');
   }
@@ -292,15 +296,16 @@ export function checkKnowledge(root: string, now = new Date()): Report {
   }
   for (const file of ["README.md"]) {
     const path = join(root, file);
-    if (exists(path)) checkLinks(path, Deno.readTextFileSync(path), root, report);
+    if (exists(path)) checkLinks(path, readText(path), root, report);
   }
   return report;
 }
 
 if (import.meta.main) {
-  const rootFlag = Deno.args.indexOf("--root");
+  const args = process.argv.slice(2);
+  const rootFlag = args.indexOf("--root");
   const root = rootFlag >= 0
-    ? resolve(Deno.args[rootFlag + 1])
+    ? resolve(args[rootFlag + 1])
     : resolve(dirname(new URL(import.meta.url).pathname), "../..");
   const { errors, warnings } = checkKnowledge(root);
   for (const warning of warnings) console.warn(`WARN ${warning}`);
@@ -308,5 +313,5 @@ if (import.meta.main) {
   console.log(
     errors.length ? `knowledge-check: ${errors.length} failure(s)` : "knowledge-check: ok",
   );
-  Deno.exit(errors.length ? 1 : 0);
+  process.exit(errors.length ? 1 : 0);
 }

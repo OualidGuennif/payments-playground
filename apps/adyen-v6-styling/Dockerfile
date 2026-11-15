@@ -1,7 +1,8 @@
 # Spec: knowledge/operations/docker-and-render.md
 # Next.js on the Bun runtime, built inside the Bun workspace. The build stage installs from the root
-# bun.lock and builds the standalone server; the runtime stage carries only that server, its traced
-# modules (the shared packages included) and the static files.
+# bun.lock, builds the standalone server and boots it once to check the home page renders; the
+# runtime stage carries only that server, its traced modules (the shared packages included) and the
+# static files.
 FROM oven/bun:1.4.4 AS build
 WORKDIR /app
 COPY package.json bun.lock bunfig.toml tsconfig.json ./
@@ -12,9 +13,12 @@ COPY apps/adyen-v6-styling/package.json apps/adyen-v6-styling/
 COPY apps/adyen-agentic-commerce/package.json apps/adyen-agentic-commerce/
 RUN bun install --frozen-lockfile
 COPY packages ./packages
+COPY testing ./testing
+COPY tools/build ./tools/build
 COPY apps/adyen-v6-styling ./apps/adyen-v6-styling
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN bun run --cwd apps/adyen-v6-styling typecheck && bun run --cwd apps/adyen-v6-styling build
+RUN bun tools/build/assert-built-ssr.ts apps/adyen-v6-styling "Drop-in Styling"
 
 FROM oven/bun:1.4.4
 WORKDIR /app

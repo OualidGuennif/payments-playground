@@ -11,19 +11,18 @@ your panel settings in `localStorage`.
 
 ```bash
 cp .env.example .env      # then fill in the three Adyen values below
-deno task dev             # http://localhost:8000
+cd ../.. && bun run dev:styling   # http://localhost:8004
 ```
 
-From the repository root, `deno task dev:styling` runs it on port 8004 alongside the other three
-playgrounds.
+From the repository root, `bun run dev:all` runs it alongside the other two playgrounds.
 
-| Task              | What it does                                                     |
-| ----------------- | ---------------------------------------------------------------- |
-| `deno task dev`   | Development server with hot reload.                              |
-| `deno task build` | Production build.                                                |
-| `deno task start` | Serve a build.                                                   |
-| `deno task test`  | Tests, including the CSS token audit (needs network, see below). |
-| `deno task check` | Format, lint and type-check.                                     |
+| In this folder      | What it does                                                     |
+| ------------------- | ---------------------------------------------------------------- |
+| `bun run dev`       | Development server with hot reload.                              |
+| `bun run build`     | Production build (standalone).                                   |
+| `bun run start`     | Serve a build.                                                   |
+| `bun run test`      | Tests, including the CSS token audit (needs network, see below). |
+| `bun run typecheck` | Type-check.                                                      |
 
 ## Environment variables
 

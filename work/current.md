@@ -5,16 +5,16 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Every playground on Bun + Next.js + Elysia + Eden — ACTIVE
+## Every playground on Bun + Next.js + Elysia + Eden — WAITING-OWNER
 
 - Owner decision: 2026-11-15, drop Deno and Fresh everywhere, port every app like the agentic store,
   remove IPP, follow Æion Template v4.0.3 without Graphify/Archify, framework mode off.
-- State: agentic store done; template v4.0.3 applied; IPP removed; packages and styling committed
-  on Bun/Next; digital ported and browser-verified, not committed yet; tooling still on Deno.
-- Next: commit digital, then tooling, Docker, CI and docs (who: Claude); deploy and the TEST
-  webhook on the public origin (who: owner).
+- State: done on develop, not pushed: three Next.js apps on Bun, tooling, Docker, CI and docs off
+  Deno (ADR-014); `bun run check` green; three images built and run.
+- Next: swap the required check "Deno check" for "Bun check" on main, review and push develop,
+  release, deploy, TEST webhook on the public origin (who: owner).
 - Blocker: none.
-- Evidence: work/handovers/a38bcec0-13c5-437d-9c40-1f317f1b63c6.md.
+- Evidence: work/handovers/a38bcec0-13c5-437d-9c40-1f317f1b63c6.md; CHANGELOG Unreleased.
 
 ## Owner browser check after the non-root deploy — WAITING-OWNER
 

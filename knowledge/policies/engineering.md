@@ -5,7 +5,7 @@ description: "Steps that read top to bottom, comments that say why, no needless 
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15
+  at: 2026-11-15T21:00:00Z
 sources:
   - resource: ../../tools/git-hooks/pre-push
     title: "pre-push, which names this doc as its spec"
@@ -13,8 +13,8 @@ sources:
     title: "release, which names this doc as its spec"
   - resource: ../../tools/repo-health/repo-health
     title: "repo-health, which names this doc as its spec"
-  - resource: ../../deno.json
-    title: "Formatter, linter and check tasks"
+  - resource: ../../package.json
+    title: "The check script and its steps"
 ---
 
 # How code is written here
@@ -51,9 +51,9 @@ story goes in the commit message.
 `repo-health` applies source-size/comment heuristics to its documented suffix set and to
 extensionless files that start with a shebang (`#!`), excluding `test_*` files. Its JSON scorecard
 reports that set and how many files were checked. This is a structural scorecard; each project's
-build, linter and tests provide language-specific validation. Here that is Deno's fmt, lint, types
-and tests for the workspace, and, for the Bun app the root `deno.json` excludes
-(`apps/adyen-agentic-commerce`), `tsc --noEmit` and `bun test` through `deno task check:agentic`.
+build, linter and tests provide language-specific validation. Here that is `tsc --noEmit` per
+package and app, `bun test`, the three Next.js builds and an SSR assertion on each standalone
+server, all through `bun run check`; no formatter or linter runs since Deno left (2026-11-15).
 
 ## Branch, review, release
 
@@ -97,8 +97,8 @@ contracts unless the task requires changing them. No abstraction is created "for
 ## This project
 
 - TEST only. Never add a LIVE path or weaken `packages/platform/test-only.ts`.
-- Secrets stay server-side and out of git, logs, images, URLs and chat. Anything under `islands/` is
-  public.
+- Secrets stay server-side and out of git, logs, images, URLs and chat. Anything a `"use client"`
+  module imports is public.
 - Never forward Adyen Web `state.data` wholesale: add a field only after checking it in the
   `@adyen/api-library` typings; `/sessions`, `/payments` and `/paymentLinks` reject unknown fields.
 - An order's state comes from Adyen's answers and HMAC-valid webhooks, never from the browser. A

@@ -6,7 +6,7 @@ status: stable
 review_after: 2027-01-29
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15
+  at: 2026-11-15T21:00:00Z
 sources:
   - resource: ../../README.md
     title: "Project setup and deployment"
@@ -27,8 +27,8 @@ gate mode, plugins and loops are described in [the overview](../../README.md#ena
 ## Prepare your agent
 
 Git and **Python 3.12+** for the checks and hooks. Shell tools support macOS, Linux and WSL. Install
-`gh` for the GitHub PR workflow and your chosen agent separately. The playgrounds need **Bun 1.4+**;
-until the move off Deno is finished, `deno task check` also needs Deno 2.9.4:
+`gh` for the GitHub PR workflow and your chosen agent separately. The playgrounds and `bun run check` need
+**Bun 1.4.4**:
 
 - [Claude Code](https://code.claude.com/docs/en/setup)
 - [Codex](https://learn.chatgpt.com/docs/cli)

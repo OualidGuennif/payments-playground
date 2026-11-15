@@ -21,9 +21,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          deno-version: 2.9.4
+          bun-version: 1.4.4
       - run: ./tools/knowledge/knowledge-check
       - name: doc-links (with --diff on pull requests)
         env:
@@ -34,14 +34,15 @@ jobs:
       - run: ./tools/template-tests
 
   build-and-test:
-    name: Deno check
+    name: Bun check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          deno-version: 2.9.4
-      - run: deno task check
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run check
 
   secret-scan:
     runs-on: ubuntu-latest

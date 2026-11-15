@@ -604,7 +604,7 @@ export default function StylingPlayground() {
           <div className="dropin-column keep-light">
             {
               /* A sibling of the host, never a child: Adyen owns that node and
-                calls replaceChildren on it, so anything Preact renders inside
+                calls replaceChildren on it, so anything React renders inside
                 would be torn out from under it. */
             }
             {completed && !loading

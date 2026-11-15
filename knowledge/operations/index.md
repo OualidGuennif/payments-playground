@@ -5,14 +5,14 @@ description: "How to build, run, test, ship and upgrade."
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-11-15T21:00:00Z
 ---
 
 # Operations
 
 | Runbook                                                            | Status | Notes                                                  |
 | ------------------------------------------------------------------ | ------ | ------------------------------------------------------ |
-| [Build and test](build-and-test.md)                                | stable | Tasks, what `check` runs, network tests, Deno versions |
+| [Build and test](build-and-test.md)                                | stable | Scripts, what `check` runs, network tests, Bun version |
 | [Local development of adyen-digital](local-development.md)         | stable | Ports, `.env`, restarts, test cards, browsers, the DB  |
 | [Webhooks locally, without a tunnel](webhooks-without-a-tunnel.md) | stable | Signed replay, webhook.site, tunnel; HMAC per endpoint |
 | [Docker images and the Render deployment](docker-and-render.md)    | stable | Build context, env files, Blueprint, checking a deploy |

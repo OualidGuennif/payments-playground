@@ -7,14 +7,14 @@ status: stable
 scope: verification-and-reporting
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T13:00:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: oualstreet
     resource: git-history:knowledge/operations/reporting-and-confidence-levels.md
     title: "Adapted from the owner's Oualstreet confidence levels (separate repository)"
   - id: check
-    resource: ../../deno.json
-    title: The check task behind CODE VERIFIED
+    resource: ../../package.json
+    title: The check script behind CODE VERIFIED
 ---
 
 # Verification and reporting
@@ -23,14 +23,14 @@ sources:
 
 | Level                 | Means                                                                     | Typical evidence                                    |
 | --------------------- | ------------------------------------------------------------------------- | --------------------------------------------------- |
-| **CODE VERIFIED**     | `deno task check` passes, including tests that pin the behaviour          | test names, task output                             |
+| **CODE VERIFIED**     | `bun run check` passes, including tests that pin the behaviour            | test names, script output                           |
 | **TEST API VERIFIED** | A real Adyen TEST call answered as expected                               | the `api_calls` row: status, `resultCode`, PSP ref  |
 | **BROWSER VERIFIED**  | The flow completed in a real browser against the dev or built server      | screenshot, DOM state, the order row it produced    |
 | **WEBHOOK VERIFIED**  | A notification with a valid HMAC was processed and changed what it should | `webhooks.hmac_valid = 1`, the order state after    |
 | **DEPLOYED VERIFIED** | The same behaviour observed on the Render deployment                      | `/api/health` versions, a flow on the public origin |
 
-For the Bun agentic store, CODE VERIFIED is the same `deno task check`, whose `check:agentic` step
-runs its types and `bun test`; its TEST API evidence is the app's `payments` record and Back Office
+For the agentic store, CODE VERIFIED is the same `bun run check`, which runs its types and
+`bun test`; its TEST API evidence is the app's `payments` record and Back Office
 trace (result code and PSP reference), not an `api_calls` row.
 
 A level is never claimed from the one below it. A build is not a payment; an accepted capture

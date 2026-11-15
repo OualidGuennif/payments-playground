@@ -10,7 +10,6 @@
 **/*.sqlite-wal
 
 # Rebuilt inside the image.
-**/_fresh
 **/.next
 **/node_modules
 

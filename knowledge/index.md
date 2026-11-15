@@ -4,8 +4,9 @@ okf_version: "0.2"
 
 # Payments Playground knowledge base
 
-Four Adyen TEST playgrounds in one Deno workspace: Fresh 2 pages, a Hono API in the same process,
-Adyen Web 6.48.1 in the browser, Checkout API v72 on the server. Current focus: `adyen-digital`.
+Three Adyen TEST playgrounds in one Bun workspace: Next.js 16 pages, an Elysia API in the same
+process typed for the browser by Eden, Adyen Web 6.48.1 in the browser, Checkout API v72 on the
+server. Current focus: `adyen-digital`.
 This bundle is the canonical engineering knowledge. Open only what your task needs.
 
 | Area                                | One line                                                                   | Start with                                     |
@@ -28,8 +29,8 @@ This bundle is the canonical engineering knowledge. Open only what your task nee
 - Local extensions: `stale_after` (after this date the concept must be re-verified, or marked STALE
   at the top), `verified` (checks actually performed, dated), `scope` (at most one stable concept
   per scope), `superseded_by`.
-- `deno task knowledge:check` validates the bundle, `AGENTS.md` and its `CLAUDE.md` symlink. It runs
-  inside `deno task check`.
+- `bun run knowledge:check` validates the bundle, `AGENTS.md` and its `CLAUDE.md` symlink. It runs
+  inside `bun run check`.
 
 ## What is not here
 

@@ -1,13 +1,13 @@
 ---
 type: Component
 title: "adyen-v6-styling: a live theming workbench for the Adyen Web Drop-in"
-description: "The Drop-in Styling playground: secured-field styles, component options, design tokens, JSON and CSS exports, and the API, island and token-audit test that carry them."
+description: "The Drop-in Styling playground: secured-field styles, component options, design tokens, JSON and CSS exports, and the API, client component and token-audit test that carry them."
 tags: [component, styling, drop-in, adyen-web]
 status: stable
 scope: component-adyen-v6-styling
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T18:00:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: app
     resource: ../../apps/adyen-v6-styling
@@ -153,7 +153,7 @@ the tool around the preview but the Drop-in column keeps the light tokens (`.kee
 | Output                              | Shape                                                                                                                                                                       |
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /api/styling/payment-methods` | `200 { "paymentMethods": [{ "type": string, "name": string }] }`                                                                                                            |
-| `POST /api/styling/session`         | `201 { "correlationId": string, "session": <Adyen session> }`; `session.id`, `session.sessionData` and `session.expiresAt` are what the island and the row use              |
+| `POST /api/styling/session`         | `201 { "correlationId": string, "session": <Adyen session> }`; `session.id`, `session.sessionData` and `session.expiresAt` are what the component and the row use           |
 | Field styles export                 | JSON with `card`, `storedCard`, `giftcard` and `bcmc`; the last two carry the same secured-field `styles`                                                                   |
 | Components export                   | JSON with `card` and only the wallet objects that were changed (`applepay`, `googlepay`, `paypal`)                                                                          |
 | Theme export                        | `adyen-overrides.css`, to import after `@adyen/adyen-web/styles/adyen.css`: `.adyen-checkout` tokens, the Apple Pay radius block, pay-button rules and the class-name rules |
@@ -173,7 +173,7 @@ CSS nor the secured styles reach them; only each vendor's options do.
 | `429`  | More than 120 requests a minute for one client and path                                                     |
 | `500`  | Adyen rejected the call or an unexpected error; Elysia answers `{ "error": string, "correlationId": string }` |
 
-The island also shows a configuration error when bootstrap has no client key or the profile is
+The playground component also shows a configuration error when bootstrap has no client key or the profile is
 incomplete. `onPaymentFailed` is deliberately empty: Adyen Web owns the failure UI.
 
 ## Invariants
@@ -225,7 +225,7 @@ not a statement that Adyen accepted a particular style, only that the panel prod
 
 - No Back Office, order lifecycle, capture/cancel/refund, webhook or HMAC. The created order exists
   to carry the session, not to be operated.
-- No `redirectResult` handling: a redirect method returns to `/` and the island starts a new preview
+- No `redirectResult` handling: a redirect method returns to `/` and the playground component starts a new preview
   session; it does not settle the previous one.
 - No server-side persistence of panel settings, and no multi-user or shared theme storage.
 - No styling inside Adyen-hosted secured-field iframes from page CSS, and no styling of

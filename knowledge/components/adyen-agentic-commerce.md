@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T15:00:00Z
+  at: 2026-11-15T21:00:00Z
 verified:
   - at: 2026-11-15
     check: "bun test: 107 cases pass (PAP conformance, OAuth, UCP and payment state machine, commerce, security) against the Adyen double; tsc clean; next build and the oven/bun image build."
@@ -112,8 +112,9 @@ is whatever LLM the shopper points at it.
 
 ## Acceptance checks
 
-- `deno task check:agentic` (types, `bun test` with the Adyen double from `bunfig.toml`'s preload)
-  and `deno task build:agentic` (`next build`), both run by `deno task check`.
+- `bun run --cwd apps/adyen-agentic-commerce check` (types, `bun test` with the Adyen double from
+  `bunfig.toml`'s preload, `next build`); the root `bun run check` runs the same steps, then
+  `ssr:assert` boots the standalone server and expects "Agentic Commerce" on the home page.
 - Locally, `bun run scripts/pap-agent.ts` signs in as a PAP client, waits for the shopper's consent
   (or `--auto-consent`) and buys one item over MCP.
 - On TEST: a human Drop-in payment Authorised; a zero-value card save; an agent `complete_checkout`
@@ -124,5 +125,6 @@ is whatever LLM the shopper points at it.
 - LIVE payments, refunds and captures from this app.
 - Adyen's own UCP tokenizer until the owner's account has the role (the handler is behind config).
 - Real user accounts: one demo shopper (`ogaccountnew`). Consent, account and Back Office are
-  protected only by the playground's basic auth when it is set.
+  protected only by the playground's basic auth when it is set (the proxy strips the quotes
+  `docker run --env-file` keeps, like the config reader; `src/server/security.test.ts`).
 - Conversations, browser sign-in and the Operations extension of PAP.

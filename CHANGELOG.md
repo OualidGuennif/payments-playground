@@ -5,6 +5,14 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Finish the move off Deno: `deno.json`, `deno.lock`, the Vite plugins and the Fresh start script
+  are gone. The knowledge checker, `dev:all`/`start:all` (`tools/dev/run-all.ts`), `verify`, the
+  SSR assertion (now on each standalone server) and the legacy env migration run on Bun;
+  `bun run check` is the gate and CI's "Deno check" job is now "Bun check". All three images build
+  in the Bun workspace with the SSR assertion and run as uid 1993 (user `app`). Turbopack no longer
+  watches the SQLite files, which made the dev Sessions page re-create sessions in a loop. The
+  agentic proxy strips `--env-file` quotes from the Basic Auth pair. ADR-014 supersedes ADR-004 and
+  ADR-006; no formatter or linter runs until the owner picks one.
 - Move `apps/adyen-digital` to Next.js 16 on Bun: pages under `src/app`, one Elysia API in
   `src/server/api.ts` behind `/api/*`, `/healthz` and `/webhook` route handlers, every browser call
   on Eden, the checkout workbench rendered client-only. The proxy sets Basic Auth and the CSRF

@@ -132,7 +132,7 @@ export default function FlowWorkbench(
   const [reusable, setReusable] = useState(false);
   const [amountDraft, setAmountDraft] = useState<string | null>(null);
   // Adyen Web renders into this node with its own Preact copy, so it is kept
-  // apart from anything this island renders: the placeholder is a sibling.
+  // apart from anything React renders here: the placeholder is a sibling.
   const dropinHost = useRef<HTMLDivElement>(null);
   const [checkoutMounted, setCheckoutMounted] = useState(false);
   const mounted = useRef<MountedComponent | null>(null);

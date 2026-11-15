@@ -1,82 +1,73 @@
 ---
 type: Architecture
-title: "Dev and build pipeline: Vite, Fresh's plugin, the Deno loader, and the local plugins"
-description: "How Vite resolves modules through Deno, why npm packages reach the dev browser unbundled, what each plugin in tools/dev/ fixes, the SSR hot-reload caveat, and what a production build emits."
-tags: [architecture, vite, fresh, deno, build]
+title: "Dev and build pipeline: Next.js 16 with Turbopack on Bun"
+description: "How each app runs in dev and builds: Bun runs Next with the env already loaded, Turbopack bundles the workspace, standalone output traced from the root, and the facts that shaped next.config.ts."
+tags: [architecture, dev, build, nextjs, turbopack]
 status: stable
 scope: dev-build-pipeline
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T15:15:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
-  - id: vite-config
+  - id: next-config
     resource: ../../apps/adyen-digital/next.config.ts
-    title: The digital app's Next.js configuration, which replaced its Vite one on 2026-11-15
-  - id: dev-bundle
-    resource: ../../tools/dev/adyen-web-dev-bundle.ts
-    title: Adyen Web served as one bundle in dev
-  - id: library-external
-    resource: ../../tools/dev/adyen-library-external.ts
-    title: Adyen Node library kept external in the server build
-  - id: sqlite-hotfix
-    resource: ../../tools/dev/sqlite-vite-hotfix.ts
-    title: SQLite FFI import.meta.url rewrite
-  - id: client-address
-    resource: ../../tools/dev/dev-client-address.ts
-    title: X-Forwarded-For from the socket in dev, for shopperIP
-  - id: fresh-plugin
-    resource: https://jsr.io/@fresh/plugin-vite/1.1.2/src/mod.ts
-    title: "@fresh/plugin-vite 1.1.2: optimizeDeps.noDiscovery and the build environments"
+    title: "The digital app's Next.js configuration (styling's and agentic's follow it)"
+  - id: bun-app
+    resource: ../../tools/dev/bun-app.ts
+    title: Runs a package script with the app's .env loaded without $ expansion
+  - id: config
+    resource: ../../packages/platform/config.ts
+    title: "Working-directory paths marked turbopackIgnore"
+  - id: standalone
+    resource: ../../tools/build/standalone.ts
+    title: Starts a standalone server for the build checks
+  - id: vite-era
+    resource: git-history:apps/adyen-digital/vite.config.ts
+    title: "The Vite and Fresh configuration this replaced on 2026-11-15"
 ---
 
 # Dev and build pipeline
 
-Each app builds with Vite 7.1.4 and `@fresh/plugin-vite` 1.1.2. The plugin brings the Deno loader
-(`@deno/loader`), which resolves every import through the workspace import maps with
-`enforce: "pre"`. It first asks the other plugins via `this.resolve` but ignores an answer from
-Vite's own `vite:resolve`, and passes any `\0`-prefixed id through untouched.
+Each app is Next.js 16.4.3 run by Bun (`bun --bun next dev|build|start`), so server code has
+`bun:sqlite` and Bun's APIs. `bun run dev:<app>` goes through `tools/dev/bun-app.ts`, which reads
+the app's `.env` with `packages/platform/dotenv.ts` and sets `__NEXT_PROCESSED_ENV=true`: Next's
+own loader expands `$name` inside values and once cut an Adyen key that contained `$`.
+([ADR-014](../decisions/ADR-014-every-playground-on-bun-and-next.md))
 
 ## Facts that shaped the configuration
 
-- **No dependency pre-bundling in dev.** Fresh sets `optimizeDeps.noDiscovery: true`, so an npm
-  package reaches the dev browser as its raw source modules, at their real
-  `/@fs/.../node_modules/.deno/...` paths. Turning the optimizer back on, even for one package,
-  makes Vite append `?v=` hashes to every node_modules import, which the Deno loader cannot open
-  (ENOENT on `preact/debug`).
-- **Adyen Web is therefore served as one esbuild bundle in dev** by `adyenWebDevBundle`, at
-  `/@id/__x00__adyen-web-dev-bundle`. Its ~620 modules include `core/Analytics/*.js`, which Adblock
-  Plus, uBlock Origin and Firefox's tracking protection block; one blocked module failed the whole
-  graph and Drop-in never mounted ([ADR-006](../decisions/ADR-006-adyen-web-one-bundle-in-dev.md)).
-  The bundle is built once per server start: restart the dev server after an Adyen Web version
-  change.
-- **`adyenLibraryExternal` (build only, server environment)** keeps `@adyen/api-library` external.
-  Bundled, its CommonJS chain lost `debug`'s callable default export and the built server died on
-  import with `debug_1.default is not a function`.
-- **`sqliteViteHotfix`** replaces `import.meta.url` in the SQLite FFI module with its URL literal;
-  the Deno bridge and Vite's SSR transform otherwise both rewrite it and Vite throws.
-- **`devClientAddress` (digital, dev only)** sets `X-Forwarded-For` from the socket. Fresh's dev
-  server calls the app with a stub connection (`remoteAddr.hostname: "localhost"`), so without it
-  `/payments` had no `shopperIP` locally. Fresh rebuilds the `Request` from `rawHeaders`, which
-  under Deno is a getter returning a copy: a `push` is lost, the property is redefined instead.
-- **`server.watch.ignored`** holds `**/*.sqlite*` in every app (and `**/_fresh/**` in digital and
-  styling). `@fresh/plugin-vite` 1.1.2 sends `fresh:reload` (a full page reload) for any watched
-  file that changes outside an island's imports, and the app's SQLite files under `data/` change on
-  every API call and callback: pages reloaded at random, mid-payment. Touching `digital.sqlite-wal`
-  reloaded the page before the fix and no longer does (2026-10-16).
-- **`server.fs.allow: ["../.."]`**: with no root `package.json`, Vite cannot find the monorepo's
-  `node_modules`, and deep imports outside the default allow-list 403 silently.
+- **One root for tracing and bundling.** `outputFileTracingRoot` and `turbopack.root` point at the
+  repository root, where the hoisted `node_modules` and `packages/` live; `transpilePackages`
+  compiles `@suite/platform` and `@suite/ui` from source.
+- **`@adyen/api-library` stays external** (`serverExternalPackages`): bundled, its CommonJS chain
+  breaks. `packages/platform/adyen.ts` loads it lazily and accepts both interop shapes.
+- **Working-directory paths carry `/* turbopackIgnore: true */`** in `packages/platform/config.ts`.
+  Without it Turbopack traced `data/<app>.sqlite` from `join(process.cwd(), "data", ...)`, watched
+  it, and every request that wrote the database triggered a recompile and a page refresh: on
+  2026-11-15 the Sessions page re-created a session in a loop and Drop-in never mounted.
+- **`outputFileTracingExcludes`** keeps `data/`, SQLite files and `.env*` out of the standalone
+  trace (ADR-009). Next itself still copies a loaded `.env` into `.next/standalone`; images never
+  see one because the build context excludes it.
+- **The proxy reads no config.** Next copies every file the proxy's imports touch into the build,
+  and tracing excludes do not apply to it; `src/proxy.ts` only checks Basic Auth and issues the
+  CSRF cookie.
+- **Client-only workbench.** Digital's checkout workbench takes its first market from the browser,
+  so it renders through `next/dynamic` with `ssr: false` to avoid a hydration mismatch.
+- **Adyen Web in dev** arrives inside Turbopack chunks (`node_modules_@adyen_adyen-web_dist_es_*`);
+  no chunk URL contains "analytics", so the Vite-era dev bundle
+  ([ADR-006](../decisions/ADR-006-adyen-web-one-bundle-in-dev.md)) is not needed.
+- **`agentRules: false`**: Next 16.4 otherwise writes an `AGENTS.md` into each app.
 
-## SSR hot-reload caveat
+## Dev server caveats
 
-Editing a module under `packages/platform` can leave the dev server's SSR graph half-updated: the
-app's `api.ts` reloads but an import it uses does not, and requests fail with
-`(0, __vite_ssr_import_N__.x) is not a function`. Restart the dev server (touching `vite.config.ts`
-is enough; Vite restarts on a config change).
+React's strict mode runs effects twice in dev, so the Sessions page creates two Adyen sessions per
+load in dev only. Restart `bun run dev:<app>` after changing `next.config.ts`, `.env` or a
+dependency; pages, components and `src/server/api.ts` reload on their own.
 
 ## Production build
 
-`deno task build:<app>` builds the client first (`_fresh/client/assets/`, hashed chunks such as
-`fresh-island__FlowWorkbench-<hash>.js`, with Adyen Web inside) and then the server
-(`_fresh/server/server-entry.mjs`). `tools/build/assert-built-ssr.ts` boots the built server and
-checks the page renders and still names the app. The dev-only plugins have `apply: "serve"` and
-never touch a build.
+`bun run build:<app>` runs `next build` into `.next/standalone/<app path>/server.js` plus
+`.next/static`. `bun run ssr:assert` boots each standalone server on a `:memory:` database and checks
+the home page answers 200 with a `<main>`, the TEST marker and the app's name
+(`tools/build/assert-built-ssr.ts`); each Dockerfile runs the same assertion in its build stage.
+`bun run verify` starts all three standalone servers and checks `/healthz` and every listed page.

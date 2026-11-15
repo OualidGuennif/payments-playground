@@ -66,8 +66,8 @@ to your host.
 ## Container user
 
 The images start as root only inside `tools/docker/entrypoint.sh`: it chowns the Render disk
-(`/var/data`) and `/app/data` to the image's `deno` user (uid 1993), then `setpriv` drops to that
-user before the app starts. A plain `USER deno` is not enough: on 2026-10-31 the Render disk was
+(`/var/data`) and `/app/data` to the image's `app` user (uid 1993), then `setpriv` drops to that
+user before the app starts. A plain `USER app` is not enough: on 2026-10-31 the Render disk was
 `root:1000 2775` and its SQLite files were `root:1000 644`, so uid 1993 cannot open the WAL. The
 SAST missing-user rules are waived inline in the Dockerfiles because the runtime process is not
 root; revisit if Render changes disk ownership or the entrypoint is removed.

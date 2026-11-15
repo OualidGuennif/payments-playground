@@ -29,11 +29,11 @@ with no build step and no server.
 
 ## Getting started
 
-Requires Deno 2.9.4 for the apps. The repository checks also need Python 3.12+ (excluding 3.14.1)
-and Node 18+.
+Requires Bun 1.4.4. The repository checks also need Python 3.12+ (excluding 3.14.1).
 
 ```bash
-deno task dev:all
+bun install
+bun run dev:all
 ```
 
 That starts the three apps on ports 8001, 8003 and 8004 with hot reload; one `Ctrl+C` stops them. To
@@ -47,17 +47,17 @@ and extra profiles are encrypted at rest.
 ## Tasks
 
 ```bash
-deno task check         # fmt, lint, knowledge, types, tests and all three builds
-deno task test          # unit and integration tests
-deno task build         # three production builds
-deno task verify        # start the builds and check /healthz
-deno task docs:links    # knowledge sources and Spec: pointers, both ways
-deno task repo:health   # source-size, comment and folder caps
-deno task template:test # the template suites (hooks, context, links, loops)
+bun run check           # knowledge, links, health, types, tests, builds, SSR asserts, template
+bun run test            # unit and integration tests
+bun run build           # three production builds
+bun run verify          # build, start the standalone servers and check /healthz and the pages
+bun run docs:links      # knowledge sources and Spec: pointers, both ways
+bun run repo:health     # source-size, comment and folder caps
+bun run template:test   # the template suites (hooks, context, links, loops)
 ```
 
-Per app: `deno task --cwd apps/adyen-digital <dev|build|test|start>`. `start` serves the last
-production build, so it needs a `build` first. CI runs the same gates on pull requests and `main`.
+Per app: `bun run --cwd apps/adyen-digital <dev|build|test|start|typecheck>`. `start` serves the
+last production build, so it needs a `build` first. CI runs the same gates on pull requests and `main`.
 
 ## Deployment
 
@@ -86,18 +86,14 @@ same model on PostgreSQL plus a webhook queue.
 
 | Dependency           | Version | Notes                                             |
 | -------------------- | ------- | ------------------------------------------------- |
-| Deno                 | 2.9.4   | Shared runtime                                    |
-| Fresh                | 2.3.3   | SSR and islands                                   |
-| Hono                 | 4.12.31 | API router inside each Fresh server               |
-| Vite                 | 7.1.4   | Build and HMR (version linked to Fresh version)   |
+| Bun                  | 1.4.4   | Runtime, package manager, test runner             |
+| Next.js              | 16.4.3  | Pages, route handlers, standalone build           |
+| React                | 19.3.1  | Server and client components                      |
+| Elysia               | 1.4.30  | API router behind each app's `/api/*` handler     |
+| Eden                 | 1.4.9   | Typed browser client for that API                 |
 | Adyen Web            | 6.48.1  | Client-side components                            |
 | `@adyen/api-library` | 32.3.0  | Server-side calls, over its own node:https client |
 | Checkout API         | v72     | Explicit TEST endpoints                           |
-
-Server-side Adyen calls go through the library's `HttpURLConnectionClient`. Two details it relies on
-were missing from Deno's node:http layer before 2.8.0, so `packages/platform/adyen.ts` works around
-both. The pinned runtime no longer needs those workarounds, but they are harmless and keep the suite
-runnable on an older local Deno; the comments there explain what and why.
 
 ## Disclaimer
 

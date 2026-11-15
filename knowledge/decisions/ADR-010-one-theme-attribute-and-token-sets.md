@@ -6,7 +6,7 @@ tags: [decision, ui, theme, dark-mode]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T13:00:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: theme
     resource: ../../packages/ui/theme.ts
@@ -34,10 +34,10 @@ only.
 
 **Decision.**
 
-- `THEME_SCRIPT` runs inline in every `_app.tsx` `<head>`: it sets `data-theme` on `<html>` from the
+- `THEME_SCRIPT` runs inline in every root `layout.tsx` `<head>`: it sets `data-theme` on `<html>` from the
   stored choice (`localStorage` `playground-theme`) or `prefers-color-scheme`, so the first paint is
   already in the right theme. The same script handles the toggle by event delegation, so it works
-  before islands hydrate, and announces changes with `playground-themechange`.
+  before React hydrates, and announces changes with `playground-themechange`.
 - `packages/ui/styles.css` defines every colour as a token in a light set (`:root`) and a dark set
   (`:root[data-theme="dark"]`). Light values are the ones the playground had before.
 - Digital's checkout follows the theme: dark `--adyen-sdk-*` tokens on `.checkout-pay`,

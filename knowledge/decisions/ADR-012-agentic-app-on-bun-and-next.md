@@ -6,7 +6,7 @@ tags: [decision, agentic, bun, nextjs, elysia]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T12:00:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: app
     resource: ../../apps/adyen-agentic-commerce
@@ -38,3 +38,8 @@ outside the repo's checks) and chose Bun + Elysia + Eden + Next.js for this app 
 **Consequences.** The shared `packages/platform` and `packages/ui` (Deno, Preact) are not imported
 here; the TEST-only rule, HMAC check and order-state rules are reimplemented and tested in the app.
 Two toolchains run in CI.
+
+**Amended 2026-11-15.** [ADR-014](ADR-014-every-playground-on-bun-and-next.md) moved every other
+app to the same stack: the store is now a member of the one Bun workspace (root `bun.lock`, its
+own lock removed), its standalone server sits at `apps/adyen-agentic-commerce/server.js` in the
+image, its route files re-export the Elysia handler instead of rewrites, and CI runs one toolchain.

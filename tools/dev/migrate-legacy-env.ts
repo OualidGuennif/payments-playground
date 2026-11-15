@@ -1,21 +1,20 @@
-import { parse } from "@std/dotenv";
-import { dirname, fromFileUrl, join, resolve } from "@std/path";
+// Spec: knowledge/operations/build-and-test.md
+import { chmodSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { parseDotenv } from "../../packages/platform/dotenv.ts";
 
 type AppEnv = {
   directory: string;
   values: Array<[key: string, value: string, comment?: string]>;
 };
 
-const suiteRoot = resolve(dirname(fromFileUrl(import.meta.url)), "..");
+// The repository root; the legacy playground is its sibling folder.
+const suiteRoot = resolve(import.meta.dir, "../..");
 const legacyPath = resolve(suiteRoot, "..", "checkoutPlayground copie", ".env");
 
 function readEnv(path: string): Record<string, string> {
   try {
-    const text = Deno.readTextFileSync(path)
-      .split("\n")
-      .map((line) => line.replace(/^\s*export\s+/, ""))
-      .join("\n");
-    return parse(text);
+    return parseDotenv(readFileSync(path, "utf8"));
   } catch {
     return {};
   }
@@ -109,9 +108,9 @@ for (const app of apps) {
     else missing.push(key);
   }
 
-  Deno.writeTextFileSync(envPath, `${lines.join("\n")}\n`, { mode: 0o600 });
+  writeFileSync(envPath, `${lines.join("\n")}\n`, { mode: 0o600 });
   try {
-    Deno.chmodSync(envPath, 0o600);
+    chmodSync(envPath, 0o600);
   } catch {
     // File remains ignored even where chmod is not available.
   }

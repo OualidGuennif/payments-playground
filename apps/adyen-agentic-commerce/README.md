@@ -11,14 +11,14 @@ Spec: [knowledge/components/adyen-agentic-commerce.md](../../knowledge/component
 
 ## Run it
 
-Needs Bun 1.4+ and Deno 2.9+. Copy `.env.example` to `.env` and fill in the TEST credentials, then
+Needs Bun 1.4.4. Copy `.env.example` to `.env` and fill in the TEST credentials, then
 from the repository root:
 
 ```bash
-deno task dev:agentic        # http://127.0.0.1:8003
+bun run dev:agentic          # http://127.0.0.1:8003
 ```
 
-The task goes through `tools/dev/bun-app.ts`, which loads the env file the way the Deno apps do;
+The task goes through `tools/dev/bun-app.ts`, which loads the env file the way the other apps do;
 plain `bun run dev` lets Next re-expand `$` inside the API key.
 
 | In this folder       | What it does                                         |

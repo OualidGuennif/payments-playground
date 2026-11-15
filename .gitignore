@@ -1,9 +1,8 @@
 # OS
 .DS_Store
 
-# Deno / npm interop
+# Bun installs
 node_modules/
-.deno/
 
 # Secrets — never commit real credentials, only *.env.example templates
 .env
@@ -26,11 +25,6 @@ tools/evals/results.jsonl
 __pycache__/
 *.pyc
 .venv/
-
-# Fresh / Vite build output, until the last Fresh app is ported
-_fresh/
-dist/
-.vite/
 
 # Next.js on Bun: build output and generated type stubs
 .next/

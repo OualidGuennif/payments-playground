@@ -6,12 +6,12 @@ status: stable
 stale_after: 2026-12-31
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15T18:00:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "The merged agent rules and repository map"
-  - resource: ../../deno.json
-    title: "The complete check task"
+  - resource: git-history:deno.json
+    title: "The complete check task on 2026-10-31 (removed on 2026-11-15)"
   - resource: ../../.aeion-template
     title: "The template release this project follows"
   - resource: ../../render.yaml
@@ -47,6 +47,9 @@ production or Adyen TEST call was made by the adoption itself.
   and `efficiency/` are gone, so the Graphify/Archify row above no longer applies;
   `tools/template-tests` replaces `tools/factory-tests`; the context rule is 340k/390k; the doc gate
   runs in `enforce` and framework mode is off (no address set).
+- 2026-11-15: Deno, Fresh and Vite left the repository
+  ([ADR-014](../decisions/ADR-014-every-playground-on-bun-and-next.md)); the `deno task` rows above
+  are history, the gate is now `bun run check` and the images build on `oven/bun:1.4.4`.
 
 ## Open
 

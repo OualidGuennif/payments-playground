@@ -11,8 +11,8 @@ sources:
     title: "The merged project and agent rules"
   - resource: ../../render.yaml
     title: "The root deployment blueprint that must not move"
-  - resource: ../../deno.json
-    title: "Root tasks, workspace and formatting scope"
+  - resource: ../../package.json
+    title: "Root scripts and workspace (deno.json until 2026-11-15)"
 ---
 
 # ADR-011: Adopt Æion Factory v1.7.0
@@ -55,3 +55,5 @@ Adopt the factory's phase 1–7 structure in this repository, merged with what a
   now also need Bun 1.4+ for `check:agentic`. The factory layout and gates are unchanged.
 - Amended 2026-11-15: the project follows Æion Template v4.0.3 and Graphify, Archify and
   `efficiency/` are removed ([ADR-013](ADR-013-aeion-template-v4-without-source-analysis.md)).
+- Amended 2026-11-15: Deno is gone ([ADR-014](ADR-014-every-playground-on-bun-and-next.md)); the
+  checks need Bun 1.4.4 and Python, and the Deno fmt/lint exclusions went with `deno.json`.

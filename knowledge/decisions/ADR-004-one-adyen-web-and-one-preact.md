@@ -3,23 +3,27 @@ type: Decision
 title: "ADR-004: One Adyen Web version and one Preact across the workspace"
 description: "Every app pins the same @adyen/adyen-web and the same preact as the root import map, so the shared UI package and Fresh never load a second copy."
 tags: [decision, dependencies, adyen-web, preact]
-status: stable
+status: deprecated
+superseded_by: ADR-014-every-playground-on-bun-and-next.md
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T13:00:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: root
-    resource: ../../deno.json
-    title: Root import map
+    resource: git-history:deno.json
+    title: Root import map, removed on 2026-11-15
   - id: lock
-    resource: ../../deno.lock
-    title: Resolved versions
+    resource: git-history:deno.lock
+    title: Resolved versions, removed on 2026-11-15
   - id: upgrade
     resource: ../operations/adyen-web-upgrade.md
     title: The upgrade runbook that enforces it
 ---
 
 # ADR-004: One Adyen Web version and one Preact
+
+Superseded on 2026-11-15 by [ADR-014](ADR-014-every-playground-on-bun-and-next.md): the import maps
+and Preact are gone; one Adyen Web and one React now come from exact pins and the hoisted linker.
 
 **Context.** `packages/ui` imports `@adyen/adyen-web` through the root import map, while each app
 resolves its own imports through its own `deno.json`. Two versions would load two SDKs on one page.

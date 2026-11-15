@@ -29,6 +29,9 @@ function clean(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+// The proxy reads the Basic Auth pair straight from the environment and needs the same cleaning.
+export { clean as cleanEnvValue };
+
 export function readConfig(env: Record<string, string | undefined>): Config {
   const publicOrigin = (clean(env.PUBLIC_ORIGIN) ?? `http://localhost:${clean(env.PORT) ?? "8003"}`)
     .replace(/\/+$/, "");

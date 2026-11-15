@@ -1,26 +1,26 @@
 ---
 type: Runbook
 title: "Docker images and the Render deployment"
-description: "Building and running an image locally, what the context excludes, the root chown that drops to the deno user, and how the Render Blueprint deploys five services."
+description: "Building and running an image locally, what the context excludes, the root chown that drops to the app user, and how the Render Blueprint deploys the landing page and three services."
 tags: [runbook, docker, render, deploy]
 status: stable
 scope: docker-and-render
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T18:00:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: dockerfile
     resource: ../../apps/adyen-digital/Dockerfile
-    title: Digital image
+    title: "Digital image: built in the Bun workspace, Next standalone server"
   - id: agentic-dockerfile
     resource: ../../apps/adyen-agentic-commerce/Dockerfile
-    title: "Agentic image: oven/bun build stage, Next standalone server"
+    title: "Agentic image: built in the Bun workspace, tests in the build stage, Next standalone server"
   - id: styling-dockerfile
     resource: ../../apps/adyen-v6-styling/Dockerfile
     title: "Styling image: built in the Bun workspace, Next standalone server"
   - id: entrypoint
     resource: ../../tools/docker/entrypoint.sh
-    title: Root chown, then drop to the deno user
+    title: Root chown, then drop to the app user (uid 1993)
   - id: dockerignore
     resource: ../../.dockerignore
     title: Build context exclusions
@@ -28,12 +28,10 @@ sources:
     resource: ../../render.yaml
     title: Blueprint for the landing page and the three services
 verified:
-  - at: 2026-10-09
-    check: "digital-checkout:6.46.0 built from a clean context holds no .env or .sqlite; run with the quoted local .env it reported a configured profile and listed 14 payment methods from TEST; with quoted Basic Auth credentials every page answered 401 without them and 200 with them."
   - at: 2026-10-31
     check: "All four images built; a root:root 644 volume became 1993:1993 and the digital, IPP and agentic apps answered /healthz as uid 1993; styling wrote its disk; Render measured /var/data root:1000 2775 and the SQLite files 644."
   - at: 2026-11-15
-    check: "The Bun agentic image built (types and bun test inside the build stage); the container ran as uid 1993, wrote /app/data/agentic.sqlite, reported healthy, served six pages with 200 and held no env file."
+    check: "All three Bun workspace images built with the SSR assertion in the build stage; each ran as uid 1993 with /healthz 200; digital served six pages and its CSS, wrote /app/data, reported healthy; agentic six pages; no env file in the app folders."
 ---
 
 # Docker images and the Render deployment
@@ -46,28 +44,25 @@ docker run --rm --env-file apps/adyen-digital/.env -p 8000:8000 digital-checkout
 ```
 
 The context is the repository root. `.dockerignore` keeps every `.env`, `.env.local`, `data/`,
-SQLite file, `_fresh`, `node_modules` and `.git` out of it
+SQLite file, `.next`, `node_modules` and `.git` out of it
 ([ADR-009](../decisions/ADR-009-no-secrets-in-images.md)): credentials only ever reach a container
 as environment variables. `--env-file` keeps quotes around values; the app strips them.
 
-The image (`denoland/deno:2.9.4`) builds the app, runs its SSR assertion at build time, listens on
-`PORT` (8000) and has a `HEALTHCHECK` on `/healthz`. Inside it, the database is
+Every image builds inside the Bun workspace on `oven/bun:1.4.4`: it copies the root manifests and
+every member's `package.json`, runs `bun install --frozen-lockfile`, copies `packages`, `testing`,
+`tools/build` and the app, type-checks and builds it (the agentic store also runs `bun test`), then
+boots the standalone server once for the SSR assertion. The runtime stage keeps only
+`.next/standalone` and `.next/static`, runs `bun apps/<app>/server.js` on `PORT` (8000) with
+`HOSTNAME=0.0.0.0` and `__NEXT_PROCESSED_ENV=true`, and has a `HEALTHCHECK` on `/healthz`. Next
+copies a loaded local `.env` into `.next/standalone` by design; an image never gets one because the
+context excludes it. Inside it, the database is
 `/app/data/digital.sqlite` unless `DATABASE_PATH` says otherwise; without a volume it is lost when
 the container stops.
 
 The image starts as root only in `tools/docker/entrypoint.sh`: it chowns `/var/data` (the Render
-disk) and `/app/data` to uid 1993, then `exec setpriv ...` drops to the image's `deno` user before
-the app starts. A plain `USER deno` would fail because Render mounts `/var/data` as `root:1000` with
+disk) and `/app/data` to uid 1993, then `exec setpriv ...` drops to the image's `app` user before
+the app starts. A plain `USER app` would fail because Render mounts `/var/data` as `root:1000` with
 `644` SQLite files.
-
-Moving to Bun (2026-11-15, in progress): the styling image now builds inside the Bun workspace
-(root `bun.lock`, `bun run --cwd apps/adyen-v6-styling build`) and runs
-`bun apps/adyen-v6-styling/server.js` from the standalone output; the entrypoint's user is now
-`app`, still uid 1993. Not yet built with Docker. The agentic image is the exception to the Deno
-base: `oven/bun:1.4.4` builds the Next.js app (types,
-`bun test`, `next build`) and the runtime stage keeps only `.next/standalone`, its static files and
-the shared entrypoint, with a `deno` user created at uid 1993 so the same drop works. It runs
-`bun server.js` on `PORT` with `HOSTNAME=0.0.0.0`.
 
 ## Render
 

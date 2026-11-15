@@ -44,7 +44,9 @@ function environmentWithLocalFallback(): Record<string, string> {
     // directly, and both are set up after this on every startup.
     if (unquoted !== value) process.env[key] = unquoted;
   }
-  const cwd = process.cwd();
+  // turbopackIgnore: Next's dev server would otherwise trace these paths, watch them, and refresh
+  // every open page each time a request writes the database.
+  const cwd = /* turbopackIgnore: true */ process.cwd();
   const candidates = [
     values.LEGACY_ENV_PATH,
     join(cwd, ".env"),
@@ -106,7 +108,7 @@ export function loadServerConfig(appId: AppId): ServerConfig {
   }
   const port = Number(values.PORT || 8000);
   const publicOrigin = values.PUBLIC_ORIGIN || `http://localhost:${port}`;
-  const defaultDb = join(process.cwd(), "data", `${appId}.sqlite`);
+  const defaultDb = join(/* turbopackIgnore: true */ process.cwd(), "data", `${appId}.sqlite`);
 
   return {
     appId,

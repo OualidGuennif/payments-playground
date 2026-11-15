@@ -5,14 +5,14 @@ description: "What each app and shared package owns."
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T18:00:00Z
+  at: 2026-11-15T21:00:00Z
 ---
 
 # Components
 
 | Concept                                             | Status | Notes                                               |
 | --------------------------------------------------- | ------ | --------------------------------------------------- |
-| [adyen-digital](adyen-digital.md)                   | stable | Pages, every API route, islands. Current focus.     |
+| [adyen-digital](adyen-digital.md)                   | stable | Pages, every API route, client components. Focus.   |
 | [adyen-v6-styling](adyen-v6-styling.md)             | stable | Drop-in theming workbench                           |
 | [adyen-agentic-commerce](adyen-agentic-commerce.md) | draft  | Store agents shop over UCP and PAP, paid on TEST    |
 | [landing](landing.md)                               | stable | Static front door linking to the three apps         |

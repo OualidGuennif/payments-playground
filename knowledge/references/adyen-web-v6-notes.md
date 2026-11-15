@@ -6,7 +6,7 @@ tags: [reference, adyen-web, drop-in]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T10:00:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: workbench
     resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
@@ -52,10 +52,11 @@ sources:
 ## Package layout and its consequences
 
 - `dist/es/` is ~620 small modules; `core/Analytics/*.js` among them. Served unbundled, ad blockers
-  block those and the import fails ([ADR-006](../decisions/ADR-006-adyen-web-one-bundle-in-dev.md)).
+  block those and the import fails ([ADR-006](../decisions/ADR-006-adyen-web-one-bundle-in-dev.md);
+  Next bundles them into chunks since 2026-11-15).
 - Adyen Web vendors its runtime Preact and classnames under `dist/es/external/`; its npm `preact`
   dependency matters for resolution and types, not at runtime
-  ([ADR-004](../decisions/ADR-004-one-adyen-web-and-one-preact.md)).
+  ([ADR-004](../decisions/ADR-004-one-adyen-web-and-one-preact.md), superseded: the apps use React).
 - `analytics: { enabled: false }` still sends one call to `checkoutanalytics-test.adyen.com`;
   blocking it is harmless.
 - `components` is a namespace of every payment method class; registering all of them

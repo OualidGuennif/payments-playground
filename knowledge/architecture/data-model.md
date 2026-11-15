@@ -7,7 +7,7 @@ status: stable
 scope: data-model
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-10T13:00:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: schema
     resource: ../../packages/platform/migrations/001_initial.sql
@@ -39,7 +39,7 @@ directory: `apps/<app>/data/` for the app's dev server, the repository's `data/`
 | `attempts`           | One per authorisation try, with PSP reference and refusal reason   |                              |
 | `payment_parts`      | One per authorised PSP reference                                   | enforced in code (see below) |
 | `api_calls`          | Every Checkout API request and response, redacted, with duration   |                              |
-| `frontend_callbacks` | Adyen Web callbacks the island reported                            |                              |
+| `frontend_callbacks` | Adyen Web callbacks the workbench reported                         |                              |
 | `webhooks`           | Every notification item, with its HMAC verdict                     | `dedupe_key`                 |
 | `lifecycle_actions`  | Capture, cancel and refund requests                                | `idempotency_key`            |
 | `audit_log`          | Session creation, profile changes, unhandled errors                |                              |

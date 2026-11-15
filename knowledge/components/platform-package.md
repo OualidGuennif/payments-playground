@@ -7,14 +7,14 @@ scope: component-platform
 tags: [component, platform, server]
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15
+  at: 2026-11-15T21:00:00Z
 sources:
   - resource: ../../packages/platform
     title: "The package, its tests next to each module, and its migrations"
   - resource: ../../packages/platform/adyen.ts
-    title: "AdyenTestClient, AdyenRequestError and the two Deno < 2.8 transport workarounds"
+    title: "AdyenTestClient, AdyenRequestError and the lazy library load for Bun and Next"
   - resource: ../../packages/platform/base-api.ts
-    title: "createPlatformContext, selectedSecrets and the shared routes"
+    title: "createPlatformContext, createPlatformApi (Elysia), serveSecurely, selectedSecrets"
   - resource: ../../packages/platform/storage.ts
     title: "Repository, the retention cap and the timeline"
   - resource: ../../packages/platform/state-machine.ts
@@ -28,7 +28,7 @@ sources:
   - resource: ../../packages/platform/modifications.ts
     title: "reconcile, ledgerOf and the webhook outcomes"
   - resource: ../../packages/platform/config.ts
-    title: "Environment and .env loading, derived paths and the default profile"
+    title: "Environment and .env loading, turbopackIgnore paths, the per-process ephemeral secret"
   - resource: ../../packages/platform/hmac.ts
     title: "Standard-notification and header HMAC verification"
   - resource: ../architecture/payment-lifecycle.md
@@ -45,19 +45,19 @@ sources:
 
 ## Intent
 
-One server-side library for the three Deno playgrounds (digital, IPP, styling): every Adyen TEST
+One server-side library for the Next.js playgrounds digital and styling, run by Bun: every Adyen TEST
 call, the SQLite record of what was asked and answered, the HTTP security middleware, webhook HMAC
 verification, and the pure functions that derive an order's state, its ledger and what may be done
 next. A module belongs here when a second app could plausibly want it. The Bun app
 `adyen-agentic-commerce` does not import it
-([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)); the `agentic` app id and the
-agentic config fields remain here, unused, until a cleanup removes them. `base-api.ts` reports Adyen
+([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)); the app ids are `digital` and
+`styling` only since 2026-11-15. `base-api.ts` reports Adyen
 Web 6.48.1 and `@adyen/api-library` 32.3.0 in `/api/health`.
 
 Two boundaries are absolute.
 
-- **Server only.** Nothing here may be imported from an island, with one deliberate exception:
-  `markets.ts` is pure data and is imported by the digital island, so it must never import anything
+- **Server only.** Nothing here may be imported from a client component, with one deliberate
+  exception: `markets.ts` is pure data and is imported by the digital workbench, so it must never import anything
   server-side.
 - **TEST only.** `adyen.ts` asserts the TEST environment on every call, and `test-only.ts` refuses a
   LIVE-looking endpoint, client key or profile secret. There is no switch, flag or configuration
@@ -70,32 +70,38 @@ Two boundaries are absolute.
 | Environment, then `.env` files                                  | Adyen TEST credentials, `PORT`, `PUBLIC_ORIGIN`, `DATABASE_PATH`, `SESSION_SIGNING_SECRET`, `PROFILE_ENCRYPTION_KEY`, Basic Auth pair | operator    | `loadServerConfig()` once per process; a change needs a restart         |
 | SQLite file at `DATABASE_PATH`                                  | The ten tables of [the data model](../architecture/data-model.md)                                                                     | this server | WAL; read and written per request, synchronously                        |
 | Adyen TEST Checkout API v72                                     | Response JSON, opaque to this package                                                                                                 | Adyen       | per request; 45 s default timeout                                       |
-| Adyen TEST Device API v1                                        | Response JSON for terminal calls                                                                                                      | Adyen       | per request; 120 s timeout for a sync                                   |
 | Webhook deliveries                                              | Standard notification items and raw bodies                                                                                            | Adyen       | per delivery; verified against every profile's `hmacKey`                |
 | `PAYMENT_METHOD_CAPABILITIES`                                   | What Adyen supports per method, plus this account's capture setting                                                                   | this repo   | checked against Adyen's docs 2026-10-10, reviewed at most 92 days apart |
 | `markets.ts`, `addresses.ts`, `shopper.ts`, `sessionContext.ts` | Country currency, locale and default amount; TEST shopper fixtures                                                                    | this repo   | static                                                                  |
 
-`config.ts` reads `Deno.env` first and only then the `.env` files, strips the quotes Docker leaves
-on `--env-file` values, and derives `PUBLIC_ORIGIN`, the database path and the default profile from
-what it found. Profiles added at runtime are encrypted with AES-256-GCM under
+`config.ts` reads `process.env` first and only then the `.env` files, strips the quotes Docker
+leaves on `--env-file` values, and derives `PUBLIC_ORIGIN`, the database path and the default profile
+from what it found. Its `process.cwd()` paths carry `/* turbopackIgnore: true */`, so Next's dev
+server does not watch the data folder. Without `SESSION_SIGNING_SECRET` the signing secret is
+random, one per app per process (kept on `globalThis` under a `Symbol.for` key, so every Next bundle
+in the process signs and verifies with the same one). Profiles added at runtime are encrypted with AES-256-GCM under
 `PROFILE_ENCRYPTION_KEY`, or, locally, a key file generated next to the database.
 
 ## Inputs
 
-`createPlatformContext(appId: AppId)` takes one of `"digital" | "ipp" | "agentic" | "styling"` and
-returns the config, the `Repository`, the `ProfileStore` and a Hono `api` that already carries the
-shared middleware and routes. Apps import `context.api` and add their own endpoints.
+`createPlatformContext(appId: AppId)` takes `"digital"` or `"styling"` and
+returns lazy `config`, `repository` and `profiles` (opened on first use, so `next build` workers
+never open the database together). `createPlatformApi(context)` returns an Elysia instance with the
+shared routes; each app chains its own and exports the result's type for Eden.
+`serveSecurely(app, context)` is the fetch handler the route files export: Basic Auth, the rate
+limit, then on `/api/*` the CSRF check and the session cookie, and the security headers on every
+answer.
 
 ### Entry points, module by module
 
 | Module                                            | Inputs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `adyen.ts`                                        | `new AdyenTestClient(ProfileSecrets, httpClient?)`, then one method per endpoint: `sessions`, `paymentMethods`, `payments`, `paymentDetails`, `createPaymentLink`, `getPaymentLink`, `paymentMethodsBalance`, `createOrder`, `cancelOrder`, `capture`, `cancel`, `refund`, `terminalSync`, `connectedDevices`. Payloads are `Record<string, unknown>` built per endpoint; calls that create or modify take an `idempotencyKey: string`. Query params are supported and unused since `GET /sessions` was dropped. |
+| `adyen.ts`                                        | `new AdyenTestClient(ProfileSecrets, httpClient?)`, then one method per endpoint: `sessions`, `paymentMethods`, `payments`, `paymentDetails`, `createPaymentLink`, `getPaymentLink`, `paymentMethodsBalance`, `createOrder`, `cancelOrder`, `capture`, `cancel`, `refund`. Payloads are `Record<string, unknown>` built per endpoint; calls that create or modify take an `idempotencyKey: string`. Query params are supported and unused since `GET /sessions` was dropped. |
 | `base-api.ts`                                     | `createPlatformContext(appId)`; `selectedSecrets(context, request)` reads the non-secret `X-Profile-Id` header, falling back to `default`, and returns `{ id, secrets }`.                                                                                                                                                                                                                                                                                                                                        |
-| `config.ts`                                       | `loadServerConfig(appId)`; `unquoteEnvValue(value)`. Required fields per app: digital and styling `apiKey`, `merchantAccount`, `clientKey`; ipp `apiKey`, `merchantAccount`, `terminalId`; agentic `apiKey`, `merchantAccount`. A client key must start with `test_`.                                                                                                                                                                                                                                            |
+| `config.ts`                                       | `loadServerConfig(appId)`; `unquoteEnvValue(value)`. Required fields: `apiKey`, `merchantAccount`, `clientKey`. A client key must start with `test_`.                                                                                                                                                                                                                                            |
 | `profiles.ts`                                     | `ProfileStore.save(label, secrets, id?)`; `getSecrets(id)`, `getPublic(id)`, `listPublic()`, `delete(id)`. A label is trimmed to 2–80 characters.                                                                                                                                                                                                                                                                                                                                                                |
 | `storage.ts`, `migrations.ts`, `migrations/`      | `Repository(path)` (`":memory:"` allowed) and its methods: order, session, attempt, payment part, API call, callback, webhook, action, audit and timeline writers, plus the matching readers.                                                                                                                                                                                                                                                                                                                    |
-| `security.ts`                                     | Request cookies `adyen_session`, `adyen_csrf`, `adyen_profile_<appId>`; headers `X-CSRF-Token`, `Origin`, `X-Forwarded-For`, `Authorization`. `rateLimit(maxRequests = 120, windowMs = 60_000)`; `basicAuthChallenge(request)` reads `PLAYGROUND_BASIC_AUTH_USER` and `PLAYGROUND_BASIC_AUTH_PASSWORD`.                                                                                                                                                                                                          |
+| `security.ts`                                     | `ensureSession(request, jar, signingSecret)`; `ensureCsrfToken(request, jar)` (also used by each app's proxy on page responses). Request cookies `adyen_session`, `adyen_csrf`, `adyen_profile_<appId>`; headers `X-CSRF-Token`, `Origin`, `X-Forwarded-For`, `Authorization`. `rateLimiter(maxRequests = 120, windowMs = 60_000)`; `basicAuthChallenge(request)` reads `PLAYGROUND_BASIC_AUTH_USER` and `PLAYGROUND_BASIC_AUTH_PASSWORD`.                                                                                                                                                                                                          |
 | `hmac.ts`                                         | `standardWebhookSigningString(item)`, `calculateStandardHmac(item, keyHex)`, `verifyStandardHmac(item, keyHex?)`, `verifyHeaderHmac(rawBody, signature, keyHex?)`. Keys are hex; signatures are Base64.                                                                                                                                                                                                                                                                                                          |
 | `sanitize.ts`                                     | `sanitize(value)`, `mask(value)`, `rejectRawCardData(value)`.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `state-machine.ts`                                | `mapAdyenResultCode(resultCode)` and `resolveOrder(input, now = new Date())`, both below.                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -157,7 +163,7 @@ every Sessions and Advanced call; stored cards therefore stay visible for a week
   profile's secrets or the decrypted stored ones. A profile whose ciphertext cannot be decrypted is
   listed with `missingFields: ["decryptionFailed"]`.
 - **Shared routes.** `/api/health` and `/healthz`; `/api/bootstrap` (session, profile choice,
-  publishable `test_` client key, origin, webhook URL, whether an HMAC key exists, agentic mode);
+  publishable `test_` client key, origin, webhook URL, whether an HMAC key exists);
   `/api/profiles` (list, create 201, preferred 404 on unknown, delete 404 on missing);
   `/api/callbacks` (400 without `correlationId` and `name`, else 201);
   `/api/timeline/:correlationId`.
@@ -259,17 +265,17 @@ payload), never trusted free text.
 ## Acceptance checks
 
 ```bash
-deno task test          # every package and app test, including apps.integration.test.ts
-deno test -A --parallel packages/platform
-deno task types         # deno check over packages, apps and tools
-deno task knowledge:check
-deno task check         # the full gate: fmt, lint, knowledge, types, tests, builds, SSR
+bun test packages      # every package test, including apps.integration.test.ts
+bun run types          # tsc over packages and tools, then each app
+bun run knowledge:check
+bun run check          # the full gate: knowledge, links, health, types, tests, builds, SSR, template
 ```
 
 ## Out of scope
 
 - Reaching Adyen LIVE in any way; there is no flag for it.
-- Rendering anything: no HTML, no Preact, no island import apart from the pure-data `markets.ts`.
+- Rendering anything: no HTML, no React, no client-component import apart from the pure-data
+  `markets.ts`.
 - Holding, forwarding or logging PAN, CVC or any raw card field.
 - Deciding an outcome: an order's state comes from Adyen's answers and HMAC-valid webhooks only.
 - Fetching a session's status from Adyen after the fact.

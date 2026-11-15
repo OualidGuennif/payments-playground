@@ -7,11 +7,11 @@ status: deprecated
 superseded_by: engineering.md
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T13:00:00Z
+  at: 2026-11-15T21:00:00Z
 sources:
   - id: fmt-lint
-    resource: ../../deno.json
-    title: fmt (line width 100, double quotes, semicolons), lint (fresh + recommended), tasks
+    resource: git-history:deno.json
+    title: "fmt (line width 100, double quotes, semicolons), lint, tasks; removed on 2026-11-15"
   - id: oualstreet
     resource: git-history:knowledge/policies/engineering-discipline.md
     title: "Adapted from the owner's Oualstreet engineering discipline (separate repository)"
@@ -20,8 +20,8 @@ sources:
 # Engineering rules
 
 > Superseded by [engineering](engineering.md); kept for the history of the project rules it merged.
-> The Deno conventions below no longer cover `apps/adyen-agentic-commerce`, which the root
-> `deno.json` excludes since 2026-11-15 (a Bun app checked by `check:agentic`).
+> Its Deno, Preact and `deno.lock` conventions ended on 2026-11-15 with the move to Bun
+> ([ADR-014](../decisions/ADR-014-every-playground-on-bun-and-next.md)).
 
 ## Before changing anything
 

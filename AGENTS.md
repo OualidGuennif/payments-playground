@@ -1,7 +1,7 @@
 # Payments Playground: agent instructions
 
-Three Adyen **TEST** playgrounds in one Deno workspace (Fresh 2 + Hono, Adyen Web 6.48.1, Checkout
-API v72). Current focus: `apps/adyen-digital`. Owner and final say: Oualid (OualidGuennif).
+Three Adyen **TEST** playgrounds in one Bun workspace (Next.js 16 + Elysia + Eden, Adyen Web 6.48.1,
+Checkout API v72). Current focus: `apps/adyen-digital`. Owner and final say: Oualid (OualidGuennif).
 
 Keep reasoning private. Do not narrate plans, progress or tool calls. Use tools directly; speak only
 for a necessary user decision or the final result. **Plan first** for any non-trivial task: inspect,
@@ -32,11 +32,11 @@ render.yaml                  root Blueprint; never move it or its services
 ## Build and test
 
 ```bash
-deno task check            # fmt, lint, knowledge, types, tests, 4 builds, SSR asserts
-deno task docs:links       # knowledge sources and Spec: pointers, both ways
-deno task repo:health      # size, comment and top-level-folder caps
+bun run check              # knowledge, links, health, types, tests, 3 builds, SSR asserts, template
+bun run docs:links         # knowledge sources and Spec: pointers, both ways
+bun run repo:health        # size, comment and top-level-folder caps
 tools/template-tests       # the template's own suites (hooks, context, links, loops)
-deno task --cwd apps/adyen-digital dev   # dev server on :5173
+bun run dev:digital        # dev server on :8001
 ```
 
 CI repeats the checks on pull requests and `main`. Runbooks:
@@ -62,8 +62,8 @@ CI repeats the checks on pull requests and `main`. Runbooks:
 ## Critical rules
 
 1. TEST only. Never add a LIVE path or weaken `packages/platform/test-only.ts`.
-2. Secrets stay server-side and out of git, logs, images, URLs and chat. Anything under `islands/`
-   is public. Never read `.env` or a credential file.
+2. Secrets stay server-side and out of git, logs, images, URLs and chat. Anything a `"use client"`
+   module imports is public. Never read `.env` or a credential file.
 3. Never forward Adyen Web `state.data` wholesale: add a field only after checking it in the
    `@adyen/api-library` typings. Endpoints reject unknown fields.
 4. An order's state comes from Adyen's answers and HMAC-valid webhooks, never from the browser. A
@@ -92,7 +92,7 @@ CI repeats the checks on pull requests and `main`. Runbooks:
 
 ## Definition of done
 
-- `deno task check`, `docs:links`, `repo:health` and `tools/template-tests` pass.
+- `bun run check`, `docs:links`, `repo:health` and `tools/template-tests` pass.
 - The behaviour is verified at the level it needs, with evidence written down.
 - Knowledge concepts whose facts changed are updated, with `generated.at` bumped and `verified` only
   for checks actually performed; `work/current.md` is updated or cleared.

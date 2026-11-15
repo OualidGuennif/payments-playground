@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- `deno task types` names the three Deno apps instead of `apps/**`, whose glob now reached the Bun
+  store's `node_modules` and overflowed the argument list; the store keeps its own `tsc` check.
 - Rebuild `apps/adyen-agentic-commerce` as one Next.js 16 app on the Bun runtime (Elysia in the
   route handlers, Eden client, `bun:sqlite`): the Atelier Velune demo store over UCP 2026-08-25
   (REST and MCP) behind PAP 1.0 sign-in, a human Drop-in checkout, a zero-value card save and agent

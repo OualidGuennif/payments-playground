@@ -7,7 +7,7 @@ status: stable
 scope: verification-and-reporting
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-16T03:00:00Z
 sources:
   - id: oualstreet
     resource: git-history:knowledge/operations/reporting-and-confidence-levels.md
@@ -29,8 +29,8 @@ sources:
 | **WEBHOOK VERIFIED**  | A notification with a valid HMAC was processed and changed what it should | `webhooks.hmac_valid = 1`, the order state after    |
 | **DEPLOYED VERIFIED** | The same behaviour observed on the Render deployment                      | `/api/health` versions, a flow on the public origin |
 
-For the agentic store, CODE VERIFIED is the same `bun run check`, which runs its types and
-`bun test`; its TEST API evidence is the app's `payments` record and Back Office
+For the agentic store, CODE VERIFIED is the same `bun run check`, which runs Biome over it, its
+types and `bun test`; its TEST API evidence is the app's `payments` record and Back Office
 trace (result code and PSP reference), not an `api_calls` row.
 
 A level is never claimed from the one below it. A build is not a payment; an accepted capture

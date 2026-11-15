@@ -7,7 +7,7 @@ status: stable
 scope: build-and-test
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-16T00:30:00Z
+  at: 2026-11-16T03:00:00Z
 sources:
   - id: tasks
     resource: ../../package.json
@@ -72,9 +72,11 @@ bun run verify             # build, then start the standalone servers and check 
 `check` runs: `knowledge:check`, `docs:links`, `repo:health`, `biome:ci`, `types` (`tsc -p .` over
 packages, testing and tools, then each app's `tsc --noEmit`), `test`, `build`, `ssr:assert`,
 `template:test`. It is the local gate; run it before every push. CI repeats it on pull requests and
-`main` after `bun install --frozen-lockfile`.
+`main` after `bun install --frozen-lockfile`. `bunfig.toml` sets `minimumReleaseAge` to one week: an
+install never resolves a version published in the last seven days (CI's semgrep asks for it), so a
+new pin must be at least that old.
 
-Biome 2.6.7 replaced `deno fmt` and `deno lint` on 2026-11-15 with the same style (`biome.json`:
+Biome 2.6.6 replaced `deno fmt` and `deno lint` on 2026-11-15 with the same style (`biome.json`:
 spaces, indent 2, line width 100, double quotes, semicolons) and its recommended rules. `biome:ci`
 fails on a formatting difference or a lint error and hides warnings; `bun run lint` lists them (about
 110, mostly non-null assertions). Markdown is not formatted: Biome's Markdown formatter turns YAML

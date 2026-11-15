@@ -7,7 +7,7 @@ status: stable
 scope: adyen-web-upgrade
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-16T03:00:00Z
 sources:
   - id: root
     resource: ../../package.json
@@ -29,7 +29,8 @@ verified:
 
 1. **Read the release notes** for every version in between
    (`gh api repos/Adyen/adyen-web/releases`). Note breaking changes and versions flagged "do not
-   use" (6.45.1 was).
+   use" (6.45.1 was). The version must be at least a week old: `bunfig.toml`'s
+   `minimumReleaseAge` keeps `bun install` from resolving anything newer.
 2. **Bump every pin**: `@adyen/adyen-web` in `packages/ui/package.json` and in each
    `apps/*/package.json`, to the same exact version
    ([ADR-014](../decisions/ADR-014-every-playground-on-bun-and-next.md)). The hoisted linker must

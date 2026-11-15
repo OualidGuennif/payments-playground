@@ -3,3 +3,6 @@
 # Next's file tracing finds the shared packages without symlink chains.
 linker = "hoisted"
 exact = true
+# A version must be a week old before an install resolves it: a hijacked release is usually
+# caught and pulled within days (semgrep bun-missing-minimum-release-age).
+minimumReleaseAge = 604800

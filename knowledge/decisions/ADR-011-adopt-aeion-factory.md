@@ -5,7 +5,7 @@ description: "Adopt the factory repository and agent architecture while keeping 
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15
+  at: 2026-11-16T03:00:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "The merged project and agent rules"
@@ -56,4 +56,5 @@ Adopt the factory's phase 1–7 structure in this repository, merged with what a
 - Amended 2026-11-15: the project follows Æion Template v4.0.3 and Graphify, Archify and
   `efficiency/` are removed ([ADR-013](ADR-013-aeion-template-v4-without-source-analysis.md)).
 - Amended 2026-11-15: Deno is gone ([ADR-014](ADR-014-every-playground-on-bun-and-next.md)); the
-  checks need Bun 1.4.4 and Python, and the Deno fmt/lint exclusions went with `deno.json`.
+  checks need Bun 1.4.4 and Python, and the Deno fmt/lint exclusions went with `deno.json`; the
+  same template-owned folders (and `opencode.json`) are excluded from Biome in `biome.json`.

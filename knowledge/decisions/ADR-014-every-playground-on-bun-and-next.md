@@ -6,7 +6,7 @@ tags: [decision, bun, nextjs, elysia, eden, workspace]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-16T00:30:00Z
+  at: 2026-11-16T03:00:00Z
 sources:
   - id: workspace
     resource: ../../package.json
@@ -52,7 +52,8 @@ had to be kept in step by hand.
 
 **Consequences.** `deno fmt` and `deno lint` left with Deno; `bun run check` covers knowledge, links,
 repository health, Biome, `tsc` per package and app, `bun test`, the three builds, an SSR assertion
-on each standalone server and the template suites. Biome 2.6.7 (owner's yes, 2026-11-15) replaces
+on each standalone server and the template suites. Biome 2.6.6 (owner's yes, 2026-11-15) replaces
 `deno fmt` and `deno lint` with the same style; Markdown stays unformatted because Biome's Markdown
-formatter rewrites YAML frontmatter. Docker images build inside the workspace on `oven/bun:1.4.4` and run
+formatter rewrites YAML frontmatter. `bunfig.toml` sets `minimumReleaseAge` to one week, so an
+install never resolves a version published in the last seven days (CI's semgrep asks for it). Docker images build inside the workspace on `oven/bun:1.4.4` and run
 `bun apps/<app>/server.js` as uid 1993. The required CI check "Deno check" became "Bun check".

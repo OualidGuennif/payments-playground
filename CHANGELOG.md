@@ -5,11 +5,13 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Pass CI's scans: `bunfig.toml` sets `minimumReleaseAge` to one week, Biome is pinned to 2.6.6
+  (2.6.7 was four days old), and `.gitleaksignore` names the agentic test preload's fake HMAC key.
 - Agentic store, from the release review: the grant's budget is reserved when a checkout is
   claimed, so completes on several checkouts at once cannot pass the spend limit, and each
   payment's reservation is settled once whichever of the answer or the webhook arrives first, and
-  a webhook that settles a payment during the call is never undone or doubled by its answer; an order is
-  placed from the lines its payment was priced from and only when Adyen's amount matches;
+  a webhook that settles a payment during the call is never undone or doubled by its answer; an
+  order is placed from the lines its payment was priced from and only when Adyen's amount matches;
   payments are found by reference, not in the newest 200 rows; a late refusal of an older
   attempt no longer reopens a pending checkout; the proxy refuses cross-site writes on the
   shopper paths (the consent decision could be forged); every response carries the security
@@ -19,7 +21,7 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   fixed (typed `let`s, lazy initialisers as statements, a renamed `escape`, a test that asserts
   the webhook exists, decorative SVGs hidden, the checkout skeleton a `status`) or justified with
   `biome-ignore` where the code is deliberate (effect triggers, a constant theme script).
-- Format the code with Biome 2.6.7 (`biome.json`: spaces, indent 2, line width 100, double
+- Format the code with Biome 2.6.6 (`biome.json`: spaces, indent 2, line width 100, double
   quotes, semicolons; Markdown left out because Biome's Markdown formatter rewrites YAML
   frontmatter). Formatting only: no behaviour changes.
 - Record that `main` has no branch protection and no ruleset (read back 2026-11-15), so the

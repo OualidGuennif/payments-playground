@@ -9,10 +9,10 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-15, drop Deno and Fresh, port every app; then Claude releases it itself:
   Biome as formatter/linter, independent review, push, release PR, merge, tag, deploy check.
-- State: port done and green at `3dfefe3`, not pushed; main has no branch protection (nothing to
-  swap); Biome not added yet.
-- Next: Biome, review receipt, push develop, release, verify Render (who: Claude); webhook HMAC key
-  and the ipp Render service deletion (who: owner).
+- State: Biome added; review findings fixed with tests; develop pushed at `1885999` (Review OK);
+  CI scan fixes uncommitted (release age, Biome 2.6.6, gitleaks fingerprint).
+- Next: commit them, v0.2.0 bump, review, push, release PR, tag, verify Render (who: Claude);
+  webhook HMAC key, ipp Render service deletion (who: owner).
 - Blocker: none.
 - Evidence: work/handovers/a38bcec0-13c5-437d-9c40-1f317f1b63c6.md.
 

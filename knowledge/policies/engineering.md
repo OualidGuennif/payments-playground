@@ -5,7 +5,7 @@ description: "Steps that read top to bottom, comments that say why, no needless 
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-16T00:30:00Z
+  at: 2026-11-16T03:00:00Z
 sources:
   - resource: ../../tools/git-hooks/pre-push
     title: "pre-push, which names this doc as its spec"
@@ -71,8 +71,8 @@ run.
   every finding and records `Review: OK` or `Review: NOT OK` (at most five findings) for the exact
   commit in `.aeion/reviews/<sha>.md`, then posts it on the commit. The hook
   `tools/git-hooks/pre-push` (`git config core.hooksPath tools/git-hooks`) refuses a push of
-  `develop` without `Review: OK` and any direct push to `main`. CI runs only for `main` and for pull
-  requests, so pushes stay free. A loop's pull request into `develop` merges after its `Review: OK`
+  `develop` without `Review: OK` and any direct push to `main`. CI runs on pushes to `main` and
+  `develop` and on pull requests into them (`.github/workflows/ci.yml`). A loop's pull request into `develop` merges after its `Review: OK`
   comment and a green CI; then the local `develop` pulls it before new commits.
 - A release (skill `ship`): `tools/release/release <part>` bumps `VERSION` (SemVer) and dates the
   changelog; a pull request `develop → main` is reviewed again and merged with a merge commit after
@@ -104,6 +104,8 @@ contracts unless the task requires changing them. No abstraction is created "for
 - An order's state comes from Adyen's answers and HMAC-valid webhooks, never from the browser. A
   refusal ends an attempt, not an order.
 - Money is an integer in minor units; display goes through `formatMinorAmount`.
+- A dependency is pinned exactly and only once it is a week old: `bunfig.toml`'s
+  `minimumReleaseAge` makes `bun install` refuse anything newer.
 - Component docs follow [specs first](specs-first.md) and carry its eight sections.
 - The public security model is [SECURITY.md](../../docs/SECURITY.md); the internal rules are
   [security](security.md). Verification levels are

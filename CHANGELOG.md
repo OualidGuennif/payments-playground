@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Digital Checkout (from Gemini): `/sessions`, Advanced `/payments` and `/api-only` send a fixed
+  two-key `metadata` (`playground`, `flow`), and `/sessions` no longer puts recipient names in
+  `deliveryAddress`; the request builders are exported and pinned by `api.test.ts`.
 - Interface pass across the three apps (from Gemini): touch targets of at least 44 px, a skip
   link and a phone menu on the agentic store, dark text on the green buttons for AA contrast
   (`--color-on-green`), no text under 11 px, balanced headings and readable line lengths, the

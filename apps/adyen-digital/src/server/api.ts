@@ -266,6 +266,13 @@ function lifecycleFor(order: OrderAggregate, attempts: AttemptAggregate[]) {
   };
 }
 
+function playgroundMetadata(flow: "sessions" | "advanced" | "api-only"): Record<string, string> {
+  return {
+    playground: "adyen-digital",
+    flow,
+  };
+}
+
 function requestBase(input: {
   body: Record<string, unknown>;
   secrets: ProfileSecrets;
@@ -284,24 +291,12 @@ function requestBase(input: {
   const billingAddress = addresses.billingAddress;
   // The playground's "Native 3DS" switch; only an explicit false turns it off.
   const nativeThreeDS = input.body.nativeThreeDS !== false;
-  // Only /sessions gets a recipient name inside deliveryAddress. /payments
-  // sends the postal fields only, by the owner's choice (2026-10-13), even
-  // when Adyen Web's state.data supplied names. /paymentLinks validates a
-  // plain address schema and rejects them ("Structure of address contains
-  // the following unknown fields: [firstName, lastName]").
+  // Send postal fields only in deliveryAddress; recipient names stay in shopperName.
   const {
     firstName: _firstName,
     lastName: _lastName,
-    ...postalDelivery
+    ...deliveryAddress
   } = addresses.deliveryAddress;
-  const deliveryAddress =
-    input.context === "sessions"
-      ? {
-          ...postalDelivery,
-          firstName: String(input.body.firstName ?? "Test"),
-          lastName: String(input.body.lastName ?? "Shopper"),
-        }
-      : postalDelivery;
   return {
     amount: input.order.amount,
     reference: input.order.reference,
@@ -393,11 +388,89 @@ const MODIFICATION_EVENTS: Record<string, "capture" | "cancel"> = {
   CANCELLATION: "cancel",
 };
 
+/** Builds the Checkout API /sessions payload for Digital Checkout. */
+export function buildSessionRequest(input: {
+  body: Record<string, unknown>;
+  secrets: ProfileSecrets;
+  order: OrderAggregate;
+  origin: string;
+  expiresAt: string;
+}): Record<string, unknown> {
+  return {
+    ...requestBase({
+      body: input.body,
+      secrets: input.secrets,
+      order: input.order,
+      origin: input.origin,
+      context: "sessions",
+    }),
+    expiresAt: input.expiresAt,
+    metadata: playgroundMetadata("sessions"),
+    ...(input.body.installments === true
+      ? { installmentOptions: { card: { values: [2, 3, 4], preselectedValue: 2 } } }
+      : {}),
+    ...(Array.isArray(input.body.allowedPaymentMethods)
+      ? { allowedPaymentMethods: input.body.allowedPaymentMethods }
+      : {}),
+  };
+}
+
+/** Builds the Checkout API /payments payload for Advanced and API-only flows. */
+export function buildPaymentRequest(input: {
+  body: Record<string, unknown>;
+  secrets: ProfileSecrets;
+  order: OrderAggregate;
+  origin: string;
+  paymentMethod: Record<string, unknown>;
+  metadataFlow: "advanced" | "api-only";
+  ip?: string;
+  adyenOrder?: { orderData: string; pspReference: string };
+}): Record<string, unknown> {
+  const isStoredPaymentMethod = Boolean(input.paymentMethod.storedPaymentMethodId);
+  return {
+    ...requestBase({
+      body: input.body,
+      secrets: input.secrets,
+      order: input.order,
+      origin: input.origin,
+      context: "payments",
+    }),
+    ...forwardedStateData(input.body),
+    metadata: playgroundMetadata(input.metadataFlow),
+    paymentMethod: input.paymentMethod,
+    browserInfo: input.body.browserInfo,
+    origin: input.origin,
+    ...(input.ip ? { shopperIP: input.ip } : {}),
+    // Derive card-on-file interaction from the payload rather than trusting client labels.
+    shopperInteraction:
+      input.body.shopperInteraction ?? (isStoredPaymentMethod ? "ContAuth" : "Ecommerce"),
+    ...(input.body.recurringProcessingModel
+      ? { recurringProcessingModel: input.body.recurringProcessingModel }
+      : isStoredPaymentMethod || input.body.storePaymentMethod
+        ? { recurringProcessingModel: "CardOnFile" }
+        : {}),
+    // A stored method is already on file; re-storing it is rejected.
+    ...(input.body.storePaymentMethod && !isStoredPaymentMethod
+      ? { storePaymentMethod: true }
+      : {}),
+    ...(input.adyenOrder ? { order: input.adyenOrder, amount: input.order.amount } : {}),
+    // Pair /payments with the /paymentMethods call that opened this checkout.
+    ...(typeof input.body.shopperConversionId === "string"
+      ? { shopperConversionId: conversionIdFrom(input.body.shopperConversionId) }
+      : {}),
+  };
+}
+
 /**
  * /payments for the Advanced flow, and for API only once its PCI boundary
  * check passed.
  */
-async function createPayment(body: Record<string, unknown>, http: Request, remoteAddress?: string) {
+async function createPayment(
+  body: Record<string, unknown>,
+  http: Request,
+  remoteAddress?: string,
+  metadataFlow: "advanced" | "api-only" = "advanced",
+) {
   rejectRawCardData(body.paymentMethod);
   const amount = amountFrom(body.amount);
   const { client, secrets, id: profileId } = await profileClient(http);
@@ -421,7 +494,6 @@ async function createPayment(body: Record<string, unknown>, http: Request, remot
     return status(400, { error: "A partial payment cannot exceed its order." });
   }
   const paymentMethod = sanitizePaymentMethod(object(body.paymentMethod));
-  const isStoredPaymentMethod = Boolean(paymentMethod.storedPaymentMethodId);
   const attempt = context.repository.createAttempt({
     orderId: order.id,
     amount,
@@ -433,34 +505,16 @@ async function createPayment(body: Record<string, unknown>, http: Request, remot
   // Used by Adyen's risk checks, and required for Visa and JCB 3DS2 when
   // shopperEmail is missing. Taken from the connection, never the body.
   const ip = shopperIp(http, remoteAddress);
-  const request = {
-    ...requestBase({ body, secrets, order, origin, context: "payments" }),
-    ...forwardedStateData(body),
-    paymentMethod,
-    browserInfo: body.browserInfo,
+  const request = buildPaymentRequest({
+    body,
+    secrets,
+    order,
     origin,
-    ...(ip ? { shopperIP: ip } : {}),
-    // Paying with a token, or asking to store one, is a card-on-file
-    // transaction, the legacy playground derived both fields from the payload
-    // instead of trusting the client to label it correctly.
-    shopperInteraction:
-      body.shopperInteraction ?? (isStoredPaymentMethod ? "ContAuth" : "Ecommerce"),
-    ...(body.recurringProcessingModel
-      ? { recurringProcessingModel: body.recurringProcessingModel }
-      : isStoredPaymentMethod || body.storePaymentMethod
-        ? { recurringProcessingModel: "CardOnFile" }
-        : {}),
-    // A stored method is already on file; re-storing it is rejected.
-    ...(body.storePaymentMethod && !isStoredPaymentMethod ? { storePaymentMethod: true } : {}),
-    ...(adyenOrder ? { order: adyenOrder, amount } : {}),
-    // Repeats the id minted by the /paymentMethods call that opened this
-    // checkout, which is what links the two requests into one conversion.
-    // Absent for flows that never listed payment methods (MIT), where a
-    // freshly invented id would link nothing.
-    ...(typeof body.shopperConversionId === "string"
-      ? { shopperConversionId: conversionIdFrom(body.shopperConversionId) }
-      : {}),
-  };
+    paymentMethod,
+    metadataFlow,
+    ip,
+    adyenOrder,
+  });
   const result = await recordedCall({
     correlationId: order.id,
     name: "Checkout API /payments",
@@ -516,16 +570,7 @@ const app = createPlatformApi(context)
     });
     const idempotencyKey = crypto.randomUUID();
     const origin = requestOrigin(http, context.config.publicOrigin);
-    const request = {
-      ...requestBase({ body, secrets, order, origin, context: "sessions" }),
-      expiresAt,
-      ...(body.installments === true
-        ? { installmentOptions: { card: { values: [2, 3, 4], preselectedValue: 2 } } }
-        : {}),
-      ...(Array.isArray(body.allowedPaymentMethods)
-        ? { allowedPaymentMethods: body.allowedPaymentMethods }
-        : {}),
-    };
+    const request = buildSessionRequest({ body, secrets, order, origin, expiresAt });
     const result = await recordedCall({
       correlationId: order.id,
       name: "Checkout API /sessions",
@@ -872,7 +917,12 @@ const app = createPlatformApi(context)
       });
     }
     // Reuse the Advanced Flow contract after the explicit PCI boundary check.
-    return createPayment({ ...body, flow: "api-only-pci" }, http, server?.requestIP(http)?.address);
+    return createPayment(
+      { ...body, flow: "api-only-pci" },
+      http,
+      server?.requestIP(http)?.address,
+      "api-only",
+    );
   })
   // Capture, cancel or refund. Each request carries the Idempotency-Key the
   // Back Office minted for that intent (Adyen keeps it 7 to 14 days and returns

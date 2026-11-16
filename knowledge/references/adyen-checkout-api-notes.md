@@ -6,7 +6,7 @@ tags: [reference, adyen, checkout-api]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-16T18:40:00Z
+  at: 2026-11-16T22:30:00Z
 sources:
   - id: api
     resource: ../../apps/adyen-digital/src/server/api.ts
@@ -34,7 +34,8 @@ anything outside their schema. The field lists in `@adyen/api-library`'s typings
 | --------------------------------------------------------------------------------------------------- | ----------- | ------------ | --------------- | ------------------------------------------------------------- |
 | `channel: "Web"`                                                                                    | required    | required     | rejected        | `/payments` fails without it, MIT included                    |
 | `merchantRiskIndicator`                                                                             | rejected    | accepted     | rejected        |                                                               |
-| `deliveryAddress.firstName/lastName`                                                                | accepted    | accepted     | rejected        | Sent on `/sessions` only; owner's choice for `/payments`      |
+| `deliveryAddress.firstName/lastName`                                                                | accepted    | accepted     | rejected        | Omitted across `adyen-digital` endpoints; still sent on `styling`'s `/sessions` |
+| `metadata`                                                                                          | accepted    | accepted     | accepted        | Sent on `adyen-digital` `/sessions`, Advanced `/payments` and `/api-only` (2 keys; max 20 pairs, 20-char keys, 80-char values) |
 | `shopperConversionId`                                                                               | rejected    | accepted     | rejected        | Also on `/paymentMethods`; repeat the same id on `/payments`  |
 | `shopperIP`                                                                                         | in typings  | accepted     | not in typings  | Sent on `/payments` only, from the connection, never the body |
 | `storePaymentMethodMode`                                                                            | accepted    | n/a          | n/a             | Advanced uses `enableStoreDetails` + `storePaymentMethod`     |

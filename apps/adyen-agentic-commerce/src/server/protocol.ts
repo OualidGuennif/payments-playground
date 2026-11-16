@@ -4,10 +4,18 @@
 import { CommerceError } from "./commerce";
 import { config, UCP_VERSION } from "./config";
 import { database } from "./db";
-import { type Auth, authenticate } from "./oauth";
+import { type Auth, authenticate, issuer } from "./oauth";
 import { PapError, verifyPoppy } from "./pap";
 import { trace } from "./trace";
-import { MUTATIONS, OPERATIONS, type OpResult, routeRest, ScopeError } from "./ucp";
+import {
+  IdentityRequired,
+  MUTATIONS,
+  OPERATIONS,
+  type OpResult,
+  REQUIRED_SCOPE,
+  routeRest,
+  ScopeError,
+} from "./ucp";
 import { canonicalJson, isRecord, isUuid, json, readJson, sha256 } from "./util";
 import { MCP_TOOLS } from "./mcp-tools";
 
@@ -34,13 +42,24 @@ export function publicUrl(request: Request): string {
 const clientIp = (request: Request) =>
   request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
 
+// RFC 6750 §3 with UCP's realm (the issuer) and RFC 9728's resource_metadata; error only when a
+// token was sent, and on 403 the operation's full scope set.
 function wwwAuthenticate(resourcePath: string, error?: string, scope?: string) {
   const parts = [
+    `realm="${issuer()}"`,
     `resource_metadata="${config().publicOrigin}/.well-known/oauth-protected-resource${resourcePath}"`,
   ];
   if (error) parts.push(`error="${error}"`);
   if (scope) parts.push(`scope="${scope}"`);
   return `Bearer ${parts.join(", ")}`;
+}
+
+// UCP's error_response: `ucp` and `messages` only.
+function ucpError(code: string, content: string) {
+  return {
+    ucp: { version: UCP_VERSION, status: "error" },
+    messages: [{ type: "error", code, content, severity: "requires_buyer_review" }],
+  };
 }
 
 type Edge = { auth?: Auth; actor: string; response?: Response };
@@ -54,14 +73,13 @@ async function edge(request: Request, resourcePath: string): Promise<Edge> {
     };
   const auth = authenticate(request.headers.get("authorization"));
   if (auth === "invalid") {
-    return {
-      actor: "?",
-      response: json(
-        401,
-        { error: "invalid_token" },
-        { "www-authenticate": wwwAuthenticate(resourcePath, "invalid_token") },
-      ),
-    };
+    const header = { "www-authenticate": wwwAuthenticate(resourcePath, "invalid_token") };
+    // MCP clients read OAuth's body; UCP REST platforms read identity_required.
+    const body =
+      resourcePath === "/mcp"
+        ? { error: "invalid_token" }
+        : ucpError("identity_required", "The access token is invalid or expired; sign in again.");
+    return { actor: "?", response: json(401, body, header) };
   }
   try {
     await verifyPoppy(request, publicUrl(request), auth);
@@ -110,7 +128,8 @@ function idempotent(
     return Promise.resolve({ status: row.status, body: JSON.parse(row.response) });
   }
   return run().then((result) => {
-    if (result.status < 500) {
+    // A refused token never ran the operation: a retry with a better token must run it.
+    if (result.status < 500 && result.status !== 401 && result.status !== 403) {
       database()
         .query(
           "insert or ignore into idempotency (scope, key, request_hash, status, response, created_at) values ($s, $k, $h, $st, $r, $at)",
@@ -142,12 +161,10 @@ async function runOp(
         body: { ucp: { version: UCP_VERSION, status: "error" }, messages: [error.msg] },
       };
     }
-    if (error instanceof ScopeError) {
-      return {
-        status: 403,
-        body: { error: "insufficient_scope", error_description: error.message, scope: error.scope },
-      };
-    }
+    if (error instanceof ScopeError)
+      return { status: 403, body: ucpError("insufficient_scope", error.message) };
+    if (error instanceof IdentityRequired)
+      return { status: 401, body: ucpError("identity_required", error.message) };
     throw error;
   }
 }
@@ -270,7 +287,12 @@ export async function handleRest(request: Request, path: string): Promise<Respon
     result = await runOp(route.op, args, e.auth);
   }
   if (result.status === 403)
-    headers["www-authenticate"] = wwwAuthenticate("", "insufficient_scope");
+    headers["www-authenticate"] = wwwAuthenticate(
+      "",
+      "insufficient_scope",
+      REQUIRED_SCOPE[route.op],
+    );
+  if (result.status === 401) headers["www-authenticate"] = wwwAuthenticate("");
   return finish(result.status, result.body, headers, route.op);
 }
 

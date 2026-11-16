@@ -8,9 +8,11 @@ const PROTECTED = [
   "/account",
   "/back-office",
   "/consent",
+  "/device",
   "/api/account",
   "/api/back-office",
   "/oauth/decision",
+  "/oauth/device/verify",
 ];
 
 // `docker run --env-file` keeps the quotes of `KEY="value"`; uncleaned, the right pair was refused.
@@ -80,8 +82,10 @@ export const config = {
     "/account/:path*",
     "/back-office/:path*",
     "/consent/:path*",
+    "/device",
     "/api/account/:path*",
     "/api/back-office",
     "/oauth/decision",
+    "/oauth/device/verify",
   ],
 };

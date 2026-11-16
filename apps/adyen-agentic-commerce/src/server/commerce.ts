@@ -5,7 +5,7 @@ import * as adyen from "./adyen";
 import { productById, variantById } from "./catalog";
 import { config, CURRENCY, paymentsConfigured } from "./config";
 import { findBy, get, put } from "./db";
-import { type Auth, chargeGrant, type Grant } from "./oauth";
+import { allows, type Auth, chargeGrant, type Grant } from "./oauth";
 import { trace } from "./trace";
 import { isRecord, newId, sha256 } from "./util";
 
@@ -457,9 +457,9 @@ export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAl
   if (!auth)
     return escalate(
       "sign_in_required",
-      "Sign in with OAuth (scope ucp:pay) to pay with the shopper's saved card, or hand the shopper the continue_url.",
+      "Sign in with OAuth (scopes dev.ucp.shopping.checkout:manage and ucp:pay) to pay with the shopper's saved card, or hand the shopper the continue_url.",
     );
-  if (!auth.token.scopes.includes("ucp:pay"))
+  if (!allows(auth.token.scopes, "ucp:pay"))
     return escalate(
       "insufficient_scope",
       "The ucp:pay scope is needed to pay; the shopper can pay at continue_url.",

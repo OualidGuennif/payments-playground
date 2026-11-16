@@ -70,8 +70,16 @@ export const MCP_TOOLS = [
           filters: {
             type: "object",
             properties: {
-              category: { enum: ["clothing", "bags", "accessories"] },
-              price: { type: "object", properties: { max: { type: "integer" } } },
+              categories: {
+                type: "array",
+                description: "Any of these categories.",
+                items: { enum: ["clothing", "bags", "accessories"] },
+              },
+              price: {
+                type: "object",
+                description: "EUR minor units.",
+                properties: { min: { type: "integer" }, max: { type: "integer" } },
+              },
             },
           },
         },

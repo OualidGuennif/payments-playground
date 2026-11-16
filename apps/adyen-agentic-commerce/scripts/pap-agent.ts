@@ -66,7 +66,8 @@ function metadata(): Record<string, unknown> {
 try {
   // 3. Discovery: poppy.json names the issuer and the MCP endpoint.
   const poppy = (await (await fetch(`${origin}/.well-known/poppy.json`)).json()) as {
-    auth: { issuer: string; scopes: string[] };
+    // PAP 1.0 §3.1: scope name -> description.
+    auth: { issuer: string; scopes: Record<string, string> };
     apis: { type: string; url: string }[];
   };
   const issuer = poppy.auth.issuer;
@@ -86,7 +87,7 @@ try {
     client_id: clientId,
     redirect_uri: redirectUri,
     state,
-    scope: poppy.auth.scopes.join(" "),
+    scope: Object.keys(poppy.auth.scopes).join(" "),
     code_challenge: await sha256(verifier),
     code_challenge_method: "S256",
   }))
@@ -104,7 +105,7 @@ try {
       decision: "approve",
       spend_limit_eur: "150",
     });
-    for (const scope of poppy.auth.scopes) form.append("scope", scope);
+    for (const scope of Object.keys(poppy.auth.scopes)) form.append("scope", scope);
     const decided = await fetch(`${origin}/oauth/decision`, {
       method: "POST",
       body: form,

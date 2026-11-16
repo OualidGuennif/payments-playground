@@ -55,7 +55,11 @@ export class TestAgent {
   sessionKeys!: Keys;
   sessionKid = "";
 
-  static async start(name = "Test agent"): Promise<TestAgent> {
+  // grantTypes goes into client.json as grant_types; left out, the document has none, as before.
+  static async start(
+    name = "Test agent",
+    opts: { grantTypes?: string[] } = {},
+  ): Promise<TestAgent> {
     const agent = new TestAgent();
     agent.clientKeys = await generateKeyPair("ES256", { extractable: true });
     agent.clientJwk = {
@@ -79,6 +83,7 @@ export class TestAgent {
             redirect_uris: [agent.redirectUri],
             jwks_uri: agent.clientId.replace("client.json", "jwks.json"),
             token_endpoint_auth_method: "private_key_jwt",
+            ...(opts.grantTypes ? { grant_types: opts.grantTypes } : {}),
           });
         }
         if (path.endsWith("/jwks.json")) return Response.json({ keys: [agent.clientJwk] });
@@ -167,8 +172,9 @@ export class TestAgent {
   }
 
   // The happy path: consent with the given scopes and limit, then a token and a delegation.
-  async signIn(opts: { scopes?: string[]; spendLimitEur?: number } = {}) {
-    const { requestId } = await this.authorize();
+  // `ask` is the scope parameter the agent sends; `scopes` is what the shopper ticks.
+  async signIn(opts: { ask?: string; scopes?: string[]; spendLimitEur?: number } = {}) {
+    const { requestId } = await this.authorize(opts.ask ? { scope: opts.ask } : {});
     if (!requestId) throw new Error("authorize did not reach consent");
     const back = await this.decide(requestId, opts);
     const code = back.searchParams.get("code");

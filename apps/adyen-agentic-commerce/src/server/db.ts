@@ -15,6 +15,7 @@ export type Collection =
   | "clients"
   | "grants"
   | "auth_requests"
+  | "device_requests"
   | "codes"
   | "tokens"
   | "cards";

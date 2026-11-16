@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-16T02:00:00Z
+  at: 2026-11-16T22:30:00Z
 verified:
   - at: 2026-11-15
     check: "bun test: 123 cases pass (PAP conformance, OAuth, UCP and payment state machine, commerce, security, the budget race, reservations settled once, paid lines, amount mismatch, cross-site writes) against the Adyen double; tsc clean; next build."
@@ -60,10 +60,30 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
   `Idempotency-Key` (UUID) on every mutation; MCP JSON-RPC 2.0 at `POST /mcp` with
   `meta["ucp-agent"].profile` and `meta["idempotency-key"]` (optional in MCP, honoured when sent);
   OAuth 2 (authorization code + PKCE S256; `private_key_jwt` for PAP clients, public clients
-  registered by RFC 7591 for generic MCP clients); optional `Poppy-Session` + `Poppy-Version: 1.0`.
-  `/mcp` answers 401 with the resource metadata URL until the agent signs in; REST reads and carts
-  also work anonymously. Client metadata documents must be https, except loopback ones while
-  `PUBLIC_ORIGIN` is itself loopback (local runs and `scripts/pap-agent.ts`).
+  registered by RFC 7591 for generic MCP clients); the device authorization grant (RFC 8628) for an
+  agent whose browser cannot reach its own callback, for clients that declare it in `grant_types`;
+  optional `Poppy-Session` + `Poppy-Version: 1.0`.
+  `/mcp` answers 401 with the resource metadata URL until the agent signs in; REST catalogue,
+  carts and checkouts also work anonymously. Client metadata documents must be https, except
+  loopback ones while `PUBLIC_ORIGIN` is itself loopback (local runs and `scripts/pap-agent.ts`).
+- **Scopes:** advertised under their UCP names, each with its PAP 1.0 §4.7 hint.
+
+  | Scope                              | Lets the agent                                        | Changes      | Personal data |
+  | ---------------------------------- | ----------------------------------------------------- | ------------ | ------------- |
+  | `dev.ucp.shopping.cart:manage`     | create, update and cancel carts                       | reversible   | no            |
+  | `dev.ucp.shopping.checkout:manage` | create, update, complete and cancel checkouts         | reversible   | yes (address) |
+  | `ucp:pay`                          | pay with the saved card within the grant's limit      | irreversible | yes (card)    |
+  | `dev.ucp.shopping.order:read`      | read the orders it placed                             | none         | yes           |
+  | `profile`                          | read the shopper's name and email                     | none         | yes           |
+
+  The earlier names stay accepted, never advertised: `ucp:checkout` stands for the cart and
+  checkout scopes, `ucp:orders` for `dev.ucp.shopping.order:read`. A token keeps the names it was
+  issued with.
+- **Device sign-in:** `POST /oauth/device_authorization` returns a device code, an 8-letter user
+  code (`BCDF-GHJK` alphabet, RFC 8628 §6.1), `/device` as the verification URI, 600 s and a 5 s
+  interval. The shopper types the code at `/device`, then sees the same consent page.
+- **Catalogue search:** UCP's `filters.categories` (any of the listed ones) and `filters.price`
+  (`min`, `max`, minor units); the singular `category` this store read before stays accepted.
 - **Amounts:** integers in EUR minor units, computed by the server from the catalogue. An agent
   never sends a price; any client-sent price or total is ignored.
 
@@ -71,7 +91,13 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
 
 - **Discovery:** `/.well-known/poppy.json`, `/.well-known/oauth-protected-resource` (and
   `/.well-known/oauth-protected-resource/mcp`), `/.well-known/oauth-authorization-server`,
-  `/.well-known/ucp`.
+  `/.well-known/ucp`. `poppy.json` gives `auth.scopes` as a map of scope to description and
+  `auth.scope_hints` keyed by scope with both `changes` and `personal_data` (PAP 1.0 §3.1, §4.7).
+  The UCP profile lists `dev.ucp.common.identity_linking` with `config.scopes` holding only
+  `dev.ucp.shopping.order:read`, the one hard gate (an order placed through a linked agent); the
+  other scopes are the optional layer in `scopes_supported`. `/ucp/v1/openapi.json` names every
+  operation by its UCP `operationId`, refers to the UCP 2026-08-25 schemas, declares per operation
+  whether a token is optional and which scope it needs, and lists the error statuses with examples.
 - **UCP:** Checkout statuses `incomplete`, `requires_escalation` (with `continue_url`),
   `ready_for_complete`, `complete_in_progress`, `completed` (with `order {id, permalink_url}`),
   `canceled`; `totals` with exactly one `subtotal` and one `total`; `messages` with
@@ -83,9 +109,19 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
   pays or approves at `continue_url`.
 - **Back Office:** orders, their checkout, every protocol exchange (secrets redacted), Adyen
   `pspReference`, result code, webhooks.
-- **Refusals:** `invalid_session` 400, `session_ended` 400, `version_unsupported` 400,
-  `invalid_token` 401, `insufficient_scope` 403, `invalid_scope`/`invalid_client`/`invalid_grant`
-  (OAuth), 409 idempotency key reused with another body, 404 unknown or foreign resource.
+- **Account:** each connected agent shows where it stands: consent given, token issued, first and
+  last authenticated request, or disconnected. A consent alone never reads as connected.
+- **Signals:** an anonymous open checkout carries an `identity_optional` info message (signing in
+  lets the agent pay with the saved card).
+- **Refusals:** `invalid_session` 400, `session_ended` 400, `version_unsupported` 400; on UCP REST
+  a UCP error body (`ucp` and `messages` only) with `identity_required` 401 or
+  `insufficient_scope` 403, whose `WWW-Authenticate: Bearer` carries `realm` (the issuer),
+  `resource_metadata`, `error` when a token was sent, and on 403 the operation's full `scope`; MCP
+  answers 401 `invalid_token` before sign-in; `invalid_scope`/`invalid_client`/`invalid_grant`/
+  `unauthorized_client`, and for the device grant `authorization_pending`, `slow_down`,
+  `access_denied`, `expired_token` (OAuth); 409 idempotency key reused with another body, 404
+  unknown or foreign resource. A 401 or 403 is never stored under its Idempotency-Key: the
+  operation did not run, so the same key with a better token runs it.
 
 ## Invariants
 
@@ -97,8 +133,9 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
    placed and the checkout is held with `amount_mismatch`. Payments are found by reference or
    session id, never inside a window of recent rows. A late refusal of an earlier attempt neither
    reopens the checkout nor gives budget back.
-3. An agent payment happens only with a valid access token carrying the checkout scope, a grant that
-   is not revoked, a saved card, and a total at or under the grant's remaining limit; otherwise
+3. An agent payment happens only with a valid access token carrying the checkout and pay scopes
+   (a token without the checkout scope cannot complete at all: 403), a grant that is not revoked, a
+   saved card, and a total at or under the grant's remaining limit; otherwise
    `requires_escalation`. The grant is re-read after the card lookup and the total is reserved on it
    when the checkout is claimed, with nothing awaited in between, so completes on several checkouts
    at once cannot together pass the limit. Each payment's reservation is settled once: the first of
@@ -115,6 +152,14 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
    `src/server/conformance.test.ts`).
 6. No secret, token, client assertion or stored payment method id appears in the trace, logs or
    pages unredacted.
+7. A token acts only within the scopes the shopper approved; a legacy name grants exactly the UCP
+   scopes it stands for, and every operation's scope is declared once and used by both the check
+   and the OpenAPI description. Consent only narrows what was asked. Reading an order needs a
+   token (the hard gate) and returns only orders placed through that token's client; any other
+   id, a shopper's own order included, is 404.
+8. A device code is single use, expires after 600 s, and yields tokens only after the shopper
+   approved its user code on the consent page; polling faster than the interval answers
+   `slow_down` and widens it by 5 s. Wrong user codes are limited per address and in total.
 
 ## Determinism
 
@@ -128,6 +173,10 @@ is whatever LLM the shopper points at it.
   `ssr:assert` boots the standalone server and expects "Agentic Commerce" on the home page.
 - Locally, `bun run scripts/pap-agent.ts` signs in as a PAP client, waits for the shopper's consent
   (or `--auto-consent`) and buys one item over MCP.
+- `poppy.json` passes the PAP 1.0 §3.1/§4.7 shape test; the UCP profile's scope keys match the
+  UCP `scope_token` pattern; every OpenAPI path routes to the operation its `operationId` names.
+- The device grant runs end to end in tests: code, wrong code, consent, pending, slow_down,
+  tokens, an MCP call, then the code refused as used.
 - On TEST: a human Drop-in payment Authorised; a zero-value card save; an agent `complete_checkout`
   Authorised with ContAuth; the matching `AUTHORISATION` webhook accepted.
 

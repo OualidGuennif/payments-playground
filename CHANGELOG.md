@@ -5,6 +5,18 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Agentic store, from the Atelier Velune interoperability report: `poppy.json` gives
+  `auth.scopes` as a scope-to-description map and `auth.scope_hints` keyed by scope with both PAP
+  hints; scopes are offered under their UCP names (`dev.ucp.shopping.cart:manage`,
+  `…checkout:manage`, `…order:read`), the old `ucp:checkout` and `ucp:orders` still honoured;
+  `/.well-known/ucp` lists `dev.ucp.common.identity_linking` with the order read as its one hard
+  gate; REST answers UCP's `identity_required` 401 and `insufficient_scope` 403 with a Bearer
+  challenge carrying the issuer as realm, and neither is kept under an Idempotency-Key; an agent
+  reads only the orders it placed; search reads UCP's `categories` and `price.min`; the OpenAPI
+  names UCP's operationIds and schemas, and declares each operation's token rule, scope, statuses
+  and examples; the OAuth device grant (RFC 8628) with a `/device` page for agents that cannot
+  receive a browser callback. New `device`, `identity` and `openapi` test files check the
+  document against the server's answers.
 - Digital Checkout (from Gemini): `/sessions`, Advanced `/payments` and `/api-only` send a fixed
   two-key `metadata` (`playground`, `flow`), and `/sessions` no longer puts recipient names in
   `deliveryAddress`; the request builders are exported and pinned by `api.test.ts`.

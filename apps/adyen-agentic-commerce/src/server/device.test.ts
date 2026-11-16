@@ -2,7 +2,8 @@
 // shopper types at /device, the same consent page, polling rules, and tokens once.
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { handle } from "./api";
+import { agentState } from "../lib/agent-status";
+import { accountView, handle } from "./api";
 import { get, put } from "./db";
 import { DEVICE_GRANT, grants, pendingRequest } from "./oauth";
 import { recentTrace } from "./trace";
@@ -326,5 +327,26 @@ describe("the shopper's answer", () => {
       }),
     );
     expect(response.status).toBe(200);
+  });
+});
+
+describe("the account", () => {
+  test("shows consent, then access issued, then connected, in the consent page's words", async () => {
+    const { body: started } = await start(tv);
+    await tv.decide(await consentFor(started.user_code), { scopes: [CART, CHECKOUT] });
+    const first = async () => (await accountView()).agents[0]!;
+    expect(agentState(await first())).toBe("consented");
+    const tokens = await poll(tv, started.device_code);
+    expect(agentState(await first())).toBe("token_issued");
+    tv.accessToken = tokens.body.access_token;
+    tv.delegation = await tv.makeDelegation();
+    await tv.mcp("tools/list");
+    const connected = await first();
+    expect(agentState(connected)).toBe("connected");
+    expect(connected.permissions).toEqual([
+      "Create, update and cancel carts for you",
+      "Create, update and cancel checkouts for you, with your delivery details",
+    ]);
+    expect(JSON.stringify(connected)).not.toContain(tokens.body.access_token);
   });
 });

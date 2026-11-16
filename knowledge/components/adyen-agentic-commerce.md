@@ -109,8 +109,10 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
   pays or approves at `continue_url`.
 - **Back Office:** orders, their checkout, every protocol exchange (secrets redacted), Adyen
   `pspReference`, result code, webhooks.
-- **Account:** each connected agent shows where it stands: consent given, token issued, first and
-  last authenticated request, or disconnected. A consent alone never reads as connected.
+- **Account:** each connected agent shows where it stands (`src/lib/agent-status.ts`): consent
+  given, access issued, connected (first and last authenticated request, in UTC), or
+  disconnected. A consent alone never reads as connected. What it may do is listed in the consent
+  page's words, never as scope names.
 - **Signals:** an anonymous open checkout carries an `identity_optional` info message (signing in
   lets the agent pay with the saved card).
 - **Refusals:** `invalid_session` 400, `session_ended` 400, `version_unsupported` 400; on UCP REST

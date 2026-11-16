@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Agentic account page: each agent reads consent given, access issued, connected (first and last
+  request, UTC) or disconnected, so a consent alone no longer looks connected; its permissions
+  are listed in the consent page's words instead of scope names.
 - Agentic store, from the Atelier Velune interoperability report: `poppy.json` gives
   `auth.scopes` as a scope-to-description map and `auth.scope_hints` keyed by scope with both PAP
   hints; scopes are offered under their UCP names (`dev.ucp.shopping.cart:manage`,

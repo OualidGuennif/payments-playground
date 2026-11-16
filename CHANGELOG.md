@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Digital Checkout: a payment into an Adyen order (gift card, then card) again asks Adyen for its
+  own share, not the whole order; the metadata change had made the request builder send the order's
+  total. `api.test.ts` pins both cases.
 - Move the three apps to Next.js 16.4.6. 16.4.5 fixes GHSA-mfr8-8qww-v76h and six other moderate
   advisories (`use cache` leaks, forwarded-response injection, image SVG check, Edge cookie
   header), so `next build` no longer stops on Next's security guard; 16.4.6 also compresses route

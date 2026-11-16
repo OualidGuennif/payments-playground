@@ -425,6 +425,8 @@ export function buildPaymentRequest(input: {
   metadataFlow: "advanced" | "api-only";
   ip?: string;
   adyenOrder?: { orderData: string; pspReference: string };
+  /** This payment's own amount: inside an Adyen order, its share of the order's total. */
+  amount: Amount;
 }): Record<string, unknown> {
   const isStoredPaymentMethod = Boolean(input.paymentMethod.storedPaymentMethodId);
   return {
@@ -453,7 +455,7 @@ export function buildPaymentRequest(input: {
     ...(input.body.storePaymentMethod && !isStoredPaymentMethod
       ? { storePaymentMethod: true }
       : {}),
-    ...(input.adyenOrder ? { order: input.adyenOrder, amount: input.order.amount } : {}),
+    ...(input.adyenOrder ? { order: input.adyenOrder, amount: input.amount } : {}),
     // Pair /payments with the /paymentMethods call that opened this checkout.
     ...(typeof input.body.shopperConversionId === "string"
       ? { shopperConversionId: conversionIdFrom(input.body.shopperConversionId) }
@@ -514,6 +516,7 @@ async function createPayment(
     metadataFlow,
     ip,
     adyenOrder,
+    amount,
   });
   const result = await recordedCall({
     correlationId: order.id,

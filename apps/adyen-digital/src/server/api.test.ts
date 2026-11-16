@@ -63,6 +63,7 @@ test("advanced payments sends two-key metadata and omits names from deliveryAddr
     order: { ...ORDER, flow: "advanced-dropin" },
     origin: "http://localhost:8001",
     paymentMethod: { type: "scheme" },
+    amount: ORDER.amount,
     metadataFlow: "advanced",
   });
 
@@ -83,6 +84,7 @@ test("api-only payments sends two-key metadata and omits names from deliveryAddr
     order: { ...ORDER, flow: "api-only-pci" },
     origin: "http://localhost:8001",
     paymentMethod: { type: "scheme" },
+    amount: ORDER.amount,
     metadataFlow: "api-only",
   });
 
@@ -90,4 +92,42 @@ test("api-only payments sends two-key metadata and omits names from deliveryAddr
   const delivery = request.deliveryAddress as Record<string, unknown>;
   assertEquals("firstName" in delivery, false);
   assertEquals("lastName" in delivery, false);
+});
+
+test("a payment into an Adyen order asks for its own share, not the order's total", () => {
+  const adyenOrder = { orderData: "order-data", pspReference: "ORDER_PSP" };
+  const order = {
+    ...ORDER,
+    flow: "advanced-components",
+    amount: { value: 10000, currency: "EUR" },
+  };
+  const share = { value: 2500, currency: "EUR" };
+  const request = buildPaymentRequest({
+    body: { countryCode: "FR" },
+    secrets: SECRETS,
+    order,
+    origin: "http://localhost:8001",
+    paymentMethod: { type: "giftcard" },
+    metadataFlow: "advanced",
+    adyenOrder,
+    amount: share,
+  });
+
+  assertEquals(request.amount, share);
+  assertEquals(request.order, adyenOrder);
+});
+
+test("a payment outside an Adyen order asks for the order's amount", () => {
+  const request = buildPaymentRequest({
+    body: { countryCode: "FR" },
+    secrets: SECRETS,
+    order: ORDER,
+    origin: "http://localhost:8001",
+    paymentMethod: { type: "scheme" },
+    metadataFlow: "advanced",
+    amount: ORDER.amount,
+  });
+
+  assertEquals(request.amount, ORDER.amount);
+  assertEquals("order" in request, false);
 });

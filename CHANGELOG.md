@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the 2026-11-16 checks of the agentic store in its spec (184 tests, builds, the browser
+  WebMCP check, a scripted agent purchase on TEST) and the open push in `work/current.md`.
 - Agentic `/agents` page: what an MCP host needs (remote MCP, OAuth discovery from the 401, a
   reachable callback or the device sign-in), generic MCP clients next to PAP agents, the device
   sign-in steps, the scopes with their PAP hints from the server's own table, and the WebMCP

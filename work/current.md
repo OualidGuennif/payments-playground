@@ -5,13 +5,23 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
+## Agentic interoperability fixes from the Atelier Velune report — ACTIVE
+
+- Owner decision: 2026-11-16, the three findings, device grant, host prerequisites, account
+  statuses, Gemini's UI work, and WebMCP on the store (MCP server kept).
+- State: committed locally (657c34e..0f2350d + closure); `bun run check` passes step by step
+  (each Next build stops once on GHSA-mfr8-8qww-v76h, its rerun passes); not pushed.
+- Next: owner's yes for an independent review, then receipt and push develop (who: owner, then
+  Claude); handover 6a3e1c3c.
+- Blocker: none.
+- Evidence: the owner's pasted report (2026-11-16); UCP and PAP specs read 2026-11-16.
+
 ## Render clean-up after v0.2.0 — WAITING-OWNER
 
 - Owner decision: 2026-11-15, Bun + Next.js everywhere, released as v0.2.0 (PR #5, `940e3b0`).
-- State: digital, styling and agentic serve the new build; `agentic.payments-playground.com` has
-  no DNS record (the store answers on `adyen-agentic-commerce.onrender.com`).
-- Next: delete the `ipp-endless-aisle` service in the Render dashboard; add the agentic custom
-  domain or change its `PUBLIC_ORIGIN` (who: owner).
+- State: digital, styling and agentic serve the new build; `agentic.payments-playground.com`
+  resolves to Render since 2026-11-16 (`/healthz` 200).
+- Next: delete the `ipp-endless-aisle` service in the Render dashboard (who: owner).
 - Blocker: none.
 - Evidence: knowledge/current/digital-status.md (v0.2.0 deploy row).
 

@@ -13,6 +13,8 @@ verified:
     check: "bun test: 123 cases pass (PAP conformance, OAuth, UCP and payment state machine, commerce, security, the budget race, reservations settled once, paid lines, amount mismatch, cross-site writes) against the Adyen double; tsc clean; next build."
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
+  - at: 2026-11-16
+    check: "bun test: 184 pass (device grant, identity linking, OpenAPI vs answers, WebMCP, agent states); tsc, biome, next build (rerun after Next's advisory stop) and SSR assertion pass; browser with a stand-in modelContext: tools on /shop, none on /account; pap-agent.ts completed on Adyen TEST."
 sources:
   - id: app
     resource: ../../apps/adyen-agentic-commerce

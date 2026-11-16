@@ -21,16 +21,26 @@ bun run dev:agentic          # http://127.0.0.1:8003
 The task goes through `tools/dev/bun-app.ts`, which loads the env file the way the other apps do;
 plain `bun run dev` lets Next re-expand `$` inside the API key.
 
-| In this folder       | What it does                                         |
-| -------------------- | ---------------------------------------------------- |
-| `bun test`           | 107 tests against an Adyen double; no network        |
-| `bun run typecheck`  | `tsc --noEmit`                                       |
-| `bun run build`      | Standalone production build                          |
-| `bun run scripts/pap-agent.ts` | A scripted PAP agent that buys one item over MCP |
+| In this folder                 | What it does                                          |
+| ------------------------------ | ----------------------------------------------------- |
+| `bun test`                     | Tests against an Adyen double; no network             |
+| `bun run typecheck`            | `tsc --noEmit`                                        |
+| `bun run build`                | Standalone production build                           |
+| `bun run scripts/pap-agent.ts` | A scripted PAP agent that buys one item over MCP      |
 
 ## Try an agent
 
 1. Open `/account` and save a card with Drop-in (a zero-value authorisation).
 2. Run `bun run scripts/pap-agent.ts`, approve the sign-in it prints, and watch the order and every
-   protocol exchange appear in `/back-office`.
-3. Or point any MCP client at `${PUBLIC_ORIGIN}/mcp`; `/agents` explains the flow.
+   protocol exchange appear in `/back-office`. `--auto-consent` approves for you on a local run.
+3. Or point any MCP client at `${PUBLIC_ORIGIN}/mcp`; `/agents` lists what the host needs, the
+   scopes, and the device sign-in for agents that cannot receive a browser callback.
+4. Or, in Chrome with WebMCP (`chrome://flags/#enable-webmcp-testing`, or the origin trial), open
+   `/shop`: the page registers five cart tools; the Model Context Tool Inspector extension lists
+   them. No tool pays.
+
+## WebMCP origin trial
+
+On a deploy, set `WEBMCP_ORIGIN_TRIAL_TOKEN` to the token Chrome's origin trials console issues
+for the store's origin. The proxy sends it as an `Origin-Trial` header on pages, read on each
+request; leave it unset to send nothing. The token is public, not a secret.

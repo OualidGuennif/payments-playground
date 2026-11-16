@@ -44,9 +44,12 @@ export default function Home() {
             ],
             [
               "Sign in",
-              "OAuth with PKCE. You approve each scope and set what the agent may spend.",
+              "OAuth with PKCE, or a code you type at /device. You approve each scope and set what the agent may spend.",
             ],
-            ["Shop", "Catalogue, cart and checkout over UCP 2026-08-25, by REST or MCP tools."],
+            [
+              "Shop",
+              "Catalogue, cart and checkout over UCP 2026-08-25, by REST or MCP tools, or with WebMCP tools in your browser.",
+            ],
             [
               "Pay",
               "Your saved card, charged by the merchant with ContAuth on Adyen TEST, or you pay at the link.",

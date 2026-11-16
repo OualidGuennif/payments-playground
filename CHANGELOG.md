@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Agentic `/agents` page: what an MCP host needs (remote MCP, OAuth discovery from the 401, a
+  reachable callback or the device sign-in), generic MCP clients next to PAP agents, the device
+  sign-in steps, the scopes with their PAP hints from the server's own table, and the WebMCP
+  tools; the home page and the app README follow.
 - Agentic store is WebMCP ready: in a browser that exposes `document.modelContext`, the shopping
   pages register `search_catalog`, `view_cart`, `add_to_cart`, `update_cart_item` and
   `start_checkout`, which use the same cart and checkout calls as the buttons and a new read-only

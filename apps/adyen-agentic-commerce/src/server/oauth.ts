@@ -698,6 +698,8 @@ function recordMiss(key: string, now: number) {
 }
 
 export const trackedMissAddresses = () => codeMisses.size;
+// Each test starts with no misses, whatever ran before it.
+export const forgetCodeMisses = () => codeMisses.clear();
 
 // The shopper's typed code becomes a consent request. Wrong codes are counted per address and in
 // total; past either limit every code is refused, a right one included, so guessing cannot win.

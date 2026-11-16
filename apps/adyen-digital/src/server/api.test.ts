@@ -125,7 +125,8 @@ test("a payment outside an Adyen order asks for the order's amount", () => {
     origin: "http://localhost:8001",
     paymentMethod: { type: "scheme" },
     metadataFlow: "advanced",
-    amount: ORDER.amount,
+    // Another amount than the order's, so the test fails if the builder sent it.
+    amount: { value: 1234, currency: "EUR" },
   });
 
   assertEquals(request.amount, ORDER.amount);

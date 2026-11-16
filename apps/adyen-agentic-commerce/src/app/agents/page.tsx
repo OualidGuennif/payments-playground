@@ -114,7 +114,10 @@ export default function Agents() {
         <p className="text-sm text-muted">
           For an agent whose sign-in page cannot call it back (RFC 8628). The client declares{" "}
           <span className="code break-all">{DEVICE_GRANT}</span> in its{" "}
-          <span className="code">grant_types</span>.
+          <span className="code">grant_types</span>. A client whose{" "}
+          <span className="code">client_id</span> is a URL must also sign its requests (
+          <span className="code">private_key_jwt</span>): with no callback on its host, nothing else
+          shows the request comes from it.
         </p>
         <ol className="list-decimal space-y-2 pl-5 text-sm">
           <li>

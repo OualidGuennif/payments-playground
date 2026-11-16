@@ -13,6 +13,7 @@ import {
 import { handle } from "../api";
 import { forgetCardCache } from "../commerce";
 import { openDatabase, useDatabase } from "../db";
+import { forgetCodeMisses } from "../oauth";
 import { sha256b64url } from "../util";
 import { fake } from "./fake-adyen";
 
@@ -27,6 +28,7 @@ export function freshStore() {
   useDatabase(openDatabase(":memory:"));
   fake.reset();
   forgetCardCache();
+  forgetCodeMisses();
 }
 
 // The edge rate-limits per client IP and every in-process request would otherwise share one.

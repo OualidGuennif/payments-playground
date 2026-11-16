@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- From the second review pass: each agentic test starts with no wrong-code record, so the device
+  tests pass in any order; the Digital test of a payment outside an Adyen order sends another
+  amount than the order's; `/agents` says a URL client signs its device requests.
 - Agentic store, from the pre-push review: the phone menu closes when a link in it opens another
   page (the root layout kept it open over the new page).
 - Agentic store, from the pre-push security review: the device sign-in refuses a client whose

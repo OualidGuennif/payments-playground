@@ -630,6 +630,13 @@ export async function startDeviceAuthorization(form: URLSearchParams) {
       "unauthorized_client",
       `Register with grant_types including ${DEVICE_GRANT}`,
     );
+  // A URL client_id is shown to the shopper as a verified host. Without a callback on that host,
+  // only a signed assertion proves the caller runs it; anyone could start a public one's sign-in.
+  if (client.kind === "metadata-document" && client.authMethod === "none")
+    throw new OAuthError(
+      "unauthorized_client",
+      "A client identified by a URL signs its device requests (private_key_jwt)",
+    );
   const scopes = requestedScopes(form.get("scope"));
   if (typeof scopes === "string") throw new OAuthError("invalid_scope", scopes);
   const deviceCode = secret();
@@ -664,13 +671,33 @@ export async function startDeviceAuthorization(form: URLSearchParams) {
 const CODE_WINDOW_MS = 10 * 60_000;
 const CODE_MISSES_PER_ADDRESS = 10;
 const CODE_MISSES_TOTAL = 200;
+// The address comes from a header the caller writes, so the map is capped and keys are cut short:
+// otherwise every forged address would stay in memory for the life of the process.
+const CODE_MISS_ADDRESSES = 1000;
 const codeMisses = new Map<string, number[]>();
 
 function recentMisses(key: string, now: number): number[] {
   const kept = (codeMisses.get(key) ?? []).filter((t) => now - t < CODE_WINDOW_MS);
-  codeMisses.set(key, kept);
+  if (kept.length) codeMisses.set(key, kept);
+  else codeMisses.delete(key);
   return kept;
 }
+
+function recordMiss(key: string, now: number) {
+  const kept = recentMisses(key, now);
+  if (!codeMisses.has(key) && codeMisses.size >= CODE_MISS_ADDRESSES) {
+    // Maps iterate in insertion order: the oldest address goes, never the total.
+    for (const oldest of codeMisses.keys()) {
+      if (oldest !== "*") {
+        codeMisses.delete(oldest);
+        break;
+      }
+    }
+  }
+  codeMisses.set(key, [...kept, now]);
+}
+
+export const trackedMissAddresses = () => codeMisses.size;
 
 // The shopper's typed code becomes a consent request. Wrong codes are counted per address and in
 // total; past either limit every code is refused, a right one included, so guessing cannot win.
@@ -679,8 +706,10 @@ export function verifyUserCode(
   address: string,
 ): { requestId: string } | { error: "invalid_code" | "too_many_attempts" } {
   const now = Date.now();
+  // Prefixed so that no address can be the "*" total.
+  const from = `a:${address.slice(0, 64)}`;
   if (
-    recentMisses(address, now).length >= CODE_MISSES_PER_ADDRESS ||
+    recentMisses(from, now).length >= CODE_MISSES_PER_ADDRESS ||
     recentMisses("*", now).length >= CODE_MISSES_TOTAL
   )
     return { error: "too_many_attempts" };
@@ -691,7 +720,7 @@ export function verifyUserCode(
         .find(Boolean)
     : undefined;
   if (!device) {
-    for (const key of [address, "*"]) codeMisses.set(key, [...recentMisses(key, now), now]);
+    for (const key of [from, "*"]) recordMiss(key, now);
     return { error: "invalid_code" };
   }
   const request: AuthRequest = {

@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Agentic store, from the pre-push security review: the device sign-in refuses a client whose
+  `client_id` is a URL unless it signs its requests, since without a callback on that host anyone
+  could start a public one's sign-in and be shown as it; the wrong-code record forgets addresses
+  with no recent miss and keeps at most 1,000. `src/proxy.test.ts` checks Basic Auth and the
+  cross-site refusal through the proxy itself.
 - Digital Checkout: a payment into an Adyen order (gift card, then card) again asks Adyen for its
   own share, not the whole order; the metadata change had made the request builder send the order's
   total. `api.test.ts` pins both cases.

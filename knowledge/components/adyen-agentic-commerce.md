@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-16T22:30:00Z
+  at: 2026-11-16T23:30:00Z
 verified:
   - at: 2026-11-15
     check: "bun test: 123 cases pass (PAP conformance, OAuth, UCP and payment state machine, commerce, security, the budget race, reservations settled once, paid lines, amount mismatch, cross-site writes) against the Adyen double; tsc clean; next build."
@@ -84,7 +84,9 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
   issued with.
 - **Device sign-in:** `POST /oauth/device_authorization` returns a device code, an 8-letter user
   code (`BCDF-GHJK` alphabet, RFC 8628 §6.1), `/device` as the verification URI, 600 s and a 5 s
-  interval. The shopper types the code at `/device`, then sees the same consent page.
+  interval. The shopper types the code at `/device`, then sees the same consent page. A client
+  whose `client_id` is a URL must sign its device requests (`private_key_jwt`): with no callback on
+  its host, a public one could be started by anyone and shown as that host.
 - **Agent in the shopper's browser (WebMCP):** when the browser exposes `document.modelContext`
   (W3C draft; Chrome origin trial, or the `#enable-webmcp-testing` flag), the shopping pages
   register `search_catalog` and `view_cart` (read-only), `add_to_cart`, `update_cart_item` and
@@ -170,7 +172,8 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
    id, a shopper's own order included, is 404.
 8. A device code is single use, expires after 600 s, and yields tokens only after the shopper
    approved its user code on the consent page; polling faster than the interval answers
-   `slow_down` and widens it by 5 s. Wrong user codes are limited per address and in total.
+   `slow_down` and widens it by 5 s. Wrong user codes are limited per address and in total; only a
+   wrong code is remembered, and at most 1,000 addresses at once.
 9. WebMCP tools never pay, read orders or touch consent and grants: no tool takes a payment
    instrument, and `/account`, `/consent`, `/device` and `/back-office` register none. The five
    tools register under one signal, all or none, and leave when the page does. They hold no
@@ -206,7 +209,8 @@ is whatever LLM the shopper points at it.
 - Adyen's own UCP tokenizer until the owner's account has the role (the handler is behind config).
 - Real user accounts: one demo shopper (`ogaccountnew`). Consent, account and Back Office are
   protected only by the playground's basic auth when it is set (the proxy strips the quotes
-  `docker run --env-file` keeps, like the config reader; `src/server/security.test.ts`). Because a
+  `docker run --env-file` keeps, like the config reader; `src/server/security.test.ts`, and
+  `src/proxy.test.ts` through the proxy itself). Because a
   browser attaches that basic auth to a cross-site form POST, the proxy also refuses a state-changing
   request on those paths whose `Sec-Fetch-Site`, or else `Origin`, names another site; the consent
   decision cannot be forged from another page. Every response carries the platform's security

@@ -1,11 +1,17 @@
 // The device authorization grant (RFC 8628): only for clients that declare it, a user code the
 // shopper types at /device, the same consent page, polling rules, and tokens once.
 // Spec: knowledge/components/adyen-agentic-commerce.md
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, setSystemTime, test } from "bun:test";
 import { agentState } from "../lib/agent-status";
 import { accountView, handle } from "./api";
 import { get, put } from "./db";
-import { DEVICE_GRANT, grants, pendingRequest } from "./oauth";
+import {
+  DEVICE_GRANT,
+  grants,
+  pendingRequest,
+  trackedMissAddresses,
+  verifyUserCode,
+} from "./oauth";
 import { recentTrace } from "./trace";
 import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "./testing/agent";
 import { sha256 } from "./util";
@@ -124,6 +130,26 @@ describe("who may use it", () => {
     expect(polled.body.error).toBe("unauthorized_client");
   });
 
+  test("a client identified by a URL that signs nothing cannot start a device sign-in", async () => {
+    // Without a callback on its host, nothing would show the caller runs that URL.
+    const open = await TestAgent.start("Public URL agent", {
+      grantTypes: [DEVICE_GRANT],
+      public: true,
+    });
+    try {
+      const { status, body } = await answer(
+        await post("/oauth/device_authorization", {
+          client_id: open.clientId,
+          scope: `${CART} ${CHECKOUT}`,
+        }),
+      );
+      expect(status).toBe(400);
+      expect(body.error).toBe("unauthorized_client");
+    } finally {
+      open.stop();
+    }
+  });
+
   test("an unknown scope is invalid_scope", async () => {
     const { status, body } = await start(tv, `${CART} admin`);
     expect(status).toBe(400);
@@ -222,6 +248,35 @@ describe("the codes", () => {
     expect(blocked.searchParams.get("error")).toBe("too_many_attempts");
     const elsewhere = new URL((await verify(started.user_code)).headers.get("location")!);
     expect(elsewhere.pathname.startsWith("/consent/")).toBe(true);
+  });
+
+  test("only a wrong code leaves a record of its address", async () => {
+    const { body: started } = await start(tv);
+    await verify("BBBB-BBBB");
+    const before = trackedMissAddresses();
+    await verify(started.user_code);
+    expect(trackedMissAddresses()).toBe(before);
+    await verify("CCCC-CCCC");
+    expect(trackedMissAddresses()).toBe(before + 1);
+  });
+
+  test("the record keeps at most a thousand addresses, however many are forged", () => {
+    // Batches eleven minutes apart, ending over forty minutes ago: each stays under the total
+    // limit, and none is recent enough to count against the tests that follow.
+    const base = Date.now() - 2 * 60 * 60_000;
+    try {
+      for (let batch = 0; batch < 8; batch++) {
+        setSystemTime(new Date(base + batch * 11 * 60_000));
+        for (let i = 0; i < 150; i++) {
+          expect(verifyUserCode("BBBB-BBBB", `forged-${batch}-${i}`)).toEqual({
+            error: "invalid_code",
+          });
+        }
+      }
+      expect(trackedMissAddresses()).toBeLessThanOrEqual(1000);
+    } finally {
+      setSystemTime();
+    }
   });
 });
 

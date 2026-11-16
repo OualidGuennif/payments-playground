@@ -56,9 +56,10 @@ export class TestAgent {
   sessionKid = "";
 
   // grantTypes goes into client.json as grant_types; left out, the document has none, as before.
+  // A public agent's document says it signs nothing (token_endpoint_auth_method "none").
   static async start(
     name = "Test agent",
-    opts: { grantTypes?: string[] } = {},
+    opts: { grantTypes?: string[]; public?: boolean } = {},
   ): Promise<TestAgent> {
     const agent = new TestAgent();
     agent.clientKeys = await generateKeyPair("ES256", { extractable: true });
@@ -82,7 +83,7 @@ export class TestAgent {
             client_name: name,
             redirect_uris: [agent.redirectUri],
             jwks_uri: agent.clientId.replace("client.json", "jwks.json"),
-            token_endpoint_auth_method: "private_key_jwt",
+            token_endpoint_auth_method: opts.public ? "none" : "private_key_jwt",
             ...(opts.grantTypes ? { grant_types: opts.grantTypes } : {}),
           });
         }

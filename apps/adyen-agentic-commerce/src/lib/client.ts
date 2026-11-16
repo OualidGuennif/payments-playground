@@ -9,63 +9,80 @@ export const api = () => treaty<App>(window.location.origin).api;
 
 export type CartLine = { variantId: string; quantity: number };
 const KEY = "velune-cart";
+const EVENT = "velune-cart";
+export const MAX_QUANTITY = 10;
+// The cart form's prefilled receipt address; an agent that knows the shopper's may send it.
+export const DEMO_EMAIL = "shopper@example.com";
 
-function read(): CartLine[] {
+// Where localStorage throws (private mode), the cart lives in this page's memory instead.
+let memory: CartLine[] = [];
+
+export function readCart(): CartLine[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(KEY) ?? "[]");
     return Array.isArray(parsed) ? parsed.filter((l) => typeof l?.variantId === "string") : [];
   } catch {
-    return [];
+    return memory;
   }
 }
+
+// Every writer goes through here, so the header count and the cart page follow the page's
+// WebMCP tools as they follow the buttons.
+function writeCart(next: CartLine[]): CartLine[] {
+  memory = next;
+  try {
+    localStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    /* private mode: memory holds it */
+  }
+  window.dispatchEvent(new Event(EVENT));
+  return next;
+}
+
+export function addToCart(variantId: string, quantity = 1): CartLine[] {
+  const current = readCart();
+  const found = current.find((l) => l.variantId === variantId);
+  return writeCart(
+    found
+      ? current.map((l) =>
+          l.variantId === variantId
+            ? { ...l, quantity: Math.min(MAX_QUANTITY, l.quantity + quantity) }
+            : l,
+        )
+      : [...current, { variantId, quantity: Math.min(MAX_QUANTITY, quantity) }],
+  );
+}
+
+export function setCartQuantity(variantId: string, quantity: number): CartLine[] {
+  return writeCart(
+    readCart()
+      .map((l) => (l.variantId === variantId ? { ...l, quantity } : l))
+      .filter((l) => l.quantity > 0),
+  );
+}
+
+export const clearCart = (): CartLine[] => writeCart([]);
 
 export function useCart() {
   const [lines, setLines] = useState<CartLine[]>([]);
   useEffect(() => {
-    setLines(read());
-    const sync = () => setLines(read());
-    window.addEventListener("velune-cart", sync);
+    setLines(readCart());
+    const sync = () => setLines(readCart());
+    window.addEventListener(EVENT, sync);
     window.addEventListener("storage", sync);
     return () => {
-      window.removeEventListener("velune-cart", sync);
+      window.removeEventListener(EVENT, sync);
       window.removeEventListener("storage", sync);
     };
   }, []);
-  const save = useCallback((next: CartLine[]) => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(next));
-    } catch {
-      /* private mode: the cart lives for this page only */
-    }
-    setLines(next);
-    window.dispatchEvent(new Event("velune-cart"));
+  const add = useCallback((variantId: string, quantity = 1) => {
+    addToCart(variantId, quantity);
   }, []);
-  const add = useCallback(
-    (variantId: string, quantity = 1) => {
-      const current = read();
-      const found = current.find((l) => l.variantId === variantId);
-      save(
-        found
-          ? current.map((l) =>
-              l.variantId === variantId
-                ? { ...l, quantity: Math.min(10, l.quantity + quantity) }
-                : l,
-            )
-          : [...current, { variantId, quantity }],
-      );
-    },
-    [save],
-  );
-  const setQuantity = useCallback(
-    (variantId: string, quantity: number) => {
-      save(
-        read()
-          .map((l) => (l.variantId === variantId ? { ...l, quantity } : l))
-          .filter((l) => l.quantity > 0),
-      );
-    },
-    [save],
-  );
-  const clear = useCallback(() => save([]), [save]);
+  const setQuantity = useCallback((variantId: string, quantity: number) => {
+    setCartQuantity(variantId, quantity);
+  }, []);
+  const clear = useCallback(() => {
+    clearCart();
+  }, []);
   return { lines, add, setQuantity, clear, count: lines.reduce((n, l) => n + l.quantity, 0) };
 }

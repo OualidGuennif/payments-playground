@@ -5,6 +5,13 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Agentic store is WebMCP ready: in a browser that exposes `document.modelContext`, the shopping
+  pages register `search_catalog`, `view_cart`, `add_to_cart`, `update_cart_item` and
+  `start_checkout`, which use the same cart and checkout calls as the buttons and a new read-only
+  `GET /api/catalog`; no tool pays, and the account, consent, device and Back Office pages
+  register none. An optional `WEBMCP_ORIGIN_TRIAL_TOKEN` is sent as `Origin-Trial` on pages. The
+  `/mcp` server is unchanged. The cart keeps working in memory where localStorage is blocked, and
+  `scripts/pap-agent.ts` exits when its run ends instead of five minutes later.
 - Agentic account page: each agent reads consent given, access issued, connected (first and last
   request, UTC) or disconnected, so a consent alone no longer looks connected; its permissions
   are listed in the consent page's words instead of scope names.

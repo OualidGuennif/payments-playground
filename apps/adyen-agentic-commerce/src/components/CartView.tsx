@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { api, useCart } from "@/lib/client";
+import { api, DEMO_EMAIL, useCart } from "@/lib/client";
 import { money } from "@/lib/money";
 
 type Info = Record<string, { title: string; price: number; available: boolean }>;
@@ -11,7 +11,7 @@ type Info = Record<string, { title: string; price: number; available: boolean }>
 export function CartView({ variants }: { variants: Info }) {
   const { lines, setQuantity, clear } = useCart();
   const router = useRouter();
-  const [email, setEmail] = useState("shopper@example.com");
+  const [email, setEmail] = useState(DEMO_EMAIL);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const known = lines.filter((l) => variants[l.variantId]);

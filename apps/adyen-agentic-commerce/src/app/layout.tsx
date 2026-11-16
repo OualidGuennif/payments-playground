@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CartLink } from "@/components/CartLink";
+import { WebMcpTools } from "@/components/WebMcpTools";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -76,6 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main id="main-content" className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
           {children}
         </main>
+        <WebMcpTools />
         <footer className="border-t border-line py-8 text-xs text-muted">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 sm:px-6">
             <span>Atelier Velune is a fictional brand. Drawings are original.</span>

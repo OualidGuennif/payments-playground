@@ -117,12 +117,15 @@ try {
   } else {
     console.log(`Shopper: open ${consentUrl.href} and choose Allow (waiting up to 5 minutes)`);
   }
+  // A cleared timer, not Bun.sleep: a pending sleep kept the process alive five minutes after a
+  // finished run.
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const back = await Promise.race([
     callback,
-    Bun.sleep(300_000).then(() => {
-      throw new Error("No consent within 5 minutes");
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("No consent within 5 minutes")), 300_000);
     }),
-  ]);
+  ]).finally(() => clearTimeout(timer));
   if (back.searchParams.get("error")) throw new Error(`consent: ${back.searchParams.get("error")}`);
   if (back.searchParams.get("state") !== state) throw new Error("state mismatch");
   if (back.searchParams.get("iss") !== issuer) throw new Error("iss mismatch");

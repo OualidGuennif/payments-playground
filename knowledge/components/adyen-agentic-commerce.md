@@ -51,6 +51,7 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
 | Agent client metadata document + jwks_uri | `client_id`, `redirect_uris`, `jwks_uri`, public keys          | Agent | Fetched per sign-in |
 | `.env` (never read by tooling or agents)  | `ADYEN_API_KEY`, `ADYEN_MERCHANT_ACCOUNT`, `ADYEN_CLIENT_KEY`, | Owner | Boot                |
 |                                           | `ADYEN_HMAC_KEY`, `PUBLIC_ORIGIN`, `DATABASE_PATH`, `PORT`     |       |                     |
+| Deploy variable (public, optional)        | `WEBMCP_ORIGIN_TRIAL_TOKEN`, sent as `Origin-Trial` on pages   | Owner | Per request         |
 
 ## Inputs
 
@@ -82,6 +83,12 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
 - **Device sign-in:** `POST /oauth/device_authorization` returns a device code, an 8-letter user
   code (`BCDF-GHJK` alphabet, RFC 8628 §6.1), `/device` as the verification URI, 600 s and a 5 s
   interval. The shopper types the code at `/device`, then sees the same consent page.
+- **Agent in the shopper's browser (WebMCP):** when the browser exposes `document.modelContext`
+  (W3C draft; Chrome origin trial, or the `#enable-webmcp-testing` flag), the shopping pages
+  register `search_catalog` and `view_cart` (read-only), `add_to_cart`, `update_cart_item` and
+  `start_checkout` (`src/lib/webmcp.ts`). They read the read-only `GET /api/catalog` and write the
+  same cart and `POST /api/checkouts` as the buttons; `start_checkout` opens the checkout page,
+  where the shopper pays in Drop-in. This is separate from `/mcp`, which is unchanged.
 - **Catalogue search:** UCP's `filters.categories` (any of the listed ones) and `filters.price`
   (`min`, `max`, minor units); the singular `category` this store read before stays accepted.
 - **Amounts:** integers in EUR minor units, computed by the server from the catalogue. An agent
@@ -162,6 +169,10 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
 8. A device code is single use, expires after 600 s, and yields tokens only after the shopper
    approved its user code on the consent page; polling faster than the interval answers
    `slow_down` and widens it by 5 s. Wrong user codes are limited per address and in total.
+9. WebMCP tools never pay, read orders or touch consent and grants: no tool takes a payment
+   instrument, and `/account`, `/consent`, `/device` and `/back-office` register none. The five
+   tools register under one signal, all or none, and leave when the page does. They hold no
+   secret and see only what the page itself shows.
 
 ## Determinism
 
@@ -179,6 +190,11 @@ is whatever LLM the shopper points at it.
   UCP `scope_token` pattern; every OpenAPI path routes to the operation its `operationId` names.
 - The device grant runs end to end in tests: code, wrong code, consent, pending, slow_down,
   tokens, an MCP call, then the code refused as used.
+- `src/lib/webmcp.test.ts`: tool names and descriptions within the draft's rules and Chrome's
+  budgets (name 30, description 500, parameter 150, output 1.5K characters), all-or-none
+  registration, none on the shopper's own pages, and the cart and checkout calls against the API.
+  In a browser, a stand-in `document.modelContext` sees the five tools register on `/shop` and
+  leave on `/account`.
 - On TEST: a human Drop-in payment Authorised; a zero-value card save; an agent `complete_checkout`
   Authorised with ContAuth; the matching `AUTHORISATION` webhook accepted.
 

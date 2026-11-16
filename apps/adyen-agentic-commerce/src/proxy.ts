@@ -1,6 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
-// The shopper's own pages (account, consent, Back Office) sit behind the playground's basic auth when
-// it is configured; the agent-facing protocol paths never do, or no agent could reach them.
+// The shopper's own pages (account, consent, device, Back Office) sit behind the playground's
+// basic auth when it is configured; the agent-facing protocol paths never do, or no agent could
+// reach them. Pages also carry the WebMCP origin-trial header when the owner set a token.
 import { type NextRequest, NextResponse } from "next/server";
 import { cleanEnvValue } from "./server/config";
 
@@ -64,13 +65,32 @@ function publicOrigin(): string | undefined {
   }
 }
 
+/**
+ * The owner's WebMCP origin-trial token, sent as an `Origin-Trial` header on pages. It is read per
+ * request because pages are prerendered at build time, when the deploy's variables may be absent.
+ * The token is public by design; anything that is not one is dropped, never sent.
+ */
+export function originTrialToken(
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  const token = cleanEnvValue(env.WEBMCP_ORIGIN_TRIAL_TOKEN);
+  return token && token.length <= 4096 && /^[A-Za-z0-9+/]+={0,2}$/.test(token) ? token : undefined;
+}
+
+function pass(): NextResponse {
+  const response = NextResponse.next();
+  const token = originTrialToken();
+  if (token) response.headers.set("origin-trial", token);
+  return response;
+}
+
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  if (!PROTECTED.some((p) => path === p || path.startsWith(`${p}/`))) return NextResponse.next();
+  if (!PROTECTED.some((p) => path === p || path.startsWith(`${p}/`))) return pass();
   if (crossSiteRefused(request.method, request.headers, [request.nextUrl.origin, publicOrigin()])) {
     return new NextResponse("Cross-site request refused", { status: 403 });
   }
-  if (basicAuthAllows(request.headers.get("authorization"))) return NextResponse.next();
+  if (basicAuthAllows(request.headers.get("authorization"))) return pass();
   return new NextResponse("Sign-in required", {
     status: 401,
     headers: { "www-authenticate": 'Basic realm="Atelier Velune shopper", charset="UTF-8"' },
@@ -79,6 +99,8 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    // Pages, for the origin-trial header; the agent protocol paths and assets never pass here.
+    "/((?!api/|_next/|mcp|ucp/|oauth/|\\.well-known/|healthz|favicon).*)",
     "/account/:path*",
     "/back-office/:path*",
     "/consent/:path*",

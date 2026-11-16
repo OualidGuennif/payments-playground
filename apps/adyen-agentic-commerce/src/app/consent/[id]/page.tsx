@@ -36,8 +36,8 @@ export default async function Consent({ params }: { params: Promise<{ id: string
       <input type="hidden" name="request" value={request.id} />
       <div className="space-y-1">
         <h1 className="text-2xl">{request.clientName} wants to shop for you</h1>
-        <p className="break-all text-sm text-muted">
-          Client: {host}. {after}
+        <p className="text-sm text-muted">
+          Client: <span className="break-all">{host}</span>. {after}
         </p>
       </div>
       <fieldset className="space-y-2">

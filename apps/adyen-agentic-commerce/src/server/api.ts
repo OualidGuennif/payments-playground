@@ -4,7 +4,7 @@
 import { Elysia, status } from "elysia";
 import { productSvg } from "./art";
 import * as adyen from "./adyen";
-import { productById, variantById } from "./catalog";
+import { productById, searchProducts, variantById, variantsOf } from "./catalog";
 import * as commerce from "./commerce";
 import { config, paymentsConfigured, SHOPPER_REFERENCE, UCP_VERSION } from "./config";
 import { get, list } from "./db";
@@ -65,6 +65,28 @@ const browserApi = new Elysia({ prefix: "/api" })
     return new Response(productSvg(product.shape, variant.colour), {
       headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=86400" },
     });
+  })
+  // Read-only and public, the same facts as the shop pages: what the page's WebMCP tools search.
+  .get("/catalog", ({ query }) => {
+    const max = Number(query.max_price);
+    const products = searchProducts(query.q ?? "", {
+      category: query.category || undefined,
+      maxPrice: query.max_price && Number.isFinite(max) ? max : undefined,
+    });
+    return {
+      products: products.map((p) => ({
+        id: p.id,
+        title: p.title,
+        category: p.category,
+        price: p.price,
+        variants: variantsOf(p).map((v) => ({
+          id: v.id,
+          colour: v.colour.label,
+          size: v.size,
+          available: v.available,
+        })),
+      })),
+    };
   })
   .post("/checkouts", ({ body }) => {
     try {

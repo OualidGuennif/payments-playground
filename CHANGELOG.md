@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Move the three apps to Next.js 16.4.6. 16.4.5 fixes GHSA-mfr8-8qww-v76h and six other moderate
+  advisories (`use cache` leaks, forwarded-response injection, image SVG check, Edge cookie
+  header), so `next build` no longer stops on Next's security guard; 16.4.6 also compresses route
+  handler responses, checked on `/mcp`, the UCP documents and a scripted agent purchase on TEST.
+  Only `next`, `@next/env` and the `@next/swc-*` binaries change in `bun.lock`.
 - Record the 2026-11-16 checks of the agentic store in its spec (184 tests, builds, the browser
   WebMCP check, a scripted agent purchase on TEST) and the open push in `work/current.md`.
 - Agentic `/agents` page: what an MCP host needs (remote MCP, OAuth discovery from the 401, a

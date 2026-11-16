@@ -9,8 +9,8 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-16, the three findings, device grant, host prerequisites, account
   statuses, Gemini's UI work, and WebMCP on the store (MCP server kept).
-- State: committed locally (657c34e..0f2350d + closure); `bun run check` passes step by step
-  (each Next build stops once on GHSA-mfr8-8qww-v76h, its rerun passes); not pushed.
+- State: committed locally (657c34e..7215d67, then Next 16.4.6 for GHSA-mfr8-8qww-v76h);
+  `bun run check` passes; not pushed.
 - Next: owner's yes for an independent review, then receipt and push develop (who: owner, then
   Claude); handover 6a3e1c3c.
 - Blocker: none.

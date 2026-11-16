@@ -87,7 +87,7 @@ same model on PostgreSQL plus a webhook queue.
 | Dependency           | Version | Notes                                             |
 | -------------------- | ------- | ------------------------------------------------- |
 | Bun                  | 1.4.4   | Runtime, package manager, test runner             |
-| Next.js              | 16.4.3  | Pages, route handlers, standalone build           |
+| Next.js              | 16.4.6  | Pages, route handlers, standalone build           |
 | React                | 19.3.1  | Server and client components                      |
 | Elysia               | 1.4.30  | API router behind each app's `/api/*` handler     |
 | Eden                 | 1.4.9   | Typed browser client for that API                 |

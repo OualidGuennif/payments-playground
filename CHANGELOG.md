@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Interface pass across the three apps (from Gemini): touch targets of at least 44 px, a skip
+  link and a phone menu on the agentic store, dark text on the green buttons for AA contrast
+  (`--color-on-green`), no text under 11 px, balanced headings and readable line lengths, the
+  eyebrow labels dropped, and shorter hint copy.
 - Protect `main` on GitHub (pull request, the five CI checks up to date, resolved conversations,
   administrators included, no force-push or deletion) and delete the three merged `task/*`
   branches; the protection runbook records the read-back.

@@ -82,7 +82,7 @@ export function AccountView({
                   </span>
                   <button
                     type="button"
-                    className="text-xs underline"
+                    className="inline-flex min-h-11 cursor-pointer items-center px-2 text-xs underline"
                     onClick={() => forget(c.alias)}
                   >
                     Remove
@@ -133,7 +133,7 @@ export function AccountView({
                   {a.revoked ? null : (
                     <div className="flex flex-wrap items-end gap-2">
                       <label className="text-xs">
-                        <span className="eyebrow">Limit (EUR)</span>
+                        <span className="block text-xs font-medium text-muted">Limit (EUR)</span>
                         <input
                           type="number"
                           min={0}

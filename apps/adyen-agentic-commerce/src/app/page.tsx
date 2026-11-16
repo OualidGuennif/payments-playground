@@ -19,7 +19,6 @@ export default function Home() {
     <div className="space-y-14">
       <section className="grid items-center gap-8 md:grid-cols-[1.2fr_1fr]">
         <div className="space-y-5">
-          <p className="eyebrow">Agentic commerce demo</p>
           <h1 className="text-4xl leading-[1.08] sm:text-5xl">
             A store your AI agent can shop for you.
           </h1>

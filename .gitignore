@@ -38,3 +38,6 @@ next-env.d.ts
 
 # Logs
 *.log
+
+# Local temporary AI tooling (never tracked or shipped)
+temporary_tools/

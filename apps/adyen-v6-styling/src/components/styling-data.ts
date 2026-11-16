@@ -162,13 +162,12 @@ export function cardDefaultsFor(country: string): CardOptions {
 export const DEFAULT_OPEN_GROUPS: Record<string, boolean> = {};
 
 export const PLACEHOLDERS_HINT =
-  "placeholders, Adyen ships localised placeholders; anything " + "set here replaces them.";
+  "Adyen ships localised placeholders by default; anything set here replaces them.";
 
 export const RULES_HINT =
-  "Not recommended. No design token covers these, so they reach into " +
-  "Adyen's own class names, private API that can be renamed in any release, with no " +
-  "warning and no deprecation. A checkout styled this way can break on an SDK upgrade. " +
-  "Use the theme tokens above wherever one exists.";
+  "Not recommended. No design token covers these rules, so they target Adyen's internal " +
+  "class names, which can change in any release without notice. An SDK upgrade can break " +
+  "styles defined here; use the theme tokens above whenever one exists.";
 
 export const WALLET_HINT =
   "The provider draws this button itself, so neither the field styles nor " +

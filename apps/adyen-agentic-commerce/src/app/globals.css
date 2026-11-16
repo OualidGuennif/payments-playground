@@ -46,6 +46,15 @@
   h3 {
     font-family: var(--font-serif);
     letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  p,
+  li {
+    text-wrap: pretty;
+  }
+  ::placeholder {
+    color: var(--color-muted);
+    opacity: 1;
   }
   a {
     text-underline-offset: 3px;
@@ -58,10 +67,10 @@
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-paper transition hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40;
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-paper transition hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line bg-card px-5 py-2.5 text-sm font-medium text-ink transition hover:border-ink disabled:opacity-40;
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-line bg-card px-5 py-2.5 text-sm font-medium text-ink transition hover:border-ink disabled:opacity-40;
   }
   .panel {
     @apply rounded-2xl border border-line bg-card p-5 sm:p-6;

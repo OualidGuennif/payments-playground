@@ -54,8 +54,8 @@
   position: absolute;
   top: 9px;
   left: 14px;
-  color: var(--color-ink-subtle);
-  font-size: 0.62rem;
+  color: var(--color-ink-muted);
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   pointer-events: none;
@@ -67,7 +67,7 @@
   min-width: 0;
   height: 100%;
   min-height: 56px;
-  padding: 22px 34px 7px 14px;
+  padding: 24px 34px 7px 14px;
   border: 0;
   border-radius: inherit;
   background-color: transparent;
@@ -274,13 +274,13 @@
 /* Full country names run long next to the scheme, so the badge keeps its own
    line rather than squeezing "United States" against "Klarna". */
 .test-card__note {
-  padding: 1px 7px;
+  padding: 2px 7px;
   border-radius: 999px;
   background: var(--color-green-soft);
   color: var(--color-green-dark);
-  font-size: 0.56rem;
+  font-size: 0.6875rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
@@ -300,7 +300,7 @@
    tile holds at any size the card numbers are comfortable at. It takes the
    step down rather than making every tile smaller for the one outlier. */
 .test-card__pan--long {
-  font-size: 0.64rem;
+  font-size: 0.6875rem;
 }
 
 .test-card__bottom {
@@ -308,7 +308,7 @@
   align-items: center;
   gap: 10px;
   color: var(--color-ink-muted);
-  font-size: 0.66rem;
+  font-size: 0.72rem;
 }
 
 .test-card__copy {
@@ -330,8 +330,8 @@
 }
 
 .test-card__disclaimer {
-  color: var(--color-ink-subtle);
-  font-size: 0.64rem;
+  color: var(--color-ink-muted);
+  font-size: 0.7rem;
   font-style: italic;
   line-height: 1.45;
 }
@@ -372,6 +372,7 @@
    sessions belong in the docs, not across three lines of a success notice. */
 .dropin-done {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
@@ -389,7 +390,7 @@
   justify-content: center;
   border-radius: 999px;
   background: var(--color-green);
-  color: white;
+  color: var(--color-on-green);
   font-size: 0.8rem;
   font-weight: 800;
 }
@@ -620,6 +621,8 @@
 
 .styling-controls .switch-row {
   min-width: 0;
+  border-color: transparent;
+  background: var(--color-surface-muted);
 }
 
 .styling-controls .switch-row span {
@@ -631,8 +634,8 @@
 .switch-row span small {
   display: block;
   margin-top: 2px;
-  color: var(--color-ink-subtle);
-  font-size: 0.62rem;
+  color: var(--color-ink-muted);
+  font-size: 0.7rem;
   font-weight: 600;
 }
 
@@ -697,7 +700,7 @@
   border-radius: 999px;
   background: var(--color-green-soft);
   color: var(--color-green-dark);
-  font-size: 0.58rem;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -707,7 +710,7 @@
   margin: 0;
   padding: 10px 12px 0;
   color: var(--color-ink-muted);
-  font-size: 0.66rem;
+  font-size: 0.72rem;
   line-height: 1.45;
 }
 
@@ -739,7 +742,7 @@
 .option-note {
   margin: 0;
   color: var(--color-ink-muted);
-  font-size: 0.66rem;
+  font-size: 0.72rem;
   line-height: 1.45;
 }
 
@@ -785,7 +788,7 @@
   flex: 0 0 auto;
   min-width: 66px;
   color: var(--color-ink-muted);
-  font-size: 0.64rem;
+  font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -898,7 +901,7 @@
 
 .styling-segmented button {
   display: inline-flex;
-  min-height: 32px;
+  min-height: 36px;
   align-items: center;
   justify-content: center;
   gap: 4px;
@@ -907,7 +910,7 @@
   background: transparent;
   color: var(--color-ink-muted);
   cursor: pointer;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 800;
 }
 
@@ -918,11 +921,11 @@
 }
 
 .styling-segmented__count {
-  padding: 0 5px;
+  padding: 1px 6px;
   border-radius: 999px;
   background: var(--color-green-soft);
   color: var(--color-green-dark);
-  font-size: 0.56rem;
+  font-size: 0.6875rem;
 }
 
 .styling-filter {
@@ -956,7 +959,7 @@
 .css-note {
   margin: 0 0 8px;
   font-size: 0.72rem;
-  color: var(--color-ink-subtle);
+  color: var(--color-ink-muted);
 }
 
 .css-cdn-link {
@@ -974,7 +977,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 6px;
-  font-size: 0.66rem;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -1157,7 +1160,7 @@
   }
 
   .toolbar-field select {
-    padding: 22px 26px 7px 12px;
+    padding: 24px 26px 7px 12px;
     background-position: right 12px center;
     /* Safari zooms the page in on focus for any control under 16px. */
     font-size: 16px;
@@ -1186,6 +1189,22 @@
   }
 }
 
+@media (max-width: 480px) {
+  .styling-segmented {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 760px), (pointer: coarse) {
+  .test-cards__toggle,
+  .option-group__summary,
+  .styling-segmented button,
+  .styling-reset {
+    min-height: 44px;
+  }
+}
+
 .styling-footer {
   display: flex;
   flex-wrap: wrap;
@@ -1193,7 +1212,7 @@
   justify-content: space-between;
   gap: 10px;
   padding: 18px clamp(16px, 3vw, 34px) 24px;
-  color: var(--color-ink-subtle);
+  color: var(--color-ink-muted);
   font-size: 0.72rem;
 }
 

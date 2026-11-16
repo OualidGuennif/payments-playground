@@ -18,8 +18,7 @@ export default function Agents() {
   ];
   return (
     <div className="mx-auto max-w-3xl space-y-8">
-      <div className="space-y-2">
-        <p className="eyebrow">For agents and their developers</p>
+      <div className="max-w-[68ch] space-y-2">
         <h1 className="text-3xl">Shop here with any AI agent</h1>
         <p className="text-muted">
           Add <span className="code">{o}/mcp</span> as a remote MCP connector in your assistant. It
@@ -42,7 +41,7 @@ export default function Agents() {
           ))}
         </dl>
       </section>
-      <section className="space-y-3">
+      <section className="max-w-[68ch] space-y-3">
         <h2 className="text-xl">How a purchase works</h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm">
           <li>
@@ -75,7 +74,7 @@ export default function Agents() {
         <h2 className="text-xl">
           Payment handler <span className="code">saved_card</span>
         </h2>
-        <p>
+        <p className="max-w-[68ch]">
           Declared under <span className="code">com.payments-playground.saved_card</span> in the UCP
           profile. Instruments are aliases of the card the shopper saved with Adyen (shopper
           reference <span className="code">ogaccountnew</span>); the raw Adyen token never leaves
@@ -84,7 +83,7 @@ export default function Agents() {
           the account has the role.
         </p>
       </section>
-      <section className="space-y-2 text-sm">
+      <section className="max-w-[68ch] space-y-2 text-sm">
         <h2 className="text-xl">Scopes</h2>
         <ul className="list-disc space-y-1 pl-5">
           <li>

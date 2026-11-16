@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Agentic store, from the pre-push review: the phone menu closes when a link in it opens another
+  page (the root layout kept it open over the new page).
 - Agentic store, from the pre-push security review: the device sign-in refuses a client whose
   `client_id` is a URL unless it signs its requests, since without a callback on that host anyone
   could start a public one's sign-in and be shown as it; the wrong-code record forgets addresses

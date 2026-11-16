@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CartLink } from "@/components/CartLink";
+import { MobileMenu } from "@/components/MobileMenu";
 import { WebMcpTools } from "@/components/WebMcpTools";
 import "./globals.css";
 
@@ -49,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 ))}
               </nav>
               <CartLink />
-              <details className="relative sm:hidden">
+              <MobileMenu>
                 <summary
                   className="btn-ghost min-h-11 list-none px-3.5 py-1.5 text-sm [&::-webkit-details-marker]:hidden"
                   aria-label="Open menu"
@@ -70,7 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     </Link>
                   ))}
                 </nav>
-              </details>
+              </MobileMenu>
             </div>
           </div>
         </header>

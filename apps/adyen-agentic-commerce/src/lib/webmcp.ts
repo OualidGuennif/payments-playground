@@ -1,5 +1,5 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
-// WebMCP (W3C draft of 2026-11-13; Chrome origin trial from 149): the store's own pages offer an
+// WebMCP (W3C Community Group draft; Chrome origin trial from 149): the store's own pages offer an
 // agent in the shopper's browser the catalogue and the shopper's cart, through the same calls as
 // the buttons. Paying stays with the shopper in Drop-in: no tool pays, and the account, consent,
 // device and Back Office pages register none. The /mcp server is separate and unchanged.

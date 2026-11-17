@@ -190,6 +190,56 @@ describe("REST binding", () => {
   });
 });
 
+describe("cart to checkout", () => {
+  const key = () => ({ "idempotency-key": crypto.randomUUID() });
+
+  test("a cart_id checkout takes the cart's lines and buyer over overlapping fields", async () => {
+    await agent.signIn();
+    const cart = (
+      await agent.tool("create_cart", {
+        meta: key(),
+        cart: { line_items: lines(OXFORD), buyer: { email: "cart@example.com" } },
+      })
+    ).content;
+    const fromId = (
+      await agent.tool("create_checkout", { meta: key(), checkout: { cart_id: cart.id } })
+    ).content;
+    expect(fromId.line_items.map((l: { item: { id: string } }) => l.item.id)).toEqual([OXFORD]);
+    // UCP 2026-08-25 cart extension: the business uses the cart's contents and ignores the
+    // checkout payload's overlapping fields, even an invalid one.
+    const both = (
+      await agent.tool("create_checkout", {
+        meta: key(),
+        checkout: {
+          cart_id: cart.id,
+          line_items: lines(SOCKS, BEANIE),
+          buyer: { email: "not an email" },
+        },
+      })
+    ).content;
+    expect(both.line_items.map((l: { item: { id: string } }) => l.item.id)).toEqual([OXFORD]);
+    expect(
+      loadCheckout(both.id, authenticate(`Bearer ${agent.accessToken}`, "/mcp") as Auth).buyer,
+    ).toEqual({ email: "cart@example.com" });
+  });
+
+  test("without a buyer on the cart, the checkout's own buyer is used", async () => {
+    await agent.signIn();
+    const cart = (
+      await agent.tool("create_cart", { meta: key(), cart: { line_items: lines(SOCKS) } })
+    ).content;
+    const created = (
+      await agent.tool("create_checkout", {
+        meta: key(),
+        checkout: { cart_id: cart.id, buyer: { email: "ada@example.com" } },
+      })
+    ).content;
+    expect(
+      loadCheckout(created.id, authenticate(`Bearer ${agent.accessToken}`, "/mcp") as Auth).buyer,
+    ).toEqual({ email: "ada@example.com" });
+  });
+});
+
 describe("agent payment", () => {
   test("a signed-in agent within its limit pays once with the saved card, ContAuth", async () => {
     await agent.signIn();

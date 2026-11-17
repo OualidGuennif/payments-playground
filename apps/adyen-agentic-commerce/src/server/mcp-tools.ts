@@ -172,7 +172,7 @@ export const MCP_TOOLS = [
   tool(
     "create_checkout",
     "Create a checkout",
-    "Create a checkout from line items (or a cart_id). The server prices it; read status, totals and payment.instruments in the answer.",
+    "Create a checkout from line items, or from a cart_id whose lines and buyer then win. The server prices it; read status, totals and payment.instruments in the answer.",
     {
       meta: meta(false),
       checkout: {

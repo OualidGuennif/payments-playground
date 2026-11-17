@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- A UCP checkout created from a `cart_id` now takes the cart's lines and buyer, ignoring the
+  request's overlapping `line_items` and `buyer`, as the 2026-08-25 cart extension requires; before,
+  `line_items` sent next to `cart_id` replaced the cart. Found while reading the UCP draft.
 - The store's five WebMCP tools declare an `outputSchema` listing every answer they give, refusals
   included, as the draft lets an agent reject an answer that does not validate. The tests check
   every answer they produce against its tool's schema.

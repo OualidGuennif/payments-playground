@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T19:00:00Z
+  at: 2026-11-17T20:00:00Z
 verified:
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
@@ -135,6 +135,9 @@ before, every deploy or restart emptied orders, agents and grants.
   opaque `pagination.cursor` it returned. Lookup takes at most 50 distinct ids. Product takes
   `selected` options and `preferences`, the order in which options are dropped when no variant
   matches them all.
+- **Cart to checkout:** a create-checkout request with `cart_id` takes the cart's lines and buyer
+  (UCP 2026-08-25 cart extension); its own `line_items`, and its `buyer` when the cart has one, are
+  ignored, not parsed (`src/server/ucp.test.ts` "cart to checkout").
 - **Amounts:** integers in EUR minor units, computed by the server from the catalogue. An agent
   never sends a price; any client-sent price or total is ignored.
 

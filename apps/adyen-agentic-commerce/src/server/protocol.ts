@@ -21,12 +21,19 @@ import { MCP_TOOLS } from "./mcp-tools";
 
 const WINDOW_MS = 60_000;
 const LIMIT = 240;
+// Addresses come from X-Forwarded-For, which a caller can vary; the map must not grow with them.
+const BUCKETS_MAX = 10_000;
 const buckets = new Map<string, { start: number; count: number }>();
 
 export function rateLimited(key: string): number | undefined {
   const now = Date.now();
   const bucket = buckets.get(key);
   if (!bucket || now - bucket.start > WINDOW_MS) {
+    if (!bucket && buckets.size >= BUCKETS_MAX) {
+      for (const [k, b] of buckets) if (now - b.start > WINDOW_MS) buckets.delete(k);
+      // Still full: every address is inside its window, so the oldest one is dropped.
+      if (buckets.size >= BUCKETS_MAX) buckets.delete(buckets.keys().next().value!);
+    }
     buckets.set(key, { start: now, count: 1 });
     return undefined;
   }
@@ -34,12 +41,14 @@ export function rateLimited(key: string): number | undefined {
   return bucket.count > LIMIT ? Math.ceil((bucket.start + WINDOW_MS - now) / 1000) : undefined;
 }
 
+export const trackedRateAddresses = () => buckets.size;
+
 export function publicUrl(request: Request): string {
   const url = new URL(request.url);
   return `${config().publicOrigin}${url.pathname}${url.search}`;
 }
 
-const clientIp = (request: Request) =>
+export const clientIp = (request: Request) =>
   request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
 
 // RFC 6750 §3 with UCP's realm (the issuer) and RFC 9728's resource_metadata; error only when a

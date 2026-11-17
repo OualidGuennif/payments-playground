@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Agentic store, from the release reviews: starting a device sign-in shares the agents' limit of
+  240 requests a minute per address. Since a caller can vary `X-Forwarded-For`, the store also
+  holds at most 1,000 device requests (then `temporarily_unavailable`), each deleted one lifetime
+  after it expires, and the limiter tracks at most 10,000 addresses. Looping
+  `/oauth/device_authorization` can now hold up new device sign-ins for up to 20 minutes, but no
+  longer grows the store or the limiter's memory.
 - Agentic store, PAP 1.0 §4.7: a sign-in request from a PAP agent (a URL `client_id` that signs
   with `private_key_jwt`) must carry `scope`, on the authorization code and the device grant, or
   it gets `invalid_scope`; any other MCP client that sends none, registered or a public URL client,

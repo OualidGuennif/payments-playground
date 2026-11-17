@@ -10,7 +10,7 @@ import {
   jwtVerify,
 } from "jose";
 import { config } from "./config";
-import { claimJti, findBy, get, list, put } from "./db";
+import { claimJti, count, findBy, get, list, put, removeExpired } from "./db";
 import { trace } from "./trace";
 import { isRecord, newId, secret, sha256, sha256b64url } from "./util";
 
@@ -134,6 +134,8 @@ export const DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
 const DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"];
 const DEVICE_TTL = 600;
 const DEVICE_INTERVAL = 5;
+// Device requests kept at once, expired ones included until they are pruned.
+export const DEVICE_REQUESTS_MAX = 1000;
 
 type DeviceRequest = {
   id: string;
@@ -643,6 +645,16 @@ export async function startDeviceAuthorization(form: URLSearchParams) {
     );
   const scopes = requestedScopes(form.get("scope"), client);
   if (typeof scopes === "string") throw new OAuthError("invalid_scope", scopes);
+  // An expired request still answers a late poll with expired_token; one lifetime later it goes.
+  removeExpired("device_requests", nowSec() - DEVICE_TTL);
+  // The per-address limit trusts X-Forwarded-For, which a caller can vary: this bounds the store
+  // and every user-code scan whatever the addresses, at the cost of new starts during a flood.
+  if (count("device_requests") >= DEVICE_REQUESTS_MAX)
+    throw new OAuthError(
+      "temporarily_unavailable",
+      "Too many device sign-ins in progress; try again later",
+      503,
+    );
   const deviceCode = secret();
   let userCode = newUserCode();
   // Two pending requests must never share a user code; with 20^8 codes a retry is rare.

@@ -104,6 +104,22 @@ export function remove(collection: Collection, id: string): void {
     .run({ c: collection, id });
 }
 
+// Drops a collection's documents whose expiresAt (Unix seconds) is before `before`: requests
+// anyone can create would otherwise pile up in a collection findBy scans.
+export function removeExpired(collection: Collection, before: number): void {
+  database()
+    .query("delete from docs where collection = $c and json_extract(data, $path) < $t")
+    .run({ c: collection, path: "$.expiresAt", t: before });
+}
+
+export function count(collection: Collection): number {
+  return (
+    database()
+      .query<{ n: number }, { c: string }>("select count(*) as n from docs where collection = $c")
+      .get({ c: collection })?.n ?? 0
+  );
+}
+
 // Every document whose top-level field equals the value, newest first. A lookup by reference or
 // session id must not depend on list()'s window: a webhook for an old payment still finds it.
 export function findBy<T>(collection: Collection, field: string, value: string): T[] {

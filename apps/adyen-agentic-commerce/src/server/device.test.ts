@@ -4,9 +4,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, setSystemTime, test } from "bun:test";
 import { agentState } from "../lib/agent-status";
 import { accountView, handle } from "./api";
-import { get, put } from "./db";
+import { count, get, put } from "./db";
 import {
   DEVICE_GRANT,
+  DEVICE_REQUESTS_MAX,
   grants,
   pendingRequest,
   trackedMissAddresses,
@@ -150,6 +151,16 @@ describe("who may use it", () => {
     }
   });
 
+  test("starting device sign-ins shares the agents' rate limit", async () => {
+    // protocol.ts allows 240 requests a minute per address.
+    const headers = { "x-forwarded-for": randomIp() };
+    const call = () => post("/oauth/device_authorization", { client_id: "unknown" }, headers);
+    for (let i = 0; i < 240; i++) expect((await call()).status).not.toBe(429);
+    const limited = await call();
+    expect(limited.status).toBe(429);
+    expect(Number(limited.headers.get("retry-after"))).toBeGreaterThan(0);
+  });
+
   test("an unknown scope is invalid_scope", async () => {
     const { status, body } = await start(tv, `${CART} admin`);
     expect(status).toBe(400);
@@ -281,6 +292,29 @@ describe("the codes", () => {
         }
       }
       expect(trackedMissAddresses()).toBeLessThanOrEqual(1000);
+    } finally {
+      setSystemTime();
+    }
+  });
+
+  test("the store holds a bounded number of device requests, whatever the addresses", async () => {
+    const live = { status: "pending", userCode: "ZZZZZZZZ", expiresAt: Date.now() / 1000 + 600 };
+    for (let i = 0; i < DEVICE_REQUESTS_MAX; i++) put("device_requests", `flood-${i}`, live);
+    const refused = await start(tv);
+    expect(refused.status).toBe(503);
+    expect(refused.body.error).toBe("temporarily_unavailable");
+    expect(count("device_requests")).toBe(DEVICE_REQUESTS_MAX);
+  });
+
+  test("a device request is forgotten one lifetime after it expires", async () => {
+    try {
+      // Started 21 minutes ago: past its 600 s, and past one lifetime more.
+      setSystemTime(new Date(Date.now() - 21 * 60_000));
+      const { body: old } = await start(tv);
+      setSystemTime();
+      const { body: fresh } = await start(tv);
+      expect(get("device_requests", sha256(old.device_code))).toBeUndefined();
+      expect(get("device_requests", sha256(fresh.device_code))).toBeDefined();
     } finally {
       setSystemTime();
     }

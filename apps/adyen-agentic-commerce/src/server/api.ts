@@ -10,7 +10,7 @@ import { config, paymentsConfigured, SHOPPER_REFERENCE, UCP_VERSION } from "./co
 import { get, list } from "./db";
 import * as oauth from "./oauth";
 import { poppyDocument } from "./pap";
-import { handleMcp, handleRest } from "./protocol";
+import { clientIp, handleMcp, handleRest, rateLimited } from "./protocol";
 import { recentTrace, trace } from "./trace";
 import { handlerSchema, profile } from "./ucp";
 import { openApi } from "./openapi";
@@ -382,6 +382,9 @@ const app = new Elysia()
     }
   })
   .post("/oauth/device_authorization", async ({ request }) => {
+    // Every call stores a request, so it shares the limit agents get on UCP and /mcp.
+    const retry = rateLimited(clientIp(request));
+    if (retry) return json(429, { error: "rate_limited" }, { "retry-after": String(retry) });
     try {
       const answer = await oauth.startDeviceAuthorization(await formOf(request));
       // The device code is a secret and the user code half of one: neither goes to the trace.

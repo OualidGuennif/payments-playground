@@ -7,14 +7,14 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T00:30:00Z
+  at: 2026-11-17T02:00:00Z
 verified:
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
   - at: 2026-11-16
     check: "bun test: 184 pass (device grant, identity linking, OpenAPI vs answers, WebMCP, agent states); tsc, biome, next build (rerun after Next's advisory stop) and SSR assertion pass; browser with a stand-in modelContext: tools on /shop, none on /account; pap-agent.ts completed on Adyen TEST."
   - at: 2026-11-17
-    check: "bun run check green: 195 agentic tests (a PAP agent without scope gets invalid_scope on both grants, other clients the defaults), types, Biome, builds, SSR assertion; /agents read at 375 px and desktop width."
+    check: "bun run check green: 199 agentic tests (a PAP agent without scope gets invalid_scope, other clients the defaults; device starts limited, capped at 1,000, expired ones deleted), types, Biome, builds, SSR assertion; /agents read at 375 px and desktop width."
 sources:
   - id: app
     resource: ../../apps/adyen-agentic-commerce
@@ -176,7 +176,11 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
 8. A device code is single use, expires after 600 s, and yields tokens only after the shopper
    approved its user code on the consent page; polling faster than the interval answers
    `slow_down` and widens it by 5 s. Wrong user codes are limited per address and in total; only a
-   wrong code is remembered, and at most 1,000 addresses at once.
+   wrong code is remembered, and at most 1,000 addresses at once. Starting a device sign-in shares
+   the agents' limit of 240 requests a minute per address; since a caller can vary
+   `X-Forwarded-For`, the store also holds at most 1,000 device requests (then
+   `temporarily_unavailable`, 503), each deleted one lifetime after it expires, and the limiter
+   tracks at most 10,000 addresses.
 9. WebMCP tools never pay, read orders or touch consent and grants: no tool takes a payment
    instrument, and `/account`, `/consent`, `/device` and `/back-office` register none. The five
    tools register under one signal, all or none, and leave when the page does. They hold no

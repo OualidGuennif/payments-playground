@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The store's five WebMCP tools declare an `outputSchema` listing every answer they give, refusals
+  included, as the draft lets an agent reject an answer that does not validate. The tests check
+  every answer they produce against its tool's schema.
 - The agentic store applies RFC 8707 resource indicators: `resource` on authorize, device
   authorization and token requests must be the store's origin (UCP REST) or its `/mcp` URL,
   otherwise `invalid_target` and no code or token; the token endpoint may only narrow to granted

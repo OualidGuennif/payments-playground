@@ -10,6 +10,7 @@ import { freshStore, ORIGIN } from "../server/testing/agent";
 import { addToCart, clearCart, readCart, setCartQuantity } from "./client";
 import {
   type CatalogProduct,
+  type JsonSchema,
   type ModelContext,
   registerAll,
   type ShopDeps,
@@ -67,8 +68,74 @@ beforeEach(() => {
   tools = Object.fromEntries(shopTools(deps).map((t) => [t.name, t]));
 });
 
-const run = (name: string, input: Record<string, unknown> = {}) =>
-  tools[name]!.execute(input) as Promise<Record<string, any>>;
+// The JSON Schema keywords the output schemas use, and a checker for exactly those: the draft lets
+// an agent reject an answer that does not validate against the tool's outputSchema.
+const KEYWORDS = new Set([
+  "type",
+  "properties",
+  "required",
+  "additionalProperties",
+  "items",
+  "const",
+  "minimum",
+  "oneOf",
+  "format",
+  "description",
+]);
+const TYPES: Record<string, (v: unknown) => boolean> = {
+  object: (v) => typeof v === "object" && v !== null && !Array.isArray(v),
+  array: Array.isArray,
+  string: (v) => typeof v === "string",
+  number: (v) => typeof v === "number" && Number.isFinite(v),
+  integer: (v) => Number.isInteger(v),
+  boolean: (v) => typeof v === "boolean",
+};
+
+function keywordsKnown(schema: JsonSchema): boolean {
+  const s = schema as Record<string, any>;
+  return (
+    Object.keys(s).every((k) => KEYWORDS.has(k)) &&
+    (!s.type || s.type in TYPES) &&
+    Object.values((s.properties ?? {}) as Record<string, JsonSchema>).every(keywordsKnown) &&
+    (!s.items || keywordsKnown(s.items)) &&
+    ((s.oneOf ?? []) as JsonSchema[]).every(keywordsKnown)
+  );
+}
+
+function violations(schema: JsonSchema, value: unknown, at = "$"): string[] {
+  const s = schema as Record<string, any>;
+  const out: string[] = [];
+  if ("const" in s && value !== s.const) out.push(`${at} is not ${JSON.stringify(s.const)}`);
+  if (s.type && !TYPES[s.type]!(value)) return [...out, `${at} is not ${s.type}`];
+  if (typeof value === "number" && s.minimum !== undefined && value < s.minimum)
+    out.push(`${at} is under ${s.minimum}`);
+  if (s.format === "uri" && !URL.canParse(String(value))) out.push(`${at} is not a URI`);
+  if (s.type === "object") {
+    const object = value as Record<string, unknown>;
+    for (const key of s.required ?? []) if (!(key in object)) out.push(`${at}.${key} is missing`);
+    for (const [key, item] of Object.entries(object)) {
+      if (s.properties?.[key]) out.push(...violations(s.properties[key], item, `${at}.${key}`));
+      else if (s.additionalProperties === false) out.push(`${at}.${key} is not allowed`);
+    }
+  }
+  if (s.type === "array" && s.items)
+    (value as unknown[]).forEach((item, i) => {
+      out.push(...violations(s.items, item, `${at}[${i}]`));
+    });
+  if (s.oneOf) {
+    const matched = (s.oneOf as JsonSchema[]).filter((b) => !violations(b, value, at).length);
+    if (matched.length !== 1) out.push(`${at} matches ${matched.length} of oneOf`);
+  }
+  return out;
+}
+
+// Every answer in these tests is checked, as JSON, against the schema its tool declares.
+async function run(name: string, input: Record<string, unknown> = {}) {
+  const tool = tools[name]!;
+  const answer = JSON.parse(JSON.stringify(await tool.execute(input)));
+  expect({ [name]: violations(tool.outputSchema!, answer) }).toEqual({ [name]: [] });
+  return answer as Record<string, any>;
+}
 const size = (value: unknown) => JSON.stringify(value).length;
 
 describe("the tool list", () => {
@@ -93,6 +160,29 @@ describe("the tool list", () => {
         expect(schema.description.length).toBeLessThanOrEqual(150);
       }
     }
+  });
+
+  test("every tool declares an object outputSchema in the keywords checked here", () => {
+    for (const tool of shopTools(deps)) {
+      expect(tool.outputSchema?.type).toBe("object");
+      expect(`${tool.name} ${keywordsKnown(tool.outputSchema!)}`).toBe(`${tool.name} true`);
+      expect(JSON.parse(JSON.stringify(tool.outputSchema))).toEqual(tool.outputSchema!);
+    }
+  });
+
+  test("the output check is not vacuous: a wrong answer fails it", () => {
+    const schema = (name: string) => shopTools(deps).find((t) => t.name === name)!.outputSchema!;
+    expect(violations(schema("add_to_cart"), { added: true })).not.toEqual([]);
+    expect(violations(schema("add_to_cart"), { added: false, reason: "choose_size" })).not.toEqual(
+      [],
+    );
+    expect(violations(schema("start_checkout"), { started: false, reason: "other" })).not.toEqual(
+      [],
+    );
+    expect(
+      violations(schema("view_cart"), { lines: [], items: 0, subtotal_eur: 0, extra: 1 }),
+    ).not.toEqual([]);
+    expect(violations(schema("search_catalog"), { products: [{}], more: 0 })).not.toEqual([]);
   });
 
   test("no tool pays or reads orders; only the two reads say they are read-only", () => {
@@ -228,6 +318,7 @@ describe("the tools", () => {
   });
 
   test("view_cart and update_cart_item work on the same cart as the page", async () => {
+    expect(await run("view_cart")).toEqual({ lines: [], items: 0, subtotal_eur: 0 });
     addToCart("velune-trench-olive-m", 1);
     addToCart("velune-rib-socks-oat-one-size", 3);
     addToCart("velune-oxford-shirt-white-s", 1);

@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.3.4 deploy check: the weak ETag now revalidates to 304 on Render, but the marker
+  checkout created after the disk was added did not survive the deploy, so the agentic disk is
+  still not in effect.
 - ADR-015 and the agentic store's spec set the next version: customer accounts (email and
   password, passkeys), `web` and `agent` channels on every checkout and order, agent grants bound
   to the account that approved them, and a one-time network token an agent brings, paid on Adyen

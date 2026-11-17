@@ -7,25 +7,25 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 ## Customer accounts and agent-brought cards — ACTIVE
 
-- Owner decision: 2026-11-17, plan approved: accounts (email, password, passkeys with
-  `@simplewebauthn` 14), web and agent channels, agents bound to an account, one-time network
-  tokens (guest or signed in), the grant's limit on every signed-in agent payment, rate limits.
-- State: plan approved; no code. A real TEST network-token payment needs Adyen to enable it.
-- Next: v0.3.4 first, then spec and ADR, slices, v0.4.0 (who: agent); Adyen enablement and test
+- Owner decision: 2026-11-17, plan approved (ADR-015: accounts with passkeys, two channels,
+  agents bound to an account, one-time network tokens, limits).
+- State: spec and ADR committed locally; server code uncommitted (handover); TEST network tokens
+  need Adyen to enable them.
+- Next: finish code, tests, browser check, review, v0.4.0 (who: agent); Adyen enablement and test
   tokens (who: owner).
 - Blocker: none.
 - Evidence: docs.adyen.com online-payments/network-tokenization ("Manage network tokens yourself").
 
-## Agentic data lost on deploy; v0.3.4 pending — ACTIVE
+## Agentic data lost on deploy, disk not in effect — WAITING-OWNER
 
-- Owner decision: 2026-11-17, v0.3.3 released (strict PAP 1.0, UCP 2026-08-25, RFC 8707, WebMCP);
-  the Render Blueprint gives agentic a `starter` plan, the `agentic-data` disk and `DATABASE_PATH`.
-- State: v0.3.3 lost `ord_kQx4WUyfprrP` on deploy; the owner added a 1 GB disk on 2026-11-17.
-  Marker checkout `chk_FMh1DGYntPlf` placed at 19:59 UTC; `d5af4b2` (weak ETag) goes in v0.3.4.
-- Next: release v0.3.4; after its deploy, `chk_FMh1DGYntPlf` must answer 200 and a weak
-  `If-None-Match` on `/.well-known/ucp` 304 (who: agent).
-- Blocker: none.
-- Evidence: knowledge/current/digital-status.md (v0.3.3 deploy rows); render.yaml.
+- Owner decision: 2026-11-17, the Render Blueprint gives agentic a `starter` plan, the
+  `agentic-data` disk at `/var/data` and `DATABASE_PATH=/var/data/agentic.sqlite`.
+- State: v0.3.4 released and deployed (weak ETag 304); marker `chk_FMh1DGYntPlf`, created after
+  the owner added the 1 GB disk, is 404 after that deploy: the database was replaced again.
+- Next: in Render, `agentic-commerce` must show the disk mounted at `/var/data` and
+  `DATABASE_PATH=/var/data/agentic.sqlite` (or a Blueprint sync); then a new marker (who: owner).
+- Blocker: needs the Render dashboard.
+- Evidence: knowledge/current/digital-status.md (v0.3.4 rows); render.yaml.
 
 ## Client address on Render: two-client check — WAITING-OWNER
 

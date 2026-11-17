@@ -8,7 +8,7 @@ scope: digital-status
 stale_after: 2026-12-15
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T20:10:00Z
+  at: 2026-11-17T20:25:00Z
 sources:
   - id: api
     resource: ../../apps/adyen-digital/src/server/api.ts
@@ -21,11 +21,11 @@ sources:
     title: Meaning of the levels
 verified:
   - at: 2026-11-17
+    check: "v0.3.4 on Render (main 953d48b, CI green): agentic /.well-known/ucp answers 304 to a weak and to a strong If-None-Match; marker chk_FMh1DGYntPlf, created on v0.3.3 after the disk was added (200), is 404 after the deploy."
+  - at: 2026-11-17
     check: "v0.3.3 on Render (main 698423f, CI green): agentic caching headers (weak ETag: 200, not 304), UCP-Agent refusals (400, 424) and a PAP order via ngrok with RFC 8707 resources pass; ord_kQx4WUyfprrP placed on v0.3.2 is 404 after the deploy."
   - at: 2026-11-17
     check: "v0.3.1 on Render (main 7f7a242, CI green): one client forging a new first X-Forwarded-For entry per request is limited at the 121st /api/health (digital, styling) and the 241st /mcp (agentic); a caller-written CF-Connecting-IP gets Cloudflare's 403."
-  - at: 2026-11-17
-    check: "v0.3.0 on Render (main 8d3dd0d, CI green): digital and styling /api/health report Next 16.4.6; /sessions mounts Drop-in with no console error; agentic serves the device endpoint, poppy.json scope_hints, /api/catalog and the new /agents text."
 ---
 
 # adyen-digital: what is verified, and what is still open
@@ -46,6 +46,8 @@ As of 2026-11-15, Adyen Web 6.48.1, Checkout API v72, on Next.js 16 with Elysia 
 | Callbacks reported under the right order                                            | PASS   | BROWSER VERIFIED                  | `frontend_callbacks` rows for `d13195db`: onChange ×5, beforeSubmit, onPaymentCompleted                                                                                                                                                                                                                                                                                                                                                                   |
 | Docker image: no secrets inside, runs with a quoted `.env`, Basic Auth covers pages | PASS   | CODE VERIFIED + TEST API VERIFIED | 14 payment methods listed from inside the container; pages 401/200 without/with credentials                                                                                                                                                                                                                                                                                                                                                               |
 | Production after the v0.3.3 deploy (2026-11-17, agentic conformance)                | PARTIAL | DEPLOYED VERIFIED                | `main` `698423f`, CI green. Agentic: `/.well-known/ucp` `public, max-age=300` with an ETag; REST without `UCP-Agent` 400 `invalid_profile_url`, a made-up profile 424, an IP literal 400. A PAP agent served through ngrok (Session delegation in the JWT header, `aud` the issuer, RFC 8707 resources, its own platform profile in MCP `meta` and REST `UCP-Agent`) placed order `ord_wMf1oLNFrZLY` on the saved card; REST reads 200; the webhook marked it paid. The edge serves the ETag as `W/"…"`, which v0.3.3 does not match, so a revalidation gets 200, not 304 (fix on `develop`, not deployed yet). |
+| Production after the v0.3.4 deploy (2026-11-17, weak ETag)                          | PASS   | DEPLOYED VERIFIED                 | `main` `953d48b`, CI green, tag `v0.3.4`. Agentic `/.well-known/ucp` serves `W/"…"` and answers 304 to `If-None-Match` with the weak or the strong form of it; `/healthz` 200 (TEST, UCP 2026-08-25, PAP 1.0). |
+| Agentic data across a deploy (v0.3.4)                                               | FAIL   | DEPLOYED VERIFIED                 | Checkout `chk_FMh1DGYntPlf`, created at 19:59 UTC on v0.3.3 after the owner added the 1 GB disk (200), answers 404 after the v0.3.4 deploy. The route returns 404 only when the row is missing, so the SQLite file was replaced again: the image default is `/app/data/agentic.sqlite`, so the service is either not reading `DATABASE_PATH=/var/data/agentic.sqlite` or has no disk at `/var/data`. Needs the Render dashboard (Environment and Disks of `agentic-commerce`). |
 | Agentic data across a deploy (v0.3.3)                                               | FAIL   | DEPLOYED VERIFIED                 | Order `ord_kQx4WUyfprrP`, placed on v0.3.2 at 2026-11-17 15:34 UTC (page 200, paid), answered 404 after the v0.3.3 deploy (18:57 UTC). The SQLite file did not survive: the `agentic-data` disk or `DATABASE_PATH` from `render.yaml` is not in effect on the service; not visible without the Render dashboard. |
 | Production after the v0.3.1 deploy (2026-11-17, client address)                     | PASS   | DEPLOYED VERIFIED                 | `main` `7f7a242`, CI green. Digital and styling: 121 requests each to `/api/health`, each with another forged first `X-Forwarded-For` entry on a fresh connection: 120 × 200, the 121st 429. Agentic: 241 to `/mcp` the same way: 240 × 401, the 241st 429, then the same client without the header 429. A caller-written `CF-Connecting-IP` is refused by Cloudflare (403, error 1000) before Render. One client only: the header inside the container is not read, and separate buckets for two clients are not observed. |
 | Production after the v0.3.0 deploy (2026-11-17, Next.js 16.4.6)                     | PASS   | DEPLOYED VERIFIED                 | `main` `8d3dd0d`, CI green: `/api/health` reports Next 16.4.6 on digital and styling; Sessions Drop-in mounted on `digital.payments-playground.com`, no console error. A payment into an Adyen order (gift card, then card) sends its own share again (`api.test.ts`); not re-run in a browser since. |

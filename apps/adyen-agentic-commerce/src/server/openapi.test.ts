@@ -9,6 +9,7 @@ import { MCP_TOOLS } from "./mcp-tools";
 import { ADVERTISED_SCOPES } from "./oauth";
 import { OPENAPI_OPERATIONS, openApi } from "./openapi";
 import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
+import { ucpAgent } from "./testing/platform";
 import { OPERATIONS, routeRest } from "./ucp";
 
 type Op = {
@@ -43,7 +44,7 @@ function call(op: (typeof ops)[number], headers: Record<string, string> = {}) {
       method: op.method.toUpperCase(),
       headers: {
         "content-type": "application/json",
-        "ucp-agent": 'profile="https://agent.example/profile.json"',
+        "ucp-agent": ucpAgent(),
         "request-id": crypto.randomUUID(),
         "x-forwarded-for": randomIp(),
         ...headers,
@@ -110,17 +111,18 @@ describe("structure", () => {
       expect(`${id} ${Boolean(variantById(id!) ?? productById(id!))}`).toBe(`${id} true`);
   });
 
-  test("statuses: 400, 401 and 429 always; 403 with a scope; 404 with an id; 409 on mutations", () => {
+  // 422 and 424 are the profile negotiation's; a create also documents its 200 refusal body.
+  test("statuses: 400, 401, 422, 424 and 429 always; 403 with a scope; 404 with an id; 409 on mutations", () => {
     for (const op of ops) {
       const statuses = Object.keys(op.spec.responses).sort();
+      const created =
+        (op.path === "/carts" || op.path === "/checkout-sessions") && op.method === "post";
       const expected = [
-        op.path === "/carts" || op.path === "/checkout-sessions"
-          ? op.method === "post"
-            ? "201"
-            : "200"
-          : "200",
+        ...(created ? ["201", "200"] : ["200"]),
         "400",
         "401",
+        "422",
+        "424",
         "429",
         ...(declaredScope(op.spec) ? ["403"] : []),
         ...(op.path.includes("{id}") ? ["404"] : []),

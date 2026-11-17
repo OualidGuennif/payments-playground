@@ -5,6 +5,17 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store resolves and negotiates the `UCP-Agent` platform profile (UCP 2026-08-25): a
+  REST call must name an https profile (`invalid_profile_url` 400 otherwise), fetched without
+  redirects within 5 s and 256 KiB (`profile_unreachable` 424), shape-checked with public keys
+  only (`profile_malformed` 422), on version 2026-08-25 (`version_unsupported` 422) and cached for
+  its `max-age` (1 h at most). Capabilities intersect by name and common version, with the schema
+  host bound to the name's namespace; an operation outside the intersection gets a 200
+  `capabilities_incompatible` body. On MCP, `meta["ucp-agent"]` is optional, a failure is
+  JSON-RPC `-32001` with the UCP code, and a header naming another profile is refused. The fetch
+  runs after the rate limit and token check, and a refusal is never stored under an
+  Idempotency-Key. The OpenAPI description lists 400, 422 and 424; KNOWN_LIMITS says what this
+  means for a `curl`.
 - The agentic store serves its UCP published artifacts (`/.well-known/ucp`, the OpenAPI
   description and the saved-card handler schema) with `Cache-Control: public, max-age=300` and an
   `ETag` that revalidates to 304, as UCP requires; they were `no-store`. Per-request answers stay

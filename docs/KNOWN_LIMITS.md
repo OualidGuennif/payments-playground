@@ -21,6 +21,13 @@ card (`ContAuth`, `UnscheduledCardOnFile`). It is not Adyen's own agentic tokeni
 handler, which needs an account role this repository does not have; the handler id `saved_card` is
 the store's own, not an Adyen one.
 
+Every UCP REST request must name a platform profile the store can fetch (`UCP-Agent:
+profile="<https url>"`); a `curl` with a made-up URL now gets `profile_unreachable` (424). An MCP
+call without `meta["ucp-agent"]` still runs, a deviation kept so generic MCP clients work. The store
+fetches a profile without redirects, within 5 seconds and 256 KiB, and refuses IP-literal hosts,
+but it does not check what a host name resolves to. It speaks UCP 2026-08-25 only and verifies no
+UCP message signature.
+
 There is one demo shopper (`ogaccountnew`) and no shopper login. The consent page, the account and
 the Back Office are protected only by the playground's basic auth when it is set; without it, anyone
 who can reach the store, an agent included, can approve its own sign-in request.

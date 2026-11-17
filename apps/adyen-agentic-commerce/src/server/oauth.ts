@@ -249,7 +249,8 @@ async function fetchNoRedirect(url: string): Promise<unknown> {
   return JSON.parse(text);
 }
 
-function metadataUrlAllowed(url: URL) {
+// Client metadata documents and UCP platform profiles: https, or loopback on a loopback store.
+export function metadataUrlAllowed(url: URL) {
   return url.protocol === "https:" || (devOrigin() && isLoopback(url));
 }
 

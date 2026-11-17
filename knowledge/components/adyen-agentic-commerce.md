@@ -88,9 +88,11 @@ before, every deploy or restart emptied orders, agents and grants.
   with `version`, `spec` and `schema`, and no private key member in `keys`. A profile is cached
   per URL for its `Cache-Control` `max-age` (at most an hour; 5 minutes without one; never with
   `no-store`), at most 1,000 at once. Its `ucp.version` must be 2026-08-25. The negotiated
-  capabilities are the store's and the profile's with the same name and a common version; a
-  `dev.ucp.*` capability whose `schema` is not on `https://ucp.dev` is left out (authority
-  binding). An operation whose capability is not negotiated does not run.
+  capabilities are the store's and the profile's with the same name and a common version; an
+  entry whose `schema` host, reversed, does not own its name is left out (UCP authority binding).
+  Each operation belongs to one capability (`OP_CAPABILITY` in `src/server/ucp.ts`); it runs only
+  when that capability was kept. The cheap checks (route, headers, body, Idempotency-Key) come
+  before the fetch.
 - **Resource indicators (RFC 8707):** `resource` on authorize, device authorization and token
   requests must be `PUBLIC_ORIGIN` (UCP REST) or `${PUBLIC_ORIGIN}/mcp`; at the token endpoint it
   must also be one the grant was issued for. A token issued for one resource is accepted only

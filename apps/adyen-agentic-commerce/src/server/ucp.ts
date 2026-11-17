@@ -116,7 +116,53 @@ export function profile() {
   };
 }
 
-function envelope(capability: keyof typeof CAPABILITIES, status: "success" | "error" = "success") {
+type Capability = keyof typeof CAPABILITIES;
+// The store's shopping capabilities, all at UCP_VERSION: what negotiation intersects.
+export const STORE_CAPABILITIES = Object.keys(CAPABILITIES) as Capability[];
+
+// The capability each operation belongs to: it runs only when negotiation kept that capability.
+export const OP_CAPABILITY: Readonly<Record<string, Capability>> = {
+  search_catalog: "dev.ucp.shopping.catalog.search",
+  lookup_catalog: "dev.ucp.shopping.catalog.lookup",
+  get_product: "dev.ucp.shopping.catalog.lookup",
+  create_cart: "dev.ucp.shopping.cart",
+  get_cart: "dev.ucp.shopping.cart",
+  update_cart: "dev.ucp.shopping.cart",
+  cancel_cart: "dev.ucp.shopping.cart",
+  create_checkout: "dev.ucp.shopping.checkout",
+  get_checkout: "dev.ucp.shopping.checkout",
+  update_checkout: "dev.ucp.shopping.checkout",
+  complete_checkout: "dev.ucp.shopping.checkout",
+  cancel_checkout: "dev.ucp.shopping.checkout",
+  get_order: "dev.ucp.shopping.order",
+};
+
+// UCP continue_url on a failed negotiation: the page where the shopper can carry on by hand.
+export function continueUrl(op: string) {
+  const origin = config().publicOrigin;
+  const capability = OP_CAPABILITY[op] ?? "";
+  if (capability.startsWith("dev.ucp.shopping.catalog")) return `${origin}/shop`;
+  if (capability === "dev.ucp.shopping.order") return `${origin}/`;
+  return `${origin}/cart`;
+}
+
+// UCP's error_response for a negotiation that failed or shares no capability for `op`.
+export function negotiationRefusal(op: string, code: string, content: string) {
+  return {
+    ucp: { version: UCP_VERSION, status: "error" },
+    messages: [{ type: "error", code, content, severity: "unrecoverable" }],
+    continue_url: continueUrl(op),
+  };
+}
+
+export const capabilitiesIncompatible = (op: string) =>
+  negotiationRefusal(
+    op,
+    "capabilities_incompatible",
+    `${op} needs ${OP_CAPABILITY[op]} at ${UCP_VERSION}, which the platform profile does not share`,
+  );
+
+function envelope(capability: Capability, status: "success" | "error" = "success") {
   return {
     version: UCP_VERSION,
     status,

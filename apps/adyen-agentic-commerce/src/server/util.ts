@@ -56,7 +56,11 @@ export function published(request: Request, body: unknown): Response {
     "cache-control": "public, max-age=300",
     etag,
   };
-  const asked = request.headers.get("if-none-match")?.split(",").map((t) => t.trim()) ?? [];
+  const asked =
+    request.headers
+      .get("if-none-match")
+      ?.split(",")
+      .map((t) => t.trim()) ?? [];
   if (asked.includes(etag) || asked.includes("*"))
     return new Response(null, { status: 304, headers });
   return new Response(text, { status: 200, headers });

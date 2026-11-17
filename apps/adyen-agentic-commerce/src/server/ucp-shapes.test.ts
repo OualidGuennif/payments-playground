@@ -6,6 +6,7 @@ import { handle } from "./api";
 import { PRODUCTS } from "./catalog";
 import { cardAlias } from "./commerce";
 import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
+import { ucpAgent } from "./testing/platform";
 
 const TRENCH = "velune-trench";
 const OXFORD = "velune-oxford-shirt";
@@ -31,7 +32,7 @@ async function rest(path: string, body: unknown) {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "ucp-agent": 'profile="https://agent.example/profile.json"',
+        "ucp-agent": ucpAgent(),
         "request-id": crypto.randomUUID(),
         "x-forwarded-for": randomIp(),
       },
@@ -179,7 +180,11 @@ describe("catalogue", () => {
 });
 
 describe("published artifacts", () => {
-  const PUBLISHED = ["/.well-known/ucp", "/ucp/v1/openapi.json", "/ucp/v1/handlers/saved_card.json"];
+  const PUBLISHED = [
+    "/.well-known/ucp",
+    "/ucp/v1/openapi.json",
+    "/ucp/v1/handlers/saved_card.json",
+  ];
   const fetchGet = (path: string, headers: Record<string, string> = {}) =>
     handle(
       new Request(`${ORIGIN}${path}`, { headers: { "x-forwarded-for": randomIp(), ...headers } }),
@@ -207,7 +212,7 @@ describe("published artifacts", () => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "ucp-agent": 'profile="https://agent.example/profile.json"',
+          "ucp-agent": ucpAgent(),
           "request-id": crypto.randomUUID(),
           "x-forwarded-for": randomIp(),
         },

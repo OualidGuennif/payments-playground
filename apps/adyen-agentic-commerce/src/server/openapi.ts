@@ -198,6 +198,13 @@ const errorExample = (code: string, content: string) => ({
   messages: [{ type: "error", code, content, severity: "requires_buyer_review" }],
 });
 
+// Negotiation refusals carry continue_url, where the shopper can carry on by hand.
+const negotiationExample = (code: string, content: string) => ({
+  ucp: { version: UCP_VERSION, status: "error" },
+  messages: [{ type: "error", code, content, severity: "unrecoverable" }],
+  continue_url: `${config().publicOrigin}/shop`,
+});
+
 const challenge = {
   "WWW-Authenticate": {
     description: 'Bearer realm="<issuer>", resource_metadata="…"; error and scope when they apply',
@@ -269,12 +276,30 @@ function operation(op: Operation) {
       : {}),
     responses: {
       [op.created ? "201" : "200"]: {
-        description: "UCP response",
+        description: op.created
+          ? "UCP response"
+          : "UCP response; or, when the platform profile shares no capability the operation needs, an error body with capabilities_incompatible",
         content: { "application/json": { schema: ref(op.response), ...success } },
       },
+      ...(op.created
+        ? {
+            "200": errorResponse(
+              "The platform profile shares no capability this operation needs",
+              negotiationExample("capabilities_incompatible", "No compatible capability"),
+            ),
+          }
+        : {}),
       "400": errorResponse(
-        "Missing UCP-Agent or Request-Id, a body that is not a JSON object, or invalid input",
-        errorExample("missing_header", 'UCP-Agent: profile="<url>" and Request-Id are required'),
+        "UCP-Agent missing or naming a refused profile URL (invalid_profile_url), no Request-Id, a body that is not a JSON object, or invalid input",
+        negotiationExample("invalid_profile_url", 'UCP-Agent: profile="<url>" is required'),
+      ),
+      "422": errorResponse(
+        "The platform profile is malformed (profile_malformed) or names another UCP version (version_unsupported)",
+        negotiationExample("version_unsupported", `This business implements ${UCP_VERSION}`),
+      ),
+      "424": errorResponse(
+        "The platform profile could not be fetched: an error status, a redirect or a timeout",
+        negotiationExample("profile_unreachable", "The profile URL answered 404"),
       ),
       "401": errorResponse(
         hard ? "No token, or an invalid or expired one" : "An invalid or expired token was sent",

@@ -8,6 +8,7 @@ import { get } from "./db";
 import { type Auth, authenticate, grants } from "./oauth";
 import { fake } from "./testing/fake-adyen";
 import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
+import { ucpAgent } from "./testing/platform";
 
 const SOCKS = "velune-rib-socks-oat-one-size"; // 1200 + 495 shipping
 const OXFORD = "velune-oxford-shirt-white-s"; // 5900 + 495 shipping
@@ -38,7 +39,7 @@ function rest(method: string, path: string, body?: unknown, headers: Record<stri
       method,
       headers: {
         "content-type": "application/json",
-        "ucp-agent": 'profile="https://agent.example/profile.json"',
+        "ucp-agent": ucpAgent(),
         "request-id": crypto.randomUUID(),
         "x-forwarded-for": randomIp(),
         ...headers,
@@ -71,14 +72,22 @@ const complete = (
 
 describe("REST binding", () => {
   test("UCP-Agent and Request-Id are required", async () => {
-    const response = await rest(
+    const noAgent = await rest(
       "POST",
       "/checkout-sessions",
       { line_items: lines(SOCKS) },
       { "ucp-agent": "" },
     );
-    expect(response.status).toBe(400);
-    expect((await response.json()).messages[0].code).toBe("missing_header");
+    expect(noAgent.status).toBe(400);
+    expect((await noAgent.json()).messages[0].code).toBe("invalid_profile_url");
+    const noRequestId = await rest(
+      "POST",
+      "/checkout-sessions",
+      { line_items: lines(SOCKS) },
+      { "request-id": "" },
+    );
+    expect(noRequestId.status).toBe(400);
+    expect((await noRequestId.json()).messages[0].code).toBe("missing_header");
   });
 
   test("a mutation needs a UUID Idempotency-Key", async () => {

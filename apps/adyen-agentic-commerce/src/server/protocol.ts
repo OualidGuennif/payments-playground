@@ -7,16 +7,22 @@ import { config, UCP_VERSION } from "./config";
 import { database } from "./db";
 import { type Auth, authenticate, issuer } from "./oauth";
 import { PapError, verifyPoppy } from "./pap";
+import { negotiate, ProfileError, profileFromHeader } from "./profile";
 import { trace } from "./trace";
 import {
+  capabilitiesIncompatible,
+  continueUrl,
   IdentityRequired,
   InvalidParams,
   MUTATIONS,
+  negotiationRefusal,
+  OP_CAPABILITY,
   OPERATIONS,
   type OpResult,
   REQUIRED_SCOPE,
   routeRest,
   ScopeError,
+  STORE_CAPABILITIES,
 } from "./ucp";
 import { canonicalJson, isRecord, isUuid, json, readJson, sha256 } from "./util";
 import { MCP_TOOLS } from "./mcp-tools";
@@ -201,6 +207,29 @@ async function runOp(
   }
 }
 
+// --- UCP negotiation ---------------------------------------------------------------------------
+
+// A failed discovery is a transport error (REST status, MCP -32001 with `failure` as its data);
+// a capability the profile does not share is a 200 UCP answer (an MCP tool result).
+type Refusal = OpResult & { failure?: { code: string; content: string; continue_url: string } };
+
+async function negotiation(profileUrl: string, op: string): Promise<Refusal | undefined> {
+  try {
+    const shared = await negotiate(profileUrl, STORE_CAPABILITIES);
+    if (shared.has(OP_CAPABILITY[op]!)) return undefined;
+    return { status: 200, body: capabilitiesIncompatible(op) };
+  } catch (error) {
+    if (!(error instanceof ProfileError)) throw error;
+    return refusalOf(error, op);
+  }
+}
+
+const refusalOf = (error: ProfileError, op: string): Refusal => ({
+  status: error.status,
+  body: negotiationRefusal(op, error.code, error.message),
+  failure: { code: error.code, content: error.message, continue_url: continueUrl(op) },
+});
+
 // --- REST --------------------------------------------------------------------------------------
 
 export async function handleRest(request: Request, path: string): Promise<Response> {
@@ -248,9 +277,22 @@ export async function handleRest(request: Request, path: string): Promise<Respon
         },
       ],
     });
-  const agent = /profile="([^"]+)"/.exec(request.headers.get("ucp-agent") ?? "")?.[1];
+  let agent: string | undefined;
+  try {
+    agent = profileFromHeader(request.headers.get("ucp-agent"));
+    if (agent === undefined)
+      throw new ProfileError("invalid_profile_url", 'UCP-Agent: profile="<url>" is required');
+  } catch (error) {
+    if (!(error instanceof ProfileError)) throw error;
+    return finish(
+      error.status,
+      negotiationRefusal(route.op, error.code, error.message),
+      {},
+      route.op,
+    );
+  }
   const requestId = request.headers.get("request-id");
-  if (!agent || !requestId) {
+  if (!requestId) {
     return finish(
       400,
       {
@@ -259,7 +301,7 @@ export async function handleRest(request: Request, path: string): Promise<Respon
           {
             type: "error",
             code: "missing_header",
-            content: 'UCP-Agent: profile="<url>" and Request-Id are required',
+            content: "Request-Id is required",
             severity: "unrecoverable",
           },
         ],
@@ -288,27 +330,31 @@ export async function handleRest(request: Request, path: string): Promise<Respon
     );
   const args = route.bodyKey ? { ...route.args, [route.bodyKey]: body } : route.args;
   const headers: Record<string, string> = { "request-id": requestId };
+  const key = request.headers.get("idempotency-key");
+  if (MUTATIONS.has(route.op) && !isUuid(key)) {
+    return finish(
+      400,
+      {
+        ucp: { version: UCP_VERSION, status: "error" },
+        messages: [
+          {
+            type: "error",
+            code: "missing_idempotency_key",
+            content: "Idempotency-Key (UUID) is required on this request",
+            severity: "unrecoverable",
+          },
+        ],
+      },
+      headers,
+      route.op,
+    );
+  }
+  // After the cheap checks, before the operation and its idempotency record: a refused
+  // negotiation never ran, so it is never replayed for the key.
+  const refusal = await negotiation(agent, route.op);
+  if (refusal) return finish(refusal.status, refusal.body, headers, route.op);
   let result: OpResult;
-  if (MUTATIONS.has(route.op)) {
-    const key = request.headers.get("idempotency-key");
-    if (!isUuid(key)) {
-      return finish(
-        400,
-        {
-          ucp: { version: UCP_VERSION, status: "error" },
-          messages: [
-            {
-              type: "error",
-              code: "missing_idempotency_key",
-              content: "Idempotency-Key (UUID) is required on this request",
-              severity: "unrecoverable",
-            },
-          ],
-        },
-        headers,
-        route.op,
-      );
-    }
+  if (MUTATIONS.has(route.op) && isUuid(key)) {
     result = await idempotent(
       `rest:${e.auth?.token.clientId ?? agent}:${route.op}:${String(args.id ?? "")}`,
       key,
@@ -405,6 +451,35 @@ export async function handleMcp(request: Request): Promise<Response> {
       if (!OPERATIONS[name]) return reply(rpcError(id, -32602, `Unknown tool ${name}`));
       const args = isRecord(params.arguments) ? params.arguments : {};
       const meta = isRecord(args.meta) ? args.meta : {};
+      // meta["ucp-agent"] is optional here (deviation: generic MCP clients send none); when the
+      // HTTP header names a profile too, both must be the same URL (PAP's UCP extension).
+      let refusal: Refusal | undefined;
+      try {
+        const fromHeader = profileFromHeader(request.headers.get("ucp-agent"));
+        const declared = meta["ucp-agent"];
+        const fromMeta = isRecord(declared) ? declared.profile : undefined;
+        if (declared !== undefined && typeof fromMeta !== "string")
+          throw new ProfileError("invalid_profile_url", 'meta["ucp-agent"].profile must be a URL');
+        if (fromHeader !== undefined && fromMeta !== undefined && fromHeader !== fromMeta)
+          throw new ProfileError(
+            "invalid_profile_url",
+            "UCP-Agent and meta name different profiles",
+          );
+        const profileUrl = (fromMeta as string | undefined) ?? fromHeader;
+        if (profileUrl !== undefined) refusal = await negotiation(profileUrl, name);
+      } catch (error) {
+        if (!(error instanceof ProfileError)) throw error;
+        refusal = refusalOf(error, name);
+      }
+      if (refusal?.failure)
+        return reply(rpcError(id, -32001, "UCP negotiation failed", refusal.failure));
+      if (refusal)
+        return reply(
+          rpc(id, {
+            content: [{ type: "text", text: JSON.stringify(refusal.body) }],
+            structuredContent: refusal.body,
+          }),
+        );
       const key = typeof meta["idempotency-key"] === "string" ? meta["idempotency-key"] : undefined;
       const scope = `mcp:${e.auth.token.clientId}:${name}:${String(args.id ?? "")}`;
       const { meta: _meta, ...payload } = args;

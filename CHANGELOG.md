@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-17
+
 - Agentic store, from the release reviews: starting a device sign-in shares the agents' limit of
   240 requests a minute per address. Since a caller can vary `X-Forwarded-For`, the store also
   holds at most 1,000 device requests (then `temporarily_unavailable`), each deleted one lifetime

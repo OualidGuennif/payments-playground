@@ -647,8 +647,9 @@ export async function startDeviceAuthorization(form: URLSearchParams) {
   if (typeof scopes === "string") throw new OAuthError("invalid_scope", scopes);
   // An expired request still answers a late poll with expired_token; one lifetime later it goes.
   removeExpired("device_requests", nowSec() - DEVICE_TTL);
-  // The per-address limit trusts X-Forwarded-For, which a caller can vary: this bounds the store
-  // and every user-code scan whatever the addresses, at the cost of new starts during a flood.
+  // The per-address limit cannot stop a caller with many addresses (an IPv6 prefix, a botnet):
+  // this bounds the store and every user-code scan whatever the addresses, at the cost of new
+  // starts during a flood.
   if (count("device_requests") >= DEVICE_REQUESTS_MAX)
     throw new OAuthError(
       "temporarily_unavailable",
@@ -687,8 +688,8 @@ export async function startDeviceAuthorization(form: URLSearchParams) {
 const CODE_WINDOW_MS = 10 * 60_000;
 const CODE_MISSES_PER_ADDRESS = 10;
 const CODE_MISSES_TOTAL = 200;
-// The address comes from a header the caller writes, so the map is capped and keys are cut short:
-// otherwise every forged address would stay in memory for the life of the process.
+// A caller can hold many addresses (an IPv6 prefix, or any header on a run without Cloudflare), so
+// the map is capped and keys are cut short: otherwise each would stay in memory for the process.
 const CODE_MISS_ADDRESSES = 1000;
 const codeMisses = new Map<string, number[]>();
 

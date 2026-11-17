@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T02:00:00Z
+  at: 2026-11-17T12:00:00Z
 verified:
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
@@ -177,14 +177,23 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
    approved its user code on the consent page; polling faster than the interval answers
    `slow_down` and widens it by 5 s. Wrong user codes are limited per address and in total; only a
    wrong code is remembered, and at most 1,000 addresses at once. Starting a device sign-in shares
-   the agents' limit of 240 requests a minute per address; since a caller can vary
-   `X-Forwarded-For`, the store also holds at most 1,000 device requests (then
-   `temporarily_unavailable`, 503), each deleted one lifetime after it expires, and the limiter
-   tracks at most 10,000 addresses.
+   the agents' limit of 240 requests a minute per address; since a caller can still hold many
+   addresses (an IPv6 prefix, or any header on a run without Cloudflare), the store also holds at
+   most 1,000 device requests (then `temporarily_unavailable`, 503), each deleted one lifetime
+   after it expires, and the limiter tracks at most 10,000 addresses.
 9. WebMCP tools never pay, read orders or touch consent and grants: no tool takes a payment
    instrument, and `/account`, `/consent`, `/device` and `/back-office` register none. The five
    tools register under one signal, all or none, and leave when the page does. They hold no
    secret and see only what the page itself shows.
+10. Every per-address limit (UCP, `/mcp`, starting a device sign-in, wrong user codes) counts one
+    client address, `clientIp` in `src/server/protocol.ts`: `CF-Connecting-IP`, which Cloudflare
+    in front of every public Render web service writes over any copy the caller sent; without it
+    the last `X-Forwarded-For` entry, the one the nearest proxy appended (Next.js sets the
+    socket's address when none came); with neither a valid address, one shared `local` client.
+    The first entry of a longer chain is the caller's to write and never counts, so a forged one
+    neither escapes a limit nor gets another address limited. `packages/platform`'s
+    `clientAddress` applies the same rule for Digital and styling (`src/server/security.test.ts`
+    "client address", `src/server/device.test.ts` the two forged-entry tests).
 
 ## Determinism
 

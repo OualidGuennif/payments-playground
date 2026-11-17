@@ -5,6 +5,13 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Every per-address limit trusts the address the platform writes, not the caller: the agentic
+  store's `clientIp` and `packages/platform`'s new `clientAddress` (the rate limit, `shopperIp`)
+  take `CF-Connecting-IP`, which Cloudflare in front of Render writes over any caller copy, then
+  the last `X-Forwarded-For` entry, never the first one the caller writes, and ignore a value that
+  is not an address. A forged first entry no longer escapes the 240-a-minute limit, spreads wrong
+  user codes, or gets a victim's address a 429; Digital and styling's limiter and `shopperIP`
+  follow the same rule. Local runs keep one client per socket address (Next.js) or `local`.
 - Record the v0.3.0 deploy check (Next.js 16.4.6 served, Sessions Drop-in on the public origin,
   the agentic store's new endpoints) in the digital status, close the agentic interoperability
   task in `work/current.md` and move its optional WebMCP token step to the Render clean-up entry.

@@ -6,8 +6,8 @@ status: stable
 scope: component-platform
 tags: [component, platform, server]
 generated:
-  by: aeion-adoption/1.0
-  at: 2026-11-15T21:00:00Z
+  by: claude-code/opus-5.5
+  at: 2026-11-17T12:00:00Z
 sources:
   - resource: ../../packages/platform
     title: "The package, its tests next to each module, and its migrations"
@@ -101,7 +101,7 @@ answer.
 | `config.ts`                                       | `loadServerConfig(appId)`; `unquoteEnvValue(value)`. Required fields: `apiKey`, `merchantAccount`, `clientKey`. A client key must start with `test_`.                                                                                                                                                                                                                                            |
 | `profiles.ts`                                     | `ProfileStore.save(label, secrets, id?)`; `getSecrets(id)`, `getPublic(id)`, `listPublic()`, `delete(id)`. A label is trimmed to 2–80 characters.                                                                                                                                                                                                                                                                                                                                                                |
 | `storage.ts`, `migrations.ts`, `migrations/`      | `Repository(path)` (`":memory:"` allowed) and its methods: order, session, attempt, payment part, API call, callback, webhook, action, audit and timeline writers, plus the matching readers.                                                                                                                                                                                                                                                                                                                    |
-| `security.ts`                                     | `ensureSession(request, jar, signingSecret)`; `ensureCsrfToken(request, jar)` (also used by each app's proxy on page responses). Request cookies `adyen_session`, `adyen_csrf`, `adyen_profile_<appId>`; headers `X-CSRF-Token`, `Origin`, `X-Forwarded-For`, `Authorization`. `rateLimiter(maxRequests = 120, windowMs = 60_000)`; `basicAuthChallenge(request)` reads `PLAYGROUND_BASIC_AUTH_USER` and `PLAYGROUND_BASIC_AUTH_PASSWORD`.                                                                                                                                                                                                          |
+| `security.ts`                                     | `ensureSession(request, jar, signingSecret)`; `ensureCsrfToken(request, jar)` (also used by each app's proxy on page responses). Request cookies `adyen_session`, `adyen_csrf`, `adyen_profile_<appId>`; headers `X-CSRF-Token`, `Origin`, `CF-Connecting-IP`, `X-Forwarded-For`, `Authorization`. `clientAddress(request, remoteAddress?)`, also `shopperIp`; `rateLimiter(maxRequests = 120, windowMs = 60_000)`, keyed by it; `basicAuthChallenge(request)` reads `PLAYGROUND_BASIC_AUTH_USER` and `PLAYGROUND_BASIC_AUTH_PASSWORD`.                                                                                                             |
 | `hmac.ts`                                         | `standardWebhookSigningString(item)`, `calculateStandardHmac(item, keyHex)`, `verifyStandardHmac(item, keyHex?)`, `verifyHeaderHmac(rawBody, signature, keyHex?)`. Keys are hex; signatures are Base64.                                                                                                                                                                                                                                                                                                          |
 | `sanitize.ts`                                     | `sanitize(value)`, `mask(value)`, `rejectRawCardData(value)`.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `state-machine.ts`                                | `mapAdyenResultCode(resultCode)` and `resolveOrder(input, now = new Date())`, both below.                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -228,9 +228,14 @@ every Sessions and Advanced call; stored cards therefore stay visible for a week
 12. Basic Auth, when configured, challenges every path except `/healthz` and `/api/health` —
     `packages/platform/security.test.ts` "Basic Auth, when configured, challenges every path but the
     health checks".
-13. `requestOrigin` follows only a same-host Origin, and `shopperIp` prefers the first
-    `X-Forwarded-For` entry over the connection — `packages/platform/security.test.ts` the two
-    `requestOrigin` and three `shopperIp` tests.
+13. `requestOrigin` follows only a same-host Origin. The client address (`clientAddress`, which is
+    also `shopperIp` and the key of `rateLimiter`) is `CF-Connecting-IP`, which Cloudflare in front
+    of every public Render web service writes over any copy the caller sent; without it the last
+    `X-Forwarded-For` entry, the one the nearest proxy appended (Next.js sets the socket's address
+    when none came); then the connection. The first entry of a longer chain, which the caller
+    writes, never counts, nor does a value that is not an address. The agentic store's `clientIp`
+    applies the same rule — `packages/platform/security.test.ts` the two `requestOrigin` tests,
+    the four `shopperIp` tests and the three rate limit tests.
 14. A redelivered webhook and a double-clicked action are harmless by constraint, one PSP reference
     records one payment part, the 70 most recent orders per app are kept, and the timeline carries
     each API call's method and endpoint — `packages/platform/storage.test.ts` "webhooks and

@@ -5,6 +5,17 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
+## Trusted client address for every per-address limit — WAITING-OWNER
+
+- Owner decision: 2026-11-17, push, release pull request and `main` once E2E tests pass.
+- State: branch `task/trusted-client-ip` (from develop `4330bc1`) keys every limit and `shopperIP`
+  on `CF-Connecting-IP`, then the last `X-Forwarded-For` entry; local E2E through Next pass.
+- Next: review, push `develop`, release PR to `main` (who: agent); after the deploy, confirm
+  requests on Render carry `CF-Connecting-IP` (who: owner or agent).
+- Blocker: none.
+- Evidence: agentic spec invariant 10, platform spec invariant 13; Render's DDoS and PocketBase
+  articles, Cloudflare's HTTP headers reference.
+
 ## Render clean-up after v0.2.0 — WAITING-OWNER
 
 - Owner decision: 2026-11-15, Bun + Next.js everywhere (v0.2.0); 2026-11-17, v0.3.0 released.

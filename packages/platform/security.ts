@@ -195,21 +195,31 @@ export function requestOrigin(request: Request, publicOrigin: string): string {
 }
 
 /**
- * The shopper's IP, for Adyen's risk checks (`shopperIP` on /payments).
- * Behind Render the connection is the proxy's, so the first X-Forwarded-For
- * entry wins, as in the rate limit. A shopper can forge it, which on this TEST
- * playground only misleads the risk checks on their own payment. Without the
- * header the connection's address, when the caller knows it, is used.
+ * The caller's address as the platform saw it, for the rate limit and
+ * `shopperIP`. Render puts Cloudflare in front of every public web service:
+ * Cloudflare writes CF-Connecting-IP over any copy the caller sent, but only
+ * appends to X-Forwarded-For, whose first entry is the caller's to write. So
+ * CF-Connecting-IP wins; without it (a local run) the last X-Forwarded-For
+ * entry, the one the nearest proxy appended (Next.js sets the socket's address
+ * when none came); then the connection. Never the first entry of a longer
+ * chain, and never a value that is not an address. The agentic store, which
+ * does not import this package, applies the same rule in its `clientIp`.
  */
-export function shopperIp(request: Request, remoteAddress?: string): string | undefined {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  for (const candidate of [forwarded, remoteAddress]) {
+export function clientAddress(request: Request, remoteAddress?: string): string | undefined {
+  const nearest = request.headers.get("x-forwarded-for")?.split(",").pop();
+  for (const candidate of [request.headers.get("cf-connecting-ip"), nearest, remoteAddress]) {
     // A dual-stack socket reports an IPv4 shopper as ::ffff:a.b.c.d.
-    const ip = candidate?.replace(/^::ffff:(?=\d{1,3}(\.\d{1,3}){3}$)/i, "");
+    const ip = candidate?.trim().replace(/^::ffff:(?=\d{1,3}(\.\d{1,3}){3}$)/i, "");
     if (ip && isIP(ip)) return ip;
   }
   return undefined;
 }
+
+/**
+ * The shopper's IP, for Adyen's risk checks (`shopperIP` on /payments): the
+ * same client address the rate limit counts.
+ */
+export const shopperIp = clientAddress;
 
 function json(body: unknown, status: number, headers: Record<string, string> = {}): Response {
   return Response.json(body, { status, headers });
@@ -281,8 +291,7 @@ export function rateLimiter(
 ): (request: Request) => Response | undefined {
   const buckets = new Map<string, RateBucket>();
   return (request) => {
-    const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-    const key = `${forwarded ?? "local"}:${new URL(request.url).pathname}`;
+    const key = `${clientAddress(request) ?? "local"}:${new URL(request.url).pathname}`;
     const now = Date.now();
     const bucket = buckets.get(key);
     if (!bucket || bucket.resetsAt <= now) {

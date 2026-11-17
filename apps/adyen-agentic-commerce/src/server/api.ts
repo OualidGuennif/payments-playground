@@ -418,10 +418,9 @@ const app = new Elysia()
   .post("/oauth/device/verify", async ({ request }) => {
     const form = await formOf(request);
     const typed = (form.get("user_code") ?? "").replace(/[^A-Za-z-]/g, "").slice(0, 12);
-    // The first X-Forwarded-For entry, as for shopperIP elsewhere. A forged one only moves the
-    // guesses to another bucket; the total limit in verifyUserCode still bounds them.
-    const address = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-    const outcome = oauth.verifyUserCode(typed, address);
+    // The rate limit's client address. A caller with many addresses still spreads its guesses;
+    // the total limit in verifyUserCode bounds them whatever the addresses.
+    const outcome = oauth.verifyUserCode(typed, clientIp(request));
     const origin = config().publicOrigin;
     if ("requestId" in outcome) {
       return new Response(null, {

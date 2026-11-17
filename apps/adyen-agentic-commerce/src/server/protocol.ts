@@ -1,6 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // The HTTP edge for agents: rate limit, bearer token, Poppy-Session, UCP headers, idempotency and
 // the trace, in front of the UCP operation table (REST under /ucp/v1, JSON-RPC at /mcp).
+import { isIP } from "node:net";
 import { CommerceError } from "./commerce";
 import { config, UCP_VERSION } from "./config";
 import { database } from "./db";
@@ -21,7 +22,8 @@ import { MCP_TOOLS } from "./mcp-tools";
 
 const WINDOW_MS = 60_000;
 const LIMIT = 240;
-// Addresses come from X-Forwarded-For, which a caller can vary; the map must not grow with them.
+// A caller can still hold many addresses (an IPv6 prefix, or any header on a run without
+// Cloudflare); the map must not grow with them.
 const BUCKETS_MAX = 10_000;
 const buckets = new Map<string, { start: number; count: number }>();
 
@@ -48,8 +50,21 @@ export function publicUrl(request: Request): string {
   return `${config().publicOrigin}${url.pathname}${url.search}`;
 }
 
-export const clientIp = (request: Request) =>
-  request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+// The one client address every per-address limit counts. Render puts Cloudflare in front of every
+// public web service: it writes CF-Connecting-IP over any copy the caller sent, but only appends
+// to X-Forwarded-For, whose first entry is the caller's to write. So CF-Connecting-IP; without it
+// (a local run) the last X-Forwarded-For entry, the one the nearest proxy appended (Next.js sets
+// the socket's address when none came); with neither a valid address, one shared "local" client.
+// packages/platform's clientAddress applies the same rule; this app does not import it (ADR-012).
+export function clientIp(request: Request): string {
+  const nearest = request.headers.get("x-forwarded-for")?.split(",").pop();
+  for (const candidate of [request.headers.get("cf-connecting-ip"), nearest]) {
+    // A dual-stack socket reports an IPv4 client as ::ffff:a.b.c.d.
+    const ip = candidate?.trim().replace(/^::ffff:(?=\d{1,3}(\.\d{1,3}){3}$)/i, "");
+    if (ip && isIP(ip)) return ip;
+  }
+  return "local";
+}
 
 // RFC 6750 §3 with UCP's realm (the issuer) and RFC 9728's resource_metadata; error only when a
 // token was sent, and on 403 the operation's full scope set.

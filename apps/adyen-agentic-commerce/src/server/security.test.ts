@@ -8,7 +8,7 @@ import * as commerce from "./commerce";
 import { ConfigError, readConfig } from "./config";
 import { basicAuthAllows, crossSiteRefused } from "../proxy";
 import { list, put } from "./db";
-import { rateLimited, trackedRateAddresses } from "./protocol";
+import { clientIp, rateLimited, trackedRateAddresses } from "./protocol";
 import { recentTrace, redact } from "./trace";
 import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
 import { fake } from "./testing/fake-adyen";
@@ -432,6 +432,60 @@ describe("rate limit", () => {
     const key = `rate-${crypto.randomUUID()}`;
     for (let i = 0; i < 240; i += 1) rateLimited(key);
     expect(rateLimited(key)).toBeGreaterThan(0);
+  });
+});
+
+// On Render, Cloudflare writes CF-Connecting-IP over any copy the caller sent and appends to
+// X-Forwarded-For, so the first X-Forwarded-For entry is whatever the caller chose.
+describe("client address", () => {
+  const from = (headers: Record<string, string>) =>
+    new Request(`${ORIGIN}/mcp`, { method: "POST", headers });
+  const mcp = (headers: Record<string, string>) =>
+    handle(
+      new Request(`${ORIGIN}/mcp`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...headers },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+      }),
+    );
+
+  test("a forged first X-Forwarded-For entry is never the caller", () => {
+    const caller = "198.51.100.4";
+    const chain = `203.0.113.7, ${caller}`;
+    expect(clientIp(from({ "cf-connecting-ip": caller, "x-forwarded-for": chain }))).toBe(caller);
+    // Without Cloudflare's header, the entry the nearest proxy appended.
+    expect(clientIp(from({ "x-forwarded-for": chain }))).toBe(caller);
+  });
+
+  test("without X-Forwarded-For Cloudflare's address counts; with no usable header, 'local'", () => {
+    expect(clientIp(from({ "cf-connecting-ip": "2001:db8::5" }))).toBe("2001:db8::5");
+    expect(clientIp(from({ "cf-connecting-ip": "::ffff:192.0.2.5" }))).toBe("192.0.2.5");
+    expect(clientIp(from({}))).toBe("local");
+    // A value that is not an address is no address: it cannot open a bucket of its own.
+    expect(clientIp(from({ "x-forwarded-for": "not-an-ip" }))).toBe("local");
+    expect(
+      clientIp(from({ "cf-connecting-ip": "<script>", "x-forwarded-for": "198.51.100.9" })),
+    ).toBe("198.51.100.9");
+  });
+
+  test("varying a forged first entry does not escape the limit", async () => {
+    const caller = randomIp();
+    const headers = () => ({
+      "cf-connecting-ip": caller,
+      "x-forwarded-for": `${randomIp()}, ${caller}`,
+    });
+    for (let i = 0; i < 240; i += 1) expect((await mcp(headers())).status).not.toBe(429);
+    expect((await mcp(headers())).status).toBe(429);
+  });
+
+  test("a victim's address in the first entry does not get the victim limited", async () => {
+    const victim = randomIp();
+    const sender = randomIp();
+    const forged = { "cf-connecting-ip": sender, "x-forwarded-for": `${victim}, ${sender}` };
+    for (let i = 0; i < 240; i += 1) await mcp(forged);
+    expect((await mcp(forged)).status).toBe(429);
+    const own = await mcp({ "cf-connecting-ip": victim, "x-forwarded-for": victim });
+    expect(own.status).toBe(401);
   });
 });
 

@@ -2,7 +2,7 @@ import { test } from "bun:test";
 import { assertEquals } from "../../testing/assert.ts";
 import { Elysia } from "elysia";
 import { serveSecurely } from "./base-api.ts";
-import { basicAuthChallenge, requestOrigin, shopperIp } from "./security.ts";
+import { basicAuthChallenge, rateLimiter, requestOrigin, shopperIp } from "./security.ts";
 
 const PUBLIC_ORIGIN = "http://127.0.0.1:8001";
 const OPTIONS = { config: { signingSecret: "test-secret", publicOrigin: PUBLIC_ORIGIN } };
@@ -44,12 +44,59 @@ function forwardedFor(value: string): Request {
   return new Request("http://localhost:5173/api/x", { headers: { "x-forwarded-for": value } });
 }
 
-test("shopperIp takes the first X-Forwarded-For entry over the proxy's connection", () => {
+function behindCloudflare(address: string, forwarded?: string): Request {
+  const headers: Record<string, string> = { "cf-connecting-ip": address };
+  if (forwarded) headers["x-forwarded-for"] = forwarded;
+  return new Request("http://localhost:5173/api/x", { headers });
+}
+
+// On Render, Cloudflare writes CF-Connecting-IP over any copy the caller sent and appends to
+// X-Forwarded-For, so the first X-Forwarded-For entry is whatever the caller chose.
+test("shopperIp never takes a forged first X-Forwarded-For entry", () => {
   assertEquals(
-    shopperIp(forwardedFor("203.0.113.7, 10.0.0.2"), connection("10.0.0.9")),
-    "203.0.113.7",
+    shopperIp(
+      behindCloudflare("198.51.100.4", "203.0.113.7, 198.51.100.4"),
+      connection("10.0.0.9"),
+    ),
+    "198.51.100.4",
+  );
+  // Without Cloudflare's header, the entry the nearest proxy appended, over its connection.
+  assertEquals(
+    shopperIp(forwardedFor("203.0.113.7, 198.51.100.4"), connection("10.0.0.9")),
+    "198.51.100.4",
   );
   assertEquals(shopperIp(forwardedFor("2001:db8::1")), "2001:db8::1");
+});
+
+test("shopperIp takes Cloudflare's address when there is no X-Forwarded-For", () => {
+  assertEquals(shopperIp(behindCloudflare("2001:db8::5"), connection("10.0.0.9")), "2001:db8::5");
+  assertEquals(shopperIp(behindCloudflare("<script>", "198.51.100.9")), "198.51.100.9");
+});
+
+test("the rate limit counts the caller, not a forged first entry", () => {
+  const limit = rateLimiter(3);
+  const caller = "198.51.100.4";
+  for (let i = 0; i < 3; i += 1) {
+    assertEquals(limit(behindCloudflare(caller, `203.0.113.${i}, ${caller}`)), undefined);
+  }
+  assertEquals(limit(behindCloudflare(caller, `203.0.113.9, ${caller}`))?.status, 429);
+});
+
+test("the rate limit never charges a victim named in the first entry", () => {
+  const limit = rateLimiter(3);
+  const forged = () => behindCloudflare("198.51.100.4", "192.0.2.77, 198.51.100.4");
+  for (let i = 0; i < 4; i += 1) limit(forged());
+  assertEquals(limit(forged())?.status, 429);
+  assertEquals(limit(behindCloudflare("192.0.2.77", "192.0.2.77")), undefined);
+});
+
+test("the rate limit keys Cloudflare's address alone; no usable header is one local client", () => {
+  const limit = rateLimiter(1);
+  assertEquals(limit(behindCloudflare("198.51.100.4")), undefined);
+  assertEquals(limit(behindCloudflare("198.51.100.5")), undefined);
+  const local = rateLimiter(1);
+  assertEquals(local(request("http://localhost:5173/api/x")), undefined);
+  assertEquals(local(forwardedFor("not-an-ip"))?.status, 429);
 });
 
 test("shopperIp falls back to the connection, unwrapping IPv4-mapped addresses", () => {

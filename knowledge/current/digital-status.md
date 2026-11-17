@@ -1,14 +1,14 @@
 ---
 type: Current State
 title: "adyen-digital: what is verified, and what is still open"
-description: "Evidence-backed state of the digital playground as of 2026-11-15: each flow with the verification level it reached, and the open gaps in priority order."
+description: "Evidence-backed state of the digital playground as of 2026-11-17: each flow with the verification level it reached, and the open gaps in priority order."
 tags: [current, digital, verification]
 status: stable
 scope: digital-status
 stale_after: 2026-12-15
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T23:30:00Z
+  at: 2026-11-17T12:00:00Z
 sources:
   - id: api
     resource: ../../apps/adyen-digital/src/server/api.ts
@@ -20,12 +20,12 @@ sources:
     resource: ../policies/verification-and-reporting.md
     title: Meaning of the levels
 verified:
+  - at: 2026-11-17
+    check: "v0.3.0 on Render (main 8d3dd0d, CI green): digital and styling /api/health report Next 16.4.6; /sessions mounts Drop-in with no console error; agentic serves the device endpoint, poppy.json scope_hints, /api/catalog and the new /agents text."
   - at: 2026-11-15
     check: "v0.2.0 on Render (main 940e3b0): digital.payments-playground.com serves the Next.js build, /healthz 200, /sessions mounts Drop-in after one POST /api/digital/sessions (201) with no console error; /api/bootstrap reports webhookHmacConfigured true."
   - at: 2026-11-15
     check: "Next.js 16 + Elysia + Eden on Bun, dev server :8001: Advanced Components and API only card payments Authorised, Back Office capture received, Pay by Link created and re-read, Sessions Drop-in mounted; every page 200, an unknown flow 404."
-  - at: 2026-10-16
-    check: "Adyen Web 6.47.0: gift card partial (Givex 50.00 + card 59.99) in Sessions Components/Drop-in and Advanced Components; native 3DS switch on Sessions and Advanced; Advanced Drop-in order cancelled through /orders/cancel."
 ---
 
 # adyen-digital: what is verified, and what is still open
@@ -45,6 +45,7 @@ As of 2026-11-15, Adyen Web 6.48.1, Checkout API v72, on Next.js 16 with Elysia 
 | CAPTURE notification settles the order                                              | PASS   | WEBHOOK VERIFIED                  | Adyen's own CAPTURE `ZC55WDCR763KPPT5` (delivered to webhook.site, HMAC-signed with that endpoint's key), replayed unchanged to a dev server holding that key: `hmac_valid = 1`, correlated by `originalReference`, order `5aa671e7` `payment_pending` to `paid`.                                                                                                                                                                                         |
 | Callbacks reported under the right order                                            | PASS   | BROWSER VERIFIED                  | `frontend_callbacks` rows for `d13195db`: onChange ×5, beforeSubmit, onPaymentCompleted                                                                                                                                                                                                                                                                                                                                                                   |
 | Docker image: no secrets inside, runs with a quoted `.env`, Basic Auth covers pages | PASS   | CODE VERIFIED + TEST API VERIFIED | 14 payment methods listed from inside the container; pages 401/200 without/with credentials                                                                                                                                                                                                                                                                                                                                                               |
+| Production after the v0.3.0 deploy (2026-11-17, Next.js 16.4.6)                     | PASS   | DEPLOYED VERIFIED                 | `main` `8d3dd0d`, CI green: `/api/health` reports Next 16.4.6 on digital and styling; Sessions Drop-in mounted on `digital.payments-playground.com`, no console error. A payment into an Adyen order (gift card, then card) sends its own share again (`api.test.ts`); not re-run in a browser since. |
 | Production after the v0.2.0 deploy (2026-11-15, Next.js on Bun)                     | PASS   | DEPLOYED VERIFIED                 | `main` `940e3b0`: `/healthz` 200 and `/_next/static` assets on digital and styling; Sessions Drop-in mounted on `digital.payments-playground.com` after one `POST /api/digital/sessions` (201), no console error; the bootstrap reports a webhook HMAC key set. No Adyen-delivered webhook observed after this deploy.                                                                                                                                    |
 | Production after the 2026-10-09 deploy                                              | PASS   | DEPLOYED VERIFIED                 | `/api/health` reports Adyen Web 6.46.0 on digital and styling; Advanced and Sessions Drop-in ready (13 methods) in headless Firefox with an `analytics` block on `digital.payments-playground.com`.                                                                                                                                                                                                                                                       |
 | iDEAL redirect round trip through `/result` (2026-10-10)                            | PASS   | BROWSER VERIFIED                  | Order `8c1dd533`: `/payments` RedirectShopper, iDEAL test bank TESTNL2A "Success", back on `/result`: `/payments/details` Authorised `FD7JH26QRZQJH275`, `merchantReference` matches, attempt authorised. Reload with a replayed `redirectResult`: no second Adyen call.                                                                                                                                                                                  |
@@ -57,7 +58,7 @@ As of 2026-11-15, Adyen Web 6.48.1, Checkout API v72, on Next.js 16 with Elysia 
 | Gift card partial payment, Advanced (2026-10-16)                                    | PASS   | BROWSER VERIFIED                  | Components, order `6dded2b5`: `/paymentMethods/balance` NotEnoughBalance 5000 > `/orders` > `/payments` giftcard 5000 with `order` Authorised (5999 left) > `/paymentMethods` with `order` > `/payments` scheme 5999 Authorised (0 left); order `payment_pending`. Drop-in, order `bd311783`: « Supprimer » on the paid gift card > `onOrderCancel` > `/orders/cancel` Received, Drop-in back to 109.99. Before the fix: `Refused`, "Not enough balance". |
 | Retry after a refusal keeps the session and the gift card order (2026-10-16)        | PASS   | BROWSER VERIFIED                  | Sessions Drop-in, order `8eb7bb62`: one `/sessions` (`expiresAt` 25 min), Givex 50.00 > `onOrderUpdated` > card `DECLINED` > `onPaymentFailed` > result "59,99 € left to pay" > Try again: Drop-in still lists the paid gift card > stored Visa > `onPaymentCompleted`, no second session. Advanced Drop-in: refused card, Try again remounts with no new Adyen call.                                                                                     |
 | Five refusals close a session; Try again then opens a new one (2026-10-16)          | PASS   | BROWSER VERIFIED                  | Sessions Components. Before the fix: 5 × `DECLINED` = `200 Refused`, then a valid card = HTTP 422 `14_0422` (onError + onPaymentFailed) and Try again would have reused the dead session. After: 5 × `Refused`, the card says a new session opens, Try again creates `CSB297991D5FA78EE5BFF627E`, valid card `Authorised`. A lone `14_0422`/`14_0423` after the fix is handled in code, not re-observed.                                                  |
-| Advanced Drop-in, `shopperIP` sent, `deliveryAddress` without names (2026-10-13)    | PASS   | BROWSER VERIFIED                  | Order `fddfac4a`, stored Visa: `/payments` request has `shopperIP: 127.0.0.1` (dev server, from the socket) and `deliveryAddress` with postal fields only; Authorised `TN9S74RKTVL4C5V5`. On Render the IP comes from `X-Forwarded-For`, not yet observed.                                                                                                                                                                                                |
+| Advanced Drop-in, `shopperIP` sent, `deliveryAddress` without names (2026-10-13)    | PASS   | BROWSER VERIFIED                  | Order `fddfac4a`, stored Visa: `/payments` request has `shopperIP: 127.0.0.1` (dev server, from the socket) and `deliveryAddress` with postal fields only; Authorised `TN9S74RKTVL4C5V5`. On Render the IP comes from `CF-Connecting-IP` (since 2026-11-17), not yet observed.                                                                                                                                                                            |
 | Next.js port: Advanced, API only, Back Office, Pay by Link (2026-11-15)             | PASS   | BROWSER VERIFIED                  | Dev server :8001. Advanced Components, 4111 1111 1111 1111: `/payments` Authorised `TQGXS48Z7Q8TRTV5` with `shopperIP: 127.0.0.1` (from Next's `X-Forwarded-For`) and no names in `deliveryAddress`. API only Custom Card Authorised through the shared payment handler. Back Office capture `202` received, the browser's Idempotency-Key stored. Pay by Link created and re-read (`GET /paymentLinks/{id}`). Webhooks not delivered locally.            |
 
 ## Not observed

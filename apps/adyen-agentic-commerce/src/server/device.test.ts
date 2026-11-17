@@ -268,6 +268,35 @@ describe("the codes", () => {
     expect(elsewhere.pathname.startsWith("/consent/")).toBe(true);
   });
 
+  test("a forged first X-Forwarded-For entry does not spread wrong codes over addresses", async () => {
+    const { body: started } = await start(tv);
+    const address = randomIp();
+    const guess = (code: string) =>
+      post(
+        "/oauth/device/verify",
+        { user_code: code },
+        { "cf-connecting-ip": address, "x-forwarded-for": `${randomIp()}, ${address}` },
+      );
+    for (let i = 0; i < 10; i++) await guess("BBBB-BBBB");
+    const blocked = new URL((await guess(started.user_code)).headers.get("location")!);
+    expect(blocked.searchParams.get("error")).toBe("too_many_attempts");
+  });
+
+  test("wrong codes sent in a victim's name count against the sender", async () => {
+    const { body: started } = await start(tv);
+    const victim = randomIp();
+    const sender = randomIp();
+    const forged = { "cf-connecting-ip": sender, "x-forwarded-for": `${victim}, ${sender}` };
+    for (let i = 0; i < 10; i++)
+      await post("/oauth/device/verify", { user_code: "BBBB-BBBB" }, forged);
+    const own = await post(
+      "/oauth/device/verify",
+      { user_code: started.user_code },
+      { "cf-connecting-ip": victim, "x-forwarded-for": victim },
+    );
+    expect(new URL(own.headers.get("location")!).pathname.startsWith("/consent/")).toBe(true);
+  });
+
   test("only a wrong code leaves a record of its address", async () => {
     const { body: started } = await start(tv);
     await verify("BBBB-BBBB");

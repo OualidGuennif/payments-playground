@@ -5,6 +5,18 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-17
+
+- The agentic store keeps its data across deploys: its Render service moves to `starter` with a
+  1 GB disk at `/var/data` and `DATABASE_PATH=/var/data/agentic.sqlite`, like Digital and styling.
+  Before, every deploy or restart emptied its orders, agents and grants. ADR-003, the Render
+  runbook, the owner's preferences, the store's doc and `docs/KNOWN_LIMITS.md` say so; only
+  Digital and styling still have their own `render.yaml`.
+- Record the v0.3.1 deploy check in the digital status: on Render one client is limited whatever
+  first `X-Forwarded-For` entry it forges (the 121st `/api/health` on digital and styling, the
+  241st `/mcp` on agentic), and Cloudflare refuses a caller-written `CF-Connecting-IP`.
+  `work/current.md` keeps a two-client check for the owner.
+
 ## [0.3.1] - 2026-11-17
 
 - Every per-address limit trusts the address the platform writes, not the caller: the agentic

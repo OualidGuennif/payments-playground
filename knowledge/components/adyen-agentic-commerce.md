@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T12:00:00Z
+  at: 2026-11-17T15:00:00Z
 verified:
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
@@ -54,6 +54,9 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
 | `.env` (never read by tooling or agents)  | `ADYEN_API_KEY`, `ADYEN_MERCHANT_ACCOUNT`, `ADYEN_CLIENT_KEY`, | Owner | Boot                |
 |                                           | `ADYEN_HMAC_KEY`, `PUBLIC_ORIGIN`, `DATABASE_PATH`, `PORT`     |       |                     |
 | Deploy variable (public, optional)        | `WEBMCP_ORIGIN_TRIAL_TOKEN`, sent as `Origin-Trial` on pages   | Owner | Per request         |
+
+From v0.3.2 the Render Blueprint sets `DATABASE_PATH=/var/data/agentic.sqlite` on a 1 GB disk;
+before, every deploy or restart emptied orders, agents and grants.
 
 ## Inputs
 

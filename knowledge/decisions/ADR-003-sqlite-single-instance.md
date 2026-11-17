@@ -6,14 +6,14 @@ tags: [decision, storage]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T18:00:00Z
+  at: 2026-11-17T15:00:00Z
 sources:
   - id: storage
     resource: ../../packages/platform/storage.ts
     title: Repository
   - id: render
     resource: ../../render.yaml
-    title: Persistent disks on digital and styling
+    title: Persistent disks on digital, styling and agentic
 ---
 
 # ADR-003: SQLite on a single instance
@@ -21,8 +21,9 @@ sources:
 **Context.** A playground needs durable observability (orders, API calls, webhooks) but no scale.
 
 **Decision.** One SQLite file per app, WAL mode, unique constraints for idempotency. On Render,
-digital and styling each have a 1 GB persistent disk at `/var/data`; agentic runs without a disk and
-loses its data on each deploy (IPP, also diskless, was removed on 2026-11-15). The agentic store
+digital, styling and agentic each have a 1 GB persistent disk at `/var/data`. Agentic ran without
+one until 2026-11-17 and lost its data on each deploy and restart; the owner moved it to `starter`
+with a disk (IPP, also diskless, was removed on 2026-11-15). The agentic store
 opens its file with `bun:sqlite` instead of the platform repository
 ([ADR-012](ADR-012-agentic-app-on-bun-and-next.md)); its idempotency records sit in the same file
 and its rate limit in process memory, so the same one-replica rule holds.

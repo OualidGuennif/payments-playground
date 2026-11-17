@@ -48,13 +48,15 @@ services:
   - type: web
     name: agentic-commerce
     runtime: docker
-    plan: free
+    plan: starter
     dockerfilePath: ./apps/adyen-agentic-commerce/Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
     envVars:
       - key: PUBLIC_ORIGIN
         value: https://agentic.payments-playground.com
+      - key: DATABASE_PATH
+        value: /var/data/agentic.sqlite
       - key: ADYEN_API_KEY
         sync: false
       - key: ADYEN_MERCHANT_ACCOUNT
@@ -67,6 +69,10 @@ services:
         sync: false
       - key: PLAYGROUND_BASIC_AUTH_PASSWORD
         sync: false
+    disk:
+      name: agentic-data
+      mountPath: /var/data
+      sizeGB: 1
 
   - type: web
     name: dropin-styling

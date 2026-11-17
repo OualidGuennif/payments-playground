@@ -5,15 +5,26 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Agentic data lost on deploy; v0.3.4 pending — WAITING-OWNER
+## Customer accounts and agent-brought cards — ACTIVE
+
+- Owner decision: 2026-11-17, plan approved: accounts (email, password, passkeys with
+  `@simplewebauthn` 14), web and agent channels, agents bound to an account, one-time network
+  tokens (guest or signed in), the grant's limit on every signed-in agent payment, rate limits.
+- State: plan approved; no code. A real TEST network-token payment needs Adyen to enable it.
+- Next: v0.3.4 first, then spec and ADR, slices, v0.4.0 (who: agent); Adyen enablement and test
+  tokens (who: owner).
+- Blocker: none.
+- Evidence: docs.adyen.com online-payments/network-tokenization ("Manage network tokens yourself").
+
+## Agentic data lost on deploy; v0.3.4 pending — ACTIVE
 
 - Owner decision: 2026-11-17, v0.3.3 released (strict PAP 1.0, UCP 2026-08-25, RFC 8707, WebMCP);
   the Render Blueprint gives agentic a `starter` plan, the `agentic-data` disk and `DATABASE_PATH`.
-- State: v0.3.3 live (`main` `698423f`); order `ord_kQx4WUyfprrP` placed on v0.3.2 is 404 after
-  it, so the disk is not in effect. `develop` has `d5af4b2` (weak ETag match), not pushed.
-- Next: in the Render dashboard check the agentic service's plan, disk and `DATABASE_PATH`,
-  sync the Blueprint (who: owner); then review, push and release v0.3.4 (who: agent).
-- Blocker: the Render dashboard.
+- State: v0.3.3 lost `ord_kQx4WUyfprrP` on deploy; the owner added a 1 GB disk on 2026-11-17.
+  Marker checkout `chk_FMh1DGYntPlf` placed at 19:59 UTC; `d5af4b2` (weak ETag) goes in v0.3.4.
+- Next: release v0.3.4; after its deploy, `chk_FMh1DGYntPlf` must answer 200 and a weak
+  `If-None-Match` on `/.well-known/ucp` 304 (who: agent).
+- Blocker: none.
 - Evidence: knowledge/current/digital-status.md (v0.3.3 deploy rows); render.yaml.
 
 ## Client address on Render: two-client check — WAITING-OWNER

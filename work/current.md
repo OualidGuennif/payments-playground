@@ -7,14 +7,14 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 ## PAP, UCP and WebMCP conformance pass — ACTIVE
 
-- Owner decision: 2026-11-17, a strict pass on PAP 1.0 and its UCP extension, UCP 2026-08-25
-  (answers validated with ucp-schema 1.4.1, no ajv) and the WebMCP draft; first v0.3.2, a disk.
-- State: v0.3.2 cut on develop (agentic on `starter`, 1 GB disk, `DATABASE_PATH` on it).
-- Next: release v0.3.2, check the disk on Render and that an order survives the next deploy
-  (who: agent; owner syncs the Blueprint if it does not); then the three audit matrices and a gap
-  report that stops for owner decisions; fixes ship as v0.3.3 (who: agent).
+- Owner decision: 2026-11-17, a strict pass on PAP 1.0 and its UCP extension, UCP 2026-08-25 and
+  the WebMCP draft; options taken: full profile negotiation (MCP without `meta` allowed), RFC 8707
+  resource binding, WebMCP `outputSchema`.
+- State: v0.3.2 released (disk configured, not yet seen on Render); v0.3.3 specified.
+- Next: build and release v0.3.3, then check on Render that an order placed before the deploy is
+  still there (who: agent); confirm the agentic-data disk in the dashboard (who: owner).
 - Blocker: none.
-- Evidence: render.yaml; knowledge/decisions/ADR-003-sqlite-single-instance.md.
+- Evidence: knowledge/components/adyen-agentic-commerce.md; render.yaml.
 
 ## Client address on Render: two-client check — WAITING-OWNER
 

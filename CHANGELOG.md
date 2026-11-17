@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Specify the agentic store's v0.3.3 conformance fixes before the code: UCP-Agent profile
+  resolution and negotiation, RFC 8707 resource binding, the PAP Session and client assertion
+  checks, UCP catalogue paging, lookup, product and order shapes, published-artifact caching and
+  WebMCP output schemas.
+
 ## [0.3.2] - 2026-11-17
 
 - The agentic store keeps its data across deploys: its Render service moves to `starter` with a

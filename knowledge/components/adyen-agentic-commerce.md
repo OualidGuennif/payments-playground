@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T15:00:00Z
+  at: 2026-11-17T18:00:00Z
 verified:
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
@@ -51,6 +51,7 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
 | Adyen Checkout API v72 TEST               | `/sessions`, `/payments`, stored payment methods               | Adyen | Per call            |
 | Adyen standard webhooks (HMAC)            | `AUTHORISATION` and other event codes                          | Adyen | Asynchronous        |
 | Agent client metadata document + jwks_uri | `client_id`, `redirect_uris`, `jwks_uri`, public keys          | Agent | Fetched per sign-in |
+| Platform profile named by `UCP-Agent`     | `ucp.version`, `ucp.capabilities`                              | Agent | Cached per URL      |
 | `.env` (never read by tooling or agents)  | `ADYEN_API_KEY`, `ADYEN_MERCHANT_ACCOUNT`, `ADYEN_CLIENT_KEY`, | Owner | Boot                |
 |                                           | `ADYEN_HMAC_KEY`, `PUBLIC_ORIGIN`, `DATABASE_PATH`, `PORT`     |       |                     |
 | Deploy variable (public, optional)        | `WEBMCP_ORIGIN_TRIAL_TOKEN`, sent as `Origin-Trial` on pages   | Owner | Per request         |
@@ -68,10 +69,32 @@ before, every deploy or restart emptied orders, agents and grants.
   OAuth 2 (authorization code + PKCE S256; `private_key_jwt` for PAP clients, public clients
   registered by RFC 7591 for generic MCP clients); the device authorization grant (RFC 8628) for an
   agent whose browser cannot reach its own callback, for clients that declare it in `grant_types`;
-  optional `Poppy-Session` + `Poppy-Version: 1.0`.
+  optional `Poppy-Session` (PAP 1.0 §5.2: `typ` `poppy-session+jwt`, ES256, the delegation in the
+  JWT header's `poppy_dlg`, `aud` the issuer as one string, `htm`, `htu`, `ath`, `iat`, `jti`). A
+  Session needs `Poppy-Version` 1.x; a missing one, or any other major version even without a
+  Session, is `version_unsupported`. A `private_key_jwt` client assertion has the issuer as its one
+  `aud` string, `iat` and `jti`, and lives at most 300 s.
   `/mcp` answers 401 with the resource metadata URL until the agent signs in; REST catalogue,
   carts and checkouts also work anonymously. Client metadata documents must be https, except
   loopback ones while `PUBLIC_ORIGIN` is itself loopback (local runs and `scripts/pap-agent.ts`).
+- **Platform profile (UCP negotiation):** every REST request names its profile in
+  `UCP-Agent: profile="<url>"`; an MCP `tools/call` may name it in `meta["ucp-agent"].profile`
+  (deviation, decided 2026-11-17: generic MCP clients send none, so a call without one runs on the
+  store's own capabilities). When the header and `meta` both name one, they must be the same URL.
+  The URL is https (plain http only on loopback while `PUBLIC_ORIGIN` is loopback), a host name
+  rather than an IP literal, without credentials, at most 2,048 characters. The store fetches it
+  without following redirects, within 5 s and 256 KiB, and checks the platform profile shape:
+  `ucp.version` a date, `ucp.services` and `ucp.payment_handlers` registries, capability entries
+  with `version`, `spec` and `schema`, and no private key member in `keys`. A profile is cached
+  per URL for its `Cache-Control` `max-age` (at most an hour; 5 minutes without one; never with
+  `no-store`), at most 1,000 at once. Its `ucp.version` must be 2026-08-25. The negotiated
+  capabilities are the store's and the profile's with the same name and a common version; a
+  `dev.ucp.*` capability whose `schema` is not on `https://ucp.dev` is left out (authority
+  binding). An operation whose capability is not negotiated does not run.
+- **Resource indicators (RFC 8707):** `resource` on authorize, device authorization and token
+  requests must be `PUBLIC_ORIGIN` (UCP REST) or `${PUBLIC_ORIGIN}/mcp`; at the token endpoint it
+  must also be one the grant was issued for. A token issued for one resource is accepted only
+  there; a token issued without one is accepted at both.
 - **Scopes:** advertised under their UCP names, each with its PAP 1.0 §4.7 hint.
 
   | Scope                              | Lets the agent                                        | Changes      | Personal data |
@@ -96,11 +119,16 @@ before, every deploy or restart emptied orders, agents and grants.
 - **Agent in the shopper's browser (WebMCP):** when the browser exposes `document.modelContext`
   (W3C draft; Chrome origin trial, or the `#enable-webmcp-testing` flag), the shopping pages
   register `search_catalog` and `view_cart` (read-only), `add_to_cart`, `update_cart_item` and
-  `start_checkout` (`src/lib/webmcp.ts`). They read the read-only `GET /api/catalog` and write the
+  `start_checkout` (`src/lib/webmcp.ts`), each with an `inputSchema` and an `outputSchema`
+  describing what it returns. They read the read-only `GET /api/catalog` and write the
   same cart and `POST /api/checkouts` as the buttons; `start_checkout` opens the checkout page,
   where the shopper pays in Drop-in. This is separate from `/mcp`, which is unchanged.
-- **Catalogue search:** UCP's `filters.categories` (any of the listed ones) and `filters.price`
-  (`min`, `max`, minor units); the singular `category` this store read before stays accepted.
+- **Catalogue:** UCP's `filters.categories` (any of the listed ones) and `filters.price` (`min`,
+  `max`, minor units) on search, lookup and product; the singular `category` this store read
+  before stays accepted. Search pages with `pagination.limit` (10 by default, at most 50) and the
+  opaque `pagination.cursor` it returned. Lookup takes at most 50 distinct ids. Product takes
+  `selected` options and `preferences`, the order in which options are dropped when no variant
+  matches them all.
 - **Amounts:** integers in EUR minor units, computed by the server from the catalogue. An agent
   never sends a price; any client-sent price or total is ignored.
 
@@ -115,6 +143,20 @@ before, every deploy or restart emptied orders, agents and grants.
   other scopes are the optional layer in `scopes_supported`. `/ucp/v1/openapi.json` names every
   operation by its UCP `operationId`, refers to the UCP 2026-08-25 schemas, declares per operation
   whether a token is optional and which scope it needs, and lists the error statuses with examples.
+  `/.well-known/ucp`, `/ucp/v1/openapi.json` and `/ucp/v1/handlers/saved_card.json` are published
+  artifacts: `Cache-Control: public, max-age=300`, never a redirect. Every other answer is
+  `no-store`.
+- **UCP catalogue:** products and variants carry `description: {plain}`. Search returns
+  `pagination {has_next_page, cursor when there is a next page, total_count}`. A lookup variant
+  appears only with its `inputs`: `exact` for a variant id, `featured` (the product's first
+  available variant, else its first) for a product id; each product appears once; an unknown id is
+  an `info` `not_found` message whose content is the id, still 200. Product returns the requested
+  variant first, `selected` (that variant's options, the featured one's, or the asked ones after
+  dropping options by `preferences`), the variants matching it, and `options` whose values carry
+  `available` and `exists` against `selected`; an unknown id is 200 with `ucp.status` `error` and
+  `not_found`.
+- **UCP orders:** `fulfillment {expectations: [], events: []}` (nothing ships in this demo) and per
+  line `quantity {original, total, fulfilled: 0}` with `status: processing`.
 - **UCP:** Checkout statuses `incomplete`, `requires_escalation` (with `continue_url`),
   `ready_for_complete`, `complete_in_progress`, `completed` (with `order {id, permalink_url}`),
   `canceled`; `totals` with exactly one `subtotal` and one `total`; `messages` with
@@ -132,7 +174,14 @@ before, every deploy or restart emptied orders, agents and grants.
   page's words, never as scope names.
 - **Signals:** an anonymous open checkout carries an `identity_optional` info message (signing in
   lets the agent pay with the saved card).
-- **Refusals:** `invalid_session` 400, `session_ended` 400, `version_unsupported` 400; on UCP REST
+- **Refusals:** `invalid_session` 400 (an expired or invalid delegation included),
+  `session_ended` 400, `version_unsupported` 400 (PAP); profile negotiation (UCP error body with
+  `continue_url` the store's home page on REST, JSON-RPC `-32001` with `data {code, content,
+  continue_url}` on MCP): `invalid_profile_url` 400 (missing, malformed, refused, or header and
+  `meta` naming different profiles), `profile_unreachable` 424, `profile_malformed` 422,
+  `version_unsupported` 422, and `capabilities_incompatible` as a 200 error body (an MCP result);
+  `request_too_large` 400 (MCP `-32602`) for a lookup over 50 ids; `invalid_target` (OAuth)
+  for a resource the store does not serve or the grant was not issued for; on UCP REST
   a UCP error body (`ucp` and `messages` only) with `identity_required` 401 or
   `insufficient_scope` 403, whose `WWW-Authenticate: Bearer` carries `realm` (the issuer),
   `resource_metadata`, `error` when a token was sent, and on 403 the operation's full `scope`; MCP
@@ -197,6 +246,16 @@ before, every deploy or restart emptied orders, agents and grants.
     neither escapes a limit nor gets another address limited. `packages/platform`'s
     `clientAddress` applies the same rule for Digital and styling (`src/server/security.test.ts`
     "client address", `src/server/device.test.ts` the two forged-entry tests).
+11. A platform profile is fetched only under the guards above, and only after the rate limit and
+    the token check; a profile that cannot be fetched, read or negotiated stops the request before
+    any operation runs, and that refusal is never stored under an Idempotency-Key
+    (`src/server/profile.test.ts`).
+12. A token works only at the resource it was issued for, a refresh keeps that resource, and a
+    `resource` the store does not serve never yields a code or a token (`src/server/oauth.test.ts`
+    "resource indicators").
+13. A Session is accepted only with its delegation in the JWT header, signed by a key the client
+    publishes, unexpired, and only with `aud` equal to the issuer; a delegation in the claims, an
+    `aud` array or the MCP URL as `aud` is `invalid_session` (`src/server/conformance.test.ts`).
 
 ## Determinism
 
@@ -212,10 +271,14 @@ is whatever LLM the shopper points at it.
   (or `--auto-consent`) and buys one item over MCP.
 - `poppy.json` passes the PAP 1.0 §3.1/§4.7 shape test; the UCP profile's scope keys match the
   UCP `scope_token` pattern; every OpenAPI path routes to the operation its `operationId` names.
+- Answers captured from a local run (search, lookup, product, cart, checkout, order, the profile
+  refusals) validate with `ucp-schema` 1.4.1 against the UCP 2026-08-25 schemas. The tool is run by
+  hand, not installed in the repository.
 - The device grant runs end to end in tests: code, wrong code, consent, pending, slow_down,
   tokens, an MCP call, then the code refused as used.
 - `src/lib/webmcp.test.ts`: tool names and descriptions within the draft's rules and Chrome's
-  budgets (name 30, description 500, parameter 150, output 1.5K characters), all-or-none
+  budgets (name 30, description 500, parameter 150, output 1.5K characters), each tool's answer
+  matching the `outputSchema` it declares, all-or-none
   registration, none on the shopper's own pages, and the cart and checkout calls against the API.
   In a browser, a stand-in `document.modelContext` sees the five tools register on `/shop` and
   leave on `/account`.
@@ -235,3 +298,5 @@ is whatever LLM the shopper points at it.
   decision cannot be forged from another page. Every response carries the platform's security
   headers (`X-Frame-Options: DENY` among them), so the consent page cannot be framed.
 - Conversations, browser sign-in and the Operations extension of PAP.
+- UCP message signatures, order webhooks to the platform, `supported_versions` (the store speaks
+  2026-08-25 only), OAuth PAR and DPoP.

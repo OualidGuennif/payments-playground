@@ -1,14 +1,14 @@
 ---
 type: Current State
 title: "adyen-digital: what is verified, and what is still open"
-description: "Evidence-backed state of the digital playground as of 2026-11-15: each flow with the verification level it reached, and the open gaps in priority order."
+description: "Evidence-backed state of the digital playground as of 2026-11-17: each flow with the verification level it reached, and the open gaps in priority order."
 tags: [current, digital, verification]
 status: stable
 scope: digital-status
 stale_after: 2026-12-15
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T23:30:00Z
+  at: 2026-11-17T08:00:00Z
 sources:
   - id: api
     resource: ../../apps/adyen-digital/src/server/api.ts
@@ -20,12 +20,12 @@ sources:
     resource: ../policies/verification-and-reporting.md
     title: Meaning of the levels
 verified:
+  - at: 2026-11-17
+    check: "v0.3.0 on Render (main 8d3dd0d, CI green): digital and styling /api/health report Next 16.4.6; /sessions mounts Drop-in with no console error; agentic serves the device endpoint, poppy.json scope_hints, /api/catalog and the new /agents text."
   - at: 2026-11-15
     check: "v0.2.0 on Render (main 940e3b0): digital.payments-playground.com serves the Next.js build, /healthz 200, /sessions mounts Drop-in after one POST /api/digital/sessions (201) with no console error; /api/bootstrap reports webhookHmacConfigured true."
   - at: 2026-11-15
     check: "Next.js 16 + Elysia + Eden on Bun, dev server :8001: Advanced Components and API only card payments Authorised, Back Office capture received, Pay by Link created and re-read, Sessions Drop-in mounted; every page 200, an unknown flow 404."
-  - at: 2026-10-16
-    check: "Adyen Web 6.47.0: gift card partial (Givex 50.00 + card 59.99) in Sessions Components/Drop-in and Advanced Components; native 3DS switch on Sessions and Advanced; Advanced Drop-in order cancelled through /orders/cancel."
 ---
 
 # adyen-digital: what is verified, and what is still open
@@ -45,6 +45,7 @@ As of 2026-11-15, Adyen Web 6.48.1, Checkout API v72, on Next.js 16 with Elysia 
 | CAPTURE notification settles the order                                              | PASS   | WEBHOOK VERIFIED                  | Adyen's own CAPTURE `ZC55WDCR763KPPT5` (delivered to webhook.site, HMAC-signed with that endpoint's key), replayed unchanged to a dev server holding that key: `hmac_valid = 1`, correlated by `originalReference`, order `5aa671e7` `payment_pending` to `paid`.                                                                                                                                                                                         |
 | Callbacks reported under the right order                                            | PASS   | BROWSER VERIFIED                  | `frontend_callbacks` rows for `d13195db`: onChange ×5, beforeSubmit, onPaymentCompleted                                                                                                                                                                                                                                                                                                                                                                   |
 | Docker image: no secrets inside, runs with a quoted `.env`, Basic Auth covers pages | PASS   | CODE VERIFIED + TEST API VERIFIED | 14 payment methods listed from inside the container; pages 401/200 without/with credentials                                                                                                                                                                                                                                                                                                                                                               |
+| Production after the v0.3.0 deploy (2026-11-17, Next.js 16.4.6)                     | PASS   | DEPLOYED VERIFIED                 | `main` `8d3dd0d`, CI green: `/api/health` reports Next 16.4.6 on digital and styling; Sessions Drop-in mounted on `digital.payments-playground.com`, no console error. A payment into an Adyen order (gift card, then card) sends its own share again (`api.test.ts`); not re-run in a browser since. |
 | Production after the v0.2.0 deploy (2026-11-15, Next.js on Bun)                     | PASS   | DEPLOYED VERIFIED                 | `main` `940e3b0`: `/healthz` 200 and `/_next/static` assets on digital and styling; Sessions Drop-in mounted on `digital.payments-playground.com` after one `POST /api/digital/sessions` (201), no console error; the bootstrap reports a webhook HMAC key set. No Adyen-delivered webhook observed after this deploy.                                                                                                                                    |
 | Production after the 2026-10-09 deploy                                              | PASS   | DEPLOYED VERIFIED                 | `/api/health` reports Adyen Web 6.46.0 on digital and styling; Advanced and Sessions Drop-in ready (13 methods) in headless Firefox with an `analytics` block on `digital.payments-playground.com`.                                                                                                                                                                                                                                                       |
 | iDEAL redirect round trip through `/result` (2026-10-10)                            | PASS   | BROWSER VERIFIED                  | Order `8c1dd533`: `/payments` RedirectShopper, iDEAL test bank TESTNL2A "Success", back on `/result`: `/payments/details` Authorised `FD7JH26QRZQJH275`, `merchantReference` matches, attempt authorised. Reload with a replayed `redirectResult`: no second Adyen call.                                                                                                                                                                                  |

@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.3.0 deploy check (Next.js 16.4.6 served, Sessions Drop-in on the public origin,
+  the agentic store's new endpoints) in the digital status, close the agentic interoperability
+  task in `work/current.md` and move its optional WebMCP token step to the Render clean-up entry.
+
 ## [0.3.0] - 2026-11-17
 
 - Agentic store, from the release reviews: starting a device sign-in shares the agents' limit of

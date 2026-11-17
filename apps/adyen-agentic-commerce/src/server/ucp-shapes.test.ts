@@ -206,6 +206,20 @@ describe("published artifacts", () => {
     }
   });
 
+  // RFC 9110 §13.1.2: If-None-Match compares weakly. A compressing edge (Render's, in front of
+  // the hosted store) turns the ETag into W/"…", and a client echoes it in that form.
+  test("the weak form of the ETag, alone or in a list, also revalidates", async () => {
+    const etag = (await fetchGet("/.well-known/ucp")).headers.get("etag")!;
+    for (const asked of [`W/${etag}`, `"other", W/${etag}`, `W/"other",${etag}`]) {
+      const again = await fetchGet("/.well-known/ucp", { "if-none-match": asked });
+      expect(`${asked} ${again.status}`).toBe(`${asked} 304`);
+    }
+    for (const asked of ['W/"other"', `${etag.slice(0, -2)}x"`, "W/", ""]) {
+      const again = await fetchGet("/.well-known/ucp", { "if-none-match": asked });
+      expect(`${asked} ${again.status}`).toBe(`${asked} 200`);
+    }
+  });
+
   test("per-request answers stay no-store", async () => {
     const { headers } = await handle(
       new Request(`${ORIGIN}/ucp/v1/catalog/search`, {

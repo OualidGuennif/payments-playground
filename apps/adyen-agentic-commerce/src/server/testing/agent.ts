@@ -14,6 +14,7 @@ import { handle } from "../api";
 import { forgetCardCache } from "../commerce";
 import { openDatabase, useDatabase } from "../db";
 import { forgetCodeMisses } from "../oauth";
+import { forgetProfiles } from "../profile";
 import { sha256b64url } from "../util";
 import { fake } from "./fake-adyen";
 
@@ -29,6 +30,7 @@ export function freshStore() {
   fake.reset();
   forgetCardCache();
   forgetCodeMisses();
+  forgetProfiles();
 }
 
 // The edge rate-limits per client IP and every in-process request would otherwise share one.
@@ -146,15 +148,26 @@ export class TestAgent {
     return new URL(response.headers.get("location") ?? `${ORIGIN}/`);
   }
 
-  async assertion(claims: JWTPayload = {}, signer: Keys = this.clientKeys, lifetime = 300) {
-    return new SignJWT({ ...claims })
+  // `omit` drops registered claims (iat, jti, ...) to probe what the store requires.
+  async assertion(
+    claims: JWTPayload = {},
+    signer: Keys = this.clientKeys,
+    lifetime = 300,
+    omit: string[] = [],
+  ) {
+    const issued = now();
+    const payload: JWTPayload = {
+      iss: this.clientId,
+      sub: this.clientId,
+      aud: ORIGIN,
+      iat: issued,
+      exp: issued + lifetime,
+      jti: crypto.randomUUID(),
+      ...claims,
+    };
+    for (const k of omit) delete payload[k];
+    return new SignJWT(payload)
       .setProtectedHeader({ alg: "ES256", kid: this.clientJwk.kid })
-      .setIssuer(this.clientId)
-      .setSubject(this.clientId)
-      .setAudience(String(claims.aud ?? ORIGIN))
-      .setIssuedAt()
-      .setExpirationTime(now() + lifetime)
-      .setJti(String(claims.jti ?? crypto.randomUUID()))
       .sign(signer.privateKey);
   }
 
@@ -213,26 +226,29 @@ export class TestAgent {
       .sign((opts.signer ?? this.clientKeys).privateKey);
   }
 
+  // PAP 1.0 §5.2: the delegation rides in the JWT header's poppy_dlg; aud is the issuer.
+  // `omit` drops a claim, or poppy_dlg from the header.
   async session(url = MCP, method = "POST", opts: SessionOptions = {}) {
     const claims: Record<string, unknown> = {
       iss: this.clientId,
       sub: "demo-shopper",
-      aud: MCP,
+      aud: ORIGIN,
       sid: "sid-1",
       htm: method,
       htu: url,
       iat: now(),
       jti: crypto.randomUUID(),
-      poppy_dlg: opts.delegation ?? this.delegation,
       ...(this.accessToken ? { ath: sha256b64url(this.accessToken) } : {}),
       ...opts.claims,
     };
-    for (const k of opts.omit ?? []) delete claims[k];
+    const omit = opts.omit ?? [];
+    for (const k of omit) delete claims[k];
     return new SignJWT(claims as JWTPayload)
       .setProtectedHeader({
         alg: "ES256",
         typ: "poppy-session+jwt",
         kid: this.sessionKid,
+        ...(omit.includes("poppy_dlg") ? {} : { poppy_dlg: opts.delegation ?? this.delegation }),
         ...opts.header,
       })
       .sign((opts.signer ?? this.sessionKeys).privateKey);
@@ -245,6 +261,7 @@ export class TestAgent {
     opts: {
       session?: SessionOptions;
       headers?: Record<string, string>;
+      omitHeaders?: string[];
       token?: string | null;
     } = {},
   ) {
@@ -255,6 +272,7 @@ export class TestAgent {
       "x-forwarded-for": this.ip,
       ...opts.headers,
     };
+    for (const h of opts.omitHeaders ?? []) delete headers[h];
     const token = opts.token === undefined ? this.accessToken : opts.token;
     if (token) headers.authorization = `Bearer ${token}`;
     const response = await handle(

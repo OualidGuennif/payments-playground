@@ -14,7 +14,7 @@ import { clientIp, handleMcp, handleRest, rateLimited } from "./protocol";
 import { recentTrace, trace } from "./trace";
 import { handlerSchema, profile } from "./ucp";
 import { openApi } from "./openapi";
-import { isRecord, json, safeEqual } from "./util";
+import { isRecord, json, published, safeEqual } from "./util";
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -347,7 +347,7 @@ const app = new Elysia()
     pap: "1.0",
   }))
   .get("/.well-known/poppy.json", () => withCors(json(200, poppyDocument())))
-  .get("/.well-known/ucp", () => withCors(json(200, profile())))
+  .get("/.well-known/ucp", ({ request }) => withCors(published(request, profile())))
   .get("/.well-known/oauth-authorization-server", () =>
     withCors(json(200, oauth.authorizationServerMetadata())),
   )
@@ -495,8 +495,8 @@ const app = new Elysia()
       return oauthError(error);
     }
   })
-  .get("/ucp/v1/openapi.json", () => json(200, openApi()))
-  .get("/ucp/v1/handlers/saved_card.json", () => json(200, handlerSchema()))
+  .get("/ucp/v1/openapi.json", ({ request }) => published(request, openApi()))
+  .get("/ucp/v1/handlers/saved_card.json", ({ request }) => published(request, handlerSchema()))
   .all("/ucp/v1/*", ({ request, params }) => handleRest(request, `/${params["*"]}`))
   .all("/mcp", ({ request }) => handleMcp(request))
   .use(browserApi);

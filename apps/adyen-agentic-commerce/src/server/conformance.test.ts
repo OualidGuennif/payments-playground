@@ -114,6 +114,37 @@ describe("the resource", () => {
     expect(body.error).toBe("version_unsupported");
   });
 
+  test("a Session without Poppy-Version is version_unsupported (§3.4)", async () => {
+    const { status, body } = await agent.mcp("ping", {}, { omitHeaders: ["poppy-version"] });
+    expect(status).toBe(400);
+    expect(body.error).toBe("version_unsupported");
+  });
+
+  test("a later 1.x minor version is compatible with 1.0", async () => {
+    expect((await agent.mcp("ping", {}, { headers: { "poppy-version": "1.1" } })).status).toBe(200);
+  });
+
+  test("a Poppy-Version that is not major.minor is version_unsupported", async () => {
+    for (const version of ["1", "1.0.0", "01.0", "1.x"]) {
+      const { status, body } = await agent.mcp(
+        "ping",
+        {},
+        { headers: { "poppy-version": version } },
+      );
+      expect(status).toBe(400);
+      expect(body.error).toBe("version_unsupported");
+    }
+  });
+
+  test("a bearer token without a Session needs no Poppy-Version", async () => {
+    const { status } = await agent.mcp(
+      "ping",
+      {},
+      { omitHeaders: ["poppy-version", "poppy-session"] },
+    );
+    expect(status).toBe(200);
+  });
+
   test("Poppy-Session is optional: a bearer token alone is accepted", async () => {
     const response = await handle(
       new Request(MCP, {
@@ -178,10 +209,18 @@ describe("Poppy-Session refusals", () => {
     expect(await refused({ session: { claims: { htm: "GET" } } })).toContain("htm");
   });
 
-  test("aud for another resource", async () => {
+  test("aud for another Company", async () => {
     expect(await refused({ session: { claims: { aud: "https://shop.example" } } })).toContain(
       "aud",
     );
+  });
+
+  test("aud is the issuer itself, not the MCP URL (§5.2)", async () => {
+    expect(await refused({ session: { claims: { aud: MCP } } })).toContain("aud");
+  });
+
+  test("aud is a single string, not an array holding the issuer (§10.4)", async () => {
+    expect(await refused({ session: { claims: { aud: [ORIGIN] } } })).toContain("aud");
   });
 
   test("an iat outside five minutes", async () => {
@@ -232,6 +271,13 @@ describe("Poppy-Session refusals", () => {
     expect(await refused({ session: { omit: ["poppy_dlg"] } })).toContain("poppy_dlg");
   });
 
+  test("poppy_dlg in the claims instead of the JWT header (§5.2)", async () => {
+    const error = await refused({
+      session: { omit: ["poppy_dlg"], claims: { poppy_dlg: agent.delegation } },
+    });
+    expect(error).toContain("poppy_dlg");
+  });
+
   test("a delegation with the wrong typ", async () => {
     const delegation = await agent.makeDelegation({ typ: "JWT" });
     expect(await refused({ session: { delegation } })).toContain("delegation typ");
@@ -253,12 +299,13 @@ describe("Poppy-Session refusals", () => {
     expect(await refused({ session: { delegation } })).toContain("24 hours");
   });
 
-  test("an expired delegation ends the session", async () => {
+  // §5.2: a delegation that fails any check, expiry included, is invalid_session.
+  test("an expired delegation", async () => {
     const delegation = await agent.makeDelegation({
       iat: Math.floor(Date.now() / 1000) - 7200,
       lifetime: 3600,
     });
-    await refused({ session: { delegation } }, "session_ended");
+    expect(await refused({ session: { delegation } })).toContain("expired");
   });
 });
 

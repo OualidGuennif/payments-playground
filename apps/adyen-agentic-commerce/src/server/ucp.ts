@@ -1,10 +1,10 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // UCP 2026-08-25 shopping service: one operation table served over REST and over MCP.
 import {
-  PRODUCTS,
   type Product,
   productById,
   searchProducts,
+  type Variant,
   variantById,
   variantsOf,
 } from "./catalog";
@@ -116,7 +116,53 @@ export function profile() {
   };
 }
 
-function envelope(capability: keyof typeof CAPABILITIES, status: "success" | "error" = "success") {
+type Capability = keyof typeof CAPABILITIES;
+// The store's shopping capabilities, all at UCP_VERSION: what negotiation intersects.
+export const STORE_CAPABILITIES = Object.keys(CAPABILITIES) as Capability[];
+
+// The capability each operation belongs to: it runs only when negotiation kept that capability.
+export const OP_CAPABILITY: Readonly<Record<string, Capability>> = {
+  search_catalog: "dev.ucp.shopping.catalog.search",
+  lookup_catalog: "dev.ucp.shopping.catalog.lookup",
+  get_product: "dev.ucp.shopping.catalog.lookup",
+  create_cart: "dev.ucp.shopping.cart",
+  get_cart: "dev.ucp.shopping.cart",
+  update_cart: "dev.ucp.shopping.cart",
+  cancel_cart: "dev.ucp.shopping.cart",
+  create_checkout: "dev.ucp.shopping.checkout",
+  get_checkout: "dev.ucp.shopping.checkout",
+  update_checkout: "dev.ucp.shopping.checkout",
+  complete_checkout: "dev.ucp.shopping.checkout",
+  cancel_checkout: "dev.ucp.shopping.checkout",
+  get_order: "dev.ucp.shopping.order",
+};
+
+// UCP continue_url on a failed negotiation: the page where the shopper can carry on by hand.
+export function continueUrl(op: string) {
+  const origin = config().publicOrigin;
+  const capability = OP_CAPABILITY[op] ?? "";
+  if (capability.startsWith("dev.ucp.shopping.catalog")) return `${origin}/shop`;
+  if (capability === "dev.ucp.shopping.order") return `${origin}/`;
+  return `${origin}/cart`;
+}
+
+// UCP's error_response for a negotiation that failed or shares no capability for `op`.
+export function negotiationRefusal(op: string, code: string, content: string) {
+  return {
+    ucp: { version: UCP_VERSION, status: "error" },
+    messages: [{ type: "error", code, content, severity: "unrecoverable" }],
+    continue_url: continueUrl(op),
+  };
+}
+
+export const capabilitiesIncompatible = (op: string) =>
+  negotiationRefusal(
+    op,
+    "capabilities_incompatible",
+    `${op} needs ${OP_CAPABILITY[op]} at ${UCP_VERSION}, which the platform profile does not share`,
+  );
+
+function envelope(capability: Capability, status: "success" | "error" = "success") {
   return {
     version: UCP_VERSION,
     status,
@@ -130,36 +176,182 @@ function envelope(capability: keyof typeof CAPABILITIES, status: "success" | "er
 const money = (amount: number) => ({ amount, currency: CURRENCY });
 const artUrl = (variantId: string) => `${config().publicOrigin}/api/art/${variantId}.svg`;
 
-export function renderProduct(p: Product) {
-  const origin = config().publicOrigin;
-  const variants = variantsOf(p);
+// UCP's selected_option: colour carries its value id, size has none.
+type Selection = { name: "colour" | "size"; id?: string; label: string };
+const OPTION_NAMES = ["colour", "size"] as const;
+
+const optionsOf = (v: Variant): Selection[] => [
+  { name: "colour", id: v.colour.id, label: v.colour.label },
+  { name: "size", label: v.size },
+];
+
+// UCP prefers the value id over the label when the platform sends one.
+const matches = (v: Variant, s: Selection) =>
+  s.name === "colour"
+    ? s.id !== undefined
+      ? v.colour.id === s.id
+      : v.colour.label === s.label
+    : v.size === s.label;
+const matchesAll = (v: Variant, selected: Selection[]) => selected.every((s) => matches(v, s));
+
+// The featured variant is the first one a shopper can buy, else the first one.
+const featured = (variants: Variant[]) => variants.find((v) => v.available) ?? variants[0];
+const featuredFirst = (variants: Variant[]) => {
+  const top = featured(variants);
+  return top ? [top, ...variants.filter((v) => v !== top)] : [];
+};
+
+export function renderVariant(p: Product, v: Variant) {
+  return {
+    id: v.id,
+    sku: v.id,
+    title: v.title,
+    description: { plain: p.description },
+    url: `${config().publicOrigin}/products/${p.id}?variant=${v.id}`,
+    price: money(v.price),
+    availability: { available: v.available, status: v.available ? "in_stock" : "out_of_stock" },
+    options: optionsOf(v),
+    media: [{ type: "image", url: artUrl(v.id), alt_text: v.title, width: 480, height: 480 }],
+  };
+}
+
+// `variants` is what this answer returns, in order: its first is the featured one.
+export function renderProduct(p: Product, variants: Variant[] = featuredFirst(variantsOf(p))) {
+  const all = variantsOf(p);
+  const prices = all.map((v) => v.price);
   return {
     id: p.id,
     handle: p.id,
     title: p.title,
-    description: p.description,
-    url: `${origin}/products/${p.id}`,
+    description: { plain: p.description },
+    url: `${config().publicOrigin}/products/${p.id}`,
     categories: [{ value: p.category, taxonomy: "atelier-velune" }],
-    price_range: { min: money(p.price), max: money(p.price) },
+    price_range: { min: money(Math.min(...prices)), max: money(Math.max(...prices)) },
     media: [
-      { type: "image", url: artUrl(variants[0]!.id), alt_text: p.title, width: 480, height: 480 },
+      {
+        type: "image",
+        url: artUrl((variants[0] ?? all[0]!).id),
+        alt_text: p.title,
+        width: 480,
+        height: 480,
+      },
+    ],
+    options: [
+      { name: "colour", values: p.colours.map((c) => ({ id: c.id, label: c.label })) },
+      { name: "size", values: p.sizes.map((label) => ({ label })) },
     ],
     tags: p.tags,
-    variants: variants.map((v) => ({
-      id: v.id,
-      sku: v.id,
-      title: v.title,
-      description: p.description,
-      url: `${origin}/products/${p.id}?variant=${v.id}`,
-      price: money(v.price),
-      availability: { available: v.available, status: v.available ? "in_stock" : "out_of_stock" },
-      options: [
-        { name: "colour", id: v.colour.id, label: v.colour.label },
-        { name: "size", label: v.size },
-      ],
-      media: [{ type: "image", url: artUrl(v.id), alt_text: v.title, width: 480, height: 480 }],
-    })),
+    variants: variants.map((v) => renderVariant(p, v)),
   };
+}
+
+// UCP search_filters, shared by search, lookup and product: categories (any of) on the product,
+// a price range on each variant. The singular `category` this store read before stays accepted.
+type Filters = { categories: string[]; min?: number; max?: number };
+
+function readFilters(req: Record<string, unknown>): Filters {
+  const filters = isRecord(req.filters) ? req.filters : {};
+  const categories = Array.isArray(filters.categories)
+    ? filters.categories.filter((c): c is string => typeof c === "string")
+    : typeof filters.category === "string"
+      ? [filters.category]
+      : [];
+  const price = isRecord(filters.price) ? filters.price : {};
+  return {
+    categories,
+    min: typeof price.min === "number" ? price.min : undefined,
+    max: typeof price.max === "number" ? price.max : undefined,
+  };
+}
+
+const inCategory = (p: Product, f: Filters) =>
+  !f.categories.length || f.categories.includes(p.category);
+const inPriceRange = (v: Variant, f: Filters) =>
+  (f.min === undefined || v.price >= f.min) && (f.max === undefined || v.price <= f.max);
+const variantsWithin = (p: Product, f: Filters) =>
+  inCategory(p, f) ? variantsOf(p).filter((v) => inPriceRange(v, f)) : [];
+
+// UCP pagination: a default page of 10, at most 50, and an opaque stateless cursor (an offset).
+const PAGE_DEFAULT = 10;
+const PAGE_MAX = 50;
+const LOOKUP_MAX = 50;
+
+function readPage(req: Record<string, unknown>) {
+  const pagination = isRecord(req.pagination) ? req.pagination : {};
+  const { limit, cursor } = pagination;
+  if (limit !== undefined && !(Number.isInteger(limit) && (limit as number) >= 1))
+    throw invalidParams("invalid_pagination", "pagination.limit must be an integer of 1 or more");
+  let offset = 0;
+  if (cursor !== undefined) {
+    const decoded =
+      typeof cursor === "string" ? Buffer.from(cursor, "base64url").toString("utf8") : "";
+    const found = /^o:(0|[1-9][0-9]{0,5})$/.exec(decoded);
+    if (!found) throw invalidParams("invalid_pagination", "pagination.cursor is not one we issued");
+    offset = Number(found[1]);
+  }
+  return { offset, limit: Math.min((limit as number | undefined) ?? PAGE_DEFAULT, PAGE_MAX) };
+}
+
+const cursorFor = (offset: number) => Buffer.from(`o:${offset}`).toString("base64url");
+
+// Product detail (UCP get_product): the effective selection, after dropping what no variant
+// matches; options not in `preferences` go first, then preferences from the end.
+function readSelection(req: Record<string, unknown>): Selection[] {
+  const asked = Array.isArray(req.selected) ? req.selected.filter(isRecord) : [];
+  const seen = new Set<string>();
+  const selection: Selection[] = [];
+  for (const s of asked) {
+    const name = s.name;
+    if (name !== "colour" && name !== "size") continue;
+    if (seen.has(name) || typeof s.label !== "string") continue;
+    seen.add(name);
+    selection.push({ name, label: s.label, ...(typeof s.id === "string" ? { id: s.id } : {}) });
+  }
+  return selection;
+}
+
+function relax(selection: Selection[], preferences: string[], candidates: Variant[]) {
+  const order = [
+    ...selection
+      .map((s) => s.name)
+      .filter((n) => !preferences.includes(n))
+      .reverse(),
+    ...[...preferences].reverse(),
+  ];
+  let effective = selection;
+  for (const name of order) {
+    if (candidates.some((v) => matchesAll(v, effective))) break;
+    effective = effective.filter((s) => s.name !== name);
+  }
+  return effective;
+}
+
+// Normalised to the catalogue's own values, in option order.
+function selectionFor(effective: Selection[], anchor: Variant): Selection[] {
+  return optionsOf(anchor).filter((o) => effective.some((s) => s.name === o.name));
+}
+
+function detailOptions(p: Product, selected: Selection[], candidates: Variant[]) {
+  const all = variantsOf(p);
+  const signal = (value: Selection) => {
+    const others = selected.filter((s) => s.name !== value.name);
+    const wanted = [...others, value];
+    return {
+      available: candidates.some((v) => v.available && matchesAll(v, wanted)),
+      exists: all.some((v) => matchesAll(v, wanted)),
+    };
+  };
+  return OPTION_NAMES.map((name) => ({
+    name,
+    values:
+      name === "colour"
+        ? p.colours.map((c) => ({
+            id: c.id,
+            label: c.label,
+            ...signal({ name, id: c.id, label: c.label }),
+          }))
+        : p.sizes.map((label) => ({ label, ...signal({ name, label }) })),
+  }));
 }
 
 function renderLines(lines: commerce.Line[]) {
@@ -279,15 +471,18 @@ export function renderOrder(order: commerce.Order, withBuyer: boolean) {
     status: order.status,
     permalink_url: `${config().publicOrigin}/orders/${order.id}`,
     currency: order.currency,
+    // Nothing ships in this demo: every line stays processing and the fulfilment log is empty.
     line_items: order.lines.map((l) => ({
       id: l.variantId,
       item: { id: l.variantId, title: l.title, price: l.unitPrice, image_url: artUrl(l.variantId) },
-      quantity: l.quantity,
+      quantity: { original: l.quantity, total: l.quantity, fulfilled: 0 },
       totals: [
         { type: "subtotal", amount: l.unitPrice * l.quantity },
         { type: "total", amount: l.unitPrice * l.quantity },
       ],
+      status: "processing",
     })),
+    fulfillment: { expectations: [], events: [] },
     totals: [
       { type: "subtotal", amount: order.subtotal },
       { type: "fulfillment", amount: order.fulfillment },
@@ -302,7 +497,13 @@ export function renderOrder(order: commerce.Order, withBuyer: boolean) {
 // --- operations --------------------------------------------------------------------------------
 
 export type OpContext = { auth?: Auth };
-export type OpResult = { status: number; body: unknown };
+// rpcCode: a request MCP must refuse as a JSON-RPC error rather than a tool result.
+export type OpResult = { status: number; body: unknown; rpcCode?: number };
+
+// UCP answers a malformed or oversized catalogue request with 400 on REST and -32602 on MCP.
+export class InvalidParams extends commerce.CommerceError {}
+const invalidParams = (code: string, content: string) =>
+  new InvalidParams(400, { type: "error", code, content, severity: "unrecoverable" });
 
 // UCP identity linking: the one scope each operation needs, declared once for the check below and
 // for the OpenAPI description. Reads of a cart or checkout by its id and the catalogue need none.
@@ -363,75 +564,97 @@ type Operation = (args: Record<string, unknown>, ctx: OpContext) => Promise<OpRe
 const HANDLERS: Record<string, Operation> = {
   search_catalog: (args) => {
     const req = part(args, "catalog");
-    const filters = isRecord(req.filters) ? req.filters : {};
-    // UCP's search_filters: `categories` with OR logic; the singular `category` this store read
-    // before stays accepted.
-    const categories = Array.isArray(filters.categories)
-      ? filters.categories.filter((c): c is string => typeof c === "string")
-      : typeof filters.category === "string"
-        ? [filters.category]
-        : [];
-    const price = isRecord(filters.price) ? filters.price : {};
-    const min = typeof price.min === "number" ? price.min : undefined;
-    const max = typeof price.max === "number" ? price.max : undefined;
-    const products = searchProducts(typeof req.query === "string" ? req.query : "", {
-      maxPrice: max,
-    }).filter(
-      (p) =>
-        (!categories.length || categories.includes(p.category)) &&
-        (min === undefined || p.price >= min),
-    );
+    const filters = readFilters(req);
+    const { offset, limit } = readPage(req);
+    const found = searchProducts(typeof req.query === "string" ? req.query : "")
+      .map((p) => ({ p, variants: variantsWithin(p, filters) }))
+      .filter((hit) => hit.variants.length > 0);
+    const page = found.slice(offset, offset + limit);
+    const next = offset + limit < found.length;
     return {
       status: 200,
       body: {
         ucp: envelope("dev.ucp.shopping.catalog.search"),
-        products: products.map(renderProduct),
-        messages: products.length
+        products: page.map(({ p, variants }) => renderProduct(p, featuredFirst(variants))),
+        pagination: {
+          has_next_page: next,
+          ...(next ? { cursor: cursorFor(offset + limit) } : {}),
+          total_count: found.length,
+        },
+        messages: found.length
           ? []
           : [
               {
                 type: "info",
                 code: "no_results",
-                content: `No match. Categories: clothing, bags, accessories. ${PRODUCTS.length} products in total.`,
+                content: "No match. Categories: clothing, bags, accessories.",
               },
             ],
       },
     };
   },
+  // UCP lookup: each product once, carrying only the variants an id resolved to, each with the
+  // ids that resolved to it (`exact` for a variant id, `featured` for a product id).
   lookup_catalog: (args) => {
     const req = part(args, "catalog");
-    const ids = Array.isArray(req.ids) ? req.ids.map(String).slice(0, 50) : [];
-    const products = new Map<string, Product>();
-    const inputs = new Map<string, string[]>();
+    const ids = [
+      ...new Set(
+        (Array.isArray(req.ids) ? req.ids : []).filter((x): x is string => typeof x === "string"),
+      ),
+    ];
+    if (ids.length > LOOKUP_MAX)
+      throw invalidParams("request_too_large", `At most ${LOOKUP_MAX} distinct ids per lookup`);
+    const filters = readFilters(req);
+    // Keyed by id: variantsOf builds fresh objects on every call.
+    type Hit = { v: Variant; inputs: object[] };
+    const resolved = new Map<string, { p: Product; hits: Map<string, Hit> }>();
+    const missing: string[] = [];
     for (const id of ids) {
-      const product = productById(id) ?? productById(variantById(id)?.productId ?? "");
-      if (product) {
-        products.set(product.id, product);
-        inputs.set(product.id, [...(inputs.get(product.id) ?? []), id]);
+      const variant = variantById(id);
+      const p = productById(id) ?? productById(variant?.productId ?? "");
+      if (!p) {
+        missing.push(id);
+        continue;
       }
+      const within = variantsWithin(p, filters);
+      const hit = variant ? within.find((v) => v.id === variant.id) : featured(within);
+      if (!hit) continue;
+      const entry = resolved.get(p.id) ?? { p, hits: new Map<string, Hit>() };
+      const seen = entry.hits.get(hit.id) ?? { v: hit, inputs: [] };
+      seen.inputs.push({ id, match: variant ? "exact" : "featured" });
+      entry.hits.set(hit.id, seen);
+      resolved.set(p.id, entry);
     }
-    const missing = ids.filter((id) => !productById(id) && !variantById(id));
     return {
       status: 200,
       body: {
         ucp: envelope("dev.ucp.shopping.catalog.lookup"),
-        products: [...products.values()].map(renderProduct),
-        messages: missing.map((id) => ({
-          type: "error",
-          code: "not_found",
-          content: `No product or variant ${id}`,
-          severity: "unrecoverable",
-        })),
+        products: [...resolved.values()].map(({ p, hits }) => {
+          const found = [...hits.values()];
+          return {
+            ...renderProduct(
+              p,
+              found.map((h) => h.v),
+            ),
+            variants: found.map((h) => ({ ...renderVariant(p, h.v), inputs: h.inputs })),
+          };
+        }),
+        messages: missing.map((id) => ({ type: "info", code: "not_found", content: id })),
       },
     };
   },
+  // UCP get_product: the requested variant first, `selected` and the variants matching it, and
+  // option values with availability against `selected`. Not found is an application outcome.
   get_product: (args) => {
     const req = part(args, "catalog");
     const id = typeof req.id === "string" ? req.id : typeof args.id === "string" ? args.id : "";
-    const product = productById(id) ?? productById(variantById(id)?.productId ?? "");
-    if (!product)
+    const variant = variantById(id);
+    const p = productById(id) ?? productById(variant?.productId ?? "");
+    const candidates = p ? variantsWithin(p, readFilters(req)) : [];
+    const anchor = variant ? candidates.find((v) => v.id === variant.id) : undefined;
+    if (!p || !candidates.length || (variant && !anchor))
       return {
-        status: 404,
+        status: 200,
         body: {
           ucp: envelope("dev.ucp.shopping.catalog.lookup", "error"),
           messages: [
@@ -444,9 +667,31 @@ const HANDLERS: Record<string, Operation> = {
           ],
         },
       };
+    let selected: Selection[];
+    let variants: Variant[];
+    if (anchor) {
+      selected = optionsOf(anchor);
+      variants = [anchor, ...candidates.filter((v) => v !== anchor && matchesAll(v, selected))];
+    } else {
+      const asked = readSelection(req);
+      const preferences = Array.isArray(req.preferences)
+        ? req.preferences.filter((x): x is string => typeof x === "string")
+        : [];
+      const effective = asked.length ? relax(asked, preferences, candidates) : [];
+      const matching = featuredFirst(candidates.filter((v) => matchesAll(v, effective)));
+      selected = asked.length ? selectionFor(effective, matching[0]!) : optionsOf(matching[0]!);
+      variants = matching.filter((v) => matchesAll(v, selected));
+    }
     return {
       status: 200,
-      body: { ucp: envelope("dev.ucp.shopping.catalog.lookup"), product: renderProduct(product) },
+      body: {
+        ucp: envelope("dev.ucp.shopping.catalog.lookup"),
+        product: {
+          ...renderProduct(p, variants),
+          selected,
+          options: detailOptions(p, selected, candidates),
+        },
+      },
     };
   },
   create_cart: (args, ctx) => {

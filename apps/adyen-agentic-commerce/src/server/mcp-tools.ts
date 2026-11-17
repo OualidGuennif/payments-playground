@@ -34,6 +34,23 @@ const buyer = {
   },
 };
 
+// UCP search_filters, read the same way by search, lookup and product.
+const filters = {
+  type: "object",
+  properties: {
+    categories: {
+      type: "array",
+      description: "Any of these categories.",
+      items: { enum: ["clothing", "bags", "accessories"] },
+    },
+    price: {
+      type: "object",
+      description: "EUR minor units.",
+      properties: { min: { type: "integer" }, max: { type: "integer" } },
+    },
+  },
+};
+
 const tool = (
   name: string,
   title: string,
@@ -60,25 +77,22 @@ export const MCP_TOOLS = [
   tool(
     "search_catalog",
     "Search the catalogue",
-    "Search clothes, bags and accessories. Empty query lists everything. Prices are EUR minor units.",
+    "Search clothes, bags and accessories. Empty query lists everything, 10 per page: pass pagination.cursor from the answer for the next page. Prices are EUR minor units.",
     {
       meta: meta(false),
       catalog: {
         type: "object",
         properties: {
           query: { type: "string" },
-          filters: {
+          filters,
+          pagination: {
             type: "object",
             properties: {
-              categories: {
-                type: "array",
-                description: "Any of these categories.",
-                items: { enum: ["clothing", "bags", "accessories"] },
-              },
-              price: {
-                type: "object",
-                description: "EUR minor units.",
-                properties: { min: { type: "integer" }, max: { type: "integer" } },
+              cursor: { type: "string", description: "pagination.cursor from the previous page." },
+              limit: {
+                type: "integer",
+                minimum: 1,
+                description: "Page size, 10 by default, 50 at most.",
               },
             },
           },
@@ -91,13 +105,13 @@ export const MCP_TOOLS = [
   tool(
     "lookup_catalog",
     "Look up products",
-    "Fetch products by product or variant id.",
+    "Fetch products by product or variant id (at most 50 distinct ids). Each variant lists the ids that resolved to it in inputs: exact for a variant id, featured for a product id.",
     {
       meta: meta(false),
       catalog: {
         type: "object",
         required: ["ids"],
-        properties: { ids: { type: "array", items: { type: "string" } } },
+        properties: { ids: { type: "array", minItems: 1, items: { type: "string" } }, filters },
       },
     },
     ["catalog"],
@@ -106,8 +120,31 @@ export const MCP_TOOLS = [
   tool(
     "get_product",
     "Get a product",
-    "One product with all its variants (colour, size, availability).",
-    { meta: meta(false), catalog: { type: "object", required: ["id"], properties: { id } } },
+    "One product by product or variant id: selected holds the chosen colour and size, variants the ones matching it, options each value's availability. Send selected to narrow it, and preferences, the options in priority order (the last is dropped first when nothing matches).",
+    {
+      meta: meta(false),
+      catalog: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id,
+          selected: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["name", "label"],
+              properties: {
+                name: { enum: ["colour", "size"] },
+                id: { type: "string" },
+                label: { type: "string" },
+              },
+            },
+          },
+          preferences: { type: "array", items: { enum: ["colour", "size"] } },
+          filters,
+        },
+      },
+    },
     ["catalog"],
     true,
   ),
@@ -135,7 +172,7 @@ export const MCP_TOOLS = [
   tool(
     "create_checkout",
     "Create a checkout",
-    "Create a checkout from line items (or a cart_id). The server prices it; read status, totals and payment.instruments in the answer.",
+    "Create a checkout from line items, or from a cart_id whose lines and buyer then win. The server prices it; read status, totals and payment.instruments in the answer.",
     {
       meta: meta(false),
       checkout: {

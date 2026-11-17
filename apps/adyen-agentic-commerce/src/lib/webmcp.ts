@@ -87,6 +87,21 @@ function summary(p: CatalogProduct) {
   };
 }
 
+// Output schemas: the draft lets an agent reject an answer that does not validate, so each one
+// lists every shape the tool returns, a refusal included, and nothing else.
+const object = (properties: Record<string, JsonSchema>): JsonSchema => ({
+  type: "object",
+  properties,
+  required: Object.keys(properties),
+  additionalProperties: false,
+});
+const STRING = { type: "string" };
+const STRINGS = { type: "array", items: STRING };
+const EUR = { type: "number", minimum: 0 };
+const COUNT = { type: "integer", minimum: 0 };
+const refusal = (flag: string, reason: string, extra: Record<string, JsonSchema> = {}) =>
+  object({ [flag]: { const: false }, reason: { const: reason }, ...extra });
+
 const READ_ONLY: ToolAnnotations = { readOnlyHint: true };
 const CHANGES_CART: ToolAnnotations = { readOnlyHint: false };
 
@@ -107,6 +122,19 @@ export function shopTools(deps: ShopDeps): WebMcpTool[] {
         },
         additionalProperties: false,
       },
+      outputSchema: object({
+        products: {
+          type: "array",
+          items: object({
+            product_id: STRING,
+            title: STRING,
+            price_eur: EUR,
+            colours: STRINGS,
+            sizes: STRINGS,
+          }),
+        },
+        more: { ...COUNT, description: "How many more matched than were returned." },
+      }),
       annotations: READ_ONLY,
       async execute(input, client) {
         const max = typeof input.max_price_eur === "number" ? input.max_price_eur : undefined;
@@ -131,6 +159,19 @@ export function shopTools(deps: ShopDeps): WebMcpTool[] {
       description:
         "The shopper's cart on this site: each line's variant id, title, quantity and unit price in euros, and the subtotal. The checkout adds shipping and computes the final total.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      outputSchema: object({
+        lines: {
+          type: "array",
+          items: object({
+            variant_id: STRING,
+            title: STRING,
+            quantity: { type: "integer", minimum: 1 },
+            price_eur: EUR,
+          }),
+        },
+        items: COUNT,
+        subtotal_eur: EUR,
+      }),
       annotations: READ_ONLY,
       async execute(_input, client) {
         const lines = deps.cart.read();
@@ -170,6 +211,21 @@ export function shopTools(deps: ShopDeps): WebMcpTool[] {
         },
         required: ["product_id"],
         additionalProperties: false,
+      },
+      outputSchema: {
+        type: "object",
+        oneOf: [
+          object({
+            added: { const: true },
+            variant_id: STRING,
+            in_cart: { type: "integer", minimum: 1 },
+            cart_items: COUNT,
+          }),
+          refusal("added", "unknown_product"),
+          refusal("added", "choose_colour", { colours: STRINGS }),
+          refusal("added", "choose_size", { sizes: STRINGS }),
+          refusal("added", "sold_out", { in_stock: STRINGS }),
+        ],
       },
       annotations: CHANGES_CART,
       async execute(input, client) {
@@ -217,6 +273,14 @@ export function shopTools(deps: ShopDeps): WebMcpTool[] {
         required: ["variant_id", "quantity"],
         additionalProperties: false,
       },
+      outputSchema: {
+        type: "object",
+        oneOf: [
+          object({ updated: { const: true }, removed: { type: "boolean" }, cart_items: COUNT }),
+          refusal("updated", "quantity_0_to_10"),
+          refusal("updated", "not_in_cart", { variant_ids: STRINGS }),
+        ],
+      },
       annotations: CHANGES_CART,
       async execute(input) {
         const quantity = whole(input.quantity, 0, MAX_QUANTITY);
@@ -243,6 +307,20 @@ export function shopTools(deps: ShopDeps): WebMcpTool[] {
           email: { type: "string", description: "The shopper's email for the receipt, if known." },
         },
         additionalProperties: false,
+      },
+      outputSchema: {
+        type: "object",
+        oneOf: [
+          object({
+            started: { const: true },
+            checkout_id: STRING,
+            url: { type: "string", format: "uri" },
+            next: STRING,
+          }),
+          refusal("started", "invalid_email"),
+          refusal("started", "empty_cart"),
+          refusal("started", "refused"),
+        ],
       },
       annotations: CHANGES_CART,
       async execute(input, client) {

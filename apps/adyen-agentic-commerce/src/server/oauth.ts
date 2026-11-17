@@ -126,7 +126,7 @@ type AuthRequest = {
   scopes: Scope[];
   state?: string;
   codeChallenge?: string;
-  resource?: string;
+  resources?: string[];
   expiresAt: number;
 };
 
@@ -143,7 +143,7 @@ type DeviceRequest = {
   clientName: string;
   userCode: string;
   scopes: Scope[];
-  resource?: string;
+  resources?: string[];
   expiresAt: number;
   interval: number;
   lastPollMs?: number;
@@ -159,6 +159,7 @@ type Code = {
   codeChallenge: string;
   grantId: string;
   scopes: Scope[];
+  resources?: string[];
   expiresAt: number;
   used: boolean;
 };
@@ -169,6 +170,8 @@ export type Token = {
   clientId: string;
   grantId: string;
   scopes: Scope[];
+  // RFC 8707: where the token may be used; absent means every resource the store serves.
+  resources?: string[];
   expiresAt: number;
   revoked: boolean;
 };
@@ -185,12 +188,53 @@ export class OAuthError extends Error {
   }
 }
 
+// PAP 1.0 §4.1: a Company may refuse an assertion living over 5 minutes, never one within them.
+const MAX_ASSERTION_LIFETIME = 300;
+const ASSERTION_SKEW = 60;
 const ACCESS_TTL = 3600;
 const REFRESH_TTL = 30 * 24 * 3600;
 const nowSec = () => Math.floor(Date.now() / 1000);
 export const issuer = () => config().publicOrigin;
 // Loopback client documents are accepted only while the store itself runs on a loopback origin.
 const devOrigin = () => isLoopback(new URL(issuer()));
+
+// RFC 8707: the store serves two protected resources, its UCP REST API at the origin and its MCP
+// endpoint. A value names one when it is the same URI after RFC 3986 normalisation, so the
+// origin's trailing slash is the origin, while a query, a fragment or another path is not.
+const servedResources = () => [issuer(), `${issuer()}/mcp`];
+
+function servedResource(value: string): string | undefined {
+  let href: string;
+  try {
+    href = new URL(value).href;
+  } catch {
+    return undefined;
+  }
+  return servedResources().find((r) => new URL(r).href === href);
+}
+
+// The resource parameters of a request, as served resources without repeats; none leaves the
+// token good at both. Anything else is invalid_target, so no code or token is ever issued for it.
+function requestedResources(values: string[]): string[] | undefined {
+  if (!values.length) return undefined;
+  const resources = new Set<string>();
+  for (const value of values) {
+    const resource = servedResource(value);
+    if (!resource)
+      throw new OAuthError("invalid_target", `${value} is not a resource this store serves`);
+    resources.add(resource);
+  }
+  return [...resources];
+}
+
+// At the token endpoint a client may narrow to resources it was granted, never reach another one.
+function grantedResources(granted: string[] | undefined, values: string[]): string[] | undefined {
+  const asked = requestedResources(values);
+  if (!asked) return granted;
+  if (granted && asked.some((r) => !granted.includes(r)))
+    throw new OAuthError("invalid_target", "The grant was not issued for that resource");
+  return asked;
+}
 
 export function authorizationServerMetadata() {
   const iss = issuer();
@@ -247,7 +291,8 @@ async function fetchNoRedirect(url: string): Promise<unknown> {
   return JSON.parse(text);
 }
 
-function metadataUrlAllowed(url: URL) {
+// Client metadata documents and UCP platform profiles: https, or loopback on a loopback store.
+export function metadataUrlAllowed(url: URL) {
   return url.protocol === "https:" || (devOrigin() && isLoopback(url));
 }
 
@@ -422,14 +467,18 @@ async function authenticateClient(form: URLSearchParams): Promise<Client> {
         401,
       );
     }
-    const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-    if (!aud.includes(issuer()))
-      throw new OAuthError("invalid_client", "aud must be the issuer", 401);
-    if (typeof payload.exp !== "number")
-      throw new OAuthError("invalid_client", "exp is required", 401);
-    if (typeof payload.iat === "number" && payload.exp - payload.iat > 3600) {
-      throw new OAuthError("invalid_client", "client_assertion lifetime is too long", 401);
+    // PAP 1.0 §4.1 (draft-ietf-oauth-rfc7523bis): the issuer as one string; an endpoint URL or an
+    // array could name another Company's endpoint too.
+    if (payload.aud !== issuer())
+      throw new OAuthError("invalid_client", "aud must be the issuer, as a single string", 401);
+    if (typeof payload.exp !== "number" || typeof payload.iat !== "number")
+      throw new OAuthError("invalid_client", "iat and exp are required", 401);
+    if (payload.exp - payload.iat > MAX_ASSERTION_LIFETIME) {
+      throw new OAuthError("invalid_client", "client_assertion lifetime is over 300 s", 401);
     }
+    // Without this a future iat would let an assertion signed today be used much later.
+    if (payload.iat > nowSec() + ASSERTION_SKEW)
+      throw new OAuthError("invalid_client", "client_assertion iat is in the future", 401);
     if (
       typeof payload.jti !== "string" ||
       !claimJti(`ca:${clientId}:${payload.jti}`, payload.exp)
@@ -495,6 +544,12 @@ export async function startAuthorization(params: URLSearchParams): Promise<Autho
   }
   const scopes = requestedScopes(params.get("scope"), client);
   if (typeof scopes === "string") return fail("invalid_scope", scopes);
+  let resources: string[] | undefined;
+  try {
+    resources = requestedResources(params.getAll("resource"));
+  } catch (error) {
+    return fail("invalid_target", (error as Error).message);
+  }
   const request: AuthRequest = {
     id: newId("ar", 18),
     clientId,
@@ -503,7 +558,7 @@ export async function startAuthorization(params: URLSearchParams): Promise<Autho
     scopes,
     state,
     codeChallenge: challenge,
-    resource: params.get("resource") ?? undefined,
+    resources,
     expiresAt: nowSec() + 600,
   };
   put("auth_requests", request.id, request);
@@ -596,6 +651,7 @@ export function decide(input: {
     codeChallenge: request.codeChallenge!,
     grantId: grant.id,
     scopes,
+    resources: request.resources,
     expiresAt: nowSec() + 120,
     used: false,
   });
@@ -645,6 +701,7 @@ export async function startDeviceAuthorization(form: URLSearchParams) {
     );
   const scopes = requestedScopes(form.get("scope"), client);
   if (typeof scopes === "string") throw new OAuthError("invalid_scope", scopes);
+  const resources = requestedResources(form.getAll("resource"));
   // An expired request still answers a late poll with expired_token; one lifetime later it goes.
   removeExpired("device_requests", nowSec() - DEVICE_TTL);
   // The per-address limit cannot stop a caller with many addresses (an IPv6 prefix, a botnet):
@@ -669,7 +726,7 @@ export async function startDeviceAuthorization(form: URLSearchParams) {
     clientName: client.name,
     userCode,
     scopes,
-    resource: form.get("resource") ?? undefined,
+    resources,
     expiresAt: nowSec() + DEVICE_TTL,
     interval: DEVICE_INTERVAL,
     status: "pending",
@@ -748,7 +805,7 @@ export function verifyUserCode(
     clientName: device.clientName,
     device: device.id,
     scopes: device.scopes,
-    resource: device.resource,
+    resources: device.resources,
     expiresAt: device.expiresAt,
   };
   put("auth_requests", request.id, request);
@@ -757,7 +814,7 @@ export function verifyUserCode(
 
 // RFC 8628 §3.5: pending, slow_down (and the interval widens by 5 s), denied, expired, or tokens
 // once; the order of the checks makes a used or late code fail even if it was approved.
-function deviceToken(client: Client, deviceCode: string) {
+function deviceToken(client: Client, deviceCode: string, asked: string[]) {
   const device = get<DeviceRequest>("device_requests", sha256(deviceCode));
   if (!device || device.clientId !== client.clientId)
     throw new OAuthError("invalid_grant", "Unknown device_code");
@@ -765,11 +822,13 @@ function deviceToken(client: Client, deviceCode: string) {
   if (device.expiresAt < nowSec())
     throw new OAuthError("expired_token", "This device_code expired; start again");
   if (device.status === "denied") throw new OAuthError("access_denied", "The shopper declined");
+  // Checked before the code is spent: a poll naming another resource leaves it for a right one.
+  const resources = grantedResources(device.resources, asked);
   if (device.status === "approved") {
     put("device_requests", device.id, { ...device, status: "used" });
     const grant = get<Grant>("grants", device.grantId ?? "");
     if (!grant || grant.revoked) throw new OAuthError("invalid_grant", "Grant revoked");
-    return issueTokens(client.clientId, grant, device.grantedScopes ?? []);
+    return issueTokens(client.clientId, grant, device.grantedScopes ?? [], resources);
   }
   const now = Date.now();
   const early = device.lastPollMs !== undefined && now - device.lastPollMs < device.interval * 1000;
@@ -781,7 +840,12 @@ function deviceToken(client: Client, deviceCode: string) {
 
 // --- tokens ------------------------------------------------------------------------------------
 
-function issueTokens(clientId: string, grant: Grant, scopes: Scope[]) {
+function issueTokens(
+  clientId: string,
+  grant: Grant,
+  scopes: Scope[],
+  resources: string[] | undefined,
+) {
   // The first token is when the account starts to show the agent as more than a consent.
   const current = get<Grant>("grants", grant.id);
   if (current && !current.tokenIssuedAt)
@@ -794,6 +858,7 @@ function issueTokens(clientId: string, grant: Grant, scopes: Scope[]) {
     clientId,
     grantId: grant.id,
     scopes,
+    resources,
     expiresAt: nowSec() + ACCESS_TTL,
     revoked: false,
   });
@@ -803,6 +868,7 @@ function issueTokens(clientId: string, grant: Grant, scopes: Scope[]) {
     clientId,
     grantId: grant.id,
     scopes,
+    resources,
     expiresAt: nowSec() + REFRESH_TTL,
     revoked: false,
   });
@@ -832,7 +898,8 @@ export async function tokenEndpoint(form: URLSearchParams) {
       throw new OAuthError("invalid_grant", "PKCE verification failed");
     const grant = get<Grant>("grants", code.grantId);
     if (!grant || grant.revoked) throw new OAuthError("invalid_grant", "Grant revoked");
-    return issueTokens(client.clientId, grant, code.scopes);
+    const resources = grantedResources(code.resources, form.getAll("resource"));
+    return issueTokens(client.clientId, grant, code.scopes, resources);
   }
   if (grantType === "refresh_token") {
     const raw = form.get("refresh_token") ?? "";
@@ -851,13 +918,19 @@ export async function tokenEndpoint(form: URLSearchParams) {
     const asked = (form.get("scope") ?? "").split(" ").filter(Boolean);
     if (asked.some((s) => !token.scopes.includes(s as Scope)))
       throw new OAuthError("invalid_scope", "Scope exceeds the grant");
+    const resources = grantedResources(token.resources, form.getAll("resource"));
     put("tokens", token.id, { ...token, revoked: true });
-    return issueTokens(client.clientId, grant, asked.length ? (asked as Scope[]) : token.scopes);
+    return issueTokens(
+      client.clientId,
+      grant,
+      asked.length ? (asked as Scope[]) : token.scopes,
+      resources,
+    );
   }
   if (grantType === DEVICE_GRANT) {
     if (!clientGrants(client).includes(DEVICE_GRANT))
       throw new OAuthError("unauthorized_client", `This client did not register ${DEVICE_GRANT}`);
-    return deviceToken(client, form.get("device_code") ?? "");
+    return deviceToken(client, form.get("device_code") ?? "", form.getAll("resource"));
   }
   throw new OAuthError(
     "unsupported_grant_type",
@@ -872,13 +945,19 @@ export async function revokeEndpoint(form: URLSearchParams) {
     put("tokens", token.id, { ...token, revoked: true });
 }
 
-export function authenticate(header: string | null): Auth | undefined | "invalid" {
+// `path` is the protected resource the request reached: "" for UCP REST, "/mcp" for MCP. A token
+// bound to the other one is invalid here (RFC 8707 §2, RFC 6750 §3.1).
+export function authenticate(
+  header: string | null,
+  path: "" | "/mcp",
+): Auth | undefined | "invalid" {
   if (!header) return undefined;
   const match = /^Bearer\s+(\S+)$/i.exec(header);
   if (!match) return "invalid";
   const token = get<Token>("tokens", sha256(match[1]!));
   if (!token || token.kind !== "access" || token.revoked || token.expiresAt < nowSec())
     return "invalid";
+  if (token.resources && !token.resources.includes(`${issuer()}${path}`)) return "invalid";
   const grant = get<Grant>("grants", token.grantId);
   if (!grant || grant.revoked) return "invalid";
   const at = new Date().toISOString();

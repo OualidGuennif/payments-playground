@@ -9,6 +9,7 @@ import { cardAlias } from "./commerce";
 import { put } from "./db";
 import { ADVERTISED_SCOPES } from "./oauth";
 import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "./testing/agent";
+import { ucpAgent } from "./testing/platform";
 import { HARD_GATES } from "./ucp";
 
 const SOCKS = "velune-rib-socks-oat-one-size";
@@ -39,7 +40,7 @@ function rest(method: string, path: string, body?: unknown, headers: Record<stri
       method,
       headers: {
         "content-type": "application/json",
-        "ucp-agent": 'profile="https://agent.example/profile.json"',
+        "ucp-agent": ucpAgent(),
         "request-id": crypto.randomUUID(),
         "x-forwarded-for": randomIp(),
         ...headers,

@@ -46,6 +46,26 @@ export function json(
   });
 }
 
+// UCP's published artifacts (profile, schemas, transport descriptions): shared caching for at
+// least 60 s and never no-store, with an ETag so a cached copy revalidates cheaply.
+export function published(request: Request, body: unknown): Response {
+  const text = JSON.stringify(body);
+  const etag = `"${sha256(text).slice(0, 32)}"`;
+  const headers = {
+    "content-type": "application/json",
+    "cache-control": "public, max-age=300",
+    etag,
+  };
+  const asked =
+    request.headers
+      .get("if-none-match")
+      ?.split(",")
+      .map((t) => t.trim()) ?? [];
+  if (asked.includes(etag) || asked.includes("*"))
+    return new Response(null, { status: 304, headers });
+  return new Response(text, { status: 200, headers });
+}
+
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

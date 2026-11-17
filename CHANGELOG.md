@@ -5,6 +5,62 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-17
+
+- Review fixes on the agentic store: a cached UCP platform profile keeps only its version and the
+  capabilities it shares with the store, so 1,000 padded 256 KiB profiles no longer hold hundreds
+  of MB; a client assertion whose `iat` is more than 60 s ahead is refused, so one signed today
+  cannot be used much later; `get_product`'s description and the spec now say `preferences` is a
+  priority order whose last option is dropped first, as UCP and the code do. The spec lists
+  `invalid_pagination`.
+- A tech-watch package compares the UCP draft of 2026-11-16 with 2026-08-25 for the agentic store:
+  one gap already fixed (cart contents win), three items left open for the next version cut.
+- A UCP checkout created from a `cart_id` now takes the cart's lines and buyer, ignoring the
+  request's overlapping `line_items` and `buyer`, as the 2026-08-25 cart extension requires; before,
+  `line_items` sent next to `cart_id` replaced the cart. Found while reading the UCP draft.
+- The store's five WebMCP tools declare an `outputSchema` listing every answer they give, refusals
+  included, as the draft lets an agent reject an answer that does not validate. The tests check
+  every answer they produce against its tool's schema.
+- The agentic store applies RFC 8707 resource indicators: `resource` on authorize, device
+  authorization and token requests must be the store's origin (UCP REST) or its `/mcp` URL,
+  otherwise `invalid_target` and no code or token; the token endpoint may only narrow to granted
+  resources. A token issued for one resource is refused (401) at the other, a token issued without
+  one still works at both, and a refresh keeps its resource. `scripts/pap-agent.ts` asks for the
+  MCP URL.
+- The agentic store resolves and negotiates the `UCP-Agent` platform profile (UCP 2026-08-25): a
+  REST call must name an https profile (`invalid_profile_url` 400 otherwise), fetched without
+  redirects within 5 s and 256 KiB (`profile_unreachable` 424), shape-checked with public keys
+  only (`profile_malformed` 422), on version 2026-08-25 (`version_unsupported` 422) and cached for
+  its `max-age` (1 h at most). Capabilities intersect by name and common version, with the schema
+  host bound to the name's namespace; an operation outside the intersection gets a 200
+  `capabilities_incompatible` body. On MCP, `meta["ucp-agent"]` is optional, a failure is
+  JSON-RPC `-32001` with the UCP code, and a header naming another profile is refused. The fetch
+  runs after the rate limit and token check, and a refusal is never stored under an
+  Idempotency-Key. The OpenAPI description lists 400, 422 and 424; KNOWN_LIMITS says what this
+  means for a `curl`.
+- The agentic store serves its UCP published artifacts (`/.well-known/ucp`, the OpenAPI
+  description and the saved-card handler schema) with `Cache-Control: public, max-age=300` and an
+  `ETag` that revalidates to 304, as UCP requires; they were `no-store`. Per-request answers stay
+  `no-store`.
+- UCP 2026-08-25 catalogue and order answers follow the prose as well as the schemas: products
+  and variants carry `description: {plain}`; search pages 10 at a time (50 at most) with an opaque
+  cursor and `pagination`; lookup dedupes ids, refuses more than 50 (`request_too_large`, MCP
+  `-32602`), returns only the variants an id resolved to with their `inputs` (`exact` or
+  `featured`) and lists unknown ids as `info` messages; product puts a requested variant first,
+  returns `selected` (relaxed by `preferences`) and option values with `available` and `exists`,
+  and answers an unknown id with a 200 error body. Filters apply to all three. Orders carry
+  `fulfillment` and per-line `quantity` and `status`. Captured answers validate with ucp-schema.
+- PAP 1.0 checks on the agentic store follow the text exactly: the Session's delegation is read
+  from the JWT header's `poppy_dlg` (§5.2), its `aud` must be the issuer as one string, an expired
+  delegation is `invalid_session`, and a Session needs `Poppy-Version` 1.x (1.1 accepted, a
+  missing or malformed one refused). A client assertion's `aud` must be the issuer as one string,
+  `iat` is required and it may live 300 s at most. The test agent and `scripts/pap-agent.ts` send
+  Sessions the same way.
+- Specify the agentic store's v0.3.3 conformance fixes before the code: UCP-Agent profile
+  resolution and negotiation, RFC 8707 resource binding, the PAP Session and client assertion
+  checks, UCP catalogue paging, lookup, product and order shapes, published-artifact caching and
+  WebMCP output schemas.
+
 ## [0.3.2] - 2026-11-17
 
 - The agentic store keeps its data across deploys: its Render service moves to `starter` with a

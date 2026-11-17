@@ -323,17 +323,15 @@ export function cancelCart(cart: Cart): Cart {
 // --- checkouts ---------------------------------------------------------------------------------
 
 export function createCheckout(body: Record<string, unknown>, auth?: Auth): Checkout {
-  let lines: Line[];
-  if (typeof body.cart_id === "string" && body.line_items === undefined) {
-    lines = loadCart(body.cart_id, auth?.token.clientId).lines;
-  } else {
-    lines = parseLines(body.line_items);
-  }
+  // UCP 2026-08-25 cart extension: the business uses the cart's contents and ignores the checkout
+  // payload's overlapping fields, so they are not even parsed.
+  const cart =
+    typeof body.cart_id === "string" ? loadCart(body.cart_id, auth?.token.clientId) : undefined;
   const checkout: Checkout = {
     id: newId("chk"),
-    cartId: typeof body.cart_id === "string" ? body.cart_id : undefined,
-    lines,
-    buyer: parseBuyer(body.buyer),
+    cartId: cart?.id,
+    lines: cart ? cart.lines : parseLines(body.line_items),
+    buyer: cart?.buyer ?? parseBuyer(body.buyer),
     phase: "open",
     clientId: auth?.token.clientId,
     grantId: auth?.grant.id,

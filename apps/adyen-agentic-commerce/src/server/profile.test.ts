@@ -3,6 +3,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { handle } from "./api";
+import { cachedProfile } from "./profile";
 import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
 import { fetchesOf, PLATFORM, PROFILE, ucpAgent } from "./testing/platform";
 import { OP_CAPABILITY, OPERATIONS, STORE_CAPABILITIES } from "./ucp";
@@ -123,6 +124,17 @@ describe("fetching the profile", () => {
     await search(ucpAgent(`${PLATFORM}/uncached.json`));
     await search(ucpAgent(`${PLATFORM}/uncached.json`));
     expect(fetchesOf("/uncached.json") - uncached).toBe(2);
+  });
+
+  test("a cached profile keeps only what negotiation needs, however large it was", async () => {
+    const url = `${PLATFORM}/padded.json`;
+    const served = await (await fetch(url)).text();
+    expect(served.length).toBeGreaterThan(200 * 1024);
+    expect(served.length).toBeLessThan(256 * 1024);
+    expect((await search(ucpAgent(url))).status).toBe(200);
+    const entry = cachedProfile(url, STORE_CAPABILITIES);
+    expect(entry).toBeDefined();
+    expect(JSON.stringify(entry).length).toBeLessThan(1024);
   });
 
   test("the rate limit and the token come first: a refused token fetches nothing", async () => {

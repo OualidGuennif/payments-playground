@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T20:00:00Z
+  at: 2026-11-17T21:00:00Z
 verified:
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
@@ -73,7 +73,8 @@ before, every deploy or restart emptied orders, agents and grants.
   JWT header's `poppy_dlg`, `aud` the issuer as one string, `htm`, `htu`, `ath`, `iat`, `jti`). A
   Session needs `Poppy-Version` 1.x; a missing one, or any other major version even without a
   Session, is `version_unsupported`. A `private_key_jwt` client assertion has the issuer as its one
-  `aud` string, `iat` and `jti`, and lives at most 300 s.
+  `aud` string, `iat` and `jti`, and lives at most 300 s; its `iat` may be at most 60 s ahead of
+  the store's clock.
   `/mcp` answers 401 with the resource metadata URL until the agent signs in; REST catalogue,
   carts and checkouts also work anonymously. Client metadata documents must be https, except
   loopback ones while `PUBLIC_ORIGIN` is itself loopback (local runs and `scripts/pap-agent.ts`).
@@ -87,7 +88,9 @@ before, every deploy or restart emptied orders, agents and grants.
   `ucp.version` a date, `ucp.services` and `ucp.payment_handlers` registries, capability entries
   with `version`, `spec` and `schema`, and no private key member in `keys`. A profile is cached
   per URL for its `Cache-Control` `max-age` (at most an hour; 5 minutes without one; never with
-  `no-store`), at most 1,000 at once. Its `ucp.version` must be 2026-08-25. The negotiated
+  `no-store`), at most 1,000 at once; an entry keeps only the profile's version and the
+  capabilities it shares with the store, never the profile itself. Its `ucp.version` must be
+  2026-08-25. The negotiated
   capabilities are the store's and the profile's with the same name and a common version; an
   entry whose `schema` host, reversed, does not own its name is left out (UCP authority binding).
   Each operation belongs to one capability (`OP_CAPABILITY` in `src/server/ucp.ts`); it runs only
@@ -133,8 +136,8 @@ before, every deploy or restart emptied orders, agents and grants.
   `max`, minor units) on search, lookup and product; the singular `category` this store read
   before stays accepted. Search pages with `pagination.limit` (10 by default, at most 50) and the
   opaque `pagination.cursor` it returned. Lookup takes at most 50 distinct ids. Product takes
-  `selected` options and `preferences`, the order in which options are dropped when no variant
-  matches them all.
+  `selected` options and `preferences`, option names in priority order: when no variant matches
+  them all, the last one is dropped first (UCP keeps the higher-priority selections).
 - **Cart to checkout:** a create-checkout request with `cart_id` takes the cart's lines and buyer
   (UCP 2026-08-25 cart extension); its own `line_items`, and its `buyer` when the cart has one, are
   ignored, not parsed (`src/server/ucp.test.ts` "cart to checkout").
@@ -190,7 +193,8 @@ before, every deploy or restart emptied orders, agents and grants.
   continue_url}` on MCP): `invalid_profile_url` 400 (missing, malformed, refused, or header and
   `meta` naming different profiles), `profile_unreachable` 424, `profile_malformed` 422,
   `version_unsupported` 422, and `capabilities_incompatible` as a 200 error body (an MCP result);
-  `request_too_large` 400 (MCP `-32602`) for a lookup over 50 ids; `invalid_target` (OAuth)
+  `request_too_large` 400 (MCP `-32602`) for a lookup over 50 ids; `invalid_pagination` 400
+  (MCP `-32602`) for a bad `pagination.limit` or `cursor`; `invalid_target` (OAuth)
   for a resource the store does not serve or the grant was not issued for; on UCP REST
   a UCP error body (`ucp` and `messages` only) with `identity_required` 401 or
   `insufficient_scope` 403, whose `WWW-Authenticate: Bearer` carries `realm` (the issuer),

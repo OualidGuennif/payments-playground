@@ -84,6 +84,16 @@ const DOCS: Record<string, () => Response> = {
       keys: [{ kid: "k1", kty: "EC", crv: "P-256", x: "x", y: "y", d: "secret" }],
     }),
   "/huge.json": () => Response.json({ ...platformProfile(), padding: "x".repeat(300 * 1024) }),
+  // Valid and just under 256 KiB: thousands of capability entries the store does not use.
+  "/padded.json": () => {
+    const doc = platformProfile();
+    doc.ucp.capabilities["com.example.pad"] = Array.from({ length: 1700 }, (_, i) => ({
+      version: "2026-08-25",
+      spec: `https://example.com/pad/${i}/specification/`,
+      schema: `https://example.com/pad/${i}/schemas/com.example.pad.json`,
+    }));
+    return Response.json(doc, { headers: { "cache-control": "public, max-age=3600" } });
+  },
 };
 
 const fetched = new Map<string, number>();

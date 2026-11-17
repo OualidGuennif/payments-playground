@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Review fixes on the agentic store: a cached UCP platform profile keeps only its version and the
+  capabilities it shares with the store, so 1,000 padded 256 KiB profiles no longer hold hundreds
+  of MB; a client assertion whose `iat` is more than 60 s ahead is refused, so one signed today
+  cannot be used much later; `get_product`'s description and the spec now say `preferences` is a
+  priority order whose last option is dropped first, as UCP and the code do. The spec lists
+  `invalid_pagination`.
 - A tech-watch package compares the UCP draft of 2026-11-16 with 2026-08-25 for the agentic store:
   one gap already fixed (cart contents win), three items left open for the next version cut.
 - A UCP checkout created from a `cart_id` now takes the cart's lines and buyer, ignoring the

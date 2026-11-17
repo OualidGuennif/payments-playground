@@ -190,6 +190,7 @@ export class OAuthError extends Error {
 
 // PAP 1.0 §4.1: a Company may refuse an assertion living over 5 minutes, never one within them.
 const MAX_ASSERTION_LIFETIME = 300;
+const ASSERTION_SKEW = 60;
 const ACCESS_TTL = 3600;
 const REFRESH_TTL = 30 * 24 * 3600;
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -475,6 +476,9 @@ async function authenticateClient(form: URLSearchParams): Promise<Client> {
     if (payload.exp - payload.iat > MAX_ASSERTION_LIFETIME) {
       throw new OAuthError("invalid_client", "client_assertion lifetime is over 300 s", 401);
     }
+    // Without this a future iat would let an assertion signed today be used much later.
+    if (payload.iat > nowSec() + ASSERTION_SKEW)
+      throw new OAuthError("invalid_client", "client_assertion iat is in the future", 401);
     if (
       typeof payload.jti !== "string" ||
       !claimJti(`ca:${clientId}:${payload.jti}`, payload.exp)

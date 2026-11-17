@@ -67,9 +67,15 @@ function checkUrl(raw: string): URL {
 // --- fetching and caching ---------------------------------------------------------------------
 
 type PlatformProfile = { version: string; capabilities: Record<string, unknown[]> };
-const cache = new Map<string, { profile: PlatformProfile; expires: number }>();
+// Only what negotiation needs is kept: a profile may be 256 KiB and the cache holds 1,000 of them,
+// so keeping whole profiles would let one caller fill the memory with padded ones.
+type Negotiated = { version: string; shared: string[] };
+const cache = new Map<string, { negotiated: Negotiated; expires: number }>();
+const cacheKey = (url: URL, ours: readonly string[]) => `${ours.join(" ")} ${url.href}`;
 
 export const forgetProfiles = () => cache.clear();
+export const cachedProfile = (url: string, ours: readonly string[]) =>
+  cache.get(cacheKey(new URL(url), ours))?.negotiated;
 
 function ttlOf(cacheControl: string | null): number {
   const directives = (cacheControl ?? "").toLowerCase();
@@ -185,12 +191,16 @@ function readPlatformProfile(doc: unknown): PlatformProfile {
   };
 }
 
-async function resolve(url: URL): Promise<PlatformProfile> {
-  const key = url.href;
+async function resolve(url: URL, ours: readonly string[]): Promise<Negotiated> {
+  const key = cacheKey(url, ours);
   const hit = cache.get(key);
-  if (hit && hit.expires > Date.now()) return hit.profile;
+  if (hit && hit.expires > Date.now()) return hit.negotiated;
   const { doc, ttl } = await fetchProfile(url);
   const profile = readPlatformProfile(doc);
+  const negotiated = {
+    version: profile.version,
+    shared: [...intersect(ours, profile.capabilities)],
+  };
   cache.delete(key);
   if (ttl > 0) {
     if (cache.size >= MAX_CACHED) {
@@ -198,9 +208,9 @@ async function resolve(url: URL): Promise<PlatformProfile> {
       for (const [k, v] of cache) if (v.expires <= now) cache.delete(k);
       if (cache.size >= MAX_CACHED) cache.delete(cache.keys().next().value!);
     }
-    cache.set(key, { profile, expires: Date.now() + ttl * 1000 });
+    cache.set(key, { negotiated, expires: Date.now() + ttl * 1000 });
   }
-  return profile;
+  return negotiated;
 }
 
 // --- negotiation ------------------------------------------------------------------------------
@@ -234,11 +244,11 @@ export function intersect(ours: readonly string[], theirs: Record<string, unknow
 
 // The capabilities this request may use, from the profile it names.
 export async function negotiate(raw: string, ours: readonly string[]): Promise<Set<string>> {
-  const profile = await resolve(checkUrl(raw));
-  if (profile.version !== UCP_VERSION)
+  const { version, shared } = await resolve(checkUrl(raw), ours);
+  if (version !== UCP_VERSION)
     throw new ProfileError(
       "version_unsupported",
-      `UCP ${profile.version} is not supported; this business implements ${UCP_VERSION}`,
+      `UCP ${version} is not supported; this business implements ${UCP_VERSION}`,
     );
-  return intersect(ours, profile.capabilities);
+  return new Set(shared);
 }

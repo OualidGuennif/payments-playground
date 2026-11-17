@@ -202,6 +202,19 @@ describe("token endpoint", () => {
     expect(body.error_description).toContain("lifetime");
   });
 
+  test("an assertion issued in the future is refused, beyond a minute of clock skew", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const later = await exchange(
+      await code(),
+      {},
+      await agent.assertion({ iat: now + 86_400, exp: now + 86_400 + 300 }),
+    );
+    expect(later.status).toBe(401);
+    expect(later.body.error_description).toContain("iat");
+    const skewed = await agent.assertion({ iat: now + 30, exp: now + 30 + 300 });
+    expect((await exchange(await code(), {}, skewed)).status).toBe(200);
+  });
+
   test("an assertion living exactly five minutes is accepted", async () => {
     expect(
       (await exchange(await code(), {}, await agent.assertion({}, undefined, 300))).status,

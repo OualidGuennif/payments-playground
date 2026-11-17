@@ -120,7 +120,7 @@ export const MCP_TOOLS = [
   tool(
     "get_product",
     "Get a product",
-    "One product by product or variant id: selected holds the chosen colour and size, variants the ones matching it, options each value's availability. Send selected (and preferences, which option to drop first when nothing matches) to narrow it.",
+    "One product by product or variant id: selected holds the chosen colour and size, variants the ones matching it, options each value's availability. Send selected to narrow it, and preferences, the options in priority order (the last is dropped first when nothing matches).",
     {
       meta: meta(false),
       catalog: {

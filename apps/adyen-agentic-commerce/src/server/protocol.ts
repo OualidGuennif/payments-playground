@@ -10,6 +10,7 @@ import { PapError, verifyPoppy } from "./pap";
 import { trace } from "./trace";
 import {
   IdentityRequired,
+  InvalidParams,
   MUTATIONS,
   OPERATIONS,
   type OpResult,
@@ -179,6 +180,13 @@ async function runOp(
   try {
     return await OPERATIONS[op]!(args, { auth });
   } catch (error) {
+    if (error instanceof InvalidParams) {
+      return {
+        status: error.status,
+        body: { ucp: { version: UCP_VERSION, status: "error" }, messages: [error.msg] },
+        rpcCode: -32602,
+      };
+    }
     if (error instanceof CommerceError) {
       return {
         status: error.status,
@@ -329,10 +337,10 @@ function refOf(body: unknown): string | null {
 const PROTOCOLS = ["2025-11-25", "2025-06-18", "2025-03-26"];
 
 const rpc = (id: unknown, result: unknown) => ({ jsonrpc: "2.0", id, result });
-const rpcError = (id: unknown, code: number, message: string) => ({
+const rpcError = (id: unknown, code: number, message: string, data?: unknown) => ({
   jsonrpc: "2.0",
   id: id ?? null,
-  error: { code, message },
+  error: data === undefined ? { code, message } : { code, message, data },
 });
 
 export async function handleMcp(request: Request): Promise<Response> {
@@ -404,6 +412,8 @@ export async function handleMcp(request: Request): Promise<Response> {
         MUTATIONS.has(name) && key
           ? await idempotent(scope, key, payload, () => runOp(name, args, e.auth))
           : await runOp(name, args, e.auth);
+      if (result.rpcCode !== undefined)
+        return reply(rpcError(id, result.rpcCode, "Invalid params", result.body));
       const isError = result.status >= 400;
       return reply(
         rpc(id, {

@@ -5,6 +5,14 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- UCP 2026-08-25 catalogue and order answers follow the prose as well as the schemas: products
+  and variants carry `description: {plain}`; search pages 10 at a time (50 at most) with an opaque
+  cursor and `pagination`; lookup dedupes ids, refuses more than 50 (`request_too_large`, MCP
+  `-32602`), returns only the variants an id resolved to with their `inputs` (`exact` or
+  `featured`) and lists unknown ids as `info` messages; product puts a requested variant first,
+  returns `selected` (relaxed by `preferences`) and option values with `available` and `exists`,
+  and answers an unknown id with a 200 error body. Filters apply to all three. Orders carry
+  `fulfillment` and per-line `quantity` and `status`. Captured answers validate with ucp-schema.
 - PAP 1.0 checks on the agentic store follow the text exactly: the Session's delegation is read
   from the JWT header's `poppy_dlg` (§5.2), its `aud` must be the issuer as one string, an expired
   delegation is `invalid_session`, and a Session needs `Poppy-Version` 1.x (1.1 accepted, a

@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.3.3 deploy check in the digital status: caching, negotiation refusals and a PAP
+  order through ngrok pass on Render, but an order placed on v0.3.2 did not survive the deploy, so
+  the agentic disk is not in effect yet; `work/current.md` asks the owner to check the dashboard.
 - The agentic store's published artifacts revalidate to 304 when `If-None-Match` carries the
   weak form `W/"…"` of their ETag, as RFC 9110's weak comparison requires. On Render the edge
   weakens the ETag, so a client echoing it always got the full 200 answer.

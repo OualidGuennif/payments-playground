@@ -5,16 +5,16 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## PAP, UCP and WebMCP conformance pass — ACTIVE
+## Agentic data lost on deploy; v0.3.4 pending — WAITING-OWNER
 
-- Owner decision: 2026-11-17, strict PAP 1.0, UCP 2026-08-25 and WebMCP pass; full profile
-  negotiation (MCP `meta` optional), RFC 8707 binding, WebMCP `outputSchema`.
-- State: v0.3.2 released (disk configured, not yet seen on Render); v0.3.3 code complete on
-  develop (PAP, UCP shapes and negotiation, caching, RFC 8707, WebMCP output, cart_id), unpushed.
-- Next: review, push and release v0.3.3, then check on Render that an order placed before the
-  deploy is still there (who: agent); confirm the agentic-data disk in the dashboard (who: owner).
-- Blocker: none.
-- Evidence: knowledge/components/adyen-agentic-commerce.md; render.yaml.
+- Owner decision: 2026-11-17, v0.3.3 released (strict PAP 1.0, UCP 2026-08-25, RFC 8707, WebMCP);
+  the Render Blueprint gives agentic a `starter` plan, the `agentic-data` disk and `DATABASE_PATH`.
+- State: v0.3.3 live (`main` `698423f`); order `ord_kQx4WUyfprrP` placed on v0.3.2 is 404 after
+  it, so the disk is not in effect. `develop` has `d5af4b2` (weak ETag match), not pushed.
+- Next: in the Render dashboard check the agentic service's plan, disk and `DATABASE_PATH`,
+  sync the Blueprint (who: owner); then review, push and release v0.3.4 (who: agent).
+- Blocker: the Render dashboard.
+- Evidence: knowledge/current/digital-status.md (v0.3.3 deploy rows); render.yaml.
 
 ## Client address on Render: two-client check — WAITING-OWNER
 

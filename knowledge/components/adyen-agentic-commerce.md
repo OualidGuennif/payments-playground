@@ -1,13 +1,13 @@
 ---
 type: Component
 title: "adyen-agentic-commerce: a store any AI agent can buy from, paid on Adyen TEST"
-description: "Bun app (Next.js 16, Elysia, Eden): a fashion store exposed over UCP 2026-08-25 (REST and MCP) behind PAP 1.0 sign-in, with human Drop-in checkout and agent payments on a saved card, all on Adyen TEST."
+description: "Bun app (Next.js 16, Elysia, Eden): a fashion store over UCP 2026-08-25 (REST and MCP) behind PAP 1.0 sign-in, with customer accounts, Drop-in checkout, and agent payments on a saved card or a one-time network token, on Adyen TEST."
 tags: [component, agentic, pap, ucp, mcp, checkout, bun]
 status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T22:00:00Z
+  at: 2026-11-17T21:30:00Z
 verified:
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
@@ -41,14 +41,22 @@ alone. It shows merchants the full chain: discovery (PAP 1.0), catalogue, cart a
 appears in the Customer Area. Owner decision 2026-11-15: Bun + Elysia + Eden + Next.js replace the
 Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
 
+Owner decision 2026-11-17 ([ADR-015](../decisions/ADR-015-customer-accounts-and-agent-network-tokens.md)):
+a person opens a **customer account** (email and password, passkeys) and the agents they approve
+act for that account, with its saved cards and within the limit they set. The two channels stay
+apart and labelled: `web` (the pages and `/api`, paid in Drop-in) and `agent` (UCP REST and MCP).
+An agent may also **bring its own card as a one-time network token**, signed in or as a guest.
+
 ## Data sources
 
 | Source                                    | What is read                                                   | Owner | Freshness           |
 | ----------------------------------------- | -------------------------------------------------------------- | ----- | ------------------- |
 | `src/server/catalog.ts`                   | Products, variants (colour, size), prices in EUR minor units   | Repo  | Shipped with build  |
 | SQLite (`DATABASE_PATH`, `bun:sqlite`)    | Carts, checkouts, orders, OAuth clients/codes/tokens, grants,  | App   | Per request         |
-|                                           | PAP sessions, idempotency records, protocol trace, webhooks    |       |                     |
-| Adyen Checkout API v72 TEST               | `/sessions`, `/payments`, stored payment methods               | Adyen | Per call            |
+|                                           | PAP sessions, idempotency records, protocol trace, webhooks,   |       |                     |
+|                                           | customers, customer sessions, passkeys, WebAuthn challenges    |       |                     |
+| Adyen Checkout API v72 TEST               | `/sessions`, `/payments` (stored card or network token), the   | Adyen | Per call            |
+|                                           | stored payment methods of each account's `shopperReference`    |       |                     |
 | Adyen standard webhooks (HMAC)            | `AUTHORISATION` and other event codes                          | Adyen | Asynchronous        |
 | Agent client metadata document + jwks_uri | `client_id`, `redirect_uris`, `jwks_uri`, public keys          | Agent | Fetched per sign-in |
 | Platform profile named by `UCP-Agent`     | `ucp.version`, `ucp.capabilities`                              | Agent | Cached per URL      |
@@ -63,6 +71,19 @@ before, every deploy or restart emptied orders, agents and grants.
 
 - **Shopper (browser):** catalogue filters, variant choice, cart edits, shipping details, Drop-in
   (Sessions flow), consent decisions, spend limit, agent revocation, card save (zero-value auth).
+  A guest buys without an account; consent, device approval, the account and card save need one.
+- **Customer account (browser):** sign-up `POST /api/customers` (email, name, a password of 12 to
+  128 characters), sign-in `POST /api/session` (email and password), sign-out `DELETE
+  /api/session`; passkeys: `POST /api/passkeys/register/options` and `/register/verify` while
+  signed in, `POST /api/passkeys/login/options` and `/login/verify` to sign in, `DELETE
+  /api/passkeys/:id`. The session is a cookie, `__Host-velune_session` on https (`velune_session`
+  on a loopback http origin, where browsers keep no `__Host-` cookie). The browser API reads no
+  bearer token: an agent's token there binds nothing to an account.
+- **Agent's network token:** `complete_checkout` may carry an instrument with `handler_id`
+  `network_token`, `type` `card` and UCP 2026-08-25's `network_token_credential`: `number` (13 to
+  19 digits), `expiry_month` (1 to 12), `expiry_year` (four digits, not past), `cryptogram`,
+  `eci_value` (two digits), optional `name`. A guest agent may send one; a signed-in agent needs
+  the checkout scope and stays within its grant's remaining limit.
 - **Agent (HTTP):** UCP REST under `/ucp/v1` with `UCP-Agent: profile="<url>"`, `Request-Id`, and
   `Idempotency-Key` (UUID) on every mutation; MCP JSON-RPC 2.0 at `POST /mcp` with
   `meta["ucp-agent"].profile` and `meta["idempotency-key"]` (optional in MCP, honoured when sent);
@@ -110,9 +131,9 @@ before, every deploy or restart emptied orders, agents and grants.
   | ---------------------------------- | ----------------------------------------------------- | ------------ | ------------- |
   | `dev.ucp.shopping.cart:manage`     | create, update and cancel carts                       | reversible   | no            |
   | `dev.ucp.shopping.checkout:manage` | create, update, complete and cancel checkouts         | reversible   | yes (address) |
-  | `ucp:pay`                          | pay with the saved card within the grant's limit      | irreversible | yes (card)    |
-  | `dev.ucp.shopping.order:read`      | read the orders it placed                             | none         | yes           |
-  | `profile`                          | read the shopper's name and email                     | none         | yes           |
+  | `ucp:pay`                          | pay with the account's saved card within the limit    | irreversible | yes (card)    |
+  | `dev.ucp.shopping.order:read`      | read the orders it placed for the account             | none         | yes           |
+  | `profile`                          | read the account's name and email                     | none         | yes           |
 
   The earlier names stay accepted, never advertised: `ucp:checkout` stands for the cart and
   checkout scopes, `ucp:orders` for `dev.ucp.shopping.order:read`. A token keeps the names it was
@@ -174,19 +195,36 @@ before, every deploy or restart emptied orders, agents and grants.
   `ready_for_complete`, `complete_in_progress`, `completed` (with `order {id, permalink_url}`),
   `canceled`; `totals` with exactly one `subtotal` and one `total`; `messages` with
   `type/code/content/severity`.
-- **Payment:** a signed-in agent within the spend limit pays with the shopper's saved card:
-  `/payments` with `storedPaymentMethodId`, `shopperInteraction: ContAuth`,
-  `recurringProcessingModel: UnscheduledCardOnFile`, `shopperReference: ogaccountnew`, idempotency
-  key bound to the checkout. Otherwise the checkout returns `requires_escalation` and the shopper
+- **Payment handlers:** the profile and every UCP answer list two, `saved_card`
+  (`com.payments-playground.saved_card`) and `network_token`
+  (`com.payments-playground.network_token`, schema `/ucp/v1/handlers/network_token.json`, a
+  published artifact like the others).
+- **Payment:** a signed-in agent with `ucp:pay` within the spend limit pays with one of its
+  account's saved cards: `/payments` with `storedPaymentMethodId`, `shopperInteraction: ContAuth`,
+  `recurringProcessingModel: UnscheduledCardOnFile`, the account's `shopperReference`. An agent
+  that brings a network token pays with `paymentMethod {type: networkToken, number, expiryMonth,
+  expiryYear, holderName}` and `mpiData {directoryResponse: Y, authenticationResponse: Y,
+  tokenAuthenticationVerificationValue, eci}`, `shopperInteraction: Ecommerce`, no
+  `shopperReference` and no stored-payment field (Adyen, "Manage network tokens yourself").
+  Either way the idempotency key is bound to the checkout attempt and the metadata carries
+  `channel: agent`. A signed-in agent over its limit gets `requires_escalation`, and the shopper
   pays or approves at `continue_url`.
-- **Back Office:** orders, their checkout, every protocol exchange (secrets redacted), Adyen
-  `pspReference`, result code, webhooks.
-- **Account:** each connected agent shows where it stands (`src/lib/agent-status.ts`): consent
-  given, access issued, connected (first and last authenticated request, in UTC), or
-  disconnected. A consent alone never reads as connected. What it may do is listed in the consent
-  page's words, never as scope names.
+- **Checkout status for an agent:** with lines, a buyer email and payments configured, a guest's
+  checkout is `ready_for_complete` (it may pay with a network token) and a signed-in agent's is
+  too while the total fits its remaining limit; `payment.instruments` lists the account's saved
+  cards when the token has `ucp:pay`.
+- **Channels:** every checkout, payment and order records `channel` (`web` or `agent`), the
+  account (`customerId`) when there is one, and for an agent the client; records made before
+  v0.4.0 read as `agent` when an agent made them, else `web`.
+- **Back Office:** orders (filterable by channel), their checkout, every protocol exchange
+  (secrets redacted), Adyen `pspReference`, result code, webhooks.
+- **Account:** the signed-in customer's saved cards, passkeys, agents (the grants approved from
+  this account) and orders from both channels, each with its channel. Each connected agent shows
+  where it stands (`src/lib/agent-status.ts`): consent given, access issued, connected (first and
+  last authenticated request, in UTC), or disconnected. A consent alone never reads as connected.
+  What it may do is listed in the consent page's words, never as scope names.
 - **Signals:** an anonymous open checkout carries an `identity_optional` info message (signing in
-  lets the agent pay with the saved card).
+  lets the agent pay with the account's saved card; a network token works without).
 - **Refusals:** `invalid_session` 400 (an expired or invalid delegation included; the store
   remembers no ended Session, so it never answers `session_ended`), `version_unsupported` 400
   (PAP); profile negotiation (UCP error body with
@@ -205,6 +243,13 @@ before, every deploy or restart emptied orders, agents and grants.
   `access_denied`, `expired_token` (OAuth); 409 idempotency key reused with another body, 404
   unknown or foreign resource. A 401 or 403 is never stored under its Idempotency-Key: the
   operation did not run, so the same key with a better token runs it.
+  Payment instruments: `instrument_required` 400 when a ready checkout is completed without one,
+  `unsupported_handler` 400 for a handler other than the two, `unknown_instrument` 400 for a saved
+  card the token may not use, `invalid_credential` 400 with the path of the bad network-token
+  field. Accounts: `invalid_login` 401 (one answer for an unknown email and a wrong password),
+  `email_taken` 409, `weak_password` 400, `sign_in_required` 401 on `/api/account/*` and passkey
+  registration, `too_many_attempts` 429 after failed sign-ins (per address and per account),
+  `rate_limited` 429 on Drop-in and card-save sessions, `invalid_passkey` 401.
 
 ## Invariants
 
@@ -216,10 +261,11 @@ before, every deploy or restart emptied orders, agents and grants.
    placed and the checkout is held with `amount_mismatch`. Payments are found by reference or
    session id, never inside a window of recent rows. A late refusal of an earlier attempt neither
    reopens the checkout nor gives budget back.
-3. An agent payment happens only with a valid access token carrying the checkout and pay scopes
-   (a token without the checkout scope cannot complete at all: 403), a grant that is not revoked, a
-   saved card, and a total at or under the grant's remaining limit; otherwise
-   `requires_escalation`. The grant is re-read after the card lookup and the total is reserved on it
+3. An agent pays with a saved card only with a valid access token carrying the checkout and pay
+   scopes (a token without the checkout scope cannot complete at all: 403), a grant that is not
+   revoked, a card of the grant's account, and a total at or under the grant's remaining limit;
+   with its own network token, a signed-in agent needs the same token, grant and limit, a guest
+   none of them; otherwise `requires_escalation`. The grant is re-read after the card lookup and the total is reserved on it
    when the checkout is claimed, with nothing awaited in between, so completes on several checkouts
    at once cannot together pass the limit. Each payment's reservation is settled once: the first of
    the synchronous refusal, a network error or a refusal webhook gives it back, and a success
@@ -238,8 +284,9 @@ before, every deploy or restart emptied orders, agents and grants.
 7. A token acts only within the scopes the shopper approved; a legacy name grants exactly the UCP
    scopes it stands for, and every operation's scope is declared once and used by both the check
    and the OpenAPI description. Consent only narrows what was asked. Reading an order needs a
-   token (the hard gate) and returns only orders placed through that token's client; any other
-   id, a shopper's own order included, is 404.
+   token (the hard gate) and returns only orders placed through that token's client for that
+   token's account; any other id, a shopper's own order included, is 404. A cart or checkout made
+   through a token is likewise visible only to the same client for the same account.
 8. A device code is single use, expires after 600 s, and yields tokens only after the shopper
    approved its user code on the consent page; polling faster than the interval answers
    `slow_down` and widens it by 5 s. Wrong user codes are limited per address and in total; only a
@@ -271,6 +318,22 @@ before, every deploy or restart emptied orders, agents and grants.
 13. A Session is accepted only with its delegation in the JWT header, signed by a key the client
     publishes, unexpired, and only with `aud` equal to the issuer; a delegation in the claims, an
     `aud` array or the MCP URL as `aud` is `invalid_session` (`src/server/conformance.test.ts`).
+14. A customer session is 32 random bytes in an HttpOnly, SameSite=Lax cookie (Secure and
+    `__Host-` on https), stored only as its SHA-256, valid 7 days and deleted at sign-out; a
+    password is stored only as an argon2id hash; a passkey's challenge is used once within 5
+    minutes. Failed sign-ins are limited per address and per account (`src/server/customers.test.ts`).
+15. A grant belongs to the customer who approved it, and consent or device approval without a
+    signed-in customer grants nothing; a grant without a customer authenticates nothing, so grants
+    made before accounts stop working (`src/server/customers.test.ts`, "agents act for an account").
+16. A network-token credential serves one `/payments` call: it is never stored, traced, logged or
+    returned, Adyen gets `networkToken` and `mpiData` with no stored-payment field, and a refused
+    attempt needs a new cryptogram (`src/server/network-token.test.ts`).
+17. A signed-in agent's payment, by saved card or network token, is reserved on its grant's limit
+    before Adyen is called, as invariant 3 describes; a guest's network-token payment has no limit
+    of the store's (`src/server/network-token.test.ts`).
+18. Drop-in shows saved cards, and the checkout page shows the buyer, only to the checkout's own
+    signed-in customer; a guest pays without stored-card fields. The browser API ignores bearer
+    tokens (`src/server/customers.test.ts`, "web channel").
 
 ## Determinism
 
@@ -299,13 +362,23 @@ is whatever LLM the shopper points at it.
   leave on `/account`.
 - On TEST: a human Drop-in payment Authorised; a zero-value card save; an agent `complete_checkout`
   Authorised with ContAuth; the matching `AUTHORISATION` webhook accepted.
+- Accounts: sign-up, sign-in, sign-out and a passkey registered then used to sign in, in a
+  browser on `localhost` (passkeys need a secure context) and on Render.
+- Network token: `src/server/network-token.test.ts` checks the exact `/payments` body against the
+  Adyen double and that no credential field reaches the database, the trace or an answer. On
+  TEST it needs Adyen Support to enable payments with network tokens on the merchant account and
+  a test token with its cryptogram, which Adyen does not publish (ADR-015).
 
 ## Out of scope
 
 - LIVE payments, refunds and captures from this app.
 - Adyen's own UCP tokenizer until the owner's account has the role (the handler is behind config).
-- Real user accounts: one demo shopper (`ogaccountnew`). Consent, account and Back Office are
-  protected only by the playground's basic auth when it is set (the proxy strips the quotes
+- Email verification, password reset and account deletion (no mail is sent; ADR-015). The former
+  demo shopper `ogaccountnew` is not inherited by any account.
+- Clear card numbers from agents (UCP's PAN credential) and Adyen's own UCP tokenizer or ACP
+  delegated payments, which need roles Adyen grants.
+- Sign-in, consent, account and Back Office are also behind the playground's basic auth when it
+  is set (the proxy strips the quotes
   `docker run --env-file` keeps, like the config reader; `src/server/security.test.ts`, and
   `src/proxy.test.ts` through the proxy itself). Because a
   browser attaches that basic auth to a cross-site form POST, the proxy also refuses a state-changing

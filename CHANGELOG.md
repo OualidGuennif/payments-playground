@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- ADR-015 and the agentic store's spec set the next version: customer accounts (email and
+  password, passkeys), `web` and `agent` channels on every checkout and order, agent grants bound
+  to the account that approved them, and a one-time network token an agent brings, paid on Adyen
+  as `networkToken` with `mpiData` and never stored.
+
 ## [0.3.4] - 2026-11-17
 
 - Record the v0.3.3 deploy check in the digital status: caching headers, negotiation refusals and

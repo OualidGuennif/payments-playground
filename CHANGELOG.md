@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- `work/current.md`: the agentic interoperability task waits for the owner's visual check and the
+  PAP §4.7 decision once it is on develop.
 - From the second review pass: each agentic test starts with no wrong-code record, so the device
   tests pass in any order; the Digital test of a payment outside an Adyen order sends another
   amount than the order's; `/agents` says a URL client signs its device requests.

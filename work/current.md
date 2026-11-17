@@ -5,6 +5,17 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
+## PAP, UCP and WebMCP conformance pass — ACTIVE
+
+- Owner decision: 2026-11-17, a strict pass on PAP 1.0 and its UCP extension, UCP 2026-08-25
+  (answers validated with ucp-schema 1.4.1, no ajv) and the WebMCP draft; first v0.3.2, a disk.
+- State: v0.3.2 prepared (agentic on `starter`, 1 GB disk, `DATABASE_PATH` on it).
+- Next: release v0.3.2, check the disk on Render and that an order survives the next deploy
+  (who: agent; owner syncs the Blueprint if it does not); then the three audit matrices and a gap
+  report that stops for owner decisions; fixes ship as v0.3.3 (who: agent).
+- Blocker: none.
+- Evidence: render.yaml; knowledge/decisions/ADR-003-sqlite-single-instance.md.
+
 ## Client address on Render: two-client check — WAITING-OWNER
 
 - Owner decision: 2026-11-17, v0.3.1 released (the limits key on `CF-Connecting-IP` first).

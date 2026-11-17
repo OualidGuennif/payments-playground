@@ -5,7 +5,7 @@ description: "Durable project preferences: Render at the root, TEST only, the fa
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T18:00:00Z
+  at: 2026-11-17T15:00:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "Project rules and owner"
@@ -40,7 +40,8 @@ What the owner asked for that a reviewer should not have to ask again.
 - The agentic store is Bun inside Next.js, not beside it: one Next.js app on the Bun runtime with
   Elysia in its route handlers and Eden in the browser (2026-11-15,
   [ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)). Its Render service keeps its name
-  and place in the root Blueprint; only its env list changed.
+  and place in the root Blueprint; on 2026-11-17 the owner moved it to `starter` with a 1 GB disk,
+  like Digital and styling, so its orders and agents survive a deploy.
 - Existing public docs (`README.md`, `docs/SECURITY.md`, `docs/KNOWN_LIMITS.md`) win over factory
   defaults where they differ; record the divergence here.
 

@@ -26,8 +26,9 @@ the Back Office are protected only by the playground's basic auth when it is set
 who can reach the store, an agent included, can approve its own sign-in request.
 
 Adyen cannot reach `localhost`, so a local run never receives the `AUTHORISATION` webhook; an order
-is still placed from the synchronous `/payments` answer. On Render's free plan the SQLite file lives
-in the container and is lost on each deploy.
+is still placed from the synchronous `/payments` answer. On Render the SQLite file sits on a 1 GB
+disk and survives deploys (since v0.3.2); it is not backed up, and a local run without
+`DATABASE_PATH` writes `data/agentic.sqlite` under its working directory.
 
 ## Payments
 

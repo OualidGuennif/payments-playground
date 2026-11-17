@@ -7,7 +7,7 @@ status: stable
 scope: docker-and-render
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-17T15:00:00Z
 sources:
   - id: dockerfile
     resource: ../../apps/adyen-digital/Dockerfile
@@ -66,10 +66,12 @@ the app starts. A plain `USER app` would fail because Render mounts `/var/data` 
 
 ## Render
 
-`render.yaml` is one Blueprint: a static site for `apps/landing`, and the three Docker services
-(`digital-checkout` and `dropin-styling` on `starter` with a disk, `agentic-commerce` on `free`
-without one). The `ipp-endless-aisle` service left the Blueprint on 2026-11-15 with its app; Render
-keeps a service removed from a Blueprint until it is deleted in the dashboard. Each app also has its
+`render.yaml` is one Blueprint: a static site for `apps/landing`, and the three Docker services,
+each on `starter` with a 1 GB disk at `/var/data` holding its SQLite file (`agentic-commerce` was on
+`free` without one until 2026-11-17, so every deploy or restart emptied its store). Adding a disk
+ends zero-downtime deploys: each deploy stops the old instance before the new one starts. The
+`ipp-endless-aisle` service left the Blueprint on 2026-11-15 with its app; Render keeps a service
+removed from a Blueprint until it is deleted in the dashboard. Digital and styling also have their
 own `render.yaml` for an isolated deploy. Render builds from this repository's Dockerfiles; no image
 is pushed to a registry.
 

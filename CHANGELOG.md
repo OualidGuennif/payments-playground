@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.3.1 deploy check in the digital status: on Render one client is limited whatever
+  first `X-Forwarded-For` entry it forges (the 121st `/api/health` on digital and styling, the
+  241st `/mcp` on agentic), and Cloudflare refuses a caller-written `CF-Connecting-IP`.
+  `work/current.md` keeps a two-client check for the owner.
+
 ## [0.3.1] - 2026-11-17
 
 - Every per-address limit trusts the address the platform writes, not the caller: the agentic

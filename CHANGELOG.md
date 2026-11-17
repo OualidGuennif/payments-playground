@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's published artifacts revalidate to 304 when `If-None-Match` carries the
+  weak form `W/"…"` of their ETag, as RFC 9110's weak comparison requires. On Render the edge
+  weakens the ETag, so a client echoing it always got the full 200 answer.
 ## [0.3.3] - 2026-11-17
 
 - Review fixes on the agentic store: a cached UCP platform profile keeps only its version and the

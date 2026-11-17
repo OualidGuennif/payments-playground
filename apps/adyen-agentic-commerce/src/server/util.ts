@@ -56,11 +56,13 @@ export function published(request: Request, body: unknown): Response {
     "cache-control": "public, max-age=300",
     etag,
   };
+  // RFC 9110 §13.1.2: If-None-Match compares weakly, so W/"x" matches "x". A compressing edge
+  // weakens the ETag on the way out, and clients send it back in that form.
   const asked =
     request.headers
       .get("if-none-match")
       ?.split(",")
-      .map((t) => t.trim()) ?? [];
+      .map((t) => t.trim().replace(/^W\//, "")) ?? [];
   if (asked.includes(etag) || asked.includes("*"))
     return new Response(null, { status: 304, headers });
   return new Response(text, { status: 200, headers });

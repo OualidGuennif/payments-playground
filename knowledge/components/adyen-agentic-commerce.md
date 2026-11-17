@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T21:00:00Z
+  at: 2026-11-17T22:00:00Z
 verified:
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
@@ -157,7 +157,8 @@ before, every deploy or restart emptied orders, agents and grants.
   whether a token is optional and which scope it needs, and lists the error statuses with examples.
   `/.well-known/ucp`, `/ucp/v1/openapi.json` and `/ucp/v1/handlers/saved_card.json` are published
   artifacts: `Cache-Control: public, max-age=300` and an `ETag` (304 on a matching
-  `If-None-Match`), never a redirect. Every other answer is `no-store`.
+  `If-None-Match`, compared weakly as RFC 9110 says, since Render's edge sends the ETag back as
+  `W/"…"`), never a redirect. Every other answer is `no-store`.
 - **UCP catalogue:** products and variants carry `description: {plain}`. Search returns
   `pagination {has_next_page, cursor when there is a next page, total_count}`. A lookup variant
   appears only with its `inputs`: `exact` for a variant id, `featured` (the product's first

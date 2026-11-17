@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-17
+
 - The agentic store keeps its data across deploys: its Render service moves to `starter` with a
   1 GB disk at `/var/data` and `DATABASE_PATH=/var/data/agentic.sqlite`, like Digital and styling.
   Before, every deploy or restart emptied its orders, agents and grants. ADR-003, the Render

@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store serves its UCP published artifacts (`/.well-known/ucp`, the OpenAPI
+  description and the saved-card handler schema) with `Cache-Control: public, max-age=300` and an
+  `ETag` that revalidates to 304, as UCP requires; they were `no-store`. Per-request answers stay
+  `no-store`.
 - UCP 2026-08-25 catalogue and order answers follow the prose as well as the schemas: products
   and variants carry `description: {plain}`; search pages 10 at a time (50 at most) with an opaque
   cursor and `pagination`; lookup dedupes ids, refuses more than 50 (`request_too_large`, MCP

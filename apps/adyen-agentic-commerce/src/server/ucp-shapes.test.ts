@@ -178,6 +178,46 @@ describe("catalogue", () => {
   });
 });
 
+describe("published artifacts", () => {
+  const PUBLISHED = ["/.well-known/ucp", "/ucp/v1/openapi.json", "/ucp/v1/handlers/saved_card.json"];
+  const fetchGet = (path: string, headers: Record<string, string> = {}) =>
+    handle(
+      new Request(`${ORIGIN}${path}`, { headers: { "x-forwarded-for": randomIp(), ...headers } }),
+    );
+
+  test("are shared-cacheable for at least 60 s, with an ETag that revalidates to 304", async () => {
+    for (const path of PUBLISHED) {
+      const response = await fetchGet(path);
+      expect(response.status).toBe(200);
+      const cache = response.headers.get("cache-control") ?? "";
+      expect(cache).toContain("public");
+      expect(Number(/max-age=(\d+)/.exec(cache)?.[1])).toBeGreaterThanOrEqual(60);
+      expect(cache).not.toMatch(/private|no-store|no-cache/);
+      const etag = response.headers.get("etag");
+      expect(etag).toMatch(/^"[^"]+"$/);
+      const again = await fetchGet(path, { "if-none-match": etag! });
+      expect(again.status).toBe(304);
+      expect(await again.text()).toBe("");
+    }
+  });
+
+  test("per-request answers stay no-store", async () => {
+    const { headers } = await handle(
+      new Request(`${ORIGIN}/ucp/v1/catalog/search`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "ucp-agent": 'profile="https://agent.example/profile.json"',
+          "request-id": crypto.randomUUID(),
+          "x-forwarded-for": randomIp(),
+        },
+        body: "{}",
+      }),
+    );
+    expect(headers.get("cache-control")).toBe("no-store");
+  });
+});
+
 describe("order", () => {
   test("an order carries its fulfilment and each line's quantities and status", async () => {
     await agent.signIn();

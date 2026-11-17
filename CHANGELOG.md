@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- A tech-watch package compares the UCP draft of 2026-11-16 with 2026-08-25 for the agentic store:
+  one gap already fixed (cart contents win), three items left open for the next version cut.
 - A UCP checkout created from a `cart_id` now takes the cart's lines and buyer, ignoring the
   request's overlapping `line_items` and `buyer`, as the 2026-08-25 cart extension requires; before,
   `line_items` sent next to `cart_id` replaced the cart. Found while reading the UCP draft.

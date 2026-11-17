@@ -15,6 +15,7 @@ import {
 } from "./oauth";
 import { recentTrace } from "./trace";
 import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "./testing/agent";
+import { ucpAgent } from "./testing/platform";
 import { sha256 } from "./util";
 
 const ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
@@ -452,6 +453,60 @@ describe("the shopper's answer", () => {
       }),
     );
     expect(response.status).toBe(200);
+  });
+});
+
+describe("resource indicators", () => {
+  test("a device request for a resource the store does not serve is invalid_target", async () => {
+    const { status, body } = await answer(
+      await post("/oauth/device_authorization", {
+        ...(await assertionOf(tv)),
+        scope: CART,
+        resource: "https://agent.example/mcp",
+      }),
+    );
+    expect(status).toBe(400);
+    expect(body.error).toBe("invalid_target");
+    expect(count("device_requests")).toBe(0);
+  });
+
+  test("the resource asked for on the device request binds the token; the poll cannot widen it", async () => {
+    const started = await answer(
+      await post("/oauth/device_authorization", {
+        ...(await assertionOf(tv)),
+        scope: CART,
+        resource: MCP,
+      }),
+    );
+    await tv.decide(await consentFor(started.body.user_code), { scopes: [CART] });
+    const widened = await answer(
+      await post("/oauth/token", {
+        ...(await assertionOf(tv)),
+        grant_type: DEVICE_GRANT,
+        device_code: started.body.device_code,
+        resource: ORIGIN,
+      }),
+    );
+    expect(widened.body.error).toBe("invalid_target");
+    const tokens = await poll(tv, started.body.device_code);
+    expect(tokens.status).toBe(200);
+    tv.accessToken = tokens.body.access_token;
+    tv.delegation = await tv.makeDelegation();
+    expect((await tv.mcp("tools/list")).status).toBe(200);
+    const rest = await handle(
+      new Request(`${ORIGIN}/ucp/v1/catalog/search`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${tokens.body.access_token}`,
+          "content-type": "application/json",
+          "request-id": crypto.randomUUID(),
+          "ucp-agent": ucpAgent(),
+          "x-forwarded-for": randomIp(),
+        },
+        body: JSON.stringify({ query: "" }),
+      }),
+    );
+    expect(rest.status).toBe(401);
   });
 });
 

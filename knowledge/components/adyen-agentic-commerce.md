@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T18:00:00Z
+  at: 2026-11-17T19:00:00Z
 verified:
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
@@ -94,9 +94,13 @@ before, every deploy or restart emptied orders, agents and grants.
   when that capability was kept. The cheap checks (route, headers, body, Idempotency-Key) come
   before the fetch.
 - **Resource indicators (RFC 8707):** `resource` on authorize, device authorization and token
-  requests must be `PUBLIC_ORIGIN` (UCP REST) or `${PUBLIC_ORIGIN}/mcp`; at the token endpoint it
-  must also be one the grant was issued for. A token issued for one resource is accepted only
-  there; a token issued without one is accepted at both.
+  requests must be `PUBLIC_ORIGIN` (UCP REST) or `${PUBLIC_ORIGIN}/mcp`, compared after RFC 3986
+  normalisation (the origin's trailing slash is the origin; a query, fragment or other path is
+  not), and may repeat; at the token endpoint it must also be one the grant was issued for, and it
+  is checked before a device code or refresh token is spent. A token issued for one resource is
+  accepted only there (401 `invalid_token` elsewhere); a token issued without one is accepted at
+  both; a refresh keeps the resource unless it narrows it. `scripts/pap-agent.ts` asks for the
+  MCP URL, as MCP's authorization spec requires.
 - **Scopes:** advertised under their UCP names, each with its PAP 1.0 §4.7 hint.
 
   | Scope                              | Lets the agent                                        | Changes      | Personal data |
@@ -255,7 +259,7 @@ before, every deploy or restart emptied orders, agents and grants.
     (`src/server/profile.test.ts`).
 12. A token works only at the resource it was issued for, a refresh keeps that resource, and a
     `resource` the store does not serve never yields a code or a token (`src/server/oauth.test.ts`
-    "resource indicators").
+    and `src/server/device.test.ts`, "resource indicators").
 13. A Session is accepted only with its delegation in the JWT header, signed by a key the client
     publishes, unexpired, and only with `aud` equal to the issuer; a delegation in the claims, an
     `aud` array or the MCP URL as `aud` is `invalid_session` (`src/server/conformance.test.ts`).

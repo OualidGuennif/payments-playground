@@ -90,6 +90,8 @@ try {
     scope: Object.keys(poppy.auth.scopes).join(" "),
     code_challenge: await sha256(verifier),
     code_challenge_method: "S256",
+    // RFC 8707, as MCP's authorization spec asks: the token is for the MCP endpoint only.
+    resource: mcpUrl,
   }))
     authorize.searchParams.set(k, v);
   const consent = await fetch(authorize, { redirect: "manual" });
@@ -148,6 +150,7 @@ try {
       code,
       redirect_uri: redirectUri,
       code_verifier: verifier,
+      resource: mcpUrl,
       client_id: clientId,
       client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
       client_assertion: assertion,

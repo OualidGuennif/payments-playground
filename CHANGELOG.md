@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store applies RFC 8707 resource indicators: `resource` on authorize, device
+  authorization and token requests must be the store's origin (UCP REST) or its `/mcp` URL,
+  otherwise `invalid_target` and no code or token; the token endpoint may only narrow to granted
+  resources. A token issued for one resource is refused (401) at the other, a token issued without
+  one still works at both, and a refresh keeps its resource. `scripts/pap-agent.ts` asks for the
+  MCP URL.
 - The agentic store resolves and negotiates the `UCP-Agent` platform profile (UCP 2026-08-25): a
   REST call must name an https profile (`invalid_profile_url` 400 otherwise), fetched without
   redirects within 5 s and 256 KiB (`profile_unreachable` 424), shape-checked with public keys

@@ -4,7 +4,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { handle } from "./api";
 import { grants, pendingRequest, updateGrant } from "./oauth";
-import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
+import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "./testing/agent";
+import { ucpAgent } from "./testing/platform";
 import { sha256b64url } from "./util";
 
 const VERIFIER = "verifier-verifier-verifier-verifier-0123456789";
@@ -288,6 +289,112 @@ describe("refresh", () => {
       (await handle(new Request(`${ORIGIN}/oauth/revoke`, { method: "POST", body }))).status,
     ).toBe(200);
     expect((await agent.mcp("ping")).status).toBe(401);
+  });
+});
+
+describe("resource indicators", () => {
+  // Whether a bearer token is accepted at /mcp and at UCP REST: 200, or 401 when it is not.
+  async function worksAt(accessToken: string) {
+    agent.accessToken = accessToken;
+    agent.delegation = await agent.makeDelegation();
+    const mcp = (await agent.mcp("ping")).status;
+    const rest = (
+      await handle(
+        new Request(`${ORIGIN}/ucp/v1/catalog/search`, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+            "content-type": "application/json",
+            "request-id": crypto.randomUUID(),
+            "ucp-agent": ucpAgent(),
+            "x-forwarded-for": randomIp(),
+          },
+          body: JSON.stringify({ query: "" }),
+        }),
+      )
+    ).status;
+    return { mcp, rest };
+  }
+
+  const refresh = (refreshToken: string, extra: Record<string, string> = {}) =>
+    agent.token({ grant_type: "refresh_token", refresh_token: refreshToken, ...extra });
+
+  test("a resource the store does not serve goes back as invalid_target, with state and iss", async () => {
+    for (const resource of [
+      "https://agent.example/mcp",
+      `${ORIGIN}/ucp/v1`,
+      `${MCP}/`,
+      `${MCP}?x=1`,
+      `${MCP}#x`,
+      "mcp",
+    ]) {
+      const { location } = await agent.authorize({ resource });
+      expect(location.searchParams.get("error")).toBe("invalid_target");
+      expect(location.searchParams.get("state")).toBe("state-1");
+      expect(location.searchParams.get("iss")).toBe(ORIGIN);
+    }
+  });
+
+  test("the origin, with or without its slash, and the MCP URL reach consent", async () => {
+    for (const resource of [ORIGIN, `${ORIGIN}/`, MCP])
+      expect((await agent.authorize({ resource })).requestId).toBeDefined();
+  });
+
+  test("a token issued for the MCP URL works at /mcp only, one for the origin at REST only", async () => {
+    const mcpOnly = (await exchange(await code({ resource: MCP }))).body;
+    expect(await worksAt(mcpOnly.access_token!)).toEqual({ mcp: 200, rest: 401 });
+    const restOnly = (await exchange(await code({ resource: `${ORIGIN}/` }))).body;
+    expect(await worksAt(restOnly.access_token!)).toEqual({ mcp: 401, rest: 200 });
+  });
+
+  test("a token issued without a resource works at both", async () => {
+    const both = (await exchange(await code())).body;
+    expect(await worksAt(both.access_token!)).toEqual({ mcp: 200, rest: 200 });
+  });
+
+  test("the token request may name a granted resource, never another one", async () => {
+    const narrowed = await exchange(await code(), { resource: MCP });
+    expect(narrowed.status).toBe(200);
+    expect(await worksAt(narrowed.body.access_token!)).toEqual({ mcp: 200, rest: 401 });
+    const other = await exchange(await code({ resource: MCP }), { resource: ORIGIN });
+    expect(other.status).toBe(400);
+    expect(other.body.error).toBe("invalid_target");
+    const unknown = await exchange(await code(), { resource: "https://agent.example/" });
+    expect(unknown.body.error).toBe("invalid_target");
+  });
+
+  test("a token request may name several granted resources", async () => {
+    const c = await code();
+    const body = new URLSearchParams({
+      client_id: agent.clientId,
+      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      client_assertion: await agent.assertion(),
+      grant_type: "authorization_code",
+      code: c,
+      redirect_uri: agent.redirectUri,
+      code_verifier: VERIFIER,
+    });
+    body.append("resource", MCP);
+    body.append("resource", ORIGIN);
+    const response = await handle(new Request(`${ORIGIN}/oauth/token`, { method: "POST", body }));
+    const tokens = (await response.json()) as Record<string, string>;
+    expect(response.status).toBe(200);
+    expect(await worksAt(tokens.access_token!)).toEqual({ mcp: 200, rest: 200 });
+  });
+
+  test("a refresh keeps the resource, may narrow to it and never widens it", async () => {
+    const first = (await exchange(await code({ resource: MCP }))).body;
+    const wider = await refresh(first.refresh_token!, { resource: ORIGIN });
+    expect(wider.body.error).toBe("invalid_target");
+    // A refused refresh does not spend the refresh token.
+    const kept = await refresh(first.refresh_token!);
+    expect(kept.status).toBe(200);
+    expect(await worksAt(kept.body.access_token!)).toEqual({ mcp: 200, rest: 401 });
+    const same = await refresh(kept.body.refresh_token!, { resource: MCP });
+    expect(same.status).toBe(200);
+    const all = (await exchange(await code())).body;
+    const narrowed = await refresh(all.refresh_token!, { resource: ORIGIN });
+    expect(await worksAt(narrowed.body.access_token!)).toEqual({ mcp: 401, rest: 200 });
   });
 });
 

@@ -95,14 +95,14 @@ function ucpError(code: string, content: string) {
 
 type Edge = { auth?: Auth; actor: string; response?: Response };
 
-async function edge(request: Request, resourcePath: string): Promise<Edge> {
+async function edge(request: Request, resourcePath: "" | "/mcp"): Promise<Edge> {
   const retry = rateLimited(clientIp(request));
   if (retry)
     return {
       actor: "?",
       response: json(429, { error: "rate_limited" }, { "retry-after": String(retry) }),
     };
-  const auth = authenticate(request.headers.get("authorization"));
+  const auth = authenticate(request.headers.get("authorization"), resourcePath);
   if (auth === "invalid") {
     const header = { "www-authenticate": wwwAuthenticate(resourcePath, "invalid_token") };
     // MCP clients read OAuth's body; UCP REST platforms read identity_required.

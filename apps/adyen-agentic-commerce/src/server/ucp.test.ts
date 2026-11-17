@@ -221,7 +221,7 @@ describe("agent payment", () => {
     await agent.signIn();
     const created = await checkout();
     // Both calls hold the same loaded checkout, as two requests that passed the edge together do.
-    const auth = authenticate(`Bearer ${agent.accessToken}`) as Auth;
+    const auth = authenticate(`Bearer ${agent.accessToken}`, "/mcp") as Auth;
     const loaded = loadCheckout(created.id, auth);
     const body = { payment: { instruments: [{ id: ALIAS, handler_id: "saved_card" }] } };
     await Promise.all([completeCheckout(loaded, body, auth), completeCheckout(loaded, body, auth)]);
@@ -234,7 +234,7 @@ describe("agent payment", () => {
     // 9295 each: either fits the 15000 budget alone, both together do not.
     const first = await checkout([OXFORD, BEANIE]);
     const second = await checkout([OXFORD, BEANIE]);
-    const auth = authenticate(`Bearer ${agent.accessToken}`) as Auth;
+    const auth = authenticate(`Bearer ${agent.accessToken}`, "/mcp") as Auth;
     const body = { payment: { instruments: [{ id: ALIAS, handler_id: "saved_card" }] } };
     await Promise.all([
       completeCheckout(loadCheckout(first.id, auth), body, auth),

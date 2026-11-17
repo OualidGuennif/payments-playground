@@ -55,8 +55,8 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
 |                                           | `ADYEN_HMAC_KEY`, `PUBLIC_ORIGIN`, `DATABASE_PATH`, `PORT`     |       |                     |
 | Deploy variable (public, optional)        | `WEBMCP_ORIGIN_TRIAL_TOKEN`, sent as `Origin-Trial` on pages   | Owner | Per request         |
 
-On Render the SQLite file is `/var/data/agentic.sqlite` on the service's 1 GB disk (since v0.3.2,
-2026-11-17); before it, every deploy or restart emptied orders, agents and grants.
+From v0.3.2 the Render Blueprint sets `DATABASE_PATH=/var/data/agentic.sqlite` on a 1 GB disk;
+before, every deploy or restart emptied orders, agents and grants.
 
 ## Inputs
 

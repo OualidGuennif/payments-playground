@@ -9,9 +9,21 @@ export async function currentCustomer(): Promise<Customer | undefined> {
   return customerFromToken(jar.get(sessionCookieName())?.value);
 }
 
-// Only a path on this site: "//host" or "/\host" would send the shopper elsewhere after sign-in.
+const SAME_SITE = "http://store.invalid";
+
+// Only a path on this site. A URL parser drops tabs and newlines and reads "\" as "/", so
+// "/\t/evil.example" would become "//evil.example": refuse those characters, then resolve the
+// value as the browser will and keep it only when it stays on this origin.
 export function safeNext(value: string | undefined, fallback = "/account"): string {
-  return value && /^\/(?![/\\])/.test(value) ? value : fallback;
+  if (typeof value !== "string" || !value.startsWith("/")) return fallback;
+  const unsafe = (c: string) => c <= " " || c === "\u007f" || c === "\\";
+  if ([...value].some(unsafe)) return fallback;
+  try {
+    const url = new URL(value, SAME_SITE);
+    return url.origin === SAME_SITE ? `${url.pathname}${url.search}${url.hash}` : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export async function requireCustomer(next: string): Promise<Customer> {

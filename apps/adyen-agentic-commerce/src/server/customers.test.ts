@@ -118,6 +118,20 @@ describe("accounts", () => {
     expect(blocked.headers.get("set-cookie")).toBeNull();
   });
 
+  test("a burst of wrong passwords sent at once meets the same limit; right ones never count", async () => {
+    await signUpCustomer("ada@example.com");
+    const ip = randomIp();
+    for (let i = 0; i < 15; i++)
+      expect((await signIn("ada@example.com", PASSWORD, ip)).status).toBe(200);
+    const burst = await Promise.all(
+      Array.from({ length: 30 }, (_, i) => signIn("ada@example.com", `wrong ${i} password`, ip)),
+    );
+    const statuses = burst.map((answer) => answer.status);
+    expect(statuses.filter((s) => s === 401)).toHaveLength(10);
+    expect(statuses.filter((s) => s === 429)).toHaveLength(20);
+    expect((await signIn("ada@example.com", PASSWORD, ip)).status).toBe(429);
+  });
+
   test("ten failures on one account from many addresses refuse that account", async () => {
     await signUpCustomer("ada@example.com");
     await signUpCustomer("bob@example.com");
@@ -358,6 +372,22 @@ describe("web channel", () => {
     } finally {
       agent.stop();
     }
+  });
+
+  test("a shopper's checkout made before channels existed stays out of the protocol's reach", async () => {
+    const { body } = await call("POST", "/api/checkouts", { body: checkoutBody });
+    const { channel: _, ...legacy } = get<Checkout>("checkouts", body.id)!;
+    put("checkouts", body.id, legacy);
+    const answer = await handle(
+      new Request(`${ORIGIN}/ucp/v1/checkout-sessions/${body.id}`, {
+        headers: {
+          "ucp-agent": ucpAgent(),
+          "request-id": crypto.randomUUID(),
+          "x-forwarded-for": randomIp(),
+        },
+      }),
+    );
+    expect(answer.status).toBe(404);
   });
 
   test("the buyer and saved cards show only to the checkout's own signed-in customer", async () => {

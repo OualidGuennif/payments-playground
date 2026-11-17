@@ -25,6 +25,7 @@ mock.module("../adyen", () => ({
   },
   payWithSavedCard: async (input: Parameters<typeof real.payWithSavedCard>[0]) =>
     fake.answer(input),
+  cardBrand: async (number: string) => fake.cardBrand(number),
   payWithNetworkToken: async (input: Parameters<typeof real.payWithNetworkToken>[0]) =>
     fake.answer(input),
   createSession: async (input: Parameters<typeof real.createSession>[0]) => {

@@ -58,6 +58,8 @@ export type Checkout = {
   attempts: number;
   lastMessage?: Message;
   orderId?: string;
+  // When an agent completed with no instrument: from then on the shopper pays at continue_url.
+  handedOverAt?: string;
   createdAt: string;
   updatedAt: string;
   expiresAt: string;
@@ -391,7 +393,7 @@ export function loadCheckout(id: string, auth?: Auth | "browser"): Checkout {
   const checkout = get<Checkout>("checkouts", id);
   if (!checkout) throw err(404, "not_found", "Checkout not found");
   // The protocol side never reaches a shopper's own checkout: the two channels stay apart.
-  if (auth !== "browser" && (checkout.channel === "web" || !ownedBy(checkout, auth)))
+  if (auth !== "browser" && (channelOf(checkout) === "web" || !ownedBy(checkout, auth)))
     throw err(404, "not_found", "Checkout not found");
   return checkout;
 }
@@ -502,6 +504,11 @@ export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAl
   });
   if (!paymentsConfigured())
     return escalate("payments_unavailable", "Payments are not configured on this store");
+  if (checkout.handedOverAt)
+    return escalate(
+      "shopper_pays",
+      "The agent handed this checkout to the shopper, who pays at continue_url.",
+    );
   // A guest agent can still pay with its own network token, and has no limit of the store's.
   if (!auth) return { status: "ready_for_complete", messages, total };
   const remaining = auth.grant.spendLimit - auth.grant.spent;
@@ -517,7 +524,7 @@ export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAl
       type: "info",
       code: "no_saved_card",
       content:
-        "The account has no saved card: complete with a network token, or hand the shopper continue_url.",
+        "The account has no saved card: complete with a network token, or complete with no instrument to hand the shopper continue_url.",
     });
   return { status: "ready_for_complete", messages, card, total };
 }
@@ -629,14 +636,16 @@ function holdMismatch(checkout: Checkout, reason: string): void {
   });
 }
 
+export type NetworkToken = Omit<adyen.NetworkTokenPayment["token"], "brand">;
 export type Instrument =
   | { handler: "saved_card"; alias: string }
-  | { handler: "network_token"; token: adyen.NetworkTokenPayment["token"]; lastFour: string };
+  | { handler: "network_token"; token: NetworkToken; lastFour: string };
 
 const bad = (path: string, content: string) =>
   err(400, "invalid_credential", content, `$.payment.instruments[0].credential.${path}`);
 
-// UCP 2026-08-25 network_token_credential, checked field by field; nothing of it is echoed back.
+// The agent's network token: its number and expiry, checked field by field (owner decision
+// 2026-11-17: no cryptogram, no CVC, no brand). Other fields are ignored; nothing is echoed back.
 function networkToken(credential: unknown): Instrument {
   if (!isRecord(credential) || credential.type !== "network_token")
     throw err(
@@ -645,7 +654,7 @@ function networkToken(credential: unknown): Instrument {
       "A network_token instrument needs a credential of type network_token",
       "$.payment.instruments[0].credential",
     );
-  const { number, expiry_month, expiry_year, cryptogram, eci_value, name } = credential;
+  const { number, expiry_month, expiry_year, name } = credential;
   if (typeof number !== "string" || !/^\d{13,19}$/.test(number))
     throw bad("number", "number must be the 13 to 19 digits of the network token");
   if (
@@ -664,10 +673,6 @@ function networkToken(credential: unknown): Instrument {
     (expiry_year === today.getUTCFullYear() && expiry_month < today.getUTCMonth() + 1)
   )
     throw bad("expiry_year", "The token has expired or expiry_year is not a four-digit year");
-  if (typeof cryptogram !== "string" || !/^[A-Za-z0-9+/=_-]{8,512}$/.test(cryptogram))
-    throw bad("cryptogram", "cryptogram must be the token's transaction cryptogram");
-  if (typeof eci_value !== "string" || !/^\d{2}$/.test(eci_value))
-    throw bad("eci_value", "eci_value must be the two-digit ECI given with the cryptogram");
   return {
     handler: "network_token",
     lastFour: number.slice(-4),
@@ -676,10 +681,37 @@ function networkToken(credential: unknown): Instrument {
       expiryMonth: String(expiry_month).padStart(2, "0"),
       expiryYear: String(expiry_year),
       holderName: typeof name === "string" && name.trim() ? name.trim().slice(0, 80) : undefined,
-      cryptogram,
-      eci: eci_value,
     },
   };
+}
+
+// The brand is Adyen's answer or nothing: an unknown number is the agent's to fix, and a failed
+// lookup pays nothing and leaves the checkout as it was.
+async function networkTokenBrand(number: string, ref: string): Promise<string> {
+  let brand: string | undefined;
+  try {
+    brand = await adyen.cardBrand(number);
+  } catch (error) {
+    trace({
+      channel: "adyen",
+      actor: "server",
+      method: "POST",
+      path: "/cardDetails",
+      status: 502,
+      ref,
+      // Any run of digits is masked: an error text must never carry the number back.
+      detail: { error: (error as Error).message.replace(/\d{6,}/g, "…").slice(0, 200) },
+    });
+    throw err(
+      502,
+      "payment_unavailable",
+      "The card brand could not be read; retry complete with the same body.",
+      undefined,
+      "recoverable",
+    );
+  }
+  if (!brand) throw bad("number", "Adyen recognises no card brand for this number");
+  return brand;
 }
 
 export function chosenInstrument(body: Record<string, unknown>): Instrument | undefined {
@@ -716,7 +748,14 @@ export async function completeCheckout(
   const reference = auth ? customerById(auth.grant.customerId)?.id : undefined;
   const canUseCards = auth !== undefined && allows(auth.token.scopes, "ucp:pay");
   const cards = canUseCards ? await savedCards(reference) : [];
-  // Re-read after the await: from here to the claim nothing yields, so a parallel complete that
+  // Adyen reads the token's brand, asked only when the checkout could be paid now: a checkout over
+  // the limit or not ready sends the number nowhere.
+  const brand =
+    instrument?.handler === "network_token" &&
+    assess(loaded, auth, []).status === "ready_for_complete"
+      ? await networkTokenBrand(instrument.token.number, loaded.id)
+      : undefined;
+  // Re-read after the awaits: from here to the claim nothing yields, so a parallel complete that
   // claimed the checkout meanwhile is seen and no second payment is sent.
   const checkout = get<Checkout>("checkouts", loaded.id) ?? loaded;
   if (checkout.phase === "completed" || checkout.phase === "complete_in_progress") return checkout;
@@ -729,13 +768,11 @@ export async function completeCheckout(
   if (auth && !live) return checkout;
   const assessment = assess(checkout, live, cards);
   if (assessment.status !== "ready_for_complete") return checkout;
-  if (!instrument)
-    throw err(
-      400,
-      "instrument_required",
-      "Pass a saved card from checkout.payment.instruments, or a network token",
-      "$.payment.instruments",
-    );
+  // No instrument is the agent's third choice: the shopper pays at continue_url, in Drop-in.
+  if (!instrument) return saveCheckout({ ...checkout, handedOverAt: now() });
+  // Ready now but not when the brand was asked (an edit, or budget given back meanwhile): the
+  // checkout is answered as it stands and the same complete can be sent again.
+  if (instrument.handler === "network_token" && !brand) return checkout;
   const card =
     instrument.handler === "saved_card"
       ? cards.find((c) => c.alias === instrument.alias)
@@ -796,7 +833,10 @@ export async function completeCheckout(
   try {
     result =
       instrument.handler === "network_token"
-        ? await adyen.payWithNetworkToken({ ...common, token: instrument.token })
+        ? await adyen.payWithNetworkToken({
+            ...common,
+            token: { ...instrument.token, brand: brand! },
+          })
         : await adyen.payWithSavedCard({
             ...common,
             storedPaymentMethodId: card!.storedPaymentMethodId,
@@ -856,9 +896,9 @@ export async function completeCheckout(
       amount: assessment.total,
       instrument: instrument.handler,
       lastFour: record.lastFour,
-      ...(instrument.handler === "network_token"
-        ? { paymentMethod: "networkToken", shopperInteraction: "Ecommerce" }
-        : { shopperInteraction: "ContAuth", recurringProcessingModel: "UnscheduledCardOnFile" }),
+      ...(instrument.handler === "network_token" ? { paymentMethod: "networkToken", brand } : {}),
+      shopperInteraction: "ContAuth",
+      recurringProcessingModel: "UnscheduledCardOnFile",
       ...result,
     },
   });
@@ -878,7 +918,7 @@ export async function completeCheckout(
   releaseReservation(answered, grantId);
   const retry =
     instrument.handler === "network_token"
-      ? "Complete again with a new cryptogram, or hand the shopper continue_url."
+      ? "Complete again with another network token, or with no instrument to hand the shopper continue_url."
       : "The shopper can pay at continue_url.";
   return saveCheckout({
     ...claimed,

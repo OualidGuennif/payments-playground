@@ -236,13 +236,17 @@ export default function Agents() {
         </h2>
         <p className="max-w-[68ch]">
           Declared under <span className="code">com.payments-playground.network_token</span>, schema{" "}
-          <span className="code">/ucp/v1/handlers/network_token.json</span>. The instrument carries
-          UCP&apos;s <span className="code">network_token_credential</span>: the token number,
-          expiry month and year, a fresh cryptogram and its ECI. The store sends it to Adyen once as
-          a <span className="code">networkToken</span> payment with the cryptogram in{" "}
-          <span className="code">mpiData</span>, and never stores, logs or returns it. A refused
-          payment needs a new cryptogram. A guest agent may use it; a signed-in agent stays within
-          its grant&apos;s limit. Adyen must enable network-token payments on the merchant account.
+          <span className="code">/ucp/v1/handlers/network_token.json</span>. The credential is the
+          token&apos;s number and its expiry month and year, with an optional holder name: no
+          cryptogram, no CVC and no brand. The store asks Adyen for the brand (
+          <span className="code">/cardDetails</span>), then pays once as a{" "}
+          <span className="code">networkToken</span> payment, merchant-initiated (
+          <span className="code">ContAuth</span>,{" "}
+          <span className="code">UnscheduledCardOnFile</span>
+          ), and never stores, logs or returns it. A guest agent may use it; a signed-in agent stays
+          within its grant&apos;s limit. An agent may also complete with no instrument: the checkout
+          is handed to the shopper, who pays at <span className="code">continue_url</span>. Adyen
+          must enable network-token payments on the merchant account.
         </p>
       </section>
     </div>

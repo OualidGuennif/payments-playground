@@ -206,13 +206,12 @@ export const MCP_TOOLS = [
   tool(
     "complete_checkout",
     "Pay and place the order",
-    "Pays on Adyen TEST when status is ready_for_complete, with one instrument in checkout.payment.instruments: a saved card (handler_id saved_card, the id from get_checkout; needs sign-in) or your own one-time network token (handler_id network_token, credential as UCP's network_token_credential with a fresh cryptogram). If the answer says requires_escalation, show the shopper continue_url.",
+    "Pays on Adyen TEST when status is ready_for_complete. Choose one: a saved card (handler_id saved_card, the id from get_checkout; needs sign-in), your own network token (handler_id network_token, credential with its number and expiry only), or no instrument to hand the shopper continue_url, where they pay themselves. If the answer says requires_escalation, show the shopper continue_url.",
     {
       meta: meta(true),
       id,
       checkout: {
         type: "object",
-        required: ["payment"],
         properties: {
           payment: {
             type: "object",
@@ -230,7 +229,7 @@ export const MCP_TOOLS = [
                     credential: {
                       type: "object",
                       description:
-                        "network_token only: type network_token, number, expiry_month, expiry_year, cryptogram, eci_value, optional name (schema at /ucp/v1/handlers/network_token.json)",
+                        "network_token only: type network_token, number, expiry_month, expiry_year, optional name; no cryptogram, CVC or brand (schema at /ucp/v1/handlers/network_token.json)",
                     },
                   },
                 },

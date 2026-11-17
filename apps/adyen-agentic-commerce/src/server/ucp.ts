@@ -33,8 +33,8 @@ export function paymentHandler() {
   };
 }
 
-// ADR-015: an agent brings its own card as a one-time network token and cryptogram, signed in or
-// not; the store passes it to Adyen for one payment and keeps none of it.
+// ADR-015: an agent brings its own card as a network token's number and expiry, signed in or not;
+// the store reads the brand from Adyen, pays once and keeps none of it.
 export function networkTokenHandler() {
   const origin = config().publicOrigin;
   return {
@@ -53,7 +53,7 @@ export function networkTokenSchema() {
     $id: `${config().publicOrigin}/ucp/v1/handlers/network_token.json`,
     title: "Network token instrument (Atelier Velune demo)",
     description:
-      "A network token with a fresh cryptogram, as UCP's network_token_credential. It pays once: the store never stores, logs or returns it, and a refused attempt needs a new cryptogram.",
+      "A network token's number and expiry, nothing else: no cryptogram, no CVC, no brand (the store reads the brand from Adyen). It is paid as an unscheduled card-on-file payment (ContAuth) and used once: the store never stores, logs or returns it. Other credential fields are ignored.",
     type: "object",
     required: ["handler_id", "type", "credential"],
     properties: {
@@ -62,16 +62,13 @@ export function networkTokenSchema() {
       type: { const: "card" },
       credential: {
         type: "object",
-        required: ["type", "number", "expiry_month", "expiry_year", "cryptogram", "eci_value"],
+        required: ["type", "number", "expiry_month", "expiry_year"],
         properties: {
           type: { const: "network_token" },
           number: { type: "string", pattern: "^[0-9]{13,19}$" },
           expiry_month: { type: "integer", minimum: 1, maximum: 12 },
           expiry_year: { type: "integer", minimum: 2000, maximum: 9999 },
-          cryptogram: { type: "string", pattern: "^[A-Za-z0-9+/=_-]{8,512}$" },
-          eci_value: { type: "string", pattern: "^[0-9]{2}$" },
-          name: { type: "string" },
-          token_requestor_id: { type: "string" },
+          name: { type: "string", maxLength: 80 },
         },
       },
     },
@@ -454,8 +451,8 @@ export async function renderCheckout(checkout: commerce.Checkout, auth?: Auth) {
   const cards = account ? await commerce.savedCards(account.id) : [];
   const assessment = commerce.assess(checkout, auth, cards);
   const order = checkout.orderId ? get<commerce.Order>("orders", checkout.orderId) : undefined;
-  // UCP's identity_optional: a guest may pay with its own network token; signing in adds the
-  // account's saved cards.
+  // UCP's identity_optional: a guest may pay with its own network token or hand the shopper
+  // continue_url; signing in adds the account's saved cards.
   const open = ["incomplete", "requires_escalation", "ready_for_complete"].includes(
     assessment.status,
   );
@@ -466,7 +463,7 @@ export async function renderCheckout(checkout: commerce.Checkout, auth?: Auth) {
             type: "info",
             code: "identity_optional",
             content:
-              "Pay with your own network token, or sign in to pay with the shopper's saved card within a spend limit they set.",
+              "Complete with your own network token (number and expiry), sign in to pay with the shopper's saved card within a spend limit they set, or complete with no instrument to hand the shopper continue_url.",
           },
         ]
       : [];

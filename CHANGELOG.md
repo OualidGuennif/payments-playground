@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- An agent pays the agentic store with a network token's number and expiry only: the store reads
+  the brand from Adyen `/cardDetails` and pays `networkToken` with ContAuth and
+  UnscheduledCardOnFile (no cryptogram, CVC or brand from the agent); completing with no
+  instrument hands the checkout to the shopper at `continue_url`. Sign-in returns only to a path
+  of the site (tabs, newlines and backslashes refused), a burst of sign-ins meets the failure
+  limit, and agents never reach a shopper's checkout made before channels existed.
 - The agentic store has customer accounts: sign-up and sign-in with an argon2id password or a
   passkey (`@simplewebauthn` 14), a 7-day HttpOnly session cookie stored as its SHA-256, and
   failed sign-ins limited per address and per account. Consent and device approval need a

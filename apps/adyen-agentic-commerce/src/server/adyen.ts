@@ -170,43 +170,46 @@ export type NetworkTokenPayment = {
     expiryMonth: string;
     expiryYear: string;
     holderName?: string;
-    cryptogram: string;
-    eci: string;
+    // Read by Adyen from the number (cardBrand), never taken from the agent.
+    brand: string;
   };
   idempotencyKey: string;
   shopperEmail?: string;
   metadata: Record<string, string>;
 };
 
-// Adyen, "Manage network tokens yourself": the token as a networkToken payment method and its
-// cryptogram (TAVV) in mpiData. One-off and customer-initiated, so nothing is stored for later:
-// no shopperReference, no recurring model, no storePaymentMethod.
+// POST /cardDetails: the brand Adyen reads from the number, so an agent sends only the number and
+// its expiry. The first brand Adyen supports for this merchant account wins; none is undefined.
+export async function cardBrand(number: string): Promise<string | undefined> {
+  const { checkout, merchantAccount } = api();
+  const response = await checkout.PaymentsApi.cardDetails({ merchantAccount, cardNumber: number });
+  return response.brands?.find((b) => b.type && b.supported !== false)?.type;
+}
+
+// Owner decision 2026-11-17 (ADR-015): the agent brings a network token's number and expiry, no
+// cryptogram and no CVC, and the store pays it merchant-initiated, as an unscheduled card on file.
+// Nothing is stored for later: no storePaymentMethod, and no stored-payment id is sent.
 export function networkTokenRequest(
   input: NetworkTokenPayment,
   merchantAccount: string,
 ): Types.checkout.PaymentRequest {
   const P = checkoutTypes.PaymentRequest;
-  const T = checkoutTypes.ThreeDSecureData;
   return {
     merchantAccount,
     amount: { currency: CURRENCY, value: input.amount },
     reference: input.reference,
-    // Required by the API type; a payment with a cryptogram has no redirect.
+    // Required by the API type; a ContAuth payment never redirects the shopper.
     returnUrl: `${config().publicOrigin}/agents`,
     paymentMethod: {
       type: checkoutTypes.CardDetails.TypeEnum.NetworkToken,
+      brand: input.token.brand,
       number: input.token.number,
       expiryMonth: input.token.expiryMonth,
       expiryYear: input.token.expiryYear,
       holderName: input.token.holderName,
     },
-    mpiData: {
-      directoryResponse: T.DirectoryResponseEnum.Y,
-      authenticationResponse: T.AuthenticationResponseEnum.Y,
-      tokenAuthenticationVerificationValue: input.token.cryptogram,
-      eci: input.token.eci,
-    },
-    shopperInteraction: P.ShopperInteractionEnum.Ecommerce,
+    shopperInteraction: P.ShopperInteractionEnum.ContAuth,
+    recurringProcessingModel: P.RecurringProcessingModelEnum.UnscheduledCardOnFile,
     shopperEmail: input.shopperEmail,
     metadata: input.metadata,
   };

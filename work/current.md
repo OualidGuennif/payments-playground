@@ -7,14 +7,14 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 ## Customer accounts and agent-brought cards — ACTIVE
 
-- Owner decision: 2026-11-17, plan approved (ADR-015: accounts with passkeys, two channels,
-  agents bound to an account, one-time network tokens, limits).
-- State: implemented on local `develop` with tests (292 agentic); browser check on localhost
-  passed except a real passkey; TEST network tokens need Adyen to enable them.
-- Next: independent review, push, v0.4.0 (who: agent); a real passkey on localhost and Render,
-  Adyen enablement and test tokens (who: owner).
+- Owner decision: 2026-11-17, ADR-015 approved; 20:50 UTC: agents choose freely between saved
+  card, front payment and a network token (number and expiry only, ContAuth, brand detected).
+- State: on local develop, not pushed: review findings fixed with tests; handler reworked (brand
+  from /cardDetails, ContAuth); a real local TEST payment Authorised; no instrument hands over.
+- Next: independent review of `953d48b..HEAD`, push, v0.4.0 (who: agent); a real passkey on
+  localhost and Render (who: owner).
 - Blocker: none.
-- Evidence: knowledge/components/adyen-agentic-commerce.md (verified 2026-11-17).
+- Evidence: knowledge/components/adyen-agentic-commerce.md (verified 2026-11-17, TEST run).
 
 ## Agentic data lost on deploy, disk not in effect — WAITING-OWNER
 

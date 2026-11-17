@@ -140,6 +140,11 @@ function countFailure(key: string): void {
   failures.set(key, { start: Date.now(), count: 1 });
 }
 
+function uncountFailure(key: string): void {
+  const entry = failures.get(key);
+  if (entry && entry.count > 0) entry.count -= 1;
+}
+
 export const forgetFailures = () => failures.clear();
 
 function refuseWhenLimited(keys: [string, number][]): void {
@@ -200,21 +205,19 @@ let decoy: Promise<string> | undefined;
 export async function signIn(body: unknown, address: string) {
   const email = field(body, "email").trim().toLowerCase();
   const password = field(body, "password");
-  refuseWhenLimited([
-    [`ip:${address}`, FAILURES_MAX],
-    [`email:${email}`, FAILURES_MAX],
-  ]);
+  const keys = [`ip:${address}`, `email:${email}`];
+  refuseWhenLimited(keys.map((key) => [key, FAILURES_MAX]));
+  // Counted before the hash is checked, with nothing awaited since the limit check: a burst of
+  // attempts sent at once meets the limit one by one. A right password takes its count back.
+  for (const key of keys) countFailure(key);
   const customer = findBy<Customer>("customers", "email", email)[0];
   decoy ??= Bun.password.hash(secret(), { algorithm: "argon2id" });
   const valid = await Bun.password.verify(
     password.slice(0, PASSWORD_MAX),
     customer?.passwordHash ?? (await decoy),
   );
-  if (!customer || !valid) {
-    countFailure(`ip:${address}`);
-    countFailure(`email:${email}`);
-    throw new CustomerError(401, "invalid_login", "Wrong email or password");
-  }
+  if (!customer || !valid) throw new CustomerError(401, "invalid_login", "Wrong email or password");
+  for (const key of keys) uncountFailure(key);
   return { customer, cookie: startSession(customer) };
 }
 

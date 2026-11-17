@@ -1,22 +1,22 @@
 ---
 type: Decision
 title: "ADR-015: Customer accounts, two channels and agent network tokens in the agentic store"
-description: "Customer accounts (password, passkeys), web and agent channels on every order, agent grants bound to an account, and a one-time network token an agent brings, paid on Adyen as networkToken with mpiData."
+description: "Customer accounts (password, passkeys), web and agent channels, agent grants bound to an account; an agent pays by saved card, by a network token (number and expiry, ContAuth) or hands the shopper continue_url."
 tags: [decision, agentic, accounts, passkeys, network-token, ucp]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T21:00:00Z
+  at: 2026-11-17T23:48:21Z
 sources:
   - id: spec
     resource: ../components/adyen-agentic-commerce.md
     title: The store's spec
   - id: adyen-network-tokens
     resource: https://docs.adyen.com/online-payments/network-tokenization
-    title: "Adyen: Manage network tokens yourself (networkToken, mpiData)"
-  - id: ucp-network-token
-    resource: https://ucp.dev/2026-08-25/schemas/common/types/network_token_credential.json
-    title: "UCP 2026-08-25: network token credential"
+    title: "Adyen: Manage network tokens yourself (networkToken payment method)"
+  - id: adyen-card-details
+    resource: https://docs.adyen.com/api-explorer/Checkout/72/post/cardDetails
+    title: "Adyen Checkout API v72: POST /cardDetails (brands of a card number)"
 ---
 
 # ADR-015: Customer accounts, two channels and agent network tokens
@@ -47,17 +47,25 @@ own card, brought as a one-time network token, never a clear card number.
   records `customerId`, and the agent then uses that account's buyer details and saved cards.
   Grants made before accounts have no customer and stop working: their agents sign in again.
   Reading a checkout, cart or order through a token also needs the token's account.
-- **Agent network tokens.** A second payment handler, `network_token`, takes UCP's
-  `network_token_credential` (number, expiry, `cryptogram`, `eci_value`) on `complete_checkout`.
-  The store sends `/payments` with `paymentMethod.type: networkToken` and `mpiData` (TAVV,
-  `eci`, `directoryResponse` and `authenticationResponse` `Y`), `shopperInteraction: Ecommerce`,
-  no stored-payment fields. The credential is never stored, traced, logged or echoed; a refused
-  payment needs a new cryptogram. A guest agent may pay this way; a signed-in agent's payments,
-  whatever the instrument, count against its grant's limit.
+- **Agent network tokens.** A second payment handler, `network_token`, takes the token's number,
+  expiry month and year and an optional holder name on `complete_checkout`: no cryptogram, no CVC,
+  no brand (owner, 2026-11-17: "l'agent il fournit juste le number et l'expiry date"). The store
+  asks Adyen `POST /cardDetails` for the brand, then sends `/payments` with `paymentMethod {type:
+  networkToken, brand, number, expiryMonth, expiryYear, holderName}`, `shopperInteraction:
+  ContAuth`, `recurringProcessingModel: UnscheduledCardOnFile`, no `shopperReference` and no
+  stored-payment field. The credential is never stored, traced, logged or echoed. A guest agent
+  may pay this way; a signed-in agent's payments, whatever the instrument, count against its
+  grant's limit. The first version took a cryptogram and ECI in `mpiData`
+  (`shopperInteraction: Ecommerce`); the owner replaced it the same day.
+- **Three free choices for the agent** (owner, 2026-11-17: "laisse le choix libre"): a saved card
+  of the account (signed in), its own network token (guest or signed in), or no instrument, which
+  hands the checkout to the shopper: `requires_escalation` with `continue_url`, where the shopper
+  pays in Drop-in as in v0.3.4.
 - **Rate limits** on Drop-in payment sessions, card-save sessions and failed sign-ins.
 
-**Consequences.** Real network-token payments on TEST need Adyen Support to enable payments with
-network tokens on the merchant account, and a source of test tokens with cryptograms, which Adyen
-does not publish; until then the path is proven against the test double only. The accounts live in
+**Consequences.** On 2026-11-17 a guest agent's network-token payment with Visa's TEST number
+`4111111111111111` and an expiry was Authorised on the owner's TEST merchant account (brand `visa`
+from `/cardDetails`, ContAuth, no `shopperReference`); another merchant account may need Adyen
+Support to enable network-token payments and raw card data first. The accounts live in
 SQLite, so they need the agentic disk on Render. A new dependency (`@simplewebauthn`) enters the
 store.

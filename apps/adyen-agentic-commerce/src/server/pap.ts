@@ -12,22 +12,32 @@ import {
 } from "jose";
 import { config, PAP_VERSION } from "./config";
 import { claimJti } from "./db";
-import { type Auth, issuer, resolveClient, SCOPES, verifyWithClientKeys } from "./oauth";
+import {
+  ADVERTISED_SCOPES,
+  type Auth,
+  issuer,
+  resolveClient,
+  SCOPES,
+  verifyWithClientKeys,
+} from "./oauth";
 import { isRecord, sha256b64url } from "./util";
 
 export function poppyDocument() {
   const { publicOrigin, domain } = config();
-  const scopes = Object.entries(SCOPES);
+  // PAP 1.0 §3.1 and §4.7: both maps are keyed by scope name, and every hint has both fields.
+  // Legacy names stay out: they are honoured, not offered.
   return {
     protocol_version: PAP_VERSION,
     organization: { name: "Atelier Velune (demo)", domain },
     auth: {
       issuer: issuer(),
-      scopes: scopes.map(([name]) => name),
-      scope_hints: {
-        changes: scopes.filter(([, s]) => s.kind === "changes").map(([name]) => name),
-        personal_data: scopes.filter(([, s]) => s.kind === "personal_data").map(([name]) => name),
-      },
+      scopes: Object.fromEntries(ADVERTISED_SCOPES.map((s) => [s, SCOPES[s].label])),
+      scope_hints: Object.fromEntries(
+        ADVERTISED_SCOPES.map((s) => [
+          s,
+          { changes: SCOPES[s].changes, personal_data: SCOPES[s].personalData },
+        ]),
+      ),
     },
     apis: [
       {

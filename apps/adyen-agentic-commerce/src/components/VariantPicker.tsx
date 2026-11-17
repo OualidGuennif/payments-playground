@@ -68,7 +68,7 @@ export function VariantPicker({
                 }}
                 aria-pressed={colour === c.colourId}
                 aria-label={c.colour}
-                className={`size-9 rounded-full border-2 ${colour === c.colourId ? "border-ink" : "border-line"}`}
+                className={`size-11 cursor-pointer rounded-full border-2 ${colour === c.colourId ? "border-ink" : "border-line"}`}
               >
                 <svg viewBox="0 0 10 10" className="size-full rounded-full" aria-hidden="true">
                   <circle cx="5" cy="5" r="5" fill={c.hex} />

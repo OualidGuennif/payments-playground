@@ -70,7 +70,7 @@ export function createPlatformApi(context: PlatformContext) {
       app: appId,
       environment: "TEST",
       versions: {
-        next: "16.4.3",
+        next: "16.4.6",
         elysia: "1.4.30",
         adyenWeb: "6.48.1",
         checkoutApi: "v72",

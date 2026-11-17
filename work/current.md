@@ -5,16 +5,24 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Every playground on Bun + Next.js + Elysia + Eden — ACTIVE
+## Agentic interoperability fixes from the Atelier Velune report — ACTIVE
 
-- Owner decision: 2026-11-15, drop Deno and Fresh, port every app; then Claude releases it itself:
-  Biome as formatter/linter, independent review, push, release PR, merge, tag, deploy check.
-- State: Biome added; review findings fixed with tests; CI scan fixes committed; VERSION 0.2.0
-  committed locally on top of develop `1885999` (pushed, Review OK).
-- Next: review, push, release PR, merge, tag, verify Render (who: Claude); webhook HMAC key, ipp
-  Render service deletion (who: owner).
+- Owner decision: 2026-11-16, the findings, Gemini's UI, WebMCP, Next 16.4.6; 2026-11-17, visual
+  yes, PAP §4.7 delegated (PAP agents must send scope), release to main.
+- State: v0.3.0 cut on develop (VERSION, CHANGELOG); release PR develop → main next.
+- Next: review, PR, merge, tag, Render deploy check, then close this entry (who: agent); add
+  WEBMCP_ORIGIN_TRIAL_TOKEN to .env.example and Render if wanted (who: owner).
 - Blocker: none.
-- Evidence: work/handovers/a38bcec0-13c5-437d-9c40-1f317f1b63c6.md.
+- Evidence: `bun run check` green; review receipts in `.aeion/reviews/`; pap-agent on TEST.
+
+## Render clean-up after v0.2.0 — WAITING-OWNER
+
+- Owner decision: 2026-11-15, Bun + Next.js everywhere, released as v0.2.0 (PR #5, `940e3b0`).
+- State: digital, styling and agentic serve the new build; `agentic.payments-playground.com`
+  resolves to Render since 2026-11-16 (`/healthz` 200).
+- Next: delete the `ipp-endless-aisle` service in the Render dashboard (who: owner).
+- Blocker: none.
+- Evidence: knowledge/current/digital-status.md (v0.2.0 deploy row).
 
 ## Owner browser check after the non-root deploy — WAITING-OWNER
 

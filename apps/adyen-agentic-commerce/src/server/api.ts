@@ -4,13 +4,13 @@
 import { Elysia, status } from "elysia";
 import { productSvg } from "./art";
 import * as adyen from "./adyen";
-import { productById, variantById } from "./catalog";
+import { productById, searchProducts, variantById, variantsOf } from "./catalog";
 import * as commerce from "./commerce";
 import { config, paymentsConfigured, SHOPPER_REFERENCE, UCP_VERSION } from "./config";
 import { get, list } from "./db";
 import * as oauth from "./oauth";
 import { poppyDocument } from "./pap";
-import { handleMcp, handleRest } from "./protocol";
+import { clientIp, handleMcp, handleRest, rateLimited } from "./protocol";
 import { recentTrace, trace } from "./trace";
 import { handlerSchema, profile } from "./ucp";
 import { openApi } from "./openapi";
@@ -65,6 +65,28 @@ const browserApi = new Elysia({ prefix: "/api" })
     return new Response(productSvg(product.shape, variant.colour), {
       headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=86400" },
     });
+  })
+  // Read-only and public, the same facts as the shop pages: what the page's WebMCP tools search.
+  .get("/catalog", ({ query }) => {
+    const max = Number(query.max_price);
+    const products = searchProducts(query.q ?? "", {
+      category: query.category || undefined,
+      maxPrice: query.max_price && Number.isFinite(max) ? max : undefined,
+    });
+    return {
+      products: products.map((p) => ({
+        id: p.id,
+        title: p.title,
+        category: p.category,
+        price: p.price,
+        variants: variantsOf(p).map((v) => ({
+          id: v.id,
+          colour: v.colour.label,
+          size: v.size,
+          available: v.available,
+        })),
+      })),
+    };
   })
   .post("/checkouts", ({ body }) => {
     try {
@@ -271,10 +293,14 @@ export async function accountView(refresh = false) {
       clientId: g.clientId,
       name: g.clientName,
       scopes: g.scopes,
+      // The consent page's words, so the account never shows a shopper a protocol name.
+      permissions: g.scopes.map((s) => oauth.SCOPES[s].label),
       spendLimit: g.spendLimit,
       spent: g.spent,
       revoked: g.revoked,
       createdAt: g.createdAt,
+      tokenIssuedAt: g.tokenIssuedAt,
+      firstUsedAt: g.firstUsedAt,
       lastUsedAt: g.lastUsedAt,
     })),
     orders: list<commerce.Order>("orders", 50).map((o) => ({
@@ -355,6 +381,59 @@ const app = new Elysia()
       return oauthError(error);
     }
   })
+  .post("/oauth/device_authorization", async ({ request }) => {
+    // Every call stores a request, so it shares the limit agents get on UCP and /mcp.
+    const retry = rateLimited(clientIp(request));
+    if (retry) return json(429, { error: "rate_limited" }, { "retry-after": String(retry) });
+    try {
+      const answer = await oauth.startDeviceAuthorization(await formOf(request));
+      // The device code is a secret and the user code half of one: neither goes to the trace.
+      trace({
+        channel: "oauth",
+        actor: "agent",
+        method: "POST",
+        path: "/oauth/device_authorization",
+        status: 200,
+        ref: null,
+        detail: { expires_in: answer.expires_in, interval: answer.interval },
+      });
+      return json(200, answer);
+    } catch (error) {
+      if (error instanceof oauth.OAuthError) {
+        trace({
+          channel: "oauth",
+          actor: "agent",
+          method: "POST",
+          path: "/oauth/device_authorization",
+          status: error.status,
+          ref: null,
+          detail: { error: error.code, why: error.message },
+        });
+      }
+      return oauthError(error);
+    }
+  })
+  // The shopper's form on /device. A right code opens the consent page; anything else goes back
+  // to /device with the reason, so the page itself never needs to read the database.
+  .post("/oauth/device/verify", async ({ request }) => {
+    const form = await formOf(request);
+    const typed = (form.get("user_code") ?? "").replace(/[^A-Za-z-]/g, "").slice(0, 12);
+    // The first X-Forwarded-For entry, as for shopperIP elsewhere. A forged one only moves the
+    // guesses to another bucket; the total limit in verifyUserCode still bounds them.
+    const address = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+    const outcome = oauth.verifyUserCode(typed, address);
+    const origin = config().publicOrigin;
+    if ("requestId" in outcome) {
+      return new Response(null, {
+        status: 303,
+        headers: { location: `${origin}/consent/${outcome.requestId}` },
+      });
+    }
+    const back = new URL(`${origin}/device`);
+    back.searchParams.set("error", outcome.error);
+    if (typed) back.searchParams.set("user_code", typed);
+    return new Response(null, { status: 303, headers: { location: back.href } });
+  })
   .post("/oauth/token", async ({ request }) => {
     try {
       const tokens = await oauth.tokenEndpoint(await formOf(request));
@@ -401,15 +480,16 @@ const app = new Elysia()
         path: "/oauth/register",
         status: 201,
         ref: client.clientId,
-        detail: { redirect_uris: client.redirectUris },
+        detail: { redirect_uris: client.redirectUris, grant_types: client.grantTypes },
       });
+      const grantTypes = client.grantTypes ?? [];
       return json(201, {
         client_id: client.clientId,
         client_name: client.name,
         redirect_uris: client.redirectUris,
         token_endpoint_auth_method: "none",
-        grant_types: ["authorization_code", "refresh_token"],
-        response_types: ["code"],
+        grant_types: grantTypes,
+        response_types: grantTypes.includes("authorization_code") ? ["code"] : [],
         client_id_issued_at: Math.floor(Date.now() / 1000),
       });
     } catch (error) {

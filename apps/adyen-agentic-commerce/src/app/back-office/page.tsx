@@ -100,11 +100,14 @@ export default function BackOffice() {
         <h2 className="text-xl">Protocol trace</h2>
         <ol className="space-y-2">
           {trace.map((t) => (
-            <li key={t.id} className="rounded-xl border border-line bg-card text-sm">
+            <li
+              key={t.id}
+              className="overflow-hidden rounded-xl border border-line bg-card text-sm"
+            >
               <details>
-                <summary className="flex cursor-pointer flex-wrap items-center gap-2 p-3">
+                <summary className="flex w-full cursor-pointer flex-wrap items-center gap-2 px-4 py-3">
                   <span className="pill border-line">{t.channel}</span>
-                  <span className="font-mono text-xs">
+                  <span className="min-w-0 break-all font-mono text-xs">
                     {t.method} {t.path}
                   </span>
                   <span className={t.status >= 400 ? "text-bad" : "text-ok"}>{t.status}</span>

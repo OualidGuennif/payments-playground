@@ -36,7 +36,32 @@ describe("discovery", () => {
     expect(doc.protocol_version).toBe("1.0");
     expect(doc.auth.issuer).toBe(ORIGIN);
     expect(doc.apis).toContainEqual(expect.objectContaining({ type: "mcp", url: MCP }));
-    expect(doc.auth.scope_hints.changes).toContain("ucp:pay");
+  });
+
+  test("poppy.json describes and hints every offered scope, keyed by scope name (§3.1, §4.7)", async () => {
+    const doc = await (await get("/.well-known/poppy.json")).json();
+    const metadata = await (await get("/.well-known/oauth-authorization-server")).json();
+    const described = Object.keys(doc.auth.scopes).sort();
+    expect(described).toEqual([...metadata.scopes_supported].sort());
+    expect(Object.keys(doc.auth.scope_hints).sort()).toEqual(described);
+    for (const scope of described) {
+      expect(typeof doc.auth.scopes[scope]).toBe("string");
+      // A Company MUST include both fields in each entry.
+      expect(Object.keys(doc.auth.scope_hints[scope]).sort()).toEqual(["changes", "personal_data"]);
+      expect(["none", "reversible", "irreversible"]).toContain(doc.auth.scope_hints[scope].changes);
+      expect(typeof doc.auth.scope_hints[scope].personal_data).toBe("boolean");
+    }
+    expect(doc.auth.scope_hints["ucp:pay"]).toEqual({
+      changes: "irreversible",
+      personal_data: true,
+    });
+    expect(doc.auth.scope_hints["dev.ucp.shopping.order:read"]).toEqual({
+      changes: "none",
+      personal_data: true,
+    });
+    // Legacy names are honoured at sign-in, never offered.
+    expect(doc.auth.scopes["ucp:checkout"]).toBeUndefined();
+    expect(doc.auth.scopes["ucp:orders"]).toBeUndefined();
   });
 
   test("the protected resource metadata for /mcp points at this issuer", async () => {
@@ -234,5 +259,17 @@ describe("Poppy-Session refusals", () => {
       lifetime: 3600,
     });
     await refused({ session: { delegation } }, "session_ended");
+  });
+});
+
+describe("sign-in", () => {
+  test("a sign-in request without scope goes back as invalid_scope (§4.7)", async () => {
+    // "" leaves the parameter out entirely; "   " sends it blank.
+    for (const scope of ["", "   "]) {
+      const { location } = await agent.authorize({ scope });
+      expect(location.href.startsWith(agent.redirectUri)).toBe(true);
+      expect(location.searchParams.get("error")).toBe("invalid_scope");
+      expect(location.searchParams.get("state")).toBe("state-1");
+    }
   });
 });

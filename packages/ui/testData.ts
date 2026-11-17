@@ -43,8 +43,7 @@ export const ALT_METHODS: AltMethod[] = [
   {
     name: "Apple Pay",
     disclaimer: {
-      text:
-        "You need your own Apple sandbox account to perform test transactions, " + "please visit:",
+      text: "Requires your own Apple sandbox account:",
       linkLabel: "Apple Pay sandbox testing",
       href: "https://developer.apple.com/apple-pay/sandbox-testing/",
     },
@@ -52,8 +51,7 @@ export const ALT_METHODS: AltMethod[] = [
   {
     name: "PayPal",
     disclaimer: {
-      text:
-        "You need your own PayPal sandbox account to perform test transactions, " + "please visit:",
+      text: "Requires your own PayPal sandbox account:",
       linkLabel: "PayPal sandbox accounts",
       href: "https://developer.paypal.com/sandbox-testing/accounts",
     },

@@ -5,6 +5,80 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-17
+
+- Agentic store, from the release reviews: starting a device sign-in shares the agents' limit of
+  240 requests a minute per address. Since a caller can vary `X-Forwarded-For`, the store also
+  holds at most 1,000 device requests (then `temporarily_unavailable`), each deleted one lifetime
+  after it expires, and the limiter tracks at most 10,000 addresses. Looping
+  `/oauth/device_authorization` can now hold up new device sign-ins for up to 20 minutes, but no
+  longer grows the store or the limiter's memory.
+- Agentic store, PAP 1.0 §4.7: a sign-in request from a PAP agent (a URL `client_id` that signs
+  with `private_key_jwt`) must carry `scope`, on the authorization code and the device grant, or
+  it gets `invalid_scope`; any other MCP client that sends none, registered or a public URL client,
+  is still offered the cart, checkout and pay scopes. `/agents` and the spec say so; the
+  conformance matrix has the rule.
+- `work/current.md`: the agentic interoperability task waits for the owner's visual check and the
+  PAP §4.7 decision once it is on develop.
+- From the second review pass: each agentic test starts with no wrong-code record, so the device
+  tests pass in any order; the Digital test of a payment outside an Adyen order sends another
+  amount than the order's; `/agents` says a URL client signs its device requests.
+- Agentic store, from the pre-push review: the phone menu closes when a link in it opens another
+  page (the root layout kept it open over the new page).
+- Agentic store, from the pre-push security review: the device sign-in refuses a client whose
+  `client_id` is a URL unless it signs its requests, since without a callback on that host anyone
+  could start a public one's sign-in and be shown as it; the wrong-code record forgets addresses
+  with no recent miss and keeps at most 1,000. `src/proxy.test.ts` checks Basic Auth and the
+  cross-site refusal through the proxy itself.
+- Digital Checkout: a payment into an Adyen order (gift card, then card) again asks Adyen for its
+  own share, not the whole order; the metadata change had made the request builder send the order's
+  total. `api.test.ts` pins both cases.
+- Move the three apps to Next.js 16.4.6. 16.4.5 fixes GHSA-mfr8-8qww-v76h and six other moderate
+  advisories (`use cache` leaks, forwarded-response injection, image SVG check, Edge cookie
+  header), so `next build` no longer stops on Next's security guard; 16.4.6 also compresses route
+  handler responses, checked on `/mcp`, the UCP documents and a scripted agent purchase on TEST.
+  Only `next`, `@next/env` and the `@next/swc-*` binaries change in `bun.lock`.
+- Record the 2026-11-16 checks of the agentic store in its spec (184 tests, builds, the browser
+  WebMCP check, a scripted agent purchase on TEST) and the open push in `work/current.md`.
+- Agentic `/agents` page: what an MCP host needs (remote MCP, OAuth discovery from the 401, a
+  reachable callback or the device sign-in), generic MCP clients next to PAP agents, the device
+  sign-in steps, the scopes with their PAP hints from the server's own table, and the WebMCP
+  tools; the home page and the app README follow.
+- Agentic store is WebMCP ready: in a browser that exposes `document.modelContext`, the shopping
+  pages register `search_catalog`, `view_cart`, `add_to_cart`, `update_cart_item` and
+  `start_checkout`, which use the same cart and checkout calls as the buttons and a new read-only
+  `GET /api/catalog`; no tool pays, and the account, consent, device and Back Office pages
+  register none. An optional `WEBMCP_ORIGIN_TRIAL_TOKEN` is sent as `Origin-Trial` on pages. The
+  `/mcp` server is unchanged. The cart keeps working in memory where localStorage is blocked, and
+  `scripts/pap-agent.ts` exits when its run ends instead of five minutes later.
+- Agentic account page: each agent reads consent given, access issued, connected (first and last
+  request, UTC) or disconnected, so a consent alone no longer looks connected; its permissions
+  are listed in the consent page's words instead of scope names.
+- Agentic store, from the Atelier Velune interoperability report: `poppy.json` gives
+  `auth.scopes` as a scope-to-description map and `auth.scope_hints` keyed by scope with both PAP
+  hints; scopes are offered under their UCP names (`dev.ucp.shopping.cart:manage`,
+  `…checkout:manage`, `…order:read`), the old `ucp:checkout` and `ucp:orders` still honoured;
+  `/.well-known/ucp` lists `dev.ucp.common.identity_linking` with the order read as its one hard
+  gate; REST answers UCP's `identity_required` 401 and `insufficient_scope` 403 with a Bearer
+  challenge carrying the issuer as realm, and neither is kept under an Idempotency-Key; an agent
+  reads only the orders it placed; search reads UCP's `categories` and `price.min`; the OpenAPI
+  names UCP's operationIds and schemas, and declares each operation's token rule, scope, statuses
+  and examples; the OAuth device grant (RFC 8628) with a `/device` page for agents that cannot
+  receive a browser callback. New `device`, `identity` and `openapi` test files check the
+  document against the server's answers.
+- Digital Checkout (from Gemini): `/sessions`, Advanced `/payments` and `/api-only` send a fixed
+  two-key `metadata` (`playground`, `flow`), and `/sessions` no longer puts recipient names in
+  `deliveryAddress`; the request builders are exported and pinned by `api.test.ts`.
+- Interface pass across the three apps (from Gemini): touch targets of at least 44 px, a skip
+  link and a phone menu on the agentic store, dark text on the green buttons for AA contrast
+  (`--color-on-green`), no text under 11 px, balanced headings and readable line lengths, the
+  eyebrow labels dropped, and shorter hint copy.
+- Protect `main` on GitHub (pull request, the five CI checks up to date, resolved conversations,
+  administrators included, no force-push or deletion) and delete the three merged `task/*`
+  branches; the protection runbook records the read-back.
+- Record the v0.2.0 deploy check (Next.js build served, Sessions Drop-in on the public origin)
+  in the digital status, and the Render clean-up left to the owner in `work/current.md`.
+
 ## [0.2.0] - 2026-11-15
 
 - Pass CI's scans: `bunfig.toml` sets `minimumReleaseAge` to one week, Biome is pinned to 2.6.6

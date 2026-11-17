@@ -13,6 +13,7 @@ import {
 import { handle } from "../api";
 import { forgetCardCache } from "../commerce";
 import { openDatabase, useDatabase } from "../db";
+import { forgetCodeMisses } from "../oauth";
 import { sha256b64url } from "../util";
 import { fake } from "./fake-adyen";
 
@@ -27,6 +28,7 @@ export function freshStore() {
   useDatabase(openDatabase(":memory:"));
   fake.reset();
   forgetCardCache();
+  forgetCodeMisses();
 }
 
 // The edge rate-limits per client IP and every in-process request would otherwise share one.
@@ -55,7 +57,12 @@ export class TestAgent {
   sessionKeys!: Keys;
   sessionKid = "";
 
-  static async start(name = "Test agent"): Promise<TestAgent> {
+  // grantTypes goes into client.json as grant_types; left out, the document has none, as before.
+  // A public agent's document says it signs nothing (token_endpoint_auth_method "none").
+  static async start(
+    name = "Test agent",
+    opts: { grantTypes?: string[]; public?: boolean } = {},
+  ): Promise<TestAgent> {
     const agent = new TestAgent();
     agent.clientKeys = await generateKeyPair("ES256", { extractable: true });
     agent.clientJwk = {
@@ -78,7 +85,8 @@ export class TestAgent {
             client_name: name,
             redirect_uris: [agent.redirectUri],
             jwks_uri: agent.clientId.replace("client.json", "jwks.json"),
-            token_endpoint_auth_method: "private_key_jwt",
+            token_endpoint_auth_method: opts.public ? "none" : "private_key_jwt",
+            ...(opts.grantTypes ? { grant_types: opts.grantTypes } : {}),
           });
         }
         if (path.endsWith("/jwks.json")) return Response.json({ keys: [agent.clientJwk] });
@@ -167,8 +175,9 @@ export class TestAgent {
   }
 
   // The happy path: consent with the given scopes and limit, then a token and a delegation.
-  async signIn(opts: { scopes?: string[]; spendLimitEur?: number } = {}) {
-    const { requestId } = await this.authorize();
+  // `ask` is the scope parameter the agent sends; `scopes` is what the shopper ticks.
+  async signIn(opts: { ask?: string; scopes?: string[]; spendLimitEur?: number } = {}) {
+    const { requestId } = await this.authorize(opts.ask ? { scope: opts.ask } : {});
     if (!requestId) throw new Error("authorize did not reach consent");
     const back = await this.decide(requestId, opts);
     const code = back.searchParams.get("code");

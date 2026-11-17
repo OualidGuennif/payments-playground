@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import type { accountView } from "@/server/api";
 import { DropinPanel, type SessionInfo } from "@/components/DropinPanel";
 import { StatusPill } from "@/components/StatusPill";
+import { agentState, agentStory } from "@/lib/agent-status";
 import { api } from "@/lib/client";
 import { money } from "@/lib/money";
 
@@ -82,7 +83,7 @@ export function AccountView({
                   </span>
                   <button
                     type="button"
-                    className="text-xs underline"
+                    className="inline-flex min-h-11 cursor-pointer items-center px-2 text-xs underline"
                     onClick={() => forget(c.alias)}
                   >
                     Remove
@@ -123,17 +124,22 @@ export function AccountView({
                 <li key={a.id} className="space-y-2 rounded-xl border border-line p-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <strong className="font-medium">{a.name}</strong>
-                    <StatusPill status={a.revoked ? "canceled" : "authorised"} />
+                    <StatusPill status={agentState(a)} />
                   </div>
+                  <p className="text-xs">{agentStory(a)}</p>
                   <p className="break-all text-xs text-muted">{a.clientId}</p>
-                  <p className="text-xs">Scopes: {a.scopes.join(", ")}</p>
+                  <ul className="list-disc space-y-0.5 pl-4 text-xs" title={a.scopes.join(" ")}>
+                    {a.permissions.map((p, i) => (
+                      <li key={a.scopes[i]}>{p}</li>
+                    ))}
+                  </ul>
                   <p className="text-xs">
                     Spent {money(a.spent)} of {money(a.spendLimit)}
                   </p>
                   {a.revoked ? null : (
                     <div className="flex flex-wrap items-end gap-2">
                       <label className="text-xs">
-                        <span className="eyebrow">Limit (EUR)</span>
+                        <span className="block text-xs font-medium text-muted">Limit (EUR)</span>
                         <input
                           type="number"
                           min={0}

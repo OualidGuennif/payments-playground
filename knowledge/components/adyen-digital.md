@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15T18:00:00Z
+  at: 2026-11-16T22:30:00Z
 sources:
   - resource: ../../apps/adyen-digital
     title: "The Next.js app: pages, Elysia API, client components"
@@ -95,8 +95,10 @@ Shapes the routes rely on:
   an ISO 4217 code defaulting to `EUR`. Anything else is refused with 400.
 - `countryCode` is ISO alpha-2 and defaults to `FR`; `shopperLocale` defaults to `en-US`;
   `shopperEmail` is resolved server-side; `billingAddress` and `deliveryAddress` are built by
-  `buildCheckoutAddresses` (`packages/platform/addresses.ts`), and only `/sessions` puts names in
-  `deliveryAddress` (`firstName`/`lastName`, default `Test`/`Shopper`).
+  `buildCheckoutAddresses` (`packages/platform/addresses.ts`), and `deliveryAddress` sends postal
+  fields only across all endpoints (no `firstName` or `lastName`).
+- `/sessions`, Advanced `/payments` and `/api-only` each send a fixed two-key `metadata` object
+  (`{ playground: "adyen-digital", flow: "sessions" | "advanced" | "api-only" }`).
 - `order` is Adyen's `{orderData, pspReference}` pair; only those two fields are trusted, and a
   payment into it may not exceed the order (400 "A partial payment cannot exceed its order."). After
   a partial payment, `/payment-methods` takes it too.
@@ -282,6 +284,9 @@ the set. Markets are 36 countries with their own currency, locale and default am
     `packages/platform/sanitize.ts`, tested by `packages/platform/sanitize.test.ts` ("raw PAN and
     CVC are rejected while Adyen encrypted fields are accepted"); `/api-only` checks again before
     proxying.
+11. **Digital `/sessions`, Advanced `/payments` and `/api-only` send fixed two-key `metadata` and
+    omit recipient names from `deliveryAddress`.** `buildSessionRequest` and `buildPaymentRequest`
+    in `apps/adyen-digital/src/server/api.ts`, pinned by `apps/adyen-digital/src/server/api.test.ts`.
 
 ## Determinism
 

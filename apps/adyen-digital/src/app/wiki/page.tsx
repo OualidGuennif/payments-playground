@@ -23,13 +23,12 @@ export default function WikiPage() {
   return (
     <DigitalLayout path="/wiki">
       <PageHeader
-        eyebrow="Living reference"
         title="Digital integration wiki"
         description="Maintained against Adyen Web 6.48.1 and Checkout API v72. The supplied callback PDF (v6.40.2) is used as a reviewed secondary source."
       />
       <Callout title="Source policy">
-        The callback PDF is useful for callback signatures and ordering, but official Adyen
-        documentation remains authoritative. Differences are called out instead of copied silently.
+        The callback PDF covers callback signatures and ordering, while official Adyen docs stay the
+        source of truth. Any differences are noted instead of copied silently.
       </Callout>
       <div className="wiki-layout">
         <nav className="wiki-toc" aria-label="Wiki contents">
@@ -218,8 +217,8 @@ export default function WikiPage() {
             <h2>Pay by Link</h2>
             <p>
               Links default to 24 hours and can be configured up to 70 days. Adyen expires a link
-              after five unsuccessful attempts. Therefore REFUSED is attempt-level; the order can
-              remain open until the effective link status becomes completed or expired.
+              after five unsuccessful attempts, so REFUSED ends only that attempt while the order
+              stays open until the link settles as completed or expired.
             </p>
           </section>
           <section id="mit">

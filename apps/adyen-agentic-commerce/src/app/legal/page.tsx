@@ -4,15 +4,14 @@ export const metadata = { title: "Terms and privacy" };
 export default function Legal() {
   return (
     <div className="mx-auto max-w-3xl space-y-10">
-      <div className="space-y-2">
-        <p className="eyebrow">Legal</p>
+      <div className="max-w-[68ch] space-y-2">
         <h1 className="text-3xl">Terms and privacy</h1>
         <p className="text-muted">
           Atelier Velune is a fictional store run as a payments demo. These pages exist because the
           UCP profile and agent consent screens link to them; they bind nobody.
         </p>
       </div>
-      <section id="terms" className="space-y-3 text-sm">
+      <section id="terms" className="max-w-[68ch] space-y-3 text-sm">
         <h2 className="text-xl">Terms of service</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>
@@ -36,7 +35,7 @@ export default function Legal() {
           </li>
         </ul>
       </section>
-      <section id="privacy" className="space-y-3 text-sm">
+      <section id="privacy" className="max-w-[68ch] space-y-3 text-sm">
         <h2 className="text-xl">Privacy</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>

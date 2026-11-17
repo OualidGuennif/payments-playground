@@ -7,7 +7,7 @@ status: stable
 scope: dev-build-pipeline
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-16T02:00:00Z
+  at: 2026-11-16T23:20:00Z
 sources:
   - id: next-config
     resource: ../../apps/adyen-digital/next.config.ts
@@ -28,7 +28,7 @@ sources:
 
 # Dev and build pipeline
 
-Each app is Next.js 16.4.3 run by Bun (`bun --bun next dev|build|start`), so server code has
+Each app is Next.js 16.4.6 run by Bun (`bun --bun next dev|build|start`), so server code has
 `bun:sqlite` and Bun's APIs. `bun run dev:<app>` goes through `tools/dev/bun-app.ts`, which reads
 the app's `.env` with `packages/platform/dotenv.ts` and sets `__NEXT_PROCESSED_ENV=true`: Next's
 own loader expands `$name` inside values and once cut an Adyen key that contained `$`.

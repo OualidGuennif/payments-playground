@@ -11,7 +11,7 @@ import {
 import * as commerce from "./commerce";
 import { config, CURRENCY, UCP_VERSION } from "./config";
 import { get } from "./db";
-import type { Auth, Scope } from "./oauth";
+import { type Auth, allows, type Scope, SCOPES } from "./oauth";
 import { isRecord } from "./util";
 
 const SPEC = `https://ucp.dev/${UCP_VERSION}`;
@@ -82,18 +82,34 @@ export function profile() {
           },
         ],
       },
-      capabilities: Object.fromEntries(
-        Object.entries(CAPABILITIES).map(([name, file]) => [
-          name,
-          [
-            {
-              version: UCP_VERSION,
-              spec: `${SPEC}/specification/${file.split("_")[0]}/`,
-              schema: `${SPEC}/schemas/shopping/${file}.json`,
+      capabilities: {
+        ...Object.fromEntries(
+          Object.entries(CAPABILITIES).map(([name, file]) => [
+            name,
+            [
+              {
+                version: UCP_VERSION,
+                spec: `${SPEC}/specification/shopping/${file.split("_")[0]}/`,
+                schema: `${SPEC}/schemas/shopping/${file}.json`,
+              },
+            ],
+          ]),
+        ),
+        // config.scopes lists only the hard gates; scopes_supported in the OAuth metadata adds
+        // the optional layer (UCP identity linking, "UCP and OAuth").
+        "dev.ucp.common.identity_linking": [
+          {
+            version: UCP_VERSION,
+            spec: `${SPEC}/specification/common/identity-linking/`,
+            schema: `${SPEC}/schemas/common/identity_linking.json`,
+            config: {
+              scopes: Object.fromEntries(
+                HARD_GATES.map((s) => [s, { description: { plain: SCOPES[s].label } }]),
+              ),
             },
-          ],
-        ]),
-      ),
+          },
+        ],
+      },
       payment_handlers: { [HANDLER_KEY]: [paymentHandler()] },
     },
     keys: [],
@@ -187,20 +203,37 @@ export function renderCart(cart: commerce.Cart) {
 
 export async function renderCheckout(checkout: commerce.Checkout, auth?: Auth) {
   const origin = config().publicOrigin;
-  const canSeeCards = auth?.token.scopes.includes("ucp:pay");
+  const canSeeCards = auth !== undefined && allows(auth.token.scopes, "ucp:pay");
   const cards = canSeeCards ? await commerce.savedCards() : [];
   const assessment = commerce.assess(checkout, auth, cards);
   const order = checkout.orderId ? get<commerce.Order>("orders", checkout.orderId) : undefined;
+  // UCP's identity_optional: a guest checkout still open would gain the saved-card payment.
+  const open = ["incomplete", "requires_escalation", "ready_for_complete"].includes(
+    assessment.status,
+  );
+  const signals =
+    !auth && open
+      ? [
+          {
+            type: "info",
+            code: "identity_optional",
+            content:
+              "Sign in to let your agent pay with the shopper's saved card, within a spend limit they set.",
+          },
+        ]
+      : [];
   return {
     ucp: envelope("dev.ucp.shopping.checkout"),
     id: checkout.id,
     status: assessment.status,
     line_items: renderLines(checkout.lines),
     buyer:
-      auth?.token.scopes.includes("profile") || !checkout.clientId ? checkout.buyer : undefined,
+      (auth && allows(auth.token.scopes, "profile")) || !checkout.clientId
+        ? checkout.buyer
+        : undefined,
     currency: CURRENCY,
     totals: commerce.totals(checkout.lines),
-    messages: assessment.messages,
+    messages: [...assessment.messages, ...signals],
     links: links(),
     expires_at: checkout.expiresAt,
     continue_url: `${origin}/checkout/${checkout.id}`,
@@ -270,14 +303,46 @@ export function renderOrder(order: commerce.Order, withBuyer: boolean) {
 
 export type OpContext = { auth?: Auth };
 export type OpResult = { status: number; body: unknown };
+
+// UCP identity linking: the one scope each operation needs, declared once for the check below and
+// for the OpenAPI description. Reads of a cart or checkout by its id and the catalogue need none.
+export const REQUIRED_SCOPE: Readonly<Record<string, Scope>> = {
+  create_cart: "dev.ucp.shopping.cart:manage",
+  update_cart: "dev.ucp.shopping.cart:manage",
+  cancel_cart: "dev.ucp.shopping.cart:manage",
+  create_checkout: "dev.ucp.shopping.checkout:manage",
+  update_checkout: "dev.ucp.shopping.checkout:manage",
+  complete_checkout: "dev.ucp.shopping.checkout:manage",
+  cancel_checkout: "dev.ucp.shopping.checkout:manage",
+  get_order: "dev.ucp.shopping.order:read",
+};
+
+// The profile's config.scopes: these need a token at all. The other scopes are UCP's optional
+// layer, checked only on a token that is present, so guest carts and checkouts keep working.
+export const HARD_GATES: readonly Scope[] = ["dev.ucp.shopping.order:read"];
+
+// A token that lacks the operation's scope: 403 insufficient_scope.
 export class ScopeError extends Error {
   constructor(readonly scope: Scope) {
-    super(`The ${scope} scope is required`);
+    super(`This operation requires scopes: ${scope}`);
   }
 }
 
-function need(ctx: OpContext, scope: Scope) {
-  if (ctx.auth && !ctx.auth.token.scopes.includes(scope)) throw new ScopeError(scope);
+// No token on a hard-gated operation: 401 identity_required.
+export class IdentityRequired extends Error {
+  constructor(readonly scope: Scope) {
+    super("Sign in to read the orders your agent placed");
+  }
+}
+
+function need(ctx: OpContext, op: string) {
+  const scope = REQUIRED_SCOPE[op];
+  if (!scope) return;
+  if (!ctx.auth) {
+    if (HARD_GATES.includes(scope)) throw new IdentityRequired(scope);
+    return;
+  }
+  if (!allows(ctx.auth.token.scopes, scope)) throw new ScopeError(scope);
 }
 
 const idOf = (args: Record<string, unknown>) => {
@@ -293,22 +358,29 @@ const idOf = (args: Record<string, unknown>) => {
 const part = (args: Record<string, unknown>, key: string) =>
   isRecord(args[key]) ? (args[key] as Record<string, unknown>) : {};
 
-export const OPERATIONS: Record<
-  string,
-  (args: Record<string, unknown>, ctx: OpContext) => Promise<OpResult> | OpResult
-> = {
+type Operation = (args: Record<string, unknown>, ctx: OpContext) => Promise<OpResult> | OpResult;
+
+const HANDLERS: Record<string, Operation> = {
   search_catalog: (args) => {
     const req = part(args, "catalog");
     const filters = isRecord(req.filters) ? req.filters : {};
-    const category = typeof filters.category === "string" ? filters.category : undefined;
-    const max =
-      isRecord(filters.price) && typeof filters.price.max === "number"
-        ? filters.price.max
-        : undefined;
+    // UCP's search_filters: `categories` with OR logic; the singular `category` this store read
+    // before stays accepted.
+    const categories = Array.isArray(filters.categories)
+      ? filters.categories.filter((c): c is string => typeof c === "string")
+      : typeof filters.category === "string"
+        ? [filters.category]
+        : [];
+    const price = isRecord(filters.price) ? filters.price : {};
+    const min = typeof price.min === "number" ? price.min : undefined;
+    const max = typeof price.max === "number" ? price.max : undefined;
     const products = searchProducts(typeof req.query === "string" ? req.query : "", {
-      category,
       maxPrice: max,
-    });
+    }).filter(
+      (p) =>
+        (!categories.length || categories.includes(p.category)) &&
+        (min === undefined || p.price >= min),
+    );
     return {
       status: 200,
       body: {
@@ -378,7 +450,6 @@ export const OPERATIONS: Record<
     };
   },
   create_cart: (args, ctx) => {
-    need(ctx, "ucp:checkout");
     return {
       status: 201,
       body: renderCart(commerce.createCart(part(args, "cart"), ctx.auth?.token.clientId)),
@@ -389,12 +460,10 @@ export const OPERATIONS: Record<
     body: renderCart(commerce.loadCart(idOf(args), ctx.auth?.token.clientId)),
   }),
   update_cart: (args, ctx) => {
-    need(ctx, "ucp:checkout");
     const cart = commerce.loadCart(idOf(args), ctx.auth?.token.clientId);
     return { status: 200, body: renderCart(commerce.updateCart(cart, part(args, "cart"))) };
   },
   cancel_cart: (args, ctx) => {
-    need(ctx, "ucp:checkout");
     return {
       status: 200,
       body: renderCart(
@@ -403,7 +472,6 @@ export const OPERATIONS: Record<
     };
   },
   create_checkout: async (args, ctx) => {
-    need(ctx, "ucp:checkout");
     return {
       status: 201,
       body: await renderCheckout(
@@ -417,7 +485,6 @@ export const OPERATIONS: Record<
     body: await renderCheckout(commerce.loadCheckout(idOf(args), ctx.auth), ctx.auth),
   }),
   update_checkout: async (args, ctx) => {
-    need(ctx, "ucp:checkout");
     const checkout = commerce.loadCheckout(idOf(args), ctx.auth);
     return {
       status: 200,
@@ -438,7 +505,6 @@ export const OPERATIONS: Record<
     };
   },
   cancel_checkout: async (args, ctx) => {
-    need(ctx, "ucp:checkout");
     return {
       status: 200,
       body: await renderCheckout(
@@ -447,10 +513,11 @@ export const OPERATIONS: Record<
       ),
     };
   },
+  // Behind its hard gate: an agent reads only the orders it placed; any other id is not found.
   get_order: (args, ctx) => {
     const order = get<commerce.Order>("orders", idOf(args));
     const checkout = order ? get<commerce.Checkout>("checkouts", order.checkoutId) : undefined;
-    if (!order || (checkout?.clientId && checkout.clientId !== ctx.auth?.token.clientId)) {
+    if (!order || !ctx.auth || checkout?.clientId !== ctx.auth.token.clientId) {
       throw new commerce.CommerceError(404, {
         type: "error",
         code: "not_found",
@@ -458,13 +525,23 @@ export const OPERATIONS: Record<
         severity: "unrecoverable",
       });
     }
-    if (checkout?.clientId) need(ctx, "ucp:orders");
     return {
       status: 200,
-      body: renderOrder(order, Boolean(ctx.auth?.token.scopes.includes("profile"))),
+      body: renderOrder(order, allows(ctx.auth.token.scopes, "profile")),
     };
   },
 };
+
+// Every operation checks its scope before it runs, so the check cannot be forgotten on one.
+export const OPERATIONS: Readonly<Record<string, Operation>> = Object.fromEntries(
+  Object.entries(HANDLERS).map(([op, run]) => [
+    op,
+    (args: Record<string, unknown>, ctx: OpContext) => {
+      need(ctx, op);
+      return run(args, ctx);
+    },
+  ]),
+);
 
 // Operations that change state need an Idempotency-Key; catalogue POSTs are reads.
 export const MUTATIONS = new Set([

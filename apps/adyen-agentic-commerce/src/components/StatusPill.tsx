@@ -11,6 +11,11 @@ const TONE: Record<string, string> = {
   canceled: "border-bad text-bad",
   Refused: "border-bad text-bad",
   Error: "border-bad text-bad",
+  // A connected agent (src/lib/agent-status.ts): only a request reads as success.
+  connected: "border-ok text-ok",
+  token_issued: "border-warn text-warn",
+  consented: "border-warn text-warn",
+  disconnected: "border-bad text-bad",
 };
 
 // UCP and Adyen names are protocol words; a shopper reads what they mean for them.
@@ -20,6 +25,8 @@ const LABEL: Record<string, string> = {
   complete_in_progress: "payment pending",
   incomplete: "details needed",
   open: "open",
+  token_issued: "access issued",
+  consented: "consent given",
 };
 
 // Unknown states stay neutral: they never read as success.

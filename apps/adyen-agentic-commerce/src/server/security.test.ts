@@ -8,7 +8,7 @@ import * as commerce from "./commerce";
 import { ConfigError, readConfig } from "./config";
 import { basicAuthAllows, crossSiteRefused } from "../proxy";
 import { list, put } from "./db";
-import { rateLimited } from "./protocol";
+import { rateLimited, trackedRateAddresses } from "./protocol";
 import { recentTrace, redact } from "./trace";
 import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
 import { fake } from "./testing/fake-adyen";
@@ -422,6 +422,15 @@ describe("rate limit", () => {
   test("the 241st request in a minute from one client is limited", () => {
     const key = `rate-${crypto.randomUUID()}`;
     for (let i = 0; i < 240; i += 1) expect(rateLimited(key)).toBeUndefined();
+    expect(rateLimited(key)).toBeGreaterThan(0);
+  });
+
+  test("the limiter keeps at most 10,000 addresses, however many are forged", () => {
+    for (let i = 0; i < 10_050; i += 1) rateLimited(`forged-${crypto.randomUUID()}`);
+    expect(trackedRateAddresses()).toBeLessThanOrEqual(10_000);
+    // The address seen last is still counted.
+    const key = `rate-${crypto.randomUUID()}`;
+    for (let i = 0; i < 240; i += 1) rateLimited(key);
     expect(rateLimited(key)).toBeGreaterThan(0);
   });
 });

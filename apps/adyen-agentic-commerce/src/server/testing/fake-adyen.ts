@@ -1,7 +1,7 @@
 // The Adyen double for bun test: scripted stored cards and payment answers, and a record of every
 // payment request so tests can assert what would have been sent.
 // Spec: knowledge/components/adyen-agentic-commerce.md
-import type { AgentPayment, StoredCard } from "../adyen";
+import type { AgentPayment, NetworkTokenPayment, SessionRequest, StoredCard } from "../adyen";
 
 type PaymentAnswer = { resultCode: string; pspReference?: string; refusalReason?: string } | Error;
 type SessionAnswer = {
@@ -23,7 +23,10 @@ const VISA: StoredCard = {
 export const fake = {
   cards: [VISA] as StoredCard[],
   answers: [] as PaymentAnswer[],
-  payments: [] as AgentPayment[],
+  payments: [] as (AgentPayment | NetworkTokenPayment)[],
+  // The shopperReference of every stored-card lookup and every Drop-in session request.
+  lookups: [] as string[],
+  sessions: [] as SessionRequest[],
   session: NO_PAYMENT,
   // Runs while the next payment call is in flight, before it answers.
   during: undefined as (() => void) | undefined,
@@ -31,10 +34,12 @@ export const fake = {
     this.cards = [VISA];
     this.answers = [];
     this.payments = [];
+    this.lookups = [];
+    this.sessions = [];
     this.session = NO_PAYMENT;
     this.during = undefined;
   },
-  answer(input: AgentPayment) {
+  answer(input: AgentPayment | NetworkTokenPayment) {
     this.payments.push(input);
     const during = this.during;
     this.during = undefined;

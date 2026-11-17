@@ -9,12 +9,12 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-17, plan approved (ADR-015: accounts with passkeys, two channels,
   agents bound to an account, one-time network tokens, limits).
-- State: spec and ADR committed locally; server code uncommitted (handover); TEST network tokens
-  need Adyen to enable them.
-- Next: finish code, tests, browser check, review, v0.4.0 (who: agent); Adyen enablement and test
-  tokens (who: owner).
+- State: implemented on local `develop` with tests (292 agentic); browser check on localhost
+  passed except a real passkey; TEST network tokens need Adyen to enable them.
+- Next: independent review, push, v0.4.0 (who: agent); a real passkey on localhost and Render,
+  Adyen enablement and test tokens (who: owner).
 - Blocker: none.
-- Evidence: docs.adyen.com online-payments/network-tokenization ("Manage network tokens yourself").
+- Evidence: knowledge/components/adyen-agentic-commerce.md (verified 2026-11-17).
 
 ## Agentic data lost on deploy, disk not in effect — WAITING-OWNER
 

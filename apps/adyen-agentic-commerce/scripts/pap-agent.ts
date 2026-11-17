@@ -2,8 +2,12 @@
 // JWKS on a loopback port, signs in with OAuth (PKCE S256, private_key_jwt), then shops over MCP
 // with a Poppy-Session on every call. The shopper approves on the consent page in a browser;
 // --auto-consent posts that approval itself and works only while the store has no Back Office
-// password, as on a local dev server. It never sees a card number or an Adyen token.
-// Usage: bun scripts/pap-agent.ts [--origin http://127.0.0.1:8003] [--auto-consent] [--query scarf]
+// password, as on a local dev server. Consent belongs to an account: with --email and
+// PAP_SHOPPER_PASSWORD in the environment it signs in to that account (its saved cards pay);
+// otherwise it creates a throwaway account with no card, so the payment escalates to the shopper.
+// It never sees a card number or an Adyen token.
+// Usage: bun scripts/pap-agent.ts [--origin http://127.0.0.1:8003] [--auto-consent] [--email a@b.c]
+//        [--query scarf]
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { calculateJwkThumbprint, exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 
@@ -102,6 +106,20 @@ try {
 
   // 5. The shopper decides; this run either waits for the browser or approves itself.
   if (autoConsent) {
+    const email = arg("--email");
+    const password = Bun.env.PAP_SHOPPER_PASSWORD;
+    const account = await fetch(`${origin}/api/${email && password ? "session" : "customers"}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(
+        email && password
+          ? { email, password }
+          : { email: `pap-agent-${run}@example.com`, password: crypto.randomUUID(), name: run },
+      ),
+    });
+    const cookie = account.headers.get("set-cookie")?.split(";")[0];
+    if (account.status !== 200 || !cookie)
+      throw new Error(`shopper sign-in answered ${account.status}`);
     const form = new URLSearchParams({
       request: consentUrl.pathname.split("/").pop()!,
       decision: "approve",
@@ -110,6 +128,7 @@ try {
     for (const scope of Object.keys(poppy.auth.scopes)) form.append("scope", scope);
     const decided = await fetch(`${origin}/oauth/decision`, {
       method: "POST",
+      headers: { cookie },
       body: form,
       redirect: "manual",
     });

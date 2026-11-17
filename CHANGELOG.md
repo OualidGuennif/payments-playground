@@ -5,6 +5,16 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store has customer accounts: sign-up and sign-in with an argon2id password or a
+  passkey (`@simplewebauthn` 14), a 7-day HttpOnly session cookie stored as its SHA-256, and
+  failed sign-ins limited per address and per account. Consent and device approval need a
+  signed-in customer and bind the grant to that account; agents see only that account's cards,
+  checkouts and orders, and grants made before accounts stop working. Every checkout, payment and
+  order records its `web` or `agent` channel (Back Office filter); UCP and MCP never reach a web
+  checkout. An agent, guest or signed in, may pay with its own one-time network token
+  (`network_token` handler, Adyen `networkToken` with `mpiData`), never stored, traced or echoed;
+  a signed-in agent's payment counts against its limit. Drop-in and card-save sessions are limited
+  to 20 a minute per address.
 - Record the v0.3.4 deploy check: the weak ETag now revalidates to 304 on Render, but the marker
   checkout created after the disk was added did not survive the deploy, so the agentic disk is
   still not in effect.

@@ -23,7 +23,7 @@ export function CheckoutPay({
   const createSession = useCallback(async (): Promise<SessionInfo> => {
     const { data, error } = await api().checkouts({ id: view.id }).session.post();
     if (error || !data || "error" in data) throw new Error("The payment form could not be loaded.");
-    return data;
+    return data as SessionInfo;
   }, [view.id]);
 
   const onFinished = useCallback(

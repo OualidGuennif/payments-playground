@@ -160,7 +160,8 @@ describe("REST binding", () => {
     expect(body.currency).toBe("EUR");
   });
 
-  test("an anonymous agent with a buyer email is escalated to the shopper", async () => {
+  // ADR-015: a guest agent may pay with its own network token, so its checkout is ready.
+  test("an anonymous agent with a buyer email is ready to pay with its own token", async () => {
     const response = await rest(
       "POST",
       "/checkout-sessions",
@@ -168,8 +169,9 @@ describe("REST binding", () => {
       { "idempotency-key": crypto.randomUUID() },
     );
     const body = await response.json();
-    expect(body.status).toBe("requires_escalation");
-    expect(body.messages.map((m: { code: string }) => m.code)).toContain("sign_in_required");
+    expect(body.status).toBe("ready_for_complete");
+    expect(body.payment).toBeUndefined();
+    expect(body.messages.map((m: { code: string }) => m.code)).toContain("identity_optional");
     expect(body.continue_url).toBe(`${ORIGIN}/checkout/${body.id}`);
     expect(body.payment).toBeUndefined();
   });
@@ -342,12 +344,15 @@ describe("agent payment", () => {
     expect(fake.payments).toHaveLength(0);
   });
 
-  test("without ucp:pay the agent sees no instrument and is escalated", async () => {
+  test("without ucp:pay the agent sees no saved card and cannot pay with one", async () => {
     await agent.signIn({ scopes: ["ucp:checkout", "ucp:orders"] });
     const created = await checkout();
-    expect(created.status).toBe("requires_escalation");
+    // Ready for a network token of its own; the account's cards stay out of reach.
+    expect(created.status).toBe("ready_for_complete");
     expect(created.payment).toBeUndefined();
-    await complete(created.id);
+    const paid = await complete(created.id);
+    expect(paid.isError).toBe(true);
+    expect(paid.content.messages[0].code).toBe("unknown_instrument");
     expect(fake.payments).toHaveLength(0);
   });
 

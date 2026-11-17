@@ -105,6 +105,8 @@ export type Grant = {
   id: string;
   clientId: string;
   clientName: string;
+  // The account that approved it; grants made before accounts have none and authenticate nothing.
+  customerId?: string;
   scopes: Scope[];
   spendLimit: number;
   spent: number;
@@ -588,10 +590,12 @@ export function pendingRequest(
 
 export function decide(input: {
   requestId: string;
+  customerId: string;
   approve: boolean;
   scopes: string[];
   spendLimit: number;
 }): string {
+  if (!input.customerId) throw new OAuthError("access_denied", "Sign in to approve an agent");
   const request = pendingRequest(input.requestId);
   if (!request)
     throw new OAuthError(
@@ -617,6 +621,7 @@ export function decide(input: {
     id: newId("gr"),
     clientId: request.clientId,
     clientName: request.clientName,
+    customerId: input.customerId,
     scopes,
     spendLimit: limit,
     spent: 0,
@@ -631,7 +636,7 @@ export function decide(input: {
     path: device ? "/device" : "/oauth/authorize",
     status: device ? 303 : 302,
     ref: grant.id,
-    detail: { scopes, spendLimit: limit },
+    detail: { scopes, spendLimit: limit, account: input.customerId },
   });
   // A device code waits for its agent's next poll; a code goes back on the redirect.
   if (device) {
@@ -827,7 +832,8 @@ function deviceToken(client: Client, deviceCode: string, asked: string[]) {
   if (device.status === "approved") {
     put("device_requests", device.id, { ...device, status: "used" });
     const grant = get<Grant>("grants", device.grantId ?? "");
-    if (!grant || grant.revoked) throw new OAuthError("invalid_grant", "Grant revoked");
+    if (!grant || grant.revoked || !grant.customerId)
+      throw new OAuthError("invalid_grant", "Grant revoked");
     return issueTokens(client.clientId, grant, device.grantedScopes ?? [], resources);
   }
   const now = Date.now();
@@ -897,7 +903,8 @@ export async function tokenEndpoint(form: URLSearchParams) {
     if (sha256b64url(verifier) !== code.codeChallenge)
       throw new OAuthError("invalid_grant", "PKCE verification failed");
     const grant = get<Grant>("grants", code.grantId);
-    if (!grant || grant.revoked) throw new OAuthError("invalid_grant", "Grant revoked");
+    if (!grant || grant.revoked || !grant.customerId)
+      throw new OAuthError("invalid_grant", "Grant revoked");
     const resources = grantedResources(code.resources, form.getAll("resource"));
     return issueTokens(client.clientId, grant, code.scopes, resources);
   }
@@ -914,7 +921,8 @@ export async function tokenEndpoint(form: URLSearchParams) {
       throw new OAuthError("invalid_grant", "Refresh token is invalid");
     }
     const grant = get<Grant>("grants", token.grantId);
-    if (!grant || grant.revoked) throw new OAuthError("invalid_grant", "Grant revoked");
+    if (!grant || grant.revoked || !grant.customerId)
+      throw new OAuthError("invalid_grant", "Grant revoked");
     const asked = (form.get("scope") ?? "").split(" ").filter(Boolean);
     if (asked.some((s) => !token.scopes.includes(s as Scope)))
       throw new OAuthError("invalid_scope", "Scope exceeds the grant");
@@ -959,22 +967,25 @@ export function authenticate(
     return "invalid";
   if (token.resources && !token.resources.includes(`${issuer()}${path}`)) return "invalid";
   const grant = get<Grant>("grants", token.grantId);
-  if (!grant || grant.revoked) return "invalid";
+  if (!grant || grant.revoked || !grant.customerId) return "invalid";
   const at = new Date().toISOString();
   put("grants", grant.id, { ...grant, firstUsedAt: grant.firstUsedAt ?? at, lastUsedAt: at });
   return { token, grant, accessToken: match[1]! };
 }
 
-export function grants(): Grant[] {
-  return list<Grant>("grants");
+export function grants(customerId?: string): Grant[] {
+  const all = list<Grant>("grants");
+  return customerId === undefined ? all : all.filter((g) => g.customerId === customerId);
 }
 
+// The account changes only its own grants; the Back Office passes no customer.
 export function updateGrant(
   id: string,
   change: { revoked?: boolean; spendLimit?: number },
+  customerId?: string,
 ): Grant | undefined {
   const grant = get<Grant>("grants", id);
-  if (!grant) return undefined;
+  if (!grant || (customerId !== undefined && grant.customerId !== customerId)) return undefined;
   const next = {
     ...grant,
     revoked: change.revoked ?? grant.revoked,

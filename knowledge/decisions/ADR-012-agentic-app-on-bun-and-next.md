@@ -43,3 +43,7 @@ Two toolchains run in CI.
 app to the same stack: the store is now a member of the one Bun workspace (root `bun.lock`, its
 own lock removed), its standalone server sits at `apps/adyen-agentic-commerce/server.js` in the
 image, its route files re-export the Elysia handler instead of rewrites, and CI runs one toolchain.
+
+**Amended 2026-11-17.** [ADR-015](ADR-015-customer-accounts-and-agent-network-tokens.md) adds
+customer passkeys: the store pins `@simplewebauthn/server` 14.1.0 and `@simplewebauthn/browser`
+14.0.0 exactly, like its other dependencies.

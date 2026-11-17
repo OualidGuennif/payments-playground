@@ -2,17 +2,19 @@
 // One Elysia instance for every server route. Next.js route files under src/app re-export `handle`
 // for their paths, so the request URL each handler sees is the public path (PAP's htu needs it).
 import { Elysia, status } from "elysia";
+import { accountApi, customerOf, sessionLimit } from "./account-api";
 import { productSvg } from "./art";
 import * as adyen from "./adyen";
 import { productById, searchProducts, variantById, variantsOf } from "./catalog";
 import * as commerce from "./commerce";
-import { config, paymentsConfigured, SHOPPER_REFERENCE, UCP_VERSION } from "./config";
+import { config, paymentsConfigured, UCP_VERSION } from "./config";
+import type { Customer } from "./customers";
 import { get, list } from "./db";
 import * as oauth from "./oauth";
 import { poppyDocument } from "./pap";
 import { clientIp, handleMcp, handleRest, rateLimited } from "./protocol";
 import { recentTrace, trace } from "./trace";
-import { handlerSchema, profile } from "./ucp";
+import { handlerSchema, networkTokenSchema, profile } from "./ucp";
 import { openApi } from "./openapi";
 import { isRecord, json, published, safeEqual } from "./util";
 
@@ -28,6 +30,14 @@ const CORS = {
 function withCors(response: Response): Response {
   for (const [k, v] of Object.entries(CORS)) response.headers.set(k, v);
   return response;
+}
+
+// Consent and device approval belong to an account: without one the shopper signs in and comes
+// back to the same page.
+function signInFirst(next: string): Response {
+  const url = new URL(`${config().publicOrigin}/sign-in`);
+  url.searchParams.set("next", next);
+  return new Response(null, { status: 303, headers: { location: url.href } });
 }
 
 function oauthError(error: unknown): Response {
@@ -88,22 +98,27 @@ const browserApi = new Elysia({ prefix: "/api" })
       })),
     };
   })
-  .post("/checkouts", ({ body }) => {
+  .post("/checkouts", ({ request, body }) => {
     try {
       const input = isRecord(body) ? body : {};
       const lines = Array.isArray(input.lines) ? input.lines : [];
-      const checkout = commerce.createCheckout({
-        line_items: lines.map((l) =>
-          isRecord(l) ? { item: { id: String(l.variantId) }, quantity: Number(l.quantity) } : l,
-        ),
-        buyer: input.email
-          ? {
-              email: String(input.email),
-              first_name: input.firstName ? String(input.firstName) : undefined,
-              last_name: input.lastName ? String(input.lastName) : undefined,
-            }
-          : undefined,
-      });
+      const customer = customerOf(request);
+      const checkout = commerce.createCheckout(
+        {
+          line_items: lines.map((l) =>
+            isRecord(l) ? { item: { id: String(l.variantId) }, quantity: Number(l.quantity) } : l,
+          ),
+          buyer: input.email
+            ? {
+                email: String(input.email),
+                first_name: input.firstName ? String(input.firstName) : undefined,
+                last_name: input.lastName ? String(input.lastName) : undefined,
+              }
+            : undefined,
+        },
+        undefined,
+        { customer },
+      );
       trace({
         channel: "web",
         actor: "shopper",
@@ -120,23 +135,28 @@ const browserApi = new Elysia({ prefix: "/api" })
       throw error;
     }
   })
-  .get("/checkouts/:id", ({ params }) => {
+  .get("/checkouts/:id", ({ request, params }) => {
     try {
-      return checkoutView(commerce.loadCheckout(params.id, "browser"));
+      return checkoutView(commerce.loadCheckout(params.id, "browser"), customerOf(request));
     } catch {
       return status(404, { error: "Checkout not found" });
     }
   })
-  .post("/checkouts/:id/session", async ({ params }) => {
+  .post("/checkouts/:id/session", async ({ request, params }) => {
+    const limited = sessionLimit(request, "payment");
+    if (limited) return limited;
     try {
-      return await commerce.startShopperSession(commerce.loadCheckout(params.id, "browser"));
+      return await commerce.startShopperSession(
+        commerce.loadCheckout(params.id, "browser"),
+        customerOf(request),
+      );
     } catch (error) {
       if (error instanceof commerce.CommerceError)
         return status(error.status, { error: error.msg.content });
       return status(502, { error: "The payment session could not be created" });
     }
   })
-  .post("/checkouts/:id/session-result", async ({ params, body }) => {
+  .post("/checkouts/:id/session-result", async ({ request, params, body }) => {
     const input = isRecord(body) ? body : {};
     try {
       const checkout = await commerce.finishShopperSession(
@@ -144,71 +164,19 @@ const browserApi = new Elysia({ prefix: "/api" })
         String(input.sessionId ?? ""),
         String(input.sessionResult ?? ""),
       );
-      return checkoutView(checkout);
+      return checkoutView(checkout, customerOf(request));
     } catch (error) {
       if (error instanceof commerce.CommerceError)
         return status(error.status, { error: error.msg.content });
       return status(502, { error: "Adyen could not confirm the session" });
     }
   })
-  .get("/account", async () => accountView())
-  .post("/account/card-session", async () => {
-    try {
-      return await commerce.startCardSave();
-    } catch {
-      return status(502, { error: "The card session could not be created" });
-    }
-  })
-  .post("/account/card-result", async ({ body }) => {
-    const input = isRecord(body) ? body : {};
-    try {
-      const result = await commerce.finishCardSave(
-        String(input.sessionId ?? ""),
-        String(input.sessionResult ?? ""),
-      );
-      return { result, account: await accountView(true) };
-    } catch {
-      return status(502, { error: "Adyen could not confirm the card" });
-    }
-  })
-  .delete("/account/cards/:alias", async ({ params }) => {
-    const card = (await commerce.savedCards(true)).find((c) => c.alias === params.alias);
-    if (!card) return status(404, { error: "Unknown card" });
-    await adyen.forgetCard(card.storedPaymentMethodId);
-    commerce.forgetCardCache();
-    trace({
-      channel: "web",
-      actor: "shopper",
-      method: "DELETE",
-      path: "/storedPaymentMethods",
-      status: 200,
-      ref: params.alias,
-      detail: { brand: card.brand, lastFour: card.lastFour },
-    });
-    return accountView(true);
-  })
-  .post("/account/grants/:id", async ({ params, body }) => {
-    const input = isRecord(body) ? body : {};
-    const grant = oauth.updateGrant(params.id, {
-      revoked: input.revoked === true ? true : undefined,
-      spendLimit: typeof input.spendLimit === "number" ? input.spendLimit : undefined,
-    });
-    if (!grant) return status(404, { error: "Unknown agent" });
-    trace({
-      channel: "web",
-      actor: "shopper",
-      method: "POST",
-      path: "/account/grants",
-      status: 200,
-      ref: grant.id,
-      detail: { revoked: grant.revoked, spendLimit: grant.spendLimit },
-    });
-    return accountView();
-  })
-  .get("/back-office", ({ request }) => {
+  .get("/back-office", ({ request, query }) => {
     if (!backOfficeAllowed(request.headers.get("authorization")))
       return status(401, { error: "Back Office sign-in required" });
-    return backOfficeView();
+    return backOfficeView(
+      query.channel === "web" || query.channel === "agent" ? query.channel : undefined,
+    );
   })
   .post("/webhooks/adyen", async ({ request }) => {
     const payload = await request.json().catch(() => undefined);
@@ -246,7 +214,10 @@ const browserApi = new Elysia({ prefix: "/api" })
     return new Response("[accepted]", { headers: { "content-type": "text/plain" } });
   });
 
-export function checkoutView(checkout: commerce.Checkout) {
+// The buyer's details show to the checkout's own signed-in customer, or to anyone holding the link
+// of a checkout no account holds (a guest's).
+export function checkoutView(checkout: commerce.Checkout, viewer?: Customer) {
+  const ownsIt = !checkout.customerId || checkout.customerId === viewer?.id;
   const assessment = commerce.assess(checkout, undefined, []);
   const priced = commerce.price(checkout.lines);
   const order = checkout.orderId ? get<commerce.Order>("orders", checkout.orderId) : undefined;
@@ -269,7 +240,8 @@ export function checkoutView(checkout: commerce.Checkout) {
     subtotal: priced.subtotal,
     fulfillment: priced.fulfillment,
     total: priced.total,
-    buyer: checkout.buyer,
+    buyer: ownsIt ? checkout.buyer : undefined,
+    channel: commerce.channelOf(checkout),
     order: order
       ? {
           id: order.id,
@@ -282,51 +254,32 @@ export function checkoutView(checkout: commerce.Checkout) {
   };
 }
 
-export async function accountView(refresh = false) {
-  const cards = await commerce.savedCards(refresh);
-  return {
-    shopperReference: SHOPPER_REFERENCE,
-    paymentsReady: paymentsConfigured(),
-    cards: cards.map(({ storedPaymentMethodId: _hidden, ...card }) => card),
-    agents: oauth.grants().map((g) => ({
-      id: g.id,
-      clientId: g.clientId,
-      name: g.clientName,
-      scopes: g.scopes,
-      // The consent page's words, so the account never shows a shopper a protocol name.
-      permissions: g.scopes.map((s) => oauth.SCOPES[s].label),
-      spendLimit: g.spendLimit,
-      spent: g.spent,
-      revoked: g.revoked,
-      createdAt: g.createdAt,
-      tokenIssuedAt: g.tokenIssuedAt,
-      firstUsedAt: g.firstUsedAt,
-      lastUsedAt: g.lastUsedAt,
-    })),
-    orders: list<commerce.Order>("orders", 50).map((o) => ({
-      id: o.id,
-      total: o.total,
-      status: o.status,
-      paidBy: o.paidBy,
-      agentName: o.agentName,
-      createdAt: o.createdAt,
-    })),
-  };
-}
+export { accountView } from "./account-api";
 
-export function backOfficeView() {
+export function backOfficeView(channel?: commerce.Channel) {
+  const keep = (record: Parameters<typeof commerce.channelOf>[0]) =>
+    !channel || commerce.channelOf(record) === channel;
   return {
-    orders: list<commerce.Order>("orders", 100),
-    payments: list<commerce.PaymentRecord>("payments", 100),
-    checkouts: list<commerce.Checkout>("checkouts", 100).map((c) => ({
-      id: c.id,
-      phase: c.phase,
-      agentName: c.agentName,
-      total: commerce.price(c.lines).total,
-      attempts: c.attempts,
-      orderId: c.orderId,
-      createdAt: c.createdAt,
-    })),
+    channel: channel ?? "all",
+    orders: list<commerce.Order>("orders", 100)
+      .filter(keep)
+      .map((o) => ({ ...o, channel: commerce.channelOf(o) })),
+    payments: list<commerce.PaymentRecord>("payments", 100)
+      .filter(keep)
+      .map((p) => ({ ...p, channel: commerce.channelOf(p) })),
+    checkouts: list<commerce.Checkout>("checkouts", 100)
+      .filter(keep)
+      .map((c) => ({
+        id: c.id,
+        phase: c.phase,
+        channel: commerce.channelOf(c),
+        customerId: c.customerId,
+        agentName: c.agentName,
+        total: commerce.price(c.lines).total,
+        attempts: c.attempts,
+        orderId: c.orderId,
+        createdAt: c.createdAt,
+      })),
     trace: recentTrace(200),
   };
 }
@@ -369,9 +322,13 @@ const app = new Elysia()
   })
   .post("/oauth/decision", async ({ request }) => {
     const form = await formOf(request);
+    const requestId = form.get("request") ?? "";
+    const customer = customerOf(request);
+    if (!customer) return signInFirst(`/consent/${encodeURIComponent(requestId)}`);
     try {
       const location = oauth.decide({
-        requestId: form.get("request") ?? "",
+        requestId,
+        customerId: customer.id,
         approve: form.get("decision") === "approve",
         scopes: form.getAll("scope"),
         spendLimit: Math.round(Number(form.get("spend_limit_eur") ?? "0") * 100),
@@ -418,6 +375,8 @@ const app = new Elysia()
   .post("/oauth/device/verify", async ({ request }) => {
     const form = await formOf(request);
     const typed = (form.get("user_code") ?? "").replace(/[^A-Za-z-]/g, "").slice(0, 12);
+    if (!customerOf(request))
+      return signInFirst(typed ? `/device?user_code=${encodeURIComponent(typed)}` : "/device");
     // The rate limit's client address. A caller with many addresses still spreads its guesses;
     // the total limit in verifyUserCode bounds them whatever the addresses.
     const outcome = oauth.verifyUserCode(typed, clientIp(request));
@@ -497,9 +456,13 @@ const app = new Elysia()
   })
   .get("/ucp/v1/openapi.json", ({ request }) => published(request, openApi()))
   .get("/ucp/v1/handlers/saved_card.json", ({ request }) => published(request, handlerSchema()))
+  .get("/ucp/v1/handlers/network_token.json", ({ request }) =>
+    published(request, networkTokenSchema()),
+  )
   .all("/ucp/v1/*", ({ request, params }) => handleRest(request, `/${params["*"]}`))
   .all("/mcp", ({ request }) => handleMcp(request))
-  .use(browserApi);
+  .use(browserApi)
+  .use(accountApi);
 
 export type App = typeof app;
 

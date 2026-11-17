@@ -7,10 +7,10 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T21:30:00Z
+  at: 2026-11-17T20:45:00Z
 verified:
-  - at: 2026-11-15
-    check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
+  - at: 2026-11-17
+    check: "bun run check green with 292 agentic tests (accounts, passkeys via a software authenticator, account-bound grants, web channel, network tokens). Browser on localhost: sign-up, wrong password, sign-in, sign-out, account at 375 px; a real passkey not tried."
   - at: 2026-11-16
     check: "bun test: 184 pass (device grant, identity linking, OpenAPI vs answers, WebMCP, agent states); tsc, biome, next build (rerun after Next's advisory stop) and SSR assertion pass; browser with a stand-in modelContext: tools on /shop, none on /account; pap-agent.ts completed on Adyen TEST."
   - at: 2026-11-17
@@ -77,8 +77,10 @@ before, every deploy or restart emptied orders, agents and grants.
   /api/session`; passkeys: `POST /api/passkeys/register/options` and `/register/verify` while
   signed in, `POST /api/passkeys/login/options` and `/login/verify` to sign in, `DELETE
   /api/passkeys/:id`. The session is a cookie, `__Host-velune_session` on https (`velune_session`
-  on a loopback http origin, where browsers keep no `__Host-` cookie). The browser API reads no
-  bearer token: an agent's token there binds nothing to an account.
+  on a loopback http origin, where browsers keep no `__Host-` cookie). Passkeys use the public
+  origin's host as RP ID; WebAuthn takes no IP address, so a loopback run uses `localhost` and
+  passkeys work there only when the store is opened at `http://localhost:<port>`. The browser API
+  reads no bearer token: an agent's token there binds nothing to an account.
 - **Agent's network token:** `complete_checkout` may carry an instrument with `handler_id`
   `network_token`, `type` `card` and UCP 2026-08-25's `network_token_credential`: `number` (13 to
   19 digits), `expiry_month` (1 to 12), `expiry_year` (four digits, not past), `cryptogram`,
@@ -215,7 +217,8 @@ before, every deploy or restart emptied orders, agents and grants.
   cards when the token has `ucp:pay`.
 - **Channels:** every checkout, payment and order records `channel` (`web` or `agent`), the
   account (`customerId`) when there is one, and for an agent the client; records made before
-  v0.4.0 read as `agent` when an agent made them, else `web`.
+  v0.4.0 read as `agent` when an agent made them, else `web`. UCP and MCP never reach a `web`
+  checkout (404), and an agent reads a cart, checkout or order only for its own client and account.
 - **Back Office:** orders (filterable by channel), their checkout, every protocol exchange
   (secrets redacted), Adyen `pspReference`, result code, webhooks.
 - **Account:** the signed-in customer's saved cards, passkeys, agents (the grants approved from
@@ -249,7 +252,9 @@ before, every deploy or restart emptied orders, agents and grants.
   field. Accounts: `invalid_login` 401 (one answer for an unknown email and a wrong password),
   `email_taken` 409, `weak_password` 400, `sign_in_required` 401 on `/api/account/*` and passkey
   registration, `too_many_attempts` 429 after failed sign-ins (per address and per account),
-  `rate_limited` 429 on Drop-in and card-save sessions, `invalid_passkey` 401.
+  `rate_limited` 429 past 20 Drop-in and card-save sessions a minute per address (and 20 passkey
+  sign-in starts), `invalid_passkey` 401. Consent and `/oauth/device/verify` without a session
+  answer 303 to `/sign-in?next=…`, which returns only to a path on this site.
 
 ## Invariants
 

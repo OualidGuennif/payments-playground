@@ -10,6 +10,7 @@ import {
 } from "./catalog";
 import * as commerce from "./commerce";
 import { config, CURRENCY, UCP_VERSION } from "./config";
+import { customerById } from "./customers";
 import { get } from "./db";
 import { type Auth, allows, type Scope, SCOPES } from "./oauth";
 import { isRecord } from "./util";
@@ -17,6 +18,8 @@ import { isRecord } from "./util";
 const SPEC = `https://ucp.dev/${UCP_VERSION}`;
 export const HANDLER_KEY = "com.payments-playground.saved_card";
 export const HANDLER_ID = "saved_card";
+export const NETWORK_TOKEN_KEY = "com.payments-playground.network_token";
+export const NETWORK_TOKEN_ID = "network_token";
 
 export function paymentHandler() {
   const origin = config().publicOrigin;
@@ -29,6 +32,56 @@ export function paymentHandler() {
     config: { environment: "test", required_scope: "ucp:pay", credential_type: "saved_card_alias" },
   };
 }
+
+// ADR-015: an agent brings its own card as a one-time network token and cryptogram, signed in or
+// not; the store passes it to Adyen for one payment and keeps none of it.
+export function networkTokenHandler() {
+  const origin = config().publicOrigin;
+  return {
+    id: NETWORK_TOKEN_ID,
+    version: UCP_VERSION,
+    spec: `${origin}/agents#network-token-handler`,
+    schema: `${origin}/ucp/v1/handlers/network_token.json`,
+    available_instruments: [{ type: "card" }],
+    config: { environment: "test", credential_type: "network_token", single_use: true },
+  };
+}
+
+export function networkTokenSchema() {
+  return {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    $id: `${config().publicOrigin}/ucp/v1/handlers/network_token.json`,
+    title: "Network token instrument (Atelier Velune demo)",
+    description:
+      "A network token with a fresh cryptogram, as UCP's network_token_credential. It pays once: the store never stores, logs or returns it, and a refused attempt needs a new cryptogram.",
+    type: "object",
+    required: ["handler_id", "type", "credential"],
+    properties: {
+      id: { type: "string" },
+      handler_id: { const: NETWORK_TOKEN_ID },
+      type: { const: "card" },
+      credential: {
+        type: "object",
+        required: ["type", "number", "expiry_month", "expiry_year", "cryptogram", "eci_value"],
+        properties: {
+          type: { const: "network_token" },
+          number: { type: "string", pattern: "^[0-9]{13,19}$" },
+          expiry_month: { type: "integer", minimum: 1, maximum: 12 },
+          expiry_year: { type: "integer", minimum: 2000, maximum: 9999 },
+          cryptogram: { type: "string", pattern: "^[A-Za-z0-9+/=_-]{8,512}$" },
+          eci_value: { type: "string", pattern: "^[0-9]{2}$" },
+          name: { type: "string" },
+          token_requestor_id: { type: "string" },
+        },
+      },
+    },
+  };
+}
+
+const paymentHandlers = () => ({
+  [HANDLER_KEY]: [paymentHandler()],
+  [NETWORK_TOKEN_KEY]: [networkTokenHandler()],
+});
 
 export function handlerSchema() {
   return {
@@ -110,7 +163,7 @@ export function profile() {
           },
         ],
       },
-      payment_handlers: { [HANDLER_KEY]: [paymentHandler()] },
+      payment_handlers: paymentHandlers(),
     },
     keys: [],
   };
@@ -167,7 +220,7 @@ function envelope(capability: Capability, status: "success" | "error" = "success
     version: UCP_VERSION,
     status,
     capabilities: { [capability]: [{ version: UCP_VERSION }] },
-    payment_handlers: { [HANDLER_KEY]: [paymentHandler()] },
+    payment_handlers: paymentHandlers(),
   };
 }
 
@@ -396,10 +449,13 @@ export function renderCart(cart: commerce.Cart) {
 export async function renderCheckout(checkout: commerce.Checkout, auth?: Auth) {
   const origin = config().publicOrigin;
   const canSeeCards = auth !== undefined && allows(auth.token.scopes, "ucp:pay");
-  const cards = canSeeCards ? await commerce.savedCards() : [];
+  // The grant's own account, if it still exists: an agent sees no one else's cards.
+  const account = canSeeCards ? customerById(auth.grant.customerId) : undefined;
+  const cards = account ? await commerce.savedCards(account.id) : [];
   const assessment = commerce.assess(checkout, auth, cards);
   const order = checkout.orderId ? get<commerce.Order>("orders", checkout.orderId) : undefined;
-  // UCP's identity_optional: a guest checkout still open would gain the saved-card payment.
+  // UCP's identity_optional: a guest may pay with its own network token; signing in adds the
+  // account's saved cards.
   const open = ["incomplete", "requires_escalation", "ready_for_complete"].includes(
     assessment.status,
   );
@@ -410,7 +466,7 @@ export async function renderCheckout(checkout: commerce.Checkout, auth?: Auth) {
             type: "info",
             code: "identity_optional",
             content:
-              "Sign in to let your agent pay with the shopper's saved card, within a spend limit they set.",
+              "Pay with your own network token, or sign in to pay with the shopper's saved card within a spend limit they set.",
           },
         ]
       : [];
@@ -697,23 +753,21 @@ const HANDLERS: Record<string, Operation> = {
   create_cart: (args, ctx) => {
     return {
       status: 201,
-      body: renderCart(commerce.createCart(part(args, "cart"), ctx.auth?.token.clientId)),
+      body: renderCart(commerce.createCart(part(args, "cart"), ctx.auth)),
     };
   },
   get_cart: (args, ctx) => ({
     status: 200,
-    body: renderCart(commerce.loadCart(idOf(args), ctx.auth?.token.clientId)),
+    body: renderCart(commerce.loadCart(idOf(args), ctx.auth)),
   }),
   update_cart: (args, ctx) => {
-    const cart = commerce.loadCart(idOf(args), ctx.auth?.token.clientId);
+    const cart = commerce.loadCart(idOf(args), ctx.auth);
     return { status: 200, body: renderCart(commerce.updateCart(cart, part(args, "cart"))) };
   },
   cancel_cart: (args, ctx) => {
     return {
       status: 200,
-      body: renderCart(
-        commerce.cancelCart(commerce.loadCart(idOf(args), ctx.auth?.token.clientId)),
-      ),
+      body: renderCart(commerce.cancelCart(commerce.loadCart(idOf(args), ctx.auth))),
     };
   },
   create_checkout: async (args, ctx) => {
@@ -758,11 +812,19 @@ const HANDLERS: Record<string, Operation> = {
       ),
     };
   },
-  // Behind its hard gate: an agent reads only the orders it placed; any other id is not found.
+  // Behind its hard gate: an agent reads only the orders it placed for the account it acts for;
+  // any other id is not found. Orders before v0.4.0 carry their client on the checkout alone.
   get_order: (args, ctx) => {
     const order = get<commerce.Order>("orders", idOf(args));
     const checkout = order ? get<commerce.Checkout>("checkouts", order.checkoutId) : undefined;
-    if (!order || !ctx.auth || checkout?.clientId !== ctx.auth.token.clientId) {
+    const placedBy = order?.clientId ? order : checkout;
+    if (
+      !order ||
+      !ctx.auth ||
+      !placedBy?.clientId ||
+      placedBy.clientId !== ctx.auth.token.clientId ||
+      placedBy.customerId !== ctx.auth.grant.customerId
+    ) {
       throw new commerce.CommerceError(404, {
         type: "error",
         code: "not_found",

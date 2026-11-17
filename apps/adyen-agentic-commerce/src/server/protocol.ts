@@ -34,7 +34,8 @@ const LIMIT = 240;
 const BUCKETS_MAX = 10_000;
 const buckets = new Map<string, { start: number; count: number }>();
 
-export function rateLimited(key: string): number | undefined {
+// One map for every per-address limit; a caller prefixes its key so each limit counts apart.
+export function rateLimited(key: string, limit = LIMIT): number | undefined {
   const now = Date.now();
   const bucket = buckets.get(key);
   if (!bucket || now - bucket.start > WINDOW_MS) {
@@ -47,7 +48,7 @@ export function rateLimited(key: string): number | undefined {
     return undefined;
   }
   bucket.count += 1;
-  return bucket.count > LIMIT ? Math.ceil((bucket.start + WINDOW_MS - now) / 1000) : undefined;
+  return bucket.count > limit ? Math.ceil((bucket.start + WINDOW_MS - now) / 1000) : undefined;
 }
 
 export const trackedRateAddresses = () => buckets.size;

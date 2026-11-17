@@ -14,7 +14,7 @@ export type TraceEntry = {
 };
 
 const SECRET_KEYS =
-  /^(authorization|access_token|refresh_token|code|code_verifier|client_assertion|token|storedPaymentMethodId|stored_payment_method_id|poppy-session|apiKey|sessionData|hmacSignature|additionalData)$/i;
+  /^(authorization|access_token|refresh_token|code|code_verifier|client_assertion|token|storedPaymentMethodId|stored_payment_method_id|poppy-session|apiKey|sessionData|hmacSignature|additionalData|credential|cryptogram|tokenAuthenticationVerificationValue|mpiData|password|passwordHash)$/i;
 
 // Every trace row passes through here so a secret can never reach the Back Office or the logs.
 export function redact(value: unknown, depth = 0): unknown {

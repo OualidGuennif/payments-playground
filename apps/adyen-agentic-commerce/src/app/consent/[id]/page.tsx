@@ -1,5 +1,6 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { notFound } from "next/navigation";
+import { requireCustomer } from "@/lib/session";
 import { allows, pendingRequest, type Scope, SCOPES } from "@/server/oauth";
 
 export const metadata = { title: "Connect an agent" };
@@ -18,7 +19,10 @@ function scopeEffect(scope: Scope): string {
 }
 
 export default async function Consent({ params }: { params: Promise<{ id: string }> }) {
-  const request = pendingRequest((await params).id);
+  const { id } = await params;
+  // A grant belongs to the account that approves it, so the shopper signs in first.
+  const customer = await requireCustomer(`/consent/${encodeURIComponent(id)}`);
+  const request = pendingRequest(id);
   if (!request) notFound();
   const host = (() => {
     try {
@@ -38,6 +42,9 @@ export default async function Consent({ params }: { params: Promise<{ id: string
         <h1 className="text-2xl">{request.clientName} wants to shop for you</h1>
         <p className="text-sm text-muted">
           Client: <span className="break-all">{host}</span>. {after}
+        </p>
+        <p className="text-sm text-muted">
+          It will act for your account ({customer.email}), with your saved cards.
         </p>
       </div>
       <fieldset className="space-y-2">

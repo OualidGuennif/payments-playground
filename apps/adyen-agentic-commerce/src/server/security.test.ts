@@ -136,7 +136,11 @@ describe("an agent payment leaves no secret behind", () => {
     }
     expect(trace).toContain("UnscheduledCardOnFile");
 
-    const account = await (await handle(new Request(`${ORIGIN}/api/account`))).text();
+    const account = await (
+      await handle(
+        new Request(`${ORIGIN}/api/account`, { headers: { cookie: agent.customerCookie } }),
+      )
+    ).text();
     expect(account).not.toContain("TEST_STORED_VISA_1111");
     expect(account).toContain(alias);
   });

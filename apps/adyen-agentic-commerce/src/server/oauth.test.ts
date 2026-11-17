@@ -182,14 +182,41 @@ describe("token endpoint", () => {
     expect(status).toBe(401);
   });
 
-  test("an assertion living more than an hour is refused", async () => {
+  // PAP 1.0 §4.1 and draft-ietf-oauth-rfc7523bis: aud is the issuer, one string, nothing else.
+  test("an assertion whose aud is the token endpoint or an array is refused", async () => {
+    for (const aud of [`${ORIGIN}/oauth/token`, [ORIGIN], [ORIGIN, "https://other.example"]]) {
+      const { status, body } = await exchange(await code(), {}, await agent.assertion({ aud }));
+      expect(status).toBe(401);
+      expect(body.error_description).toContain("aud");
+    }
+  });
+
+  test("an assertion living more than five minutes is refused", async () => {
     const { status, body } = await exchange(
       await code(),
       {},
-      await agent.assertion({}, undefined, 3601),
+      await agent.assertion({}, undefined, 301),
     );
     expect(status).toBe(401);
     expect(body.error_description).toContain("lifetime");
+  });
+
+  test("an assertion living exactly five minutes is accepted", async () => {
+    expect(
+      (await exchange(await code(), {}, await agent.assertion({}, undefined, 300))).status,
+    ).toBe(200);
+  });
+
+  test("an assertion without iat or jti is refused", async () => {
+    for (const claim of ["iat", "jti"]) {
+      const { status, body } = await exchange(
+        await code(),
+        {},
+        await agent.assertion({}, undefined, 300, [claim]),
+      );
+      expect(status).toBe(401);
+      expect(body.error_description).toContain(claim);
+    }
   });
 
   test("a replayed assertion is refused", async () => {

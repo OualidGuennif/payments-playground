@@ -174,8 +174,9 @@ before, every deploy or restart emptied orders, agents and grants.
   page's words, never as scope names.
 - **Signals:** an anonymous open checkout carries an `identity_optional` info message (signing in
   lets the agent pay with the saved card).
-- **Refusals:** `invalid_session` 400 (an expired or invalid delegation included),
-  `session_ended` 400, `version_unsupported` 400 (PAP); profile negotiation (UCP error body with
+- **Refusals:** `invalid_session` 400 (an expired or invalid delegation included; the store
+  remembers no ended Session, so it never answers `session_ended`), `version_unsupported` 400
+  (PAP); profile negotiation (UCP error body with
   `continue_url` the store's home page on REST, JSON-RPC `-32001` with `data {code, content,
   continue_url}` on MCP): `invalid_profile_url` 400 (missing, malformed, refused, or header and
   `meta` naming different profiles), `profile_unreachable` 424, `profile_malformed` 422,

@@ -172,14 +172,20 @@ try {
     .sign(clientKeys.privateKey);
   const sid = crypto.randomUUID();
 
-  // 8. Every MCP call carries a fresh Poppy-Session bound to the method, URL and token.
+  // 8. Every MCP call carries a fresh Poppy-Session bound to the method, URL and token; its
+  // delegation rides in the JWT header and its audience is the Company's issuer (PAP 1.0 §5.2).
   let rpcId = 0;
   async function mcp(method: string, params: Record<string, unknown>) {
-    const session = await new SignJWT({ poppy_dlg: delegation, sid, htm: "POST", htu: mcpUrl, ath })
-      .setProtectedHeader({ alg: "ES256", typ: "poppy-session+jwt", kid: sessionKid })
+    const session = await new SignJWT({ sid, htm: "POST", htu: mcpUrl, ath })
+      .setProtectedHeader({
+        alg: "ES256",
+        typ: "poppy-session+jwt",
+        kid: sessionKid,
+        poppy_dlg: delegation,
+      })
       .setIssuer(clientId)
       .setSubject("demo-shopper")
-      .setAudience(mcpUrl)
+      .setAudience(issuer)
       .setIssuedAt()
       .setJti(crypto.randomUUID())
       .sign(sessionKeys.privateKey);

@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- PAP 1.0 checks on the agentic store follow the text exactly: the Session's delegation is read
+  from the JWT header's `poppy_dlg` (§5.2), its `aud` must be the issuer as one string, an expired
+  delegation is `invalid_session`, and a Session needs `Poppy-Version` 1.x (1.1 accepted, a
+  missing or malformed one refused). A client assertion's `aud` must be the issuer as one string,
+  `iat` is required and it may live 300 s at most. The test agent and `scripts/pap-agent.ts` send
+  Sessions the same way.
 - Specify the agentic store's v0.3.3 conformance fixes before the code: UCP-Agent profile
   resolution and negotiation, RFC 8707 resource binding, the PAP Session and client assertion
   checks, UCP catalogue paging, lookup, product and order shapes, published-artifact caching and

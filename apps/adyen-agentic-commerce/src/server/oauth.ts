@@ -185,6 +185,8 @@ export class OAuthError extends Error {
   }
 }
 
+// PAP 1.0 §4.1: a Company may refuse an assertion living over 5 minutes, never one within them.
+const MAX_ASSERTION_LIFETIME = 300;
 const ACCESS_TTL = 3600;
 const REFRESH_TTL = 30 * 24 * 3600;
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -422,13 +424,14 @@ async function authenticateClient(form: URLSearchParams): Promise<Client> {
         401,
       );
     }
-    const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-    if (!aud.includes(issuer()))
-      throw new OAuthError("invalid_client", "aud must be the issuer", 401);
-    if (typeof payload.exp !== "number")
-      throw new OAuthError("invalid_client", "exp is required", 401);
-    if (typeof payload.iat === "number" && payload.exp - payload.iat > 3600) {
-      throw new OAuthError("invalid_client", "client_assertion lifetime is too long", 401);
+    // PAP 1.0 §4.1 (draft-ietf-oauth-rfc7523bis): the issuer as one string; an endpoint URL or an
+    // array could name another Company's endpoint too.
+    if (payload.aud !== issuer())
+      throw new OAuthError("invalid_client", "aud must be the issuer, as a single string", 401);
+    if (typeof payload.exp !== "number" || typeof payload.iat !== "number")
+      throw new OAuthError("invalid_client", "iat and exp are required", 401);
+    if (payload.exp - payload.iat > MAX_ASSERTION_LIFETIME) {
+      throw new OAuthError("invalid_client", "client_assertion lifetime is over 300 s", 401);
     }
     if (
       typeof payload.jti !== "string" ||

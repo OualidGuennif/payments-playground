@@ -8,10 +8,10 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 ## Trusted client address for every per-address limit — WAITING-OWNER
 
 - Owner decision: 2026-11-17, push, release pull request and `main` once E2E tests pass.
-- State: branch `task/trusted-client-ip` (from develop `4330bc1`) keys every limit and `shopperIP`
-  on `CF-Connecting-IP`, then the last `X-Forwarded-For` entry; local E2E through Next pass.
-- Next: review, push `develop`, release PR to `main` (who: agent); after the deploy, confirm
-  requests on Render carry `CF-Connecting-IP` (who: owner or agent).
+- State: on `develop` (`9f51852`, Review OK); v0.3.1 cut on develop (VERSION, CHANGELOG); every
+  limit and `shopperIP` key on `CF-Connecting-IP`, then the last `X-Forwarded-For` entry.
+- Next: release PR develop → main, CI, merge, tag, deploy (who: agent); then confirm requests on
+  Render carry `CF-Connecting-IP`, a forged first entry limited on `/mcp` (who: owner or agent).
 - Blocker: none.
 - Evidence: agentic spec invariant 10, platform spec invariant 13; Render's DDoS and PocketBase
   articles, Cloudflare's HTTP headers reference.

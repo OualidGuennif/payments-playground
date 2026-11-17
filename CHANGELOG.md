@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-17
+
 - Every per-address limit trusts the address the platform writes, not the caller: the agentic
   store's `clientIp` and `packages/platform`'s new `clientAddress` (the rate limit, `shopperIp`)
   take `CF-Connecting-IP`, which Cloudflare in front of Render writes over any caller copy, then

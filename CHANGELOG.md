@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-17
+
 - Review fixes on the agentic store: a cached UCP platform profile keeps only its version and the
   capabilities it shares with the store, so 1,000 padded 256 KiB profiles no longer hold hundreds
   of MB; a client assertion whose `iat` is more than 60 s ahead is refused, so one signed today

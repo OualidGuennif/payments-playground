@@ -3,8 +3,9 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { handle } from "./api";
-import { grants, updateGrant } from "./oauth";
+import { grants, pendingRequest, updateGrant } from "./oauth";
 import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
+import { sha256b64url } from "./util";
 
 const VERIFIER = "verifier-verifier-verifier-verifier-0123456789";
 let agent: TestAgent;
@@ -290,6 +291,45 @@ describe("dynamic registration", () => {
     });
     expect(response.status).toBe(400);
     expect((await response.json()).error).toBe("invalid_redirect_uri");
+  });
+
+  test("a registered client that asks for no scope is offered the default set", async () => {
+    // RFC 6749 §3.3 lets a server apply a default; PAP's scope rule binds only URL clients.
+    const redirectUri = "http://127.0.0.1:33418/callback";
+    const registered = await register({
+      client_name: "Desktop client",
+      redirect_uris: [redirectUri],
+    });
+    const url = new URL(`${ORIGIN}/oauth/authorize`);
+    url.search = new URLSearchParams({
+      response_type: "code",
+      client_id: (await registered.json()).client_id,
+      redirect_uri: redirectUri,
+      code_challenge: sha256b64url(VERIFIER),
+      code_challenge_method: "S256",
+    }).toString();
+    const location = new URL((await handle(new Request(url))).headers.get("location")!, ORIGIN);
+    expect(location.pathname.startsWith("/consent/")).toBe(true);
+    expect(pendingRequest(location.pathname.split("/").pop()!)!.scopes).toEqual([
+      "dev.ucp.shopping.cart:manage",
+      "dev.ucp.shopping.checkout:manage",
+      "ucp:pay",
+    ]);
+  });
+
+  test("a public client identified by a URL that asks for no scope is offered the default set", async () => {
+    // An MCP host with a client metadata document that signs nothing is not a PAP agent.
+    const host = await TestAgent.start("URL host", { public: true });
+    try {
+      const { requestId } = await host.authorize({ scope: "" });
+      expect(pendingRequest(requestId!)!.scopes).toEqual([
+        "dev.ucp.shopping.cart:manage",
+        "dev.ucp.shopping.checkout:manage",
+        "ucp:pay",
+      ]);
+    } finally {
+      host.stop();
+    }
   });
 
   test("a registered client cannot claim private_key_jwt", async () => {

@@ -156,6 +156,13 @@ describe("who may use it", () => {
     expect(body.error).toBe("invalid_scope");
   });
 
+  test("a PAP client's device request without scope is invalid_scope (PAP 1.0 §4.7)", async () => {
+    const missing = await answer(await post("/oauth/device_authorization", await assertionOf(tv)));
+    expect(missing.status).toBe(400);
+    expect(missing.body.error).toBe("invalid_scope");
+    expect((await start(tv, "   ")).body.error).toBe("invalid_scope");
+  });
+
   test("a PAP client's poll without its client assertion is refused", async () => {
     const { body: started } = await start(tv);
     const { status, body } = await answer(

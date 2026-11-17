@@ -491,7 +491,7 @@ export async function startAuthorization(params: URLSearchParams): Promise<Autho
   if (!challenge || params.get("code_challenge_method") !== "S256") {
     return fail("invalid_request", "PKCE with S256 is required");
   }
-  const scopes = requestedScopes(params.get("scope"));
+  const scopes = requestedScopes(params.get("scope"), client);
   if (typeof scopes === "string") return fail("invalid_scope", scopes);
   const request: AuthRequest = {
     id: newId("ar", 18),
@@ -508,10 +508,14 @@ export async function startAuthorization(params: URLSearchParams): Promise<Autho
   return { kind: "consent", requestId: request.id };
 }
 
-// The scope parameter as known scopes without repeats, the default set when empty, or the
-// refusal's description when a name is unknown.
-function requestedScopes(param: string | null): Scope[] | string {
+// The scope parameter as known scopes without repeats, or the refusal's description. PAP 1.0
+// §4.7 binds a PAP agent (a URL client that signs) to send scope. Any other MCP client that sends
+// none, registered or a public URL client, gets the default set, as RFC 6749 §3.3 allows, since
+// generic hosts often leave it out.
+function requestedScopes(param: string | null, client: Client): Scope[] | string {
   const requested = (param ?? "").split(" ").filter(Boolean);
+  if (!requested.length && client.authMethod === "private_key_jwt")
+    return "A sign-in request must carry scope (PAP 1.0 §4.7)";
   const unknown = requested.filter((s) => !isScope(s));
   if (unknown.length) return `Unknown scope: ${unknown.join(" ")}`;
   return [...new Set(requested.length ? (requested as Scope[]) : DEFAULT_SCOPES)];
@@ -637,7 +641,7 @@ export async function startDeviceAuthorization(form: URLSearchParams) {
       "unauthorized_client",
       "A client identified by a URL signs its device requests (private_key_jwt)",
     );
-  const scopes = requestedScopes(form.get("scope"));
+  const scopes = requestedScopes(form.get("scope"), client);
   if (typeof scopes === "string") throw new OAuthError("invalid_scope", scopes);
   const deviceCode = secret();
   let userCode = newUserCode();

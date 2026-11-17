@@ -261,3 +261,15 @@ describe("Poppy-Session refusals", () => {
     await refused({ session: { delegation } }, "session_ended");
   });
 });
+
+describe("sign-in", () => {
+  test("a sign-in request without scope goes back as invalid_scope (§4.7)", async () => {
+    // "" leaves the parameter out entirely; "   " sends it blank.
+    for (const scope of ["", "   "]) {
+      const { location } = await agent.authorize({ scope });
+      expect(location.href.startsWith(agent.redirectUri)).toBe(true);
+      expect(location.searchParams.get("error")).toBe("invalid_scope");
+      expect(location.searchParams.get("state")).toBe("state-1");
+    }
+  });
+});

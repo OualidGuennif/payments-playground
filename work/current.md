@@ -5,16 +5,15 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Agentic interoperability fixes from the Atelier Velune report — WAITING-OWNER
+## Agentic interoperability fixes from the Atelier Velune report — ACTIVE
 
-- Owner decision: 2026-11-16, the three findings, device grant, host prerequisites, account
-  statuses, Gemini's UI work, WebMCP (MCP server kept), Next 16.4.6; review and push to develop.
-- State: on develop after two independent reviews (their findings fixed); not released.
-- Next: visual yes on the account, /agents, /device and consent pages; decide PAP §4.7 (a
-  sign-in without scope gets defaults); add WEBMCP_ORIGIN_TRIAL_TOKEN to .env.example and Render
-  if wanted (who: owner).
+- Owner decision: 2026-11-16, the findings, Gemini's UI, WebMCP, Next 16.4.6; 2026-11-17, visual
+  yes, PAP §4.7 delegated (PAP agents must send scope), release to main.
+- State: §4.7 rule on develop; release develop → main in progress.
+- Next: review, release PR, merge, tag, deploy check (who: agent); add WEBMCP_ORIGIN_TRIAL_TOKEN
+  to .env.example and Render if wanted (who: owner).
 - Blocker: none.
-- Evidence: `bun run check` green; review receipt in `.aeion/reviews/`; pap-agent on TEST.
+- Evidence: `bun run check` green; review receipts in `.aeion/reviews/`; pap-agent on TEST.
 
 ## Render clean-up after v0.2.0 — WAITING-OWNER
 

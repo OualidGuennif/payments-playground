@@ -186,6 +186,11 @@ export default function Agents() {
           scope. The earlier names <span className="code">ucp:checkout</span> and{" "}
           <span className="code">ucp:orders</span> are still accepted.
         </p>
+        <p className="max-w-[68ch] text-sm text-muted">
+          A PAP agent names the scopes it asks for in every sign-in request, or gets{" "}
+          <span className="code">invalid_scope</span>. Any other MCP client that names none is
+          offered the cart, checkout and pay scopes.
+        </p>
       </section>
 
       <section className="max-w-[68ch] space-y-3">

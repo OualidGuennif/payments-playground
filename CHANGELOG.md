@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Agentic store, PAP 1.0 §4.7: a sign-in request from a PAP agent (a URL `client_id` that signs
+  with `private_key_jwt`) must carry `scope`, on the authorization code and the device grant, or
+  it gets `invalid_scope`; any other MCP client that sends none, registered or a public URL client,
+  is still offered the cart, checkout and pay scopes. `/agents` and the spec say so; the
+  conformance matrix has the rule.
 - `work/current.md`: the agentic interoperability task waits for the owner's visual check and the
   PAP §4.7 decision once it is on develop.
 - From the second review pass: each agentic test starts with no wrong-code record, so the device

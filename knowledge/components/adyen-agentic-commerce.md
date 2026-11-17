@@ -7,14 +7,14 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-16T23:30:00Z
+  at: 2026-11-17T00:30:00Z
 verified:
-  - at: 2026-11-15
-    check: "bun test: 123 cases pass (PAP conformance, OAuth, UCP and payment state machine, commerce, security, the budget race, reservations settled once, paid lines, amount mismatch, cross-site writes) against the Adyen double; tsc clean; next build."
   - at: 2026-11-15
     check: "Local run on Adyen TEST: zero-value card save Authorised, human Drop-in payment Authorised, and scripts/pap-agent.ts complete_checkout Authorised with ContAuth on the saved card; no webhook reached localhost."
   - at: 2026-11-16
     check: "bun test: 184 pass (device grant, identity linking, OpenAPI vs answers, WebMCP, agent states); tsc, biome, next build (rerun after Next's advisory stop) and SSR assertion pass; browser with a stand-in modelContext: tools on /shop, none on /account; pap-agent.ts completed on Adyen TEST."
+  - at: 2026-11-17
+    check: "bun run check green: 195 agentic tests (a PAP agent without scope gets invalid_scope on both grants, other clients the defaults), types, Biome, builds, SSR assertion; /agents read at 375 px and desktop width."
 sources:
   - id: app
     resource: ../../apps/adyen-agentic-commerce
@@ -81,7 +81,10 @@ Fresh app ([ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)).
 
   The earlier names stay accepted, never advertised: `ucp:checkout` stands for the cart and
   checkout scopes, `ucp:orders` for `dev.ucp.shopping.order:read`. A token keeps the names it was
-  issued with.
+  issued with. A PAP agent (a URL `client_id` with `private_key_jwt`) must send `scope` in each
+  sign-in request (PAP 1.0 §4.7), or gets `invalid_scope`; any other client that sends none,
+  registered or a public URL client, is offered the cart, checkout and pay scopes (RFC 6749 §3.3
+  allows a default). Decided 2026-11-17, delegated by the owner.
 - **Device sign-in:** `POST /oauth/device_authorization` returns a device code, an 8-letter user
   code (`BCDF-GHJK` alphabet, RFC 8628 §6.1), `/device` as the verification URI, 600 s and a 5 s
   interval. The shopper types the code at `/device`, then sees the same consent page. A client

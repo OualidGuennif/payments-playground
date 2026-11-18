@@ -5,23 +5,23 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Customer accounts and agent-brought cards — ACTIVE
+## Passkeys on v0.4.0: owner browser check — WAITING-OWNER
 
-- Owner decision: 2026-11-17, ADR-015 approved; 20:50 UTC: agents choose freely between saved
-  card, front payment and a network token (number and expiry only, ContAuth, brand detected).
-- State: on local develop, not pushed: review findings fixed with tests; handler reworked (brand
-  from /cardDetails, ContAuth); a real local TEST payment Authorised; no instrument hands over.
-- Next: independent review of `953d48b..HEAD`, push, v0.4.0 (who: agent); a real passkey on
-  localhost and Render (who: owner).
-- Blocker: none.
-- Evidence: knowledge/components/adyen-agentic-commerce.md (verified 2026-11-17, TEST run).
+- Owner decision: 2026-11-17, ADR-015 approved; agents choose freely between saved card, front
+  payment and a network token (number and expiry only, ContAuth, brand from /cardDetails).
+- State: v0.4.0 released and deployed (main `e96de08`); passkeys tested only with a software
+  authenticator; a network-token payment Authorised locally on Adyen TEST.
+- Next: register a real passkey and sign in with it, on `http://localhost:8003` and on Render
+  (who: owner).
+- Blocker: needs the owner's device.
+- Evidence: knowledge/current/digital-status.md (v0.4.0 row); ADR-015.
 
 ## Agentic data lost on deploy, disk not in effect — WAITING-OWNER
 
 - Owner decision: 2026-11-17, the Render Blueprint gives agentic a `starter` plan, the
   `agentic-data` disk at `/var/data` and `DATABASE_PATH=/var/data/agentic.sqlite`.
-- State: v0.3.4 released and deployed (weak ETag 304); marker `chk_FMh1DGYntPlf`, created after
-  the owner added the 1 GB disk, is 404 after that deploy: the database was replaced again.
+- State: marker `chk_FMh1DGYntPlf`, created after the owner added the 1 GB disk, was 404 after
+  the v0.3.4 deploy; no marker was checked across v0.4.0, but accounts and grants share that file.
 - Next: in Render, `agentic-commerce` must show the disk mounted at `/var/data` and
   `DATABASE_PATH=/var/data/agentic.sqlite` (or a Blueprint sync); then a new marker (who: owner).
 - Blocker: needs the Render dashboard.

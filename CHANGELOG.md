@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.4.0 deploy check: the agentic store serves the account pages and the reworked
+  `network_token` handler on Render; the open tasks are now the owner's real passkey check and the
+  agentic disk, which accounts and grants now depend on too.
+
 ## [0.4.0] - 2026-11-18
 
 - The agentic store keeps idempotent answers per agent client and account: one agent client

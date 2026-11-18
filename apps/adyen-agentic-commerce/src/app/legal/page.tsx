@@ -7,8 +7,8 @@ export default function Legal() {
       <div className="max-w-[68ch] space-y-2">
         <h1 className="text-3xl">Terms and privacy</h1>
         <p className="text-muted">
-          Atelier Velune is a fictional store run as a payments demo. These pages exist because the
-          UCP profile and agent consent screens link to them; they bind nobody.
+          Atelier Velune is a made-up store that demonstrates payments. The store's agent profile
+          and consent screen link here, but nothing on this page binds anyone.
         </p>
       </div>
       <section id="terms" className="max-w-[68ch] space-y-3 text-sm">
@@ -19,19 +19,19 @@ export default function Legal() {
             no order is a contract.
           </li>
           <li>
-            Use only Adyen test cards. A real card number is refused by the TEST environment and
-            must never be typed here.
+            Use only Adyen test cards. Adyen TEST refuses a real card number, and you should never
+            type one here.
           </li>
           <li>
-            An AI agent acts only within the scopes and spend limit you grant on the consent screen.
-            You can revoke a grant at any time on the Account page.
+            An AI agent can do only what you allowed on the consent screen and spend only up to the
+            limit you set. You can change the limit or disconnect the agent on your account page.
           </li>
           <li>
-            Prices, stock and totals come from the store. An agent cannot set a price, and a payment
-            is charged only once per checkout attempt.
+            Prices, stock and totals come from the store. An agent cannot set a price, and each
+            checkout attempt is charged at most once.
           </li>
           <li>
-            The demo can be reset or taken offline at any time; data may be deleted without notice.
+            The demo can be reset or taken offline at any time, and its data deleted without notice.
           </li>
         </ul>
       </section>
@@ -39,19 +39,21 @@ export default function Legal() {
         <h2 className="text-xl">Privacy</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            The store keeps carts, checkouts, orders, agent grants and a short request trace in a
-            local database on the server.
+            The store keeps accounts, carts, checkouts, orders, connected agents and a short log of
+            requests in a database on its server.
           </li>
           <li>
-            Card details go straight to Adyen through Drop-in. The store keeps only Adyen&apos;s
-            token reference and shows agents an alias, never the token.
+            Card details you type go straight to Adyen through Drop-in. The store keeps only
+            Adyen&apos;s reference to the saved card and shows agents a short alias instead. A card
+            an agent sends is passed to Adyen once and kept nowhere.
           </li>
           <li>
-            Tokens, codes, signatures and payment tokens are redacted from the trace shown in the
-            Back Office.
+            The Back Office log hides passwords, sign-in codes, tokens, signatures and card numbers,
+            and masks every email address.
           </li>
           <li>
-            All shoppers share one demo identity; do not enter personal data you would not publish.
+            Anyone who can open this demo can read its Back Office, so do not enter personal data
+            you would not publish.
           </li>
         </ul>
       </section>

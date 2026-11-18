@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's copy is plainer: the home page explains the four steps (find, ask, shop, pay)
+  without protocol names and links to the Docs; the order page no longer says an agent paid with
+  your saved card when it paid with its own; checkout says why it cannot be paid and what a refusal
+  was; the privacy notes say each account has its own data and that the Back Office masks emails.
 - The agentic store's v0.5.3 review findings: a spend limit posted as anything but a number is
   stored as no budget, `complete_checkout` answers its status and `agent_budget` from the grant as it
   stands at the end of the request, and raising a limit from a stale account page opens the password

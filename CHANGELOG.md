@@ -21,6 +21,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   the search runs from its button and Enter, since a host frame without `allow-forms` drops a
   form's submit; every control is at least 44 px; the plugin ZIP never takes a hidden file such
   as `.DS_Store`.
+- From CI's Semgrep scan: the widget sends to the host's origin once the host has answered, and to
+  `"*"` only for the handshake or a host frame with an opaque origin.
 - Record the v0.6.0 deploy check: on Render the agentic store serves the Docs and their diagrams,
   the short `/agents` page and the tabbed Back Office, whose JSON pages its log and masks every
   email; `/mcp` still refuses a call without a token. An agent's consent and saved-card payment

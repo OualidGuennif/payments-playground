@@ -35,6 +35,11 @@ export function connect(on: { result(data: unknown): void; theme(theme: Theme): 
   let standard = false;
   let nextId = 1;
   const pending = new Map<number, { resolve(v: unknown): void; reject(e: Error): void }>();
+  // The widget is served as text and does not know who embeds it, so the handshake (and every
+  // message to a host with an opaque origin) can only target "*". Nothing it posts is secret:
+  // tool arguments and sentences built from what the parent itself sent and the shopper's taps.
+  let hostOrigin = "*";
+  const post = (message: Json) => window.parent.postMessage(message, hostOrigin);
 
   function request(method: string, params: Json, ms: number): Promise<unknown> {
     const id = nextId++;
@@ -53,16 +58,18 @@ export function connect(on: { result(data: unknown): void; theme(theme: Theme): 
           reject(e);
         },
       });
-      // The host's origin is not known to the widget; nothing sent here is secret.
-      window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
+      post({ jsonrpc: "2.0", id, method, params });
     });
   }
-  const notify = (method: string, params: Json) =>
-    window.parent.postMessage({ jsonrpc: "2.0", method, params }, "*");
+  const notify = (method: string, params: Json) => post({ jsonrpc: "2.0", method, params });
 
   window.addEventListener("message", (event) => {
     // Only the frame that embeds the widget speaks for the host.
     if (event.source !== window.parent || !record(event.data)) return;
+    // From the host's first message on, everything goes to its origin only, so a parent that
+    // navigated elsewhere receives nothing. A frame sandboxed to an opaque origin reports "null",
+    // which cannot be a target.
+    if (hostOrigin === "*" && event.origin && event.origin !== "null") hostOrigin = event.origin;
     const m = event.data;
     if (typeof m.id === "number" && pending.has(m.id) && !("method" in m)) {
       const waiting = pending.get(m.id)!;

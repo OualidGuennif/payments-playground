@@ -6,7 +6,7 @@ tags: [decision, agentic, mcp, ucp, pap, chatgpt, ui]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T21:10:00Z
+  at: 2026-11-18T22:12:00Z
 sources:
   - id: spec
     resource: ../components/adyen-agentic-commerce.md
@@ -71,6 +71,11 @@ card, two modes, and a plugin that can be downloaded from the site.
   writes `src/server/widgets.gen.ts` with its sources' hash, and a test fails when they differ.
 - The widget runs on the host's sandbox origin. Its CSP allows images from this site only and no
   connection; everything goes through the host.
+- The widget is served as text, so it cannot know who embeds it: its handshake goes to `"*"`, and
+  from the host's first message on everything goes to the host's origin only (a frame with an
+  opaque origin keeps `"*"`). Semgrep's wildcard-postMessage rule flagged the two literal `"*"`
+  sends of v0.7.0's first draft; what the widget posts is built from what the parent sent and the
+  shopper's taps, never from a secret.
 - Hosts that honour the annotations ask before each payment, so an agent paying on its own, within
   the budget, now meets a confirmation it did not meet before.
 

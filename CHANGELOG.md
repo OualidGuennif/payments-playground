@@ -7,6 +7,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [0.4.0] - 2026-11-18
 
+- The agentic store keeps idempotent answers per agent client and account: one agent client
+  acting for two accounts could otherwise get one account's checkout replayed to the other under
+  the same Idempotency-Key.
 - An agent pays the agentic store with a network token's number and expiry only: the store reads
   the brand from Adyen `/cardDetails` and pays `networkToken` with ContAuth and
   UnscheduledCardOnFile (no cryptogram, CVC or brand from the agent); completing with no

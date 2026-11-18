@@ -333,6 +333,22 @@ describe("agents act for an account", () => {
     expect((await agent.tool("get_order", { id: orderId })).isError).toBe(true);
   });
 
+  test("one agent client's Idempotency-Key never replays one account's answer to another", async () => {
+    const create = () =>
+      agent.tool("create_checkout", {
+        meta: { "idempotency-key": "shared-key-1" },
+        checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] },
+      });
+    await agent.signIn();
+    const first = (await create()).content;
+    expect((await create()).content.id).toBe(first.id);
+    agent.customerCookie = (await signUpCustomer()).cookie;
+    await agent.signIn();
+    const second = (await create()).content;
+    expect(second.id).not.toBe(first.id);
+    expect(JSON.stringify(second)).not.toContain(first.id);
+  });
+
   test("an account keeps seeing, and can revoke, an old agent however many grants came since", async () => {
     await agent.signIn();
     const [grant] = grants();

@@ -151,6 +151,10 @@ function withFingerprints(value: unknown): unknown {
   );
 }
 
+// One agent client acts for many accounts (a PAP client_id is the agent product's URL), and MCP
+// keys are free-form: a stored answer belongs to the client and the account it was made for.
+const actorScope = (auth: Auth) => `${auth.token.clientId}:${auth.grant.customerId ?? "-"}`;
+
 function idempotent(
   scope: string,
   key: string,
@@ -380,7 +384,7 @@ export async function handleRest(request: Request, path: string): Promise<Respon
   let result: OpResult;
   if (MUTATIONS.has(route.op) && isUuid(key)) {
     result = await idempotent(
-      `rest:${e.auth?.token.clientId ?? agent}:${route.op}:${String(args.id ?? "")}`,
+      `rest:${e.auth ? actorScope(e.auth) : agent}:${route.op}:${String(args.id ?? "")}`,
       key,
       body,
       () => runOp(route.op, args, e.auth),
@@ -505,7 +509,7 @@ export async function handleMcp(request: Request): Promise<Response> {
           }),
         );
       const key = typeof meta["idempotency-key"] === "string" ? meta["idempotency-key"] : undefined;
-      const scope = `mcp:${e.auth.token.clientId}:${name}:${String(args.id ?? "")}`;
+      const scope = `mcp:${actorScope(e.auth)}:${name}:${String(args.id ?? "")}`;
       const { meta: _meta, ...payload } = args;
       const result =
         MUTATIONS.has(name) && key

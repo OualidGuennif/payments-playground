@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T00:08:33Z
+  at: 2026-11-18T00:19:32Z
 verified:
   - at: 2026-11-17
     check: "Local run on Adyen TEST: a guest agent over UCP REST paid with 4111111111111111 and an expiry only, Authorised (PFZ9SDVTLGKLJJV5, brand visa from /cardDetails, ContAuth, UnscheduledCardOnFile); no instrument gave requires_escalation; the number nowhere in the Back Office."
@@ -253,7 +253,9 @@ before, every deploy or restart emptied orders, agents and grants.
   `unauthorized_client`, and for the device grant `authorization_pending`, `slow_down`,
   `access_denied`, `expired_token` (OAuth); 409 idempotency key reused with another body, 404
   unknown or foreign resource. A 401 or 403 is never stored under its Idempotency-Key: the
-  operation did not run, so the same key with a better token runs it.
+  operation did not run, so the same key with a better token runs it. Stored answers belong to
+  the agent client and the account together: one client acting for two accounts never gets one
+  account's answer replayed to the other (`src/server/customers.test.ts`).
   Payment instruments: `unsupported_handler` 400 for a handler other than the two,
   `unknown_instrument` 400 for a saved card the token may not use or an instrument with no id, `invalid_credential` 400 with
   the path of the bad network-token field (`number` when Adyen gives the number no brand),

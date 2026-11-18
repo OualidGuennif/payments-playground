@@ -111,10 +111,10 @@
 }
 .seq-draw {
   stroke-dasharray: 1;
-  animation: seq-draw 0.6s ease-out both;
+  animation: seq-draw 220ms ease-out both;
 }
 .seq-fade {
-  animation: seq-fade 0.5s ease-out both;
+  animation: seq-fade 220ms ease-out both;
 }
 @media (prefers-reduced-motion: reduce) {
   .seq-draw,

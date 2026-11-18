@@ -76,6 +76,15 @@ describe("Back Office paging", () => {
     expect(tracePage({ path: "%" }, 1, 25).total).toBe(0);
   });
 
+  test("a channel with a hyphen, as ucp-rest, filters like any other", () => {
+    log(2, { channel: "ucp-rest", path: "/ucp/v1/checkout-sessions" });
+    log(3);
+    expect(logFilters({ channel: "ucp-rest" }).channel).toBe("ucp-rest");
+    const page = tracePage(logFilters({ channel: "ucp-rest" }), 1, 25);
+    expect(page.total).toBe(2);
+    expect(page.items.every((t) => t.channel === "ucp-rest")).toBe(true);
+  });
+
   test("unknown filter values are dropped", () => {
     expect(
       logFilters({ channel: "MCP; drop", status: "6xx", path: "  ", ref: "x".repeat(500) }),

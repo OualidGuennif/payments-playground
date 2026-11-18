@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T18:30:00Z
+  at: 2026-11-18T18:50:00Z
 verified:
   - at: 2026-11-18
     check: "v0.6.0 on task/front-v060: bun run check green, 374 agentic tests (NaN limit and stale-grant complete fail before). Localhost browser: consent, account, Back Office, Docs at 375 and 1440 px, light and dark; no page-wide scroll at 375 px; a stale account limit opened the step-up form."

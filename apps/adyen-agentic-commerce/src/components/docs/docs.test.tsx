@@ -5,6 +5,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import DocPage from "../../app/docs/[topic]/page";
 import Docs from "../../app/docs/page";
+import { logFilters } from "../../server/back-office";
 import { DOCS, OVERVIEW, PUBLIC_DOCUMENTS, type Step } from "./content";
 import { send } from "./TryIt";
 
@@ -55,6 +56,11 @@ describe("Docs", () => {
         expect(s.from).not.toBe(s.to);
       }
     }
+  });
+
+  test("every Back Office log link a page offers is a channel the Log filters by", () => {
+    for (const doc of DOCS)
+      for (const channel of doc.channels) expect(logFilters({ channel }).channel).toBe(channel);
   });
 
   test("Try it asks only for this origin's public documents or MCP tools/list", () => {

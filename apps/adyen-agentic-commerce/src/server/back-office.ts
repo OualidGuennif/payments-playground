@@ -46,7 +46,8 @@ export function logFilters(query: Record<string, unknown>): LogFilters {
   const channel = first(query.channel);
   const status = first(query.status);
   return {
-    channel: /^[a-z]{1,20}$/.test(channel) ? channel : undefined,
+    // The trace's channels are lowercase words, one with a hyphen (ucp-rest).
+    channel: /^[a-z][a-z-]{0,19}$/.test(channel) ? channel : undefined,
     actor: text(query.actor, 100),
     status: /^[2-5]xx$/.test(status) ? (status as LogFilters["status"]) : undefined,
     path: text(query.path, 200),

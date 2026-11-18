@@ -54,6 +54,8 @@ create table if not exists trace (
   ref text,
   detail text not null
 );
+create index if not exists trace_actor on trace (actor);
+create index if not exists trace_channel on trace (channel);
 create table if not exists seen_jti (
   jti text primary key,
   expires_at integer not null

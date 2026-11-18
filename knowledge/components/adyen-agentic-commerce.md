@@ -7,10 +7,10 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T18:50:00Z
+  at: 2026-11-18T19:17:00Z
 verified:
   - at: 2026-11-18
-    check: "v0.6.0 on task/front-v060: bun run check green, 374 agentic tests (NaN limit and stale-grant complete fail before). Localhost browser: consent, account, Back Office, Docs at 375 and 1440 px, light and dark; no page-wide scroll at 375 px; a stale account limit opened the step-up form."
+    check: "v0.6.0 on develop: bun run check green, 378 agentic tests (budget, ucp-rest filter, email masking tests fail before). Localhost browser: consent, account, Back Office, Docs at 375 and 1440 px, light and dark; no page-wide scroll; a stale limit opened the step-up."
   - at: 2026-11-18
     check: "bun run check green, 354 agentic tests (8 agent budget tests fail before v0.5.3). Localhost browser from an #agent- link: sign-in kept it; EUR 150 to 220 asked the password, refused a wrong one; lowering asked nothing; 375 px. Passkey step-up: software authenticator only."
   - at: 2026-11-18
@@ -501,7 +501,9 @@ before, every deploy or restart emptied orders, agents and grants.
 25. The Back Office pages every list on the server: page and size come only from `page` (a
     positive integer, else 1, past the last page the last) and `per` (25, 50 or 100, else 25);
     filters narrow the count and the page together; no email appears unmasked in its HTML or in
-    `GET /api/back-office` (`src/server/back-office.test.ts`).
+    `GET /api/back-office`, whatever shape the store accepts (any `x@y.z` without spaces, so a
+    non-ASCII name or a numeric top-level domain too), an agent's own name included
+    (`src/server/back-office.test.ts`).
 26. The consent page names each requested permission in words with its change pill and personal
     data mark, never a scope name, keeps the one-sentence warning, and sends `spend_limit_eur` 0
     when `ucp:pay` is not asked (`src/components/ConsentForm.test.tsx`).

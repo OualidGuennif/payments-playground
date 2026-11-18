@@ -8,7 +8,10 @@ export function maskEmail(email: string | undefined | null): string {
   return `${email[0]}•••${email.slice(at)}`;
 }
 
-const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
+// The same shape the store accepts at sign-up and in buyer.email (any characters but space and @,
+// a dot after the @), so a non-ASCII name or a numeric top-level domain is masked too. Wider than
+// an email on purpose: a public page masks too much rather than too little.
+const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/g;
 
 // Every email anywhere in a value, masked: a record or a trace detail may carry one in any field,
 // so the Back Office masks its whole answer rather than the fields known today.

@@ -174,6 +174,24 @@ describe("Back Office masking", () => {
     expect(complete).toBeGreaterThan(mcp);
   });
 
+  test("an email the store accepts but that is not plain ASCII is masked too", async () => {
+    const odd = ["josé@exämple.de", "shopper@example.123"];
+    put("customers", "cus_2", {
+      id: "cus_2",
+      email: odd[0],
+      name: "José",
+      createdAt: "2026-11-18",
+    });
+    log(1, { actor: odd[0], detail: { buyer: { email: odd[1] } } });
+    const json = await (await handle(new Request("http://localhost/api/back-office"))).text();
+    const html = await page({ tab: "log" });
+    for (const email of odd) {
+      expect(json).not.toContain(email);
+      expect(html).not.toContain(email);
+    }
+    expect(json).toContain("s•••@example.123");
+  });
+
   test("an agent named with an email shows it masked, and the Log's masked actor still filters", async () => {
     put("grants", "gr_2", {
       id: "gr_2",

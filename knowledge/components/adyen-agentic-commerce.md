@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T00:03:51Z
+  at: 2026-11-18T00:08:33Z
 verified:
   - at: 2026-11-17
     check: "Local run on Adyen TEST: a guest agent over UCP REST paid with 4111111111111111 and an expiry only, Authorised (PFZ9SDVTLGKLJJV5, brand visa from /cardDetails, ContAuth, UnscheduledCardOnFile); no instrument gave requires_escalation; the number nowhere in the Back Office."
@@ -347,7 +347,8 @@ before, every deploy or restart emptied orders, agents and grants.
     (`src/server/customers.test.ts`, "agents act for an account").
 16. A network-token credential serves one `/cardDetails` and one `/payments` call: it is never
     stored, traced, logged or returned (digits in an error text are masked; the idempotency
-    record hashes the body with every `credential` left out), and Adyen gets
+    record's hash takes each `credential` only through an HMAC whose key never reaches the
+    database, so another token under the same key is still a 409), and Adyen gets
     `networkToken` with the brand it read, `ContAuth` and `UnscheduledCardOnFile`, with no
     stored-payment field. A bad field, or a checkout not ready to pay, sends the number nowhere;
     a checkout handed to the shopper takes no instrument from agents

@@ -12,8 +12,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   of the site (tabs, newlines, backslashes and dot segments that resolve to `//` refused), a
   burst of sign-ins meets the failure limit, agents never reach a shopper's checkout made before
   channels existed, the account page lists every grant of the account (not only among the newest
-  200), an instrument naming nothing is a 400, and the idempotency hash leaves the payment
-  instrument's secret part out.
+  200), an instrument naming nothing is a 400, and the idempotency record binds a payment
+  credential only through a keyed hash.
 - The agentic store has customer accounts: sign-up and sign-in with an argon2id password or a
   passkey (`@simplewebauthn` 14), a 7-day HttpOnly session cookie stored as its SHA-256, and
   failed sign-ins limited per address and per account. Consent and device approval need a

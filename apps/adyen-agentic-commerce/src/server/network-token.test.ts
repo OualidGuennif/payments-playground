@@ -276,12 +276,40 @@ describe("a guest agent", () => {
       .all()
       .map((r) => (r as { request_hash: string }).request_hash);
     expect(hashes).not.toContain(sha256(canonicalJson(body)));
-    // The same key still replays the one payment, whatever token comes with it.
-    const replay = await send({
+    // The same body under the same key replays the one payment; another token is another body.
+    const replay = await send(body);
+    expect(JSON.parse(await replay.text()).status).toBe("completed");
+    const other = await send({
       payment: { instruments: [instrument({ number: "5555555555554444" })] },
     });
-    expect(JSON.parse(await replay.text()).status).toBe("completed");
+    expect(other.status).toBe(409);
+    expect(JSON.parse(await other.text()).messages[0].code).toBe("idempotency_key_reused");
     expect(fake.payments).toHaveLength(1);
+  });
+
+  test("a token refused as invalid is corrected under a new Idempotency-Key, not the old one", async () => {
+    const created = await guestCheckout();
+    const key = crypto.randomUUID();
+    const send = (change: Record<string, unknown>) =>
+      handle(
+        new Request(`${ORIGIN}/ucp/v1/checkout-sessions/${created.id}/complete`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "ucp-agent": ucpAgent(),
+            "request-id": crypto.randomUUID(),
+            "idempotency-key": key,
+            "x-forwarded-for": randomIp(),
+          },
+          body: JSON.stringify({ payment: { instruments: [instrument(change)] } }),
+        }),
+      );
+    expect((await send({ expiry_year: 2020 })).status).toBe(400);
+    const corrected = await send({});
+    expect(corrected.status).toBe(409);
+    expect(JSON.parse(await corrected.text()).messages[0].code).toBe("idempotency_key_reused");
+    const fresh = await guestComplete(created.id, { payment: { instruments: [instrument()] } });
+    expect(JSON.parse(fresh.text).status).toBe("completed");
   });
 
   test("with no instrument hands the checkout to the shopper, who pays at continue_url", async () => {

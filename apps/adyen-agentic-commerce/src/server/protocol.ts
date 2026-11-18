@@ -1,6 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // The HTTP edge for agents: rate limit, bearer token, Poppy-Session, UCP headers, idempotency and
 // the trace, in front of the UCP operation table (REST under /ucp/v1, JSON-RPC at /mcp).
+import { createHmac, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
 import { CommerceError } from "./commerce";
 import { config, UCP_VERSION } from "./config";
@@ -128,14 +129,25 @@ async function edge(request: Request, resourcePath: "" | "/mcp"): Promise<Edge> 
 
 // --- idempotency -------------------------------------------------------------------------------
 
-// A payment credential is left out of the stored hash: a complete body is fixed but for a network
-// token's number and expiry, so its plain hash could be searched offline. The key still binds the
-// rest of the body.
-function withoutCredentials(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(withoutCredentials);
+// A complete body is fixed but for a network token's number and expiry, so a plain hash of it
+// could be searched offline. Each credential enters the stored hash only through an HMAC whose key
+// never reaches the database (derived from the Adyen API key, else random for this process): a
+// different credential under the same Idempotency-Key is still another body (409).
+let fingerprintKey: string | Buffer | undefined;
+function credentialFingerprint(credential: unknown): string {
+  const apiKey = config().adyen.apiKey;
+  fingerprintKey ??= apiKey ? sha256(`velune-idempotency:${apiKey}`) : randomBytes(32);
+  return createHmac("sha256", fingerprintKey).update(canonicalJson(credential)).digest("hex");
+}
+
+function withFingerprints(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withFingerprints);
   if (!isRecord(value)) return value;
   return Object.fromEntries(
-    Object.entries(value).map(([k, v]) => [k, k === "credential" ? "-" : withoutCredentials(v)]),
+    Object.entries(value).map(([k, v]) => [
+      k,
+      k === "credential" ? credentialFingerprint(v) : withFingerprints(v),
+    ]),
   );
 }
 
@@ -145,7 +157,7 @@ function idempotent(
   payload: unknown,
   run: () => Promise<OpResult>,
 ): Promise<OpResult> {
-  const hash = sha256(canonicalJson(withoutCredentials(payload)));
+  const hash = sha256(canonicalJson(withFingerprints(payload)));
   const row = database()
     .query<{ request_hash: string; status: number; response: string }, { s: string; k: string }>(
       "select request_hash, status, response from idempotency where scope = $s and key = $k",

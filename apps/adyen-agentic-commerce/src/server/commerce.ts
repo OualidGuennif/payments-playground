@@ -714,11 +714,22 @@ async function networkTokenBrand(number: string, ref: string): Promise<string> {
   return brand;
 }
 
+const unknownInstrument = () =>
+  err(
+    400,
+    "unknown_instrument",
+    "Pass one of the instruments listed in checkout.payment.instruments, a network token, or none",
+    "$.payment.instruments",
+  );
+
 export function chosenInstrument(body: Record<string, unknown>): Instrument | undefined {
   const payment = isRecord(body.payment) ? body.payment : undefined;
   const instruments = Array.isArray(payment?.instruments) ? payment.instruments : [];
+  // Only an empty list is "no instrument", which hands the checkout to the shopper; anything sent
+  // that names no usable instrument is a 400 and changes nothing.
+  if (!instruments.length) return undefined;
   const chosen = instruments.find((i) => isRecord(i) && i.selected === true) ?? instruments[0];
-  if (!isRecord(chosen)) return undefined;
+  if (!isRecord(chosen)) throw unknownInstrument();
   if (chosen.handler_id === "network_token") return networkToken(chosen.credential);
   if (chosen.handler_id !== undefined && chosen.handler_id !== "saved_card") {
     throw err(
@@ -735,7 +746,8 @@ export function chosenInstrument(body: Record<string, unknown>): Instrument | un
       : typeof chosen.id === "string"
         ? chosen.id
         : undefined;
-  return alias ? { handler: "saved_card", alias } : undefined;
+  if (!alias) throw unknownInstrument();
+  return { handler: "saved_card", alias };
 }
 
 export async function completeCheckout(
@@ -777,13 +789,7 @@ export async function completeCheckout(
     instrument.handler === "saved_card"
       ? cards.find((c) => c.alias === instrument.alias)
       : undefined;
-  if (instrument.handler === "saved_card" && (!card || !reference))
-    throw err(
-      400,
-      "unknown_instrument",
-      "Pass one of the instruments listed in checkout.payment.instruments",
-      "$.payment.instruments",
-    );
+  if (instrument.handler === "saved_card" && (!card || !reference)) throw unknownInstrument();
 
   // Claimed and the budget reserved synchronously before the network call, so a parallel complete
   // sees the checkout in progress and the grant already charged; a refusal or an error gives it back.

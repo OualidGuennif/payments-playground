@@ -22,6 +22,10 @@ describe("safeNext", () => {
       decoded("/%0D/evil.example"),
       decoded("%2F%2Fevil.example"),
       "/ /evil.example",
+      "/..//evil.example",
+      "/.//evil.example",
+      "/%2e%2e//evil.example",
+      "/a/../..//evil.example",
     ]) {
       expect(safeNext(value)).toBe("/account");
     }

@@ -11,6 +11,7 @@ import { grants } from "./oauth";
 import { fake } from "./testing/fake-adyen";
 import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
 import { ucpAgent } from "./testing/platform";
+import { canonicalJson, sha256 } from "./util";
 
 const SOCKS = "velune-rib-socks-oat-one-size"; // 1200 + 495 shipping
 // Visa's TEST number, the owner's choice for a network token on TEST (2026-11-17).
@@ -234,13 +235,53 @@ describe("a guest agent", () => {
     expect(fake.payments.map((p) => p.reference)).toEqual([`${created.id}-a1`]);
   });
 
-  test("cannot pay with a saved card", async () => {
+  test("cannot pay with a saved card; an instrument naming nothing is refused, not a hand-over", async () => {
     const created = await guestCheckout();
-    const saved = await guestComplete(created.id, {
-      payment: { instruments: [{ id: "card_0123456789abcdef0123", handler_id: "saved_card" }] },
-    });
-    expect(JSON.parse(saved.text).messages[0].code).toBe("unknown_instrument");
+    for (const sent of [
+      { id: "card_0123456789abcdef0123", handler_id: "saved_card" },
+      { handler_id: "saved_card", type: "card" },
+      "card",
+    ]) {
+      const answer = await guestComplete(created.id, { payment: { instruments: [sent] } });
+      expect([answer.status, JSON.parse(answer.text).messages[0].code]).toEqual([
+        400,
+        "unknown_instrument",
+      ]);
+    }
     expect(fake.payments).toHaveLength(0);
+    expect(await statusOf(created.id)).toBe("ready_for_complete");
+  });
+
+  test("the stored idempotency hash is not a hash of the credential's body", async () => {
+    const created = await guestCheckout();
+    const body = { payment: { instruments: [instrument()] } };
+    const key = crypto.randomUUID();
+    const send = (sent: unknown) =>
+      handle(
+        new Request(`${ORIGIN}/ucp/v1/checkout-sessions/${created.id}/complete`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "ucp-agent": ucpAgent(),
+            "request-id": crypto.randomUUID(),
+            "idempotency-key": key,
+            "x-forwarded-for": randomIp(),
+          },
+          body: JSON.stringify(sent),
+        }),
+      );
+    expect((await send(body)).status).toBe(200);
+    const hashes = database()
+      .query("select request_hash from idempotency")
+      .all()
+      .map((r) => (r as { request_hash: string }).request_hash);
+    expect(hashes).not.toContain(sha256(canonicalJson(body)));
+    // The same key still replays the one payment, whatever token comes with it.
+    const replay = await send({
+      payment: { instruments: [instrument({ number: "5555555555554444" })] },
+    });
+    expect(JSON.parse(await replay.text()).status).toBe("completed");
+    expect(fake.payments).toHaveLength(1);
   });
 
   test("with no instrument hands the checkout to the shopper, who pays at continue_url", async () => {

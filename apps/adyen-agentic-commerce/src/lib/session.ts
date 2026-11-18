@@ -20,7 +20,10 @@ export function safeNext(value: string | undefined, fallback = "/account"): stri
   if ([...value].some(unsafe)) return fallback;
   try {
     const url = new URL(value, SAME_SITE);
-    return url.origin === SAME_SITE ? `${url.pathname}${url.search}${url.hash}` : fallback;
+    // Dot segments collapse while parsing, so "/..//host" comes out as "//host": the result must
+    // itself be a path on this site.
+    if (url.origin !== SAME_SITE || url.pathname.startsWith("//")) return fallback;
+    return `${url.pathname}${url.search}${url.hash}`;
   } catch {
     return fallback;
   }

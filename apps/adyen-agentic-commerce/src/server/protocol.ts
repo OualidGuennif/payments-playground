@@ -128,13 +128,24 @@ async function edge(request: Request, resourcePath: "" | "/mcp"): Promise<Edge> 
 
 // --- idempotency -------------------------------------------------------------------------------
 
+// A payment credential is left out of the stored hash: a complete body is fixed but for a network
+// token's number and expiry, so its plain hash could be searched offline. The key still binds the
+// rest of the body.
+function withoutCredentials(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutCredentials);
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([k, v]) => [k, k === "credential" ? "-" : withoutCredentials(v)]),
+  );
+}
+
 function idempotent(
   scope: string,
   key: string,
   payload: unknown,
   run: () => Promise<OpResult>,
 ): Promise<OpResult> {
-  const hash = sha256(canonicalJson(payload));
+  const hash = sha256(canonicalJson(withoutCredentials(payload)));
   const row = database()
     .query<{ request_hash: string; status: number; response: string }, { s: string; k: string }>(
       "select request_hash, status, response from idempotency where scope = $s and key = $k",

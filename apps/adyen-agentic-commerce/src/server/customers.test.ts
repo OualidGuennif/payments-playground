@@ -333,6 +333,21 @@ describe("agents act for an account", () => {
     expect((await agent.tool("get_order", { id: orderId })).isError).toBe(true);
   });
 
+  test("an account keeps seeing, and can revoke, an old agent however many grants came since", async () => {
+    await agent.signIn();
+    const [grant] = grants();
+    for (let i = 0; i < 205; i++)
+      put("grants", `grant_other_${i}`, { id: `grant_other_${i}`, customerId: "cus_someone_else" });
+    const account = await call("GET", "/api/account", { cookie: agent.customerCookie });
+    expect(account.body.agents.map((a: { id: string }) => a.id)).toEqual([grant!.id]);
+    const revoked = await call("POST", `/api/account/grants/${grant!.id}`, {
+      cookie: agent.customerCookie,
+      body: { revoked: true },
+    });
+    expect(revoked.status).toBe(200);
+    expect(get<{ revoked: boolean }>("grants", grant!.id)!.revoked).toBe(true);
+  });
+
   test("another account cannot change this account's agents", async () => {
     await agent.signIn();
     const [grant] = grants();

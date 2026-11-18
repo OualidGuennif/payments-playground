@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T23:49:18Z
+  at: 2026-11-18T00:03:51Z
 verified:
   - at: 2026-11-17
     check: "Local run on Adyen TEST: a guest agent over UCP REST paid with 4111111111111111 and an expiry only, Authorised (PFZ9SDVTLGKLJJV5, brand visa from /cardDetails, ContAuth, UnscheduledCardOnFile); no instrument gave requires_escalation; the number nowhere in the Back Office."
@@ -88,7 +88,8 @@ before, every deploy or restart emptied orders, agents and grants.
   digits), `expiry_month` (1 to 12), `expiry_year` (four digits, not past), optional `name`. No
   cryptogram, CVC or brand (owner decision 2026-11-17); any other field is ignored. A guest agent
   may send one; a signed-in agent needs the checkout scope and stays within its grant's remaining
-  limit. An agent may instead complete with no instrument, which hands the checkout to the shopper.
+  limit. An agent may instead complete with an empty `payment.instruments` (or no `payment`), which
+  hands the checkout to the shopper; an instrument that names nothing usable is a 400.
 - **Agent (HTTP):** UCP REST under `/ucp/v1` with `UCP-Agent: profile="<url>"`, `Request-Id`, and
   `Idempotency-Key` (UUID) on every mutation; MCP JSON-RPC 2.0 at `POST /mcp` with
   `meta["ucp-agent"].profile` and `meta["idempotency-key"]` (optional in MCP, honoured when sent);
@@ -254,7 +255,7 @@ before, every deploy or restart emptied orders, agents and grants.
   unknown or foreign resource. A 401 or 403 is never stored under its Idempotency-Key: the
   operation did not run, so the same key with a better token runs it.
   Payment instruments: `unsupported_handler` 400 for a handler other than the two,
-  `unknown_instrument` 400 for a saved card the token may not use, `invalid_credential` 400 with
+  `unknown_instrument` 400 for a saved card the token may not use or an instrument with no id, `invalid_credential` 400 with
   the path of the bad network-token field (`number` when Adyen gives the number no brand),
   `payment_unavailable` 502 when the brand lookup fails (nothing paid, the checkout unchanged).
   Accounts: `invalid_login` 401 (one answer for an unknown email and a wrong password),
@@ -263,8 +264,8 @@ before, every deploy or restart emptied orders, agents and grants.
   `rate_limited` 429 past 20 Drop-in and card-save sessions a minute per address (and 20 passkey
   sign-in starts), `invalid_passkey` 401. Consent and `/oauth/device/verify` without a session
   answer 303 to `/sign-in?next=…`, which returns only to a path on this site: `next` must start
-  with `/`, hold no control character, space or backslash, and resolve to this origin
-  (`src/lib/session.test.ts`).
+  with `/`, hold no control character, space or backslash, and resolve to a path of this origin
+  that does not itself start with `//` (dot segments collapse while parsing; `src/lib/session.test.ts`).
 
 ## Invariants
 
@@ -341,9 +342,12 @@ before, every deploy or restart emptied orders, agents and grants.
     refuse that address or account for 15 minutes (`src/server/customers.test.ts`).
 15. A grant belongs to the customer who approved it, and consent or device approval without a
     signed-in customer grants nothing; a grant without a customer authenticates nothing, so grants
-    made before accounts stop working (`src/server/customers.test.ts`, "agents act for an account").
+    made before accounts stop working. The account page lists every grant of the account, looked up
+    by account rather than among the newest grants of the store, so each stays revocable
+    (`src/server/customers.test.ts`, "agents act for an account").
 16. A network-token credential serves one `/cardDetails` and one `/payments` call: it is never
-    stored, traced, logged or returned (digits in an error text are masked), and Adyen gets
+    stored, traced, logged or returned (digits in an error text are masked; the idempotency
+    record hashes the body with every `credential` left out), and Adyen gets
     `networkToken` with the brand it read, `ContAuth` and `UnscheduledCardOnFile`, with no
     stored-payment field. A bad field, or a checkout not ready to pay, sends the number nowhere;
     a checkout handed to the shopper takes no instrument from agents

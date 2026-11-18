@@ -973,9 +973,12 @@ export function authenticate(
   return { token, grant, accessToken: match[1]! };
 }
 
+// An account's grants come from a lookup by account, not list()'s window of the newest 200: an old
+// grant that still works must stay on the account page, where the shopper can revoke it.
 export function grants(customerId?: string): Grant[] {
-  const all = list<Grant>("grants");
-  return customerId === undefined ? all : all.filter((g) => g.customerId === customerId);
+  return customerId === undefined
+    ? list<Grant>("grants")
+    : findBy<Grant>("grants", "customerId", customerId);
 }
 
 // The account changes only its own grants; the Back Office passes no customer.

@@ -7,14 +7,14 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T15:28:00Z
+  at: 2026-11-18T18:30:00Z
 verified:
   - at: 2026-11-18
-    check: "bun run check green, 353 agentic tests (8 agent budget tests fail before v0.5.3). Localhost browser from an #agent- link: sign-in kept it; EUR 150 to 220 asked the password, refused a wrong one; lowering asked nothing; 375 px. Passkey step-up: software authenticator only."
+    check: "v0.6.0 on task/front-v060: bun run check green, 374 agentic tests (NaN limit and stale-grant complete fail before). Localhost browser: consent, account, Back Office, Docs at 375 and 1440 px, light and dark; no page-wide scroll at 375 px; a stale account limit opened the step-up form."
+  - at: 2026-11-18
+    check: "bun run check green, 354 agentic tests (8 agent budget tests fail before v0.5.3). Localhost browser from an #agent- link: sign-in kept it; EUR 150 to 220 asked the password, refused a wrong one; lowering asked nothing; 375 px. Passkey step-up: software authenticator only."
   - at: 2026-11-18
     check: "bun run check green, 333 agentic tests (refresh keeps the grant, device grant too; address guard, profile host too; MCP 401/403/429, signed-out MCP, sign-out, loopback ports, jti, tasks). Local pap-agent.ts --auto-consent handed the checkout over; consent, /agents at 375 px."
-  - at: 2026-11-17
-    check: "Local run on Adyen TEST: a guest agent over UCP REST paid with 4111111111111111 and an expiry only, Authorised (PFZ9SDVTLGKLJJV5, brand visa from /cardDetails, ContAuth, UnscheduledCardOnFile); no instrument gave requires_escalation; the number nowhere in the Back Office."
 sources:
   - id: app
     resource: ../../apps/adyen-agentic-commerce
@@ -252,11 +252,15 @@ before, every deploy or restart emptied orders, agents and grants.
   signed-in agent over its limit gets `requires_escalation`, and the shopper pays or approves at
   `continue_url`; the `spend_limit_exceeded` message also names `manage_url`. A signed-in agent's
   checkout carries `agent_budget` {`spend_limit`, `spent`, `remaining`, `manage_url`}, read from
-  the grant when the answer is built; `manage_url` is `/account#agent-<grant id>`, which opens the
+  the grant when the answer is built; `complete_checkout` judges and renders its status from that
+  same re-read grant, so the status and `agent_budget` agree when the limit changed during the
+  request; `manage_url` is `/account#agent-<grant id>`, which opens the
   account page on that agent. Only the account's signed-in shopper changes the limit there, from 0
-  to 1000 EUR as at consent; raising it needs the account password or one of its passkeys again
+  to 1000 EUR as at consent (a value that is not a number is stored as 0); raising it needs the account password or one of its passkeys again
   (owner, 2026-11-18), lowering it or disconnecting does not, and a disconnected agent's limit no
-  longer changes (409). Adding a passkey needs the same proof, since a passkey can confirm a raise.
+  longer changes (409). A change the account page took for a lowering, on a limit read before
+  another tab changed it, gets `confirmation_required` and opens the same password or passkey form.
+  Adding a passkey needs the same proof, since a passkey can confirm a raise.
   The cap applies when a limit is written: a limit set above 1000 EUR before v0.5.3 stays until the
   shopper changes it. The change applies to the agent's next payment attempt on the same grant,
   keeps what was spent and needs no new sign-in; a payment the shopper makes at `continue_url`
@@ -491,7 +495,9 @@ before, every deploy or restart emptied orders, agents and grants.
     agent; a session alone cannot add a passkey either (`src/server/customers.test.ts`, "a session
     alone cannot add a passkey"); the trace names how a raise was confirmed; the new limit binds the next payment on the
     same grant, what was spent stays, and the answer's `agent_budget` shows the spend after its
-    own charge (`src/server/network-token.test.ts`, "agent budget").
+    own charge; a limit posted as NaN is stored as 0, and `complete_checkout` on a token checked
+    before the limit was lowered answers `requires_escalation` with the lowered `agent_budget`
+    (`src/server/network-token.test.ts`, "agent budget").
 25. The Back Office pages every list on the server: page and size come only from `page` (a
     positive integer, else 1, past the last page the last) and `per` (25, 50 or 100, else 25);
     filters narrow the count and the page together; no email appears unmasked in its HTML or in

@@ -37,7 +37,8 @@ outside the repo's checks) and chose Bun + Elysia + Eden + Next.js for this app 
 
 **Consequences.** The shared `packages/platform` and `packages/ui` (Deno, Preact) are not imported
 here; the TEST-only rule, HMAC check and order-state rules are reimplemented and tested in the app.
-Two toolchains run in CI.
+Two toolchains run in CI. Later scripts use the same runtime: `widgets` builds the MCP Apps widgets
+with `Bun.build` into a generated module (ADR-017), since the standalone server ships no sources.
 
 **Amended 2026-11-15.** [ADR-014](ADR-014-every-playground-on-bun-and-next.md) moved every other
 app to the same stack: the store is now a member of the one Bun workspace (root `bun.lock`, its

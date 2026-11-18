@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "atelier-velune": {
+      "type": "streamable-http",
+      "url": "https://agentic.payments-playground.com/mcp"
+    }
+  }
+}

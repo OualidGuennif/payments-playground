@@ -1,0 +1,27 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "atelier-velune",
+  "version": "1.0.0",
+  "description": "Shop Atelier Velune, a demo fashion store on Adyen TEST: browse the collection by hand or let your assistant shop, then pay with a card saved in your store account.",
+  "author": { "name": "Payments Playground" },
+  "homepage": "https://agentic.payments-playground.com/docs/chatgpt",
+  "keywords": ["shopping", "fashion", "ucp", "pap", "adyen", "test"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Atelier Velune",
+        "shortDescription": "A demo fashion store on Adyen TEST",
+        "longDescription": "Browse the Atelier Velune collection in a carousel, choose colour and size, fill your bag and pay with a card saved in your store account, within the budget you set when you connect. Payments run on Adyen TEST: no real money moves.",
+        "developerName": "Payments Playground",
+        "category": "Shopping",
+        "websiteURL": "https://agentic.payments-playground.com",
+        "privacyPolicyURL": "https://agentic.payments-playground.com/legal#privacy",
+        "termsOfServiceURL": "https://agentic.payments-playground.com/legal#terms",
+        "defaultPrompt": "Help me find something from Atelier Velune",
+        "brandColor": "#004526",
+        "logo": "./assets/logo.svg",
+        "composerIcon": "./assets/icon.svg"
+      }
+    }
+  }
+}

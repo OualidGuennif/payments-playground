@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DOCS, docBySlug } from "@/components/docs/content";
+import { PluginDownload } from "@/components/docs/PluginDownload";
 import { Rich } from "@/components/docs/Rich";
 import { SequenceDiagram } from "@/components/docs/SequenceDiagram";
 import { TryIt } from "@/components/docs/TryIt";
@@ -51,6 +52,7 @@ export default async function DocPage({ params }: { params: Params }) {
       ) : null}
 
       {doc.slug === "webmcp" ? <WebMcpCheck /> : null}
+      {doc.slug === "chatgpt" ? <PluginDownload /> : null}
       {doc.tries.length ? <TryIt requests={doc.tries} /> : null}
 
       <section className="panel flex flex-wrap items-center justify-between gap-3">

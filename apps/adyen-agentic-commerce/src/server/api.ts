@@ -20,6 +20,7 @@ import { handlerSchema, networkTokenSchema, profile } from "./ucp";
 import { openApi } from "./openapi";
 import { isRecord, json, published, safeEqual } from "./util";
 import { maskEmails } from "../lib/mask";
+import { PLUGIN_ZIP_PATH, pluginZip } from "./widgets";
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -315,6 +316,18 @@ const app = new Elysia()
     const path = new URL(request.url).pathname;
     if (responseValue instanceof Response && !path.startsWith("/api/")) withCors(responseValue);
   })
+  // The plugin package (ADR-017): public, the same bytes for everyone on this deployment.
+  .get(
+    PLUGIN_ZIP_PATH,
+    () =>
+      new Response(pluginZip(), {
+        headers: {
+          "content-type": "application/zip",
+          "content-disposition": 'attachment; filename="atelier-velune-plugin.zip"',
+          "cache-control": "public, max-age=300",
+        },
+      }),
+  )
   .get("/healthz", () => ({
     status: "ok",
     environment: "TEST",

@@ -31,3 +31,4 @@ Each ADR states its context, the decision and its consequences. Supersede an ADR
 | [ADR-014: Every playground on Bun, Next.js, Elysia and Eden](ADR-014-every-playground-on-bun-and-next.md)      | stable | 2026-11-15               |
 | [ADR-015: Customer accounts and agent network tokens](ADR-015-customer-accounts-and-agent-network-tokens.md)  | stable | 2026-11-17               |
 | [ADR-016: A client assertion's aud may be the token endpoint](ADR-016-client-assertion-audience-for-mcp-clients.md) | stable | 2026-11-18               |
+| [ADR-017: MCP Apps UI on the UCP MCP server](ADR-017-mcp-apps-ui-on-the-ucp-server.md) | stable | 2026-11-18               |

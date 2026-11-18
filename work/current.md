@@ -5,15 +5,27 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## v0.6.0: agentic front rework (consent, account, Back Office, Docs) — ACTIVE
+## v0.7.0: MCP Apps UI on the UCP server (carousel, bag, plugin ZIP) — ACTIVE
 
-- Owner decision: 2026-11-18, in chat: approved the larger plan; "Oui, release v0.6.0" after the
-  screenshots, once v0.5.3 shipped.
-- State: merged into develop with the v0.5.3 review fixes and the copy pass; check green before
-  the merge (374 agentic tests); 375 and 1440 px, light and dark, checked locally.
-- Next: release bump, review, push, PR, merge after green CI, deploy check (who: agent).
+- Owner decision: 2026-11-18, in chat: the plan's four recommended answers, plus two modes (by
+  hand, or the assistant shops); ADR-017.
+- State: committed on develop; `bun run check` green; both bridges and both modes checked in a
+  browser inside a stand-in host (CSP, 375 and 1440 px, light and dark); not yet in ChatGPT.
+- Next: review, push, release PR v0.7.0 (who: agent); the merge (who: owner); deploy check
+  (who: agent); connect ChatGPT and shop in both modes (who: owner).
 - Blocker: none.
-- Evidence: commits 95cb565..91042d3; screenshots sent 2026-11-18.
+- Evidence: work/handovers/d29fee92-35ba-4f31-aca5-58fa336b53a5.md.
+
+## ChatGPT pays with a saved card through the v0.6.0 consent — WAITING-OWNER
+
+- Owner decision: 2026-11-18, in chat: test ChatGPT buying with a card saved in the account.
+- State: v0.6.0 released and deployed (main `c072111`, tag `v0.6.0`); no agent has paid with a
+  saved card through the new consent screen yet (the last one on Render was v0.3.3's PAP agent).
+- Next: save an Adyen test card on the account, reconnect ChatGPT (allow "Pay with your saved
+  card", budget above the price), ask it to pay with the saved card (who: owner); then read the
+  Back Office trace and order (who: agent).
+- Blocker: needs the owner's ChatGPT.
+- Evidence: knowledge/current/digital-status.md (v0.6.0 deploy row).
 
 ## Passkeys on v0.4.0: owner browser check — WAITING-OWNER
 

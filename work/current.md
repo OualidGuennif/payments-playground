@@ -5,16 +5,6 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## v0.5.2: ChatGPT's MCP connector signs in — ACTIVE
-
-- Owner decision: 2026-11-18, in chat: accept the token endpoint as a client assertion's `aud`
-  (ADR-016), after v0.5.1 accepted ChatGPT's signature algorithm.
-- State: fix and ADR-016 committed on develop; release v0.5.2 and the live check to do.
-- Next: release, check the metadata live (who: agent); reconnect the ChatGPT plugin (who: owner);
-  read its `/oauth/token` row in the trace (who: agent).
-- Blocker: none.
-- Evidence: trace 2026-11-18 13:25:22 UTC, 401 "aud must be the issuer, as a single string".
-
 ## Passkeys on v0.4.0: owner browser check — WAITING-OWNER
 
 - Owner decision: 2026-11-17, ADR-015 approved; agents choose freely between saved card, front

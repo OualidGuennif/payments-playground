@@ -6,7 +6,7 @@ tags: [decision, agentic, oauth, pap, mcp, chatgpt, security]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T13:31:04Z
+  at: 2026-11-18T14:52:00Z
 sources:
   - id: spec
     resource: ../components/adyen-agentic-commerce.md
@@ -30,8 +30,9 @@ under the conditions at the end.
 
 ## Context
 
-The agentic store authenticates a PAP agent, and any MCP client known by a client metadata
-document, with `private_key_jwt` (RFC 7523). Until v0.5.1 it accepted a client assertion only when
+The agentic store authenticates a PAP agent, and an MCP client known by a client metadata document
+unless that document declares `token_endpoint_auth_method: none` (a public client, which sends no
+assertion), with `private_key_jwt` (RFC 7523). Until v0.5.1 it accepted a client assertion only when
 its `aud` was the issuer identifier (`https://agentic.payments-playground.com` on Render), as one
 string. That is PAP 1.0 §4.1. PAP follows draft-ietf-oauth-rfc7523bis, which updates RFC 7523 after
 the 2025 audience-injection findings:
@@ -47,7 +48,7 @@ that for `private_key_jwt` the `aud` SHOULD be the token endpoint URL, so most O
 libraries put that URL there.
 
 On 2026-11-18 the owner connected ChatGPT's MCP connector to the live store. The Back Office trace
-shows two attempts:
+shows two attempts before the decision:
 1. 12:22:07 UTC: the shopper consented. 12:22:10: `POST /oauth/token` 401 `invalid_client`,
    "alg" not allowed. The store took only ES256 and PS384, and v0.5.1 (13:18 UTC) widened that to
    six asymmetric algorithms.
@@ -55,7 +56,8 @@ shows two attempts:
    "aud must be the issuer, as a single string". The signature now passed; the audience did not.
 
 The refusal did not say which `aud` ChatGPT sent. The likely values are the token endpoint URL, the
-issuer with a final slash, or an array.
+issuer with a final slash, or an array. A third attempt, at 14:32:50 and 14:32:52 UTC, after the
+decision but before v0.5.2 was deployed, met the same refusal.
 
 ## Options put to the owner
 
@@ -125,11 +127,22 @@ Nothing else changes:
 - **What we did not do.** No array is accepted: it is the case rfc7523bis singles out. No other
   path is accepted, so a client that confuses endpoints still fails loudly.
 
+## Verified
+
+v0.5.2 was deployed at 14:46:56 UTC on 2026-11-18. At 14:47:18 the shopper consented to ChatGPT
+again, and at 14:47:25 its `POST /oauth/token` answered 200 with `audience` "token endpoint" in the
+trace. ChatGPT's MCP connector therefore sends the token endpoint URL as `aud`: accepting the issuer
+with a final slash alone would not have been enough. It then shopped over `/mcp` (14:49 to 14:50:
+`search_catalog`, `create_checkout`, `complete_checkout` with the `network_token` handler,
+`get_order`). Adyen TEST answered `/payments` `Authorised` (`PRFVNF6K9MV5MNV5`, Visa, 149.00 EUR),
+and an HMAC-valid `AUTHORISATION` webhook followed. Order `ord_W7sDVFQPO47F` is `authorised` in the
+agent channel.
+
 ## Revisit when
 
-- the trace's `audience` on ChatGPT's successful token request shows the form it sends; if it is
-  the issuer with or without a slash, accepting the token endpoint could be withdrawn (a new
-  decision, not a silent edit);
+- ChatGPT's connector stops sending the token endpoint URL as `aud` (the trace's `audience` on its
+  token requests shows it); accepting the token endpoint could then be withdrawn, by a new
+  decision, not a silent edit;
 - draft-ietf-oauth-rfc7523bis becomes an RFC, or PAP publishes a version that allows or forbids the
   token endpoint explicitly;
 - a client is seen replaying an assertion signed for another server.

@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.5.2 deploy check: ChatGPT's MCP connector signed in to the agentic store on
+  Render, sending the token endpoint as its assertion's `aud`, and bought an item with a network
+  token, Authorised on Adyen TEST with its webhook. ADR-016 records this outcome and now says that
+  a client whose metadata document declares `none` is a public client, which sends no assertion.
+
 ## [0.5.2] - 2026-11-18
 
 - The agentic store accepts a client assertion whose `aud` is the issuer, the issuer with a final

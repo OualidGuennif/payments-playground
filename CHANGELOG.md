@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.7.0 deploy check: after PR #17 merged cleanly on `main` (`1413879`, CI green) and
+  tag `v0.7.0` published, Render's `agentic-commerce` deploy succeeded at 22:52:56 UTC.
+  `/healthz`, `/docs/chatgpt`, `atelier-velune-plugin.zip` (5 files, clean archive targeting prod
+  `/mcp`), and signed-out `POST /mcp` (401) passed live read-only checks; the live test in ChatGPT
+  is the owner's next check.
+
 ## [0.7.0] - 2026-11-18
 
 - The agentic store's MCP server serves two MCP Apps widgets (ADR-017): a product carousel for

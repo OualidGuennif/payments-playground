@@ -5,16 +5,15 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## v0.7.0: MCP Apps UI on the UCP server (carousel, bag, plugin ZIP) — ACTIVE
+## v0.7.0: MCP Apps UI on the UCP server (carousel, bag, plugin ZIP) — WAITING-OWNER
 
-- Owner decision: 2026-11-18, in chat: the plan's four recommended answers, plus two modes (by
-  hand, or the assistant shops); ADR-017.
-- State: committed on develop; `bun run check` green; both bridges and both modes checked in a
-  browser inside a stand-in host (CSP, 375 and 1440 px, light and dark); not yet in ChatGPT.
-- Next: review, push, release PR v0.7.0 (who: agent); the merge (who: owner); deploy check
-  (who: agent); connect ChatGPT and shop in both modes (who: owner).
-- Blocker: none.
-- Evidence: work/handovers/d29fee92-35ba-4f31-aca5-58fa336b53a5.md.
+- Owner decision: 2026-11-18, in chat: the plan's four answers, plus two modes (by hand, or with
+  the assistant); ADR-017.
+- State: merged PR #17 (1413879, CI green), tagged v0.7.0, live on Render (22:52:56 UTC); live
+  /docs/chatgpt, plugin ZIP and signed-out /mcp 401 verified.
+- Next: test https://agentic.payments-playground.com/mcp in ChatGPT (who: owner).
+- Blocker: owner's live test in ChatGPT.
+- Evidence: knowledge/current/digital-status.md; tag v0.7.0.
 
 ## ChatGPT pays with a saved card through the v0.6.0 consent — WAITING-OWNER
 

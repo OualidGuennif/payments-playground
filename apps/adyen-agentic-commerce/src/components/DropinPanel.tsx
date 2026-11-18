@@ -9,6 +9,8 @@ export type SessionInfo = {
   clientKey: string;
   amount: number;
   currency: string;
+  // False when the payer is not the checkout's own signed-in customer: no saved card to offer.
+  storedCards?: boolean;
 };
 
 type Props = {
@@ -87,7 +89,8 @@ export function DropinPanel({
           },
         });
         if (!host.current) return;
-        const dropin = new Dropin(checkout, { showStoredPaymentMethods: storedMethods }).mount(
+        const showStored = storedMethods && session.storedCards !== false;
+        const dropin = new Dropin(checkout, { showStoredPaymentMethods: showStored }).mount(
           host.current,
         );
         unmount = () => dropin.unmount();

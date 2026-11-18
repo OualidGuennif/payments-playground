@@ -57,3 +57,8 @@ on each standalone server and the template suites. Biome 2.6.6 (owner's yes, 202
 formatter rewrites YAML frontmatter. `bunfig.toml` sets `minimumReleaseAge` to one week, so an
 install never resolves a version published in the last seven days (CI's semgrep asks for it). Docker images build inside the workspace on `oven/bun:1.4.4` and run
 `bun apps/<app>/server.js` as uid 1993. The required CI check "Deno check" became "Bun check".
+
+**Amended 2026-11-17.** The root `bun.lock` gains `@simplewebauthn/server` 14.1.0 and
+`@simplewebauthn/browser` 14.0.0 for the agentic store's passkeys
+([ADR-015](ADR-015-customer-accounts-and-agent-network-tokens.md)); both passed the one-week
+release-age rule when installed.

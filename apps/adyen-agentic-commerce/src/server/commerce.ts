@@ -4,12 +4,15 @@
 import * as adyen from "./adyen";
 import { productById, variantById } from "./catalog";
 import { config, CURRENCY, paymentsConfigured } from "./config";
+import { type Customer, customerById } from "./customers";
 import { findBy, get, put } from "./db";
 import { allows, type Auth, chargeGrant, type Grant } from "./oauth";
 import { trace } from "./trace";
 import { isRecord, newId, sha256 } from "./util";
 
 export type Line = { id: string; variantId: string; quantity: number };
+// Where a record was made: the store's pages and /api, or UCP REST and MCP (ADR-015).
+export type Channel = "web" | "agent";
 export type Buyer = {
   first_name?: string;
   last_name?: string;
@@ -35,6 +38,7 @@ export type Cart = {
   buyer?: Buyer;
   status: "active" | "canceled";
   clientId?: string;
+  customerId?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -46,12 +50,16 @@ export type Checkout = {
   lines: Line[];
   buyer?: Buyer;
   phase: Phase;
+  channel?: Channel;
+  customerId?: string;
   clientId?: string;
   grantId?: string;
   agentName?: string;
   attempts: number;
   lastMessage?: Message;
   orderId?: string;
+  // When an agent completed with no instrument: from then on the shopper pays at continue_url.
+  handedOverAt?: string;
   createdAt: string;
   updatedAt: string;
   expiresAt: string;
@@ -68,6 +76,10 @@ export type Order = {
   currency: string;
   buyer?: Buyer;
   status: "authorised" | "pending";
+  // Where the checkout was made; paidBy says who paid it.
+  channel?: Channel;
+  customerId?: string;
+  clientId?: string;
   paidBy: "agent" | "shopper";
   agentName?: string;
   pspReference?: string;
@@ -78,6 +90,11 @@ export type Order = {
 export type PaymentRecord = {
   id: string;
   purpose: "agent" | "shopper" | "card-save";
+  channel?: Channel;
+  // A card save belongs to the account that started it.
+  customerId?: string;
+  instrument?: "saved_card" | "network_token";
+  lastFour?: string;
   checkoutId?: string;
   reference: string;
   amount: number;
@@ -95,6 +112,19 @@ export type PaymentRecord = {
   updatedAt: string;
 };
 
+// Records made before v0.4.0 carry no channel: an agent made them when an agent's name or client
+// is on them, the shopper's browser otherwise.
+export function channelOf(record: {
+  channel?: Channel;
+  agentName?: string;
+  clientId?: string;
+  purpose?: string;
+}): Channel {
+  if (record.channel) return record.channel;
+  if (record.purpose) return record.purpose === "agent" ? "agent" : "web";
+  return record.agentName || record.clientId ? "agent" : "web";
+}
+
 export type CardAlias = {
   alias: string;
   storedPaymentMethodId: string;
@@ -104,11 +134,6 @@ export type CardAlias = {
   expiryYear: string;
 };
 
-export const DEMO_SHOPPER: Buyer = {
-  first_name: "Alex",
-  last_name: "Demo",
-  email: "shopper@example.com",
-};
 export const MAX_LINES = 20;
 export const MAX_QUANTITY = 10;
 export const FREE_SHIPPING_FROM = 10000;
@@ -241,17 +266,23 @@ export function parseBuyer(input: unknown): Buyer | undefined {
 
 // --- saved cards -------------------------------------------------------------------------------
 
-let cardCache: { at: number; cards: CardAlias[] } | undefined;
+// Per account reference, for a minute; bounded since every account has its own entry.
+const cardCache = new Map<string, { at: number; cards: CardAlias[] }>();
+const CARD_CACHE_MAX = 1000;
 
 export function cardAlias(storedPaymentMethodId: string) {
   return `card_${sha256(`velune:${storedPaymentMethodId}`).slice(0, 20)}`;
 }
 
-export async function savedCards(refresh = false): Promise<CardAlias[]> {
-  if (!paymentsConfigured()) return [];
-  if (!refresh && cardCache && Date.now() - cardCache.at < 60_000) return cardCache.cards;
+export async function savedCards(
+  shopperReference: string | undefined,
+  refresh = false,
+): Promise<CardAlias[]> {
+  if (!paymentsConfigured() || !shopperReference) return [];
+  const cached = cardCache.get(shopperReference);
+  if (!refresh && cached && Date.now() - cached.at < 60_000) return cached.cards;
   try {
-    const cards = (await adyen.storedCards())
+    const cards = (await adyen.storedCards(shopperReference))
       .filter((c) => c.models.includes("UnscheduledCardOnFile"))
       .map((c) => ({
         alias: cardAlias(c.storedPaymentMethodId),
@@ -261,7 +292,9 @@ export async function savedCards(refresh = false): Promise<CardAlias[]> {
         expiryMonth: c.expiryMonth,
         expiryYear: c.expiryYear,
       }));
-    cardCache = { at: Date.now(), cards };
+    if (!cardCache.has(shopperReference) && cardCache.size >= CARD_CACHE_MAX)
+      cardCache.delete(cardCache.keys().next().value!);
+    cardCache.set(shopperReference, { at: Date.now(), cards });
     return cards;
   } catch (error) {
     trace({
@@ -273,34 +306,41 @@ export async function savedCards(refresh = false): Promise<CardAlias[]> {
       ref: null,
       detail: { error: (error as Error).message },
     });
-    return cardCache?.cards ?? [];
+    return cached?.cards ?? [];
   }
 }
 
-export function forgetCardCache() {
-  cardCache = undefined;
+export function forgetCardCache(shopperReference?: string) {
+  if (shopperReference) cardCache.delete(shopperReference);
+  else cardCache.clear();
 }
 
 // --- carts -------------------------------------------------------------------------------------
 
-export function createCart(body: Record<string, unknown>, clientId?: string): Cart {
+export function createCart(body: Record<string, unknown>, auth?: Auth): Cart {
   const lines = parseLines(body.line_items);
   const cart: Cart = {
     id: newId("cart"),
     lines,
     buyer: parseBuyer(body.buyer),
     status: "active",
-    clientId,
+    clientId: auth?.token.clientId,
+    customerId: auth?.grant.customerId,
     createdAt: now(),
     updatedAt: now(),
   };
   return put("carts", cart.id, cart);
 }
 
-export function loadCart(id: string, clientId?: string): Cart {
+// A record made through a token is the same client's for the same account, and no one else's.
+function ownedBy(record: { clientId?: string; customerId?: string }, auth?: Auth): boolean {
+  if (!record.clientId) return true;
+  return record.clientId === auth?.token.clientId && record.customerId === auth.grant.customerId;
+}
+
+export function loadCart(id: string, auth?: Auth): Cart {
   const cart = get<Cart>("carts", id);
-  if (!cart || (cart.clientId && cart.clientId !== clientId))
-    throw err(404, "not_found", "Cart not found");
+  if (!cart || !ownedBy(cart, auth)) throw err(404, "not_found", "Cart not found");
   return cart;
 }
 
@@ -322,17 +362,22 @@ export function cancelCart(cart: Cart): Cart {
 
 // --- checkouts ---------------------------------------------------------------------------------
 
-export function createCheckout(body: Record<string, unknown>, auth?: Auth): Checkout {
+export function createCheckout(
+  body: Record<string, unknown>,
+  auth?: Auth,
+  web?: { customer?: Customer },
+): Checkout {
   // UCP 2026-08-25 cart extension: the business uses the cart's contents and ignores the checkout
   // payload's overlapping fields, so they are not even parsed.
-  const cart =
-    typeof body.cart_id === "string" ? loadCart(body.cart_id, auth?.token.clientId) : undefined;
+  const cart = typeof body.cart_id === "string" ? loadCart(body.cart_id, auth) : undefined;
   const checkout: Checkout = {
     id: newId("chk"),
     cartId: cart?.id,
     lines: cart ? cart.lines : parseLines(body.line_items),
     buyer: cart?.buyer ?? parseBuyer(body.buyer),
     phase: "open",
+    channel: web ? "web" : "agent",
+    customerId: web ? web.customer?.id : auth?.grant.customerId,
     clientId: auth?.token.clientId,
     grantId: auth?.grant.id,
     agentName: auth?.grant.clientName,
@@ -347,9 +392,9 @@ export function createCheckout(body: Record<string, unknown>, auth?: Auth): Chec
 export function loadCheckout(id: string, auth?: Auth | "browser"): Checkout {
   const checkout = get<Checkout>("checkouts", id);
   if (!checkout) throw err(404, "not_found", "Checkout not found");
-  if (auth !== "browser" && checkout.clientId && checkout.clientId !== auth?.token.clientId) {
+  // The protocol side never reaches a shopper's own checkout: the two channels stay apart.
+  if (auth !== "browser" && (channelOf(checkout) === "web" || !ownedBy(checkout, auth)))
     throw err(404, "not_found", "Checkout not found");
-  }
   return checkout;
 }
 
@@ -375,9 +420,16 @@ export function cancelCheckout(checkout: Checkout): Checkout {
   return saveCheckout({ ...checkout, phase: "canceled" });
 }
 
-function buyerOf(checkout: Checkout, auth?: Auth): Buyer | undefined {
+// The account's name and email stand in for a buyer the checkout did not name.
+function buyerOf(checkout: Checkout): Buyer | undefined {
   if (checkout.buyer?.email) return checkout.buyer;
-  return auth || checkout.clientId ? { ...DEMO_SHOPPER, ...checkout.buyer } : checkout.buyer;
+  const customer = customerById(checkout.customerId);
+  if (!customer) return checkout.buyer;
+  return {
+    ...checkout.buyer,
+    first_name: checkout.buyer?.first_name ?? customer.name,
+    email: customer.email,
+  };
 }
 
 export type Assessment = {
@@ -434,7 +486,7 @@ export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAl
       });
     }
   });
-  if (!buyerOf(checkout, auth)?.email) {
+  if (!buyerOf(checkout)?.email) {
     problems.push({
       type: "error",
       code: "missing_buyer_email",
@@ -452,22 +504,13 @@ export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAl
   });
   if (!paymentsConfigured())
     return escalate("payments_unavailable", "Payments are not configured on this store");
-  if (!auth)
+  if (checkout.handedOverAt)
     return escalate(
-      "sign_in_required",
-      "Sign in with OAuth (scopes dev.ucp.shopping.checkout:manage and ucp:pay) to pay with the shopper's saved card, or hand the shopper the continue_url.",
+      "shopper_pays",
+      "The agent handed this checkout to the shopper, who pays at continue_url.",
     );
-  if (!allows(auth.token.scopes, "ucp:pay"))
-    return escalate(
-      "insufficient_scope",
-      "The ucp:pay scope is needed to pay; the shopper can pay at continue_url.",
-    );
-  const card = cards[0];
-  if (!card)
-    return escalate(
-      "no_saved_card",
-      "The shopper has no saved card yet; they can pay at continue_url and save one in their account.",
-    );
+  // A guest agent can still pay with its own network token, and has no limit of the store's.
+  if (!auth) return { status: "ready_for_complete", messages, total };
   const remaining = auth.grant.spendLimit - auth.grant.spent;
   if (total > remaining) {
     return escalate(
@@ -475,6 +518,14 @@ export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAl
       `Total ${total} exceeds the remaining agent budget of ${Math.max(remaining, 0)} ${CURRENCY} minor units; the shopper must approve at continue_url.`,
     );
   }
+  const card = allows(auth.token.scopes, "ucp:pay") ? cards[0] : undefined;
+  if (allows(auth.token.scopes, "ucp:pay") && !card)
+    messages.push({
+      type: "info",
+      code: "no_saved_card",
+      content:
+        "The account has no saved card: complete with a network token, or complete with no instrument to hand the shopper continue_url.",
+    });
   return { status: "ready_for_complete", messages, card, total };
 }
 
@@ -492,7 +543,6 @@ function placeOrder(
   paidBy: Order["paidBy"],
   pspReference: string | undefined,
   status: Order["status"],
-  auth?: Auth,
   paidLines: Line[] = checkout.lines,
 ): Order {
   const p = price(paidLines);
@@ -504,8 +554,11 @@ function placeOrder(
     fulfillment: p.fulfillment,
     total: p.total,
     currency: CURRENCY,
-    buyer: buyerOf(checkout, auth),
+    buyer: buyerOf(checkout),
     status,
+    channel: checkout.channel,
+    customerId: checkout.customerId,
+    clientId: checkout.clientId,
     paidBy,
     agentName: paidBy === "agent" ? checkout.agentName : undefined,
     pspReference,
@@ -547,7 +600,6 @@ function placePaidOrder(
   record: PaymentRecord,
   pspReference: string | undefined,
   reportedAmount: number | undefined,
-  auth?: Auth,
 ): Order | string {
   const lines = record.lines ?? checkout.lines;
   if (reportedAmount !== undefined && reportedAmount !== record.amount)
@@ -555,7 +607,7 @@ function placePaidOrder(
   if (price(lines).total !== record.amount)
     return `The lines total ${price(lines).total}, the payment was sent for ${record.amount}`;
   const paidBy = record.purpose === "agent" ? "agent" : "shopper";
-  return placeOrder(checkout, paidBy, pspReference, "authorised", auth, lines);
+  return placeOrder(checkout, paidBy, pspReference, "authorised", lines);
 }
 
 /**
@@ -584,25 +636,118 @@ function holdMismatch(checkout: Checkout, reason: string): void {
   });
 }
 
-export function instrumentAlias(body: Record<string, unknown>): string | undefined {
+export type NetworkToken = Omit<adyen.NetworkTokenPayment["token"], "brand">;
+export type Instrument =
+  | { handler: "saved_card"; alias: string }
+  | { handler: "network_token"; token: NetworkToken; lastFour: string };
+
+const bad = (path: string, content: string) =>
+  err(400, "invalid_credential", content, `$.payment.instruments[0].credential.${path}`);
+
+// The agent's network token: its number and expiry, checked field by field (owner decision
+// 2026-11-17: no cryptogram, no CVC, no brand). Other fields are ignored; nothing is echoed back.
+function networkToken(credential: unknown): Instrument {
+  if (!isRecord(credential) || credential.type !== "network_token")
+    throw err(
+      400,
+      "invalid_credential",
+      "A network_token instrument needs a credential of type network_token",
+      "$.payment.instruments[0].credential",
+    );
+  const { number, expiry_month, expiry_year, name } = credential;
+  if (typeof number !== "string" || !/^\d{13,19}$/.test(number))
+    throw bad("number", "number must be the 13 to 19 digits of the network token");
+  if (
+    typeof expiry_month !== "number" ||
+    !Number.isInteger(expiry_month) ||
+    expiry_month < 1 ||
+    expiry_month > 12
+  )
+    throw bad("expiry_month", "expiry_month must be an integer from 1 to 12");
+  const today = new Date();
+  if (
+    typeof expiry_year !== "number" ||
+    !Number.isInteger(expiry_year) ||
+    expiry_year > 9999 ||
+    expiry_year < today.getUTCFullYear() ||
+    (expiry_year === today.getUTCFullYear() && expiry_month < today.getUTCMonth() + 1)
+  )
+    throw bad("expiry_year", "The token has expired or expiry_year is not a four-digit year");
+  return {
+    handler: "network_token",
+    lastFour: number.slice(-4),
+    token: {
+      number,
+      expiryMonth: String(expiry_month).padStart(2, "0"),
+      expiryYear: String(expiry_year),
+      holderName: typeof name === "string" && name.trim() ? name.trim().slice(0, 80) : undefined,
+    },
+  };
+}
+
+// The brand is Adyen's answer or nothing: an unknown number is the agent's to fix, and a failed
+// lookup pays nothing and leaves the checkout as it was.
+async function networkTokenBrand(number: string, ref: string): Promise<string> {
+  let brand: string | undefined;
+  try {
+    brand = await adyen.cardBrand(number);
+  } catch (error) {
+    trace({
+      channel: "adyen",
+      actor: "server",
+      method: "POST",
+      path: "/cardDetails",
+      status: 502,
+      ref,
+      // Any run of digits is masked: an error text must never carry the number back.
+      detail: { error: (error as Error).message.replace(/\d{6,}/g, "…").slice(0, 200) },
+    });
+    throw err(
+      502,
+      "payment_unavailable",
+      "The card brand could not be read; retry complete with the same body.",
+      undefined,
+      "recoverable",
+    );
+  }
+  if (!brand) throw bad("number", "Adyen recognises no card brand for this number");
+  return brand;
+}
+
+const unknownInstrument = () =>
+  err(
+    400,
+    "unknown_instrument",
+    "Pass one of the instruments listed in checkout.payment.instruments, a network token, or none",
+    "$.payment.instruments",
+  );
+
+export function chosenInstrument(body: Record<string, unknown>): Instrument | undefined {
   const payment = isRecord(body.payment) ? body.payment : undefined;
   const instruments = Array.isArray(payment?.instruments) ? payment.instruments : [];
+  // Only an empty list is "no instrument", which hands the checkout to the shopper; anything sent
+  // that names no usable instrument is a 400 and changes nothing.
+  if (!instruments.length) return undefined;
   const chosen = instruments.find((i) => isRecord(i) && i.selected === true) ?? instruments[0];
-  if (!isRecord(chosen)) return undefined;
+  if (!isRecord(chosen)) throw unknownInstrument();
+  if (chosen.handler_id === "network_token") return networkToken(chosen.credential);
   if (chosen.handler_id !== undefined && chosen.handler_id !== "saved_card") {
     throw err(
       400,
       "unsupported_handler",
-      "Only the saved_card handler is accepted here",
+      "Use the saved_card or the network_token handler",
       "$.payment.instruments[0].handler_id",
     );
   }
   const credential = isRecord(chosen.credential) ? chosen.credential : undefined;
-  return typeof credential?.token === "string"
-    ? credential.token
-    : typeof chosen.id === "string"
-      ? chosen.id
-      : undefined;
+  const alias =
+    typeof credential?.token === "string"
+      ? credential.token
+      : typeof chosen.id === "string"
+        ? chosen.id
+        : undefined;
+  if (!alias) throw unknownInstrument();
+  return { handler: "saved_card", alias };
 }
 
 export async function completeCheckout(
@@ -610,8 +755,19 @@ export async function completeCheckout(
   body: Record<string, unknown>,
   auth?: Auth,
 ): Promise<Checkout> {
-  const cards = await savedCards();
-  // Re-read after the await: from here to the claim nothing yields, so a parallel complete that
+  // Checked before anything changes: a bad credential is a 400 and the checkout stays as it was.
+  const instrument = chosenInstrument(body);
+  const reference = auth ? customerById(auth.grant.customerId)?.id : undefined;
+  const canUseCards = auth !== undefined && allows(auth.token.scopes, "ucp:pay");
+  const cards = canUseCards ? await savedCards(reference) : [];
+  // Adyen reads the token's brand, asked only when the checkout could be paid now: a checkout over
+  // the limit or not ready sends the number nowhere.
+  const brand =
+    instrument?.handler === "network_token" &&
+    assess(loaded, auth, []).status === "ready_for_complete"
+      ? await networkTokenBrand(instrument.token.number, loaded.id)
+      : undefined;
+  // Re-read after the awaits: from here to the claim nothing yields, so a parallel complete that
   // claimed the checkout meanwhile is seen and no second payment is sent.
   const checkout = get<Checkout>("checkouts", loaded.id) ?? loaded;
   if (checkout.phase === "completed" || checkout.phase === "complete_in_progress") return checkout;
@@ -621,17 +777,19 @@ export async function completeCheckout(
   // reserved part of the budget during the await above, or the shopper may have revoked it.
   const grant = auth ? get<Grant>("grants", auth.grant.id) : undefined;
   const live = auth && grant && !grant.revoked ? { ...auth, grant } : undefined;
+  if (auth && !live) return checkout;
   const assessment = assess(checkout, live, cards);
-  if (assessment.status !== "ready_for_complete" || !live) return checkout;
-  const alias = instrumentAlias(body);
-  const card = cards.find((c) => c.alias === alias);
-  if (!card)
-    throw err(
-      400,
-      "unknown_instrument",
-      "Pass one of the instruments listed in checkout.payment.instruments",
-      "$.payment.instruments",
-    );
+  if (assessment.status !== "ready_for_complete") return checkout;
+  // No instrument is the agent's third choice: the shopper pays at continue_url, in Drop-in.
+  if (!instrument) return saveCheckout({ ...checkout, handedOverAt: now() });
+  // Ready now but not when the brand was asked (an edit, or budget given back meanwhile): the
+  // checkout is answered as it stands and the same complete can be sent again.
+  if (instrument.handler === "network_token" && !brand) return checkout;
+  const card =
+    instrument.handler === "saved_card"
+      ? cards.find((c) => c.alias === instrument.alias)
+      : undefined;
+  if (instrument.handler === "saved_card" && (!card || !reference)) throw unknownInstrument();
 
   // Claimed and the budget reserved synchronously before the network call, so a parallel complete
   // sees the checkout in progress and the grant already charged; a refusal or an error gives it back.
@@ -640,35 +798,56 @@ export async function completeCheckout(
     ...checkout,
     phase: "complete_in_progress",
     attempts: attempt,
-    grantId: live.grant.id,
-    agentName: live.grant.clientName,
-    clientId: live.token.clientId,
+    channel: checkout.channel ?? "agent",
+    ...(live
+      ? {
+          grantId: live.grant.id,
+          agentName: live.grant.clientName,
+          clientId: live.token.clientId,
+          customerId: live.grant.customerId,
+        }
+      : { agentName: checkout.agentName ?? "Guest agent" }),
   });
-  chargeGrant(live.grant.id, assessment.total);
-  const reference = `${checkout.id}-a${attempt}`;
+  if (live) chargeGrant(live.grant.id, assessment.total);
+  const grantId = live?.grant.id;
+  const agentName = claimed.agentName ?? "Guest agent";
+  const paymentReference = `${checkout.id}-a${attempt}`;
   const record: PaymentRecord = {
     id: newId("pay"),
     purpose: "agent",
+    channel: "agent",
+    instrument: instrument.handler,
+    lastFour: instrument.handler === "network_token" ? instrument.lastFour : card?.lastFour,
     checkoutId: checkout.id,
-    reference,
+    reference: paymentReference,
     amount: assessment.total,
     lines: checkout.lines,
-    reservation: "held",
-    agentName: live.grant.clientName,
+    reservation: live ? "held" : undefined,
+    agentName,
     createdAt: now(),
     updatedAt: now(),
   };
   put("payments", record.id, record);
+  const common = {
+    amount: assessment.total,
+    reference: paymentReference,
+    idempotencyKey: `agent-pay-${paymentReference}`,
+    shopperEmail: buyerOf(claimed)?.email,
+    metadata: { checkoutId: checkout.id, channel: "agent", agent: agentName.slice(0, 80) },
+  };
   let result: Awaited<ReturnType<typeof adyen.payWithSavedCard>>;
   try {
-    result = await adyen.payWithSavedCard({
-      amount: assessment.total,
-      reference,
-      storedPaymentMethodId: card.storedPaymentMethodId,
-      idempotencyKey: `agent-pay-${reference}`,
-      shopperEmail: buyerOf(checkout, live)?.email,
-      metadata: { checkoutId: checkout.id, agent: live.grant.clientName.slice(0, 80) },
-    });
+    result =
+      instrument.handler === "network_token"
+        ? await adyen.payWithNetworkToken({
+            ...common,
+            token: { ...instrument.token, brand: brand! },
+          })
+        : await adyen.payWithSavedCard({
+            ...common,
+            storedPaymentMethodId: card!.storedPaymentMethodId,
+            shopperReference: reference!,
+          });
   } catch (error) {
     // A success webhook can arrive while the call is in flight and then the call time out: the
     // payment is Authorised and the webhook settled it, so nothing here may undo that.
@@ -677,7 +856,7 @@ export async function completeCheckout(
     }
     // The retry reserves again under the same reference; if Adyen did authorise this call, its
     // webhook charges the budget again before the order is placed.
-    const released = releaseReservation(record, live.grant.id);
+    const released = releaseReservation(record, grantId);
     put("payments", record.id, {
       ...released,
       resultCode: "Error",
@@ -691,7 +870,7 @@ export async function completeCheckout(
       path: "/payments",
       status: 502,
       ref: checkout.id,
-      detail: { reference, error: (error as Error).message },
+      detail: { reference: paymentReference, error: (error as Error).message },
     });
     return saveCheckout({
       ...claimed,
@@ -719,8 +898,11 @@ export async function completeCheckout(
     status: 200,
     ref: checkout.id,
     detail: {
-      reference,
+      reference: paymentReference,
       amount: assessment.total,
+      instrument: instrument.handler,
+      lastFour: record.lastFour,
+      ...(instrument.handler === "network_token" ? { paymentMethod: "networkToken", brand } : {}),
       shopperInteraction: "ContAuth",
       recurringProcessingModel: "UnscheduledCardOnFile",
       ...result,
@@ -730,8 +912,8 @@ export async function completeCheckout(
     // The webhook may have placed the order, or held a mismatch, while the call was in flight.
     const current = get<Checkout>("checkouts", checkout.id) ?? claimed;
     if (!current.orderId && current.lastMessage?.code !== "amount_mismatch") {
-      holdReservation(answered, live.grant.id);
-      const placed = placePaidOrder(current, answered, result.pspReference, undefined, live);
+      holdReservation(answered, grantId);
+      const placed = placePaidOrder(current, answered, result.pspReference, undefined);
       if (typeof placed === "string") holdMismatch(current, placed);
     }
     return loadCheckout(checkout.id, "browser");
@@ -739,14 +921,18 @@ export async function completeCheckout(
   // Pending keeps the reservation until the webhook settles it.
   if (result.resultCode === "Pending" || result.resultCode === "Received") return claimed;
   // A refusal ends this attempt, not the order: the shopper can still pay at continue_url.
-  releaseReservation(answered, live.grant.id);
+  releaseReservation(answered, grantId);
+  const retry =
+    instrument.handler === "network_token"
+      ? "Complete again with another network token, or with no instrument to hand the shopper continue_url."
+      : "The shopper can pay at continue_url.";
   return saveCheckout({
     ...claimed,
     phase: "open",
     lastMessage: {
       type: "error",
       code: "payment_refused",
-      content: `Adyen answered ${result.resultCode}${result.refusalReason ? ` (${result.refusalReason})` : ""}. The shopper can pay at continue_url.`,
+      content: `Adyen answered ${result.resultCode}${result.refusalReason ? ` (${result.refusalReason})` : ""}. ${retry}`,
       severity: "requires_buyer_review",
     },
   });
@@ -754,7 +940,11 @@ export async function completeCheckout(
 
 // --- the shopper's browser ---------------------------------------------------------------------
 
-export async function startShopperSession(checkout: Checkout) {
+// Saved cards show in Drop-in only for the checkout's own signed-in account; anyone else, guest or
+// another account, pays as a guest. A checkout no account holds yet becomes the payer's.
+export async function startShopperSession(loaded: Checkout, customer?: Customer) {
+  const owner = customer && (!loaded.customerId || loaded.customerId === customer.id);
+  const checkout = owner && !loaded.customerId ? { ...loaded, customerId: customer.id } : loaded;
   const assessment = assess(checkout, undefined, []);
   if (
     checkout.phase !== "open" ||
@@ -776,13 +966,15 @@ export async function startShopperSession(checkout: Checkout) {
     amount: assessment.total,
     reference,
     returnUrl: `${config().publicOrigin}/checkout/${checkout.id}`,
-    shopperEmail: buyerOf(checkout)?.email ?? DEMO_SHOPPER.email,
+    shopperEmail: buyerOf(checkout)?.email ?? (owner ? customer.email : undefined),
+    shopperReference: owner ? customer.id : undefined,
     purpose: "order",
-    metadata: { checkoutId: checkout.id },
+    metadata: { checkoutId: checkout.id, channel: "web" },
   });
   put<PaymentRecord>("payments", reference, {
     id: reference,
     purpose: "shopper",
+    channel: "web",
     checkoutId: checkout.id,
     reference,
     amount: assessment.total,
@@ -805,6 +997,7 @@ export async function startShopperSession(checkout: Checkout) {
     clientKey: config().adyen.clientKey!,
     amount: assessment.total,
     currency: CURRENCY,
+    storedCards: Boolean(owner),
   };
 }
 
@@ -847,19 +1040,22 @@ export async function finishShopperSession(
   return loadCheckout(checkout.id, "browser");
 }
 
-export async function startCardSave() {
+export async function startCardSave(customer: Customer) {
   const reference = newId("cardsave");
   const session = await adyen.createSession({
     amount: 0,
     reference,
     returnUrl: `${config().publicOrigin}/account`,
     purpose: "card-save",
-    shopperEmail: DEMO_SHOPPER.email,
-    metadata: { purpose: "card-save" },
+    shopperEmail: customer.email,
+    shopperReference: customer.id,
+    metadata: { purpose: "card-save", channel: "web" },
   });
   put<PaymentRecord>("payments", reference, {
     id: reference,
     purpose: "card-save",
+    channel: "web",
+    customerId: customer.id,
     reference,
     amount: 0,
     sessionId: session.id,
@@ -883,9 +1079,9 @@ export async function startCardSave() {
   return { ...session, clientKey: config().adyen.clientKey!, amount: 0, currency: CURRENCY };
 }
 
-export async function finishCardSave(sessionId: string, sessionResult: string) {
+export async function finishCardSave(customer: Customer, sessionId: string, sessionResult: string) {
   const record = findBy<PaymentRecord>("payments", "sessionId", sessionId).find(
-    (p) => p.purpose === "card-save",
+    (p) => p.purpose === "card-save" && p.customerId === customer.id,
   );
   if (!record) throw err(404, "not_found", "Unknown card session");
   const result = await adyen.sessionResult(sessionId, sessionResult);
@@ -895,7 +1091,7 @@ export async function finishCardSave(sessionId: string, sessionResult: string) {
     pspReference: result.payments[0]?.pspReference,
     updatedAt: now(),
   });
-  forgetCardCache();
+  forgetCardCache(customer.id);
   return result.status;
 }
 

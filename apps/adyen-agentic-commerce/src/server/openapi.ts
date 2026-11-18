@@ -145,7 +145,8 @@ const OPERATIONS: Operation[] = [
     path: "/checkout-sessions/{id}/complete",
     method: "post",
     operationId: "complete_checkout",
-    summary: "Pay with the saved card and place the order",
+    summary:
+      "Pay with a saved card or the agent's own network token, or with no instrument hand the checkout to the shopper",
     request: "checkout",
     response: "checkout",
     example: {

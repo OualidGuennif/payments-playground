@@ -2,7 +2,6 @@
 // Reads the environment once. The Adyen endpoints are not configurable: the library is always built
 // for TEST and a client key must carry the test_ prefix, so a LIVE credential fails closed at boot.
 
-export const SHOPPER_REFERENCE = "ogaccountnew";
 export const CURRENCY = "EUR";
 export const UCP_VERSION = "2026-08-25";
 export const PAP_VERSION = "1.0";

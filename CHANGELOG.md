@@ -5,6 +5,38 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-18
+
+- The agentic store keeps idempotent answers per agent client and account: one agent client
+  acting for two accounts could otherwise get one account's checkout replayed to the other under
+  the same Idempotency-Key.
+- An agent pays the agentic store with a network token's number and expiry only: the store reads
+  the brand from Adyen `/cardDetails` and pays `networkToken` with ContAuth and
+  UnscheduledCardOnFile (no cryptogram, CVC or brand from the agent); completing with no
+  instrument hands the checkout to the shopper at `continue_url`. Sign-in returns only to a path
+  of the site (tabs, newlines, backslashes and dot segments that resolve to `//` refused), a
+  burst of sign-ins meets the failure limit, agents never reach a shopper's checkout made before
+  channels existed, the account page lists every grant of the account (not only among the newest
+  200), an instrument naming nothing is a 400, and the idempotency record binds a payment
+  credential only through a keyed hash.
+- The agentic store has customer accounts: sign-up and sign-in with an argon2id password or a
+  passkey (`@simplewebauthn` 14), a 7-day HttpOnly session cookie stored as its SHA-256, and
+  failed sign-ins limited per address and per account. Consent and device approval need a
+  signed-in customer and bind the grant to that account; agents see only that account's cards,
+  checkouts and orders, and grants made before accounts stop working. Every checkout, payment and
+  order records its `web` or `agent` channel (Back Office filter); UCP and MCP never reach a web
+  checkout. An agent, guest or signed in, may pay with its own one-time network token
+  (`network_token` handler, paid on Adyen as `networkToken`), never stored, traced or echoed;
+  a signed-in agent's payment counts against its limit. Drop-in and card-save sessions are limited
+  to 20 a minute per address.
+- Record the v0.3.4 deploy check: the weak ETag now revalidates to 304 on Render, but the marker
+  checkout created after the disk was added did not survive the deploy, so the agentic disk is
+  still not in effect.
+- ADR-015 and the agentic store's spec set the next version: customer accounts (email and
+  password, passkeys), `web` and `agent` channels on every checkout and order, agent grants bound
+  to the account that approved them, and a one-time network token an agent brings, paid on Adyen
+  as `networkToken` and never stored.
+
 ## [0.3.4] - 2026-11-17
 
 - Record the v0.3.3 deploy check in the digital status: caching headers, negotiation refusals and

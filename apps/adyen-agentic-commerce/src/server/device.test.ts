@@ -4,6 +4,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, setSystemTime, test } from "bun:test";
 import { agentState } from "../lib/agent-status";
 import { accountView, handle } from "./api";
+import { customerFromCookies } from "./customers";
 import { count, get, put } from "./db";
 import {
   DEVICE_GRANT,
@@ -14,7 +15,7 @@ import {
   verifyUserCode,
 } from "./oauth";
 import { recentTrace } from "./trace";
-import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "./testing/agent";
+import { freshStore, MCP, ORIGIN, randomIp, signUpCustomer, TestAgent } from "./testing/agent";
 import { ucpAgent } from "./testing/platform";
 import { sha256 } from "./util";
 
@@ -35,15 +36,24 @@ afterAll(() => {
   tv.stop();
   web.stop();
 });
-beforeEach(() => {
+// The shopper who types the codes and decides, signed in (ADR-015).
+let shopper = "";
+beforeEach(async () => {
   freshStore();
   tv.accessToken = "";
   tv.ip = randomIp();
+  shopper = (await signUpCustomer()).cookie;
+  tv.customerCookie = shopper;
 });
 
+const SHOPPER_FORMS = ["/oauth/device/verify", "/oauth/decision"];
 const post = (path: string, form: Record<string, string>, headers: Record<string, string> = {}) =>
   handle(
-    new Request(`${ORIGIN}${path}`, { method: "POST", body: new URLSearchParams(form), headers }),
+    new Request(`${ORIGIN}${path}`, {
+      method: "POST",
+      body: new URLSearchParams(form),
+      headers: SHOPPER_FORMS.includes(path) ? { cookie: shopper, ...headers } : headers,
+    }),
   );
 
 const answer = async (response: Response) => ({
@@ -408,7 +418,11 @@ describe("the shopper's answer", () => {
     });
     form.append("scope", CART);
     const response = await handle(
-      new Request(`${ORIGIN}/oauth/decision`, { method: "POST", body: form }),
+      new Request(`${ORIGIN}/oauth/decision`, {
+        method: "POST",
+        headers: { cookie: shopper },
+        body: form,
+      }),
     );
     expect(response.status).toBe(400);
     expect(grants()).toHaveLength(1);
@@ -514,7 +528,7 @@ describe("the account", () => {
   test("shows consent, then access issued, then connected, in the consent page's words", async () => {
     const { body: started } = await start(tv);
     await tv.decide(await consentFor(started.user_code), { scopes: [CART, CHECKOUT] });
-    const first = async () => (await accountView()).agents[0]!;
+    const first = async () => (await accountView(customerFromCookies(shopper)!)).agents[0]!;
     expect(agentState(await first())).toBe("consented");
     const tokens = await poll(tv, started.device_code);
     expect(agentState(await first())).toBe("token_issued");

@@ -40,8 +40,9 @@ export default function Agents() {
         <h1 className="text-3xl">Shop here with any AI agent</h1>
         <p className="text-muted">
           Add <span className="code">{o}/mcp</span> as a remote MCP connector in your assistant. It
-          asks you to sign in here, you choose what it may do and how much it may spend, and it can
-          then search, build a checkout and pay with your saved card.
+          asks you to sign in to your account here, you choose what it may do and how much it may
+          spend, and it can then search, build a checkout and pay with your saved card. An agent may
+          also pay with its own one-time network token, signed in or not.
         </p>
       </div>
 
@@ -154,7 +155,8 @@ export default function Agents() {
             If the status is <span className="code">ready_for_complete</span>, call{" "}
             <span className="code">complete_checkout</span> with the instrument from{" "}
             <span className="code">checkout.payment.instruments</span>. The merchant charges the
-            saved card on Adyen TEST (ContAuth, UnscheduledCardOnFile).
+            saved card on Adyen TEST (ContAuth, UnscheduledCardOnFile). Or send your own network
+            token with the <span className="code">network_token</span> handler below.
           </li>
           <li>
             If the status is <span className="code">requires_escalation</span>, give the shopper{" "}
@@ -220,11 +222,31 @@ export default function Agents() {
         </h2>
         <p className="max-w-[68ch]">
           Declared under <span className="code">com.payments-playground.saved_card</span> in the UCP
-          profile. Instruments are aliases of the card the shopper saved with Adyen (shopper
-          reference <span className="code">ogaccountnew</span>); the raw Adyen token never leaves
-          the merchant. It needs the <span className="code">ucp:pay</span> scope and a total within
-          the grant&apos;s remaining spend limit. Adyen&apos;s own UCP tokenizer can replace it once
-          the account has the role.
+          profile. Instruments are aliases of the cards saved with Adyen by the account that
+          approved the agent (its own shopper reference); the raw Adyen token never leaves the
+          merchant. It needs the <span className="code">ucp:pay</span> scope and a total within the
+          grant&apos;s remaining spend limit. Adyen&apos;s own UCP tokenizer can replace it once the
+          account has the role.
+        </p>
+      </section>
+
+      <section id="network-token-handler" className="panel space-y-2 text-sm">
+        <h2 className="text-xl">
+          Payment handler <span className="code">network_token</span>
+        </h2>
+        <p className="max-w-[68ch]">
+          Declared under <span className="code">com.payments-playground.network_token</span>, schema{" "}
+          <span className="code">/ucp/v1/handlers/network_token.json</span>. The credential is the
+          token&apos;s number and its expiry month and year, with an optional holder name: no
+          cryptogram, no CVC and no brand. The store asks Adyen for the brand (
+          <span className="code">/cardDetails</span>), then pays once as a{" "}
+          <span className="code">networkToken</span> payment, merchant-initiated (
+          <span className="code">ContAuth</span>,{" "}
+          <span className="code">UnscheduledCardOnFile</span>
+          ), and never stores, logs or returns it. A guest agent may use it; a signed-in agent stays
+          within its grant&apos;s limit. An agent may also complete with no instrument: the checkout
+          is handed to the shopper, who pays at <span className="code">continue_url</span>. Adyen
+          must enable network-token payments on the merchant account.
         </p>
       </section>
     </div>

@@ -1,5 +1,5 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
-// The shopper's own pages (account, consent, device, Back Office) sit behind the playground's
+// The shopper's own pages (sign-in, account, consent, device, Back Office) sit behind the playground's
 // basic auth when it is configured; the agent-facing protocol paths never do, or no agent could
 // reach them. Pages also carry the WebMCP origin-trial header when the owner set a token.
 import { type NextRequest, NextResponse } from "next/server";
@@ -10,8 +10,13 @@ const PROTECTED = [
   "/back-office",
   "/consent",
   "/device",
+  "/sign-in",
+  "/sign-up",
   "/api/account",
   "/api/back-office",
+  "/api/customers",
+  "/api/passkeys",
+  "/api/session",
   "/oauth/decision",
   "/oauth/device/verify",
 ];
@@ -107,6 +112,9 @@ export const config = {
     "/device",
     "/api/account/:path*",
     "/api/back-office",
+    "/api/customers",
+    "/api/passkeys/:path*",
+    "/api/session",
     "/oauth/decision",
     "/oauth/device/verify",
   ],

@@ -18,7 +18,11 @@ export type Collection =
   | "device_requests"
   | "codes"
   | "tokens"
-  | "cards";
+  | "cards"
+  | "customers"
+  | "customer_sessions"
+  | "passkeys"
+  | "webauthn_challenges";
 
 const SCHEMA = `
 create table if not exists docs (

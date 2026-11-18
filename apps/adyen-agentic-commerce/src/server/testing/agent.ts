@@ -12,6 +12,7 @@ import {
 } from "jose";
 import { handle } from "../api";
 import { forgetCardCache } from "../commerce";
+import { customerFromCookies, forgetFailures } from "../customers";
 import { openDatabase, useDatabase } from "../db";
 import { forgetCodeMisses } from "../oauth";
 import { forgetProfiles } from "../profile";
@@ -30,7 +31,25 @@ export function freshStore() {
   fake.reset();
   forgetCardCache();
   forgetCodeMisses();
+  forgetFailures();
   forgetProfiles();
+}
+
+// A shopper account created through the browser API; its session cookie as a Cookie header.
+export async function signUpCustomer(
+  email = `shopper-${crypto.randomUUID().slice(0, 8)}@example.com`,
+  ip = randomIp(),
+): Promise<{ email: string; cookie: string }> {
+  const response = await handle(
+    new Request(`${ORIGIN}/api/customers`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": ip },
+      body: JSON.stringify({ email, password: "correct horse battery", name: "Test shopper" }),
+    }),
+  );
+  const cookie = response.headers.get("set-cookie")?.split(";")[0];
+  if (response.status !== 200 || !cookie) throw new Error(`sign-up answered ${response.status}`);
+  return { email, cookie };
 }
 
 // The edge rate-limits per client IP and every in-process request would otherwise share one.
@@ -130,11 +149,17 @@ export class TestAgent {
     };
   }
 
-  // The shopper's decision, posted as the consent form does.
+  // The shopper's decision, posted as the consent form does, signed in as `customerCookie`
+  // (an account is created when there is none in the current store) unless `cookie` is given;
+  // "" posts it signed out.
+  customerCookie = "";
   async decide(
     requestId: string,
-    opts: { approve?: boolean; scopes?: string[]; spendLimitEur?: number } = {},
+    opts: { approve?: boolean; scopes?: string[]; spendLimitEur?: number; cookie?: string } = {},
   ) {
+    if (opts.cookie === undefined && !customerFromCookies(this.customerCookie))
+      this.customerCookie = (await signUpCustomer(undefined, this.ip)).cookie;
+    const cookie = opts.cookie ?? this.customerCookie;
     const form = new URLSearchParams({
       request: requestId,
       decision: opts.approve === false ? "deny" : "approve",
@@ -143,7 +168,11 @@ export class TestAgent {
     for (const s of opts.scopes ?? ["ucp:checkout", "ucp:pay", "ucp:orders", "profile"])
       form.append("scope", s);
     const response = await handle(
-      new Request(`${ORIGIN}/oauth/decision`, { method: "POST", body: form }),
+      new Request(`${ORIGIN}/oauth/decision`, {
+        method: "POST",
+        headers: cookie ? { cookie } : {},
+        body: form,
+      }),
     );
     return new URL(response.headers.get("location") ?? `${ORIGIN}/`);
   }

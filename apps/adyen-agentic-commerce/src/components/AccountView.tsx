@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useState } from "react";
 import type { accountView } from "@/server/api";
 import { DropinPanel, type SessionInfo } from "@/components/DropinPanel";
+import { PasskeysPanel } from "@/components/PasskeysPanel";
 import { StatusPill } from "@/components/StatusPill";
 import { agentState, agentStory } from "@/lib/agent-status";
 import { api } from "@/lib/client";
@@ -27,7 +28,7 @@ export function AccountView({
     const { data, error } = await api().account["card-session"].post();
     if (error || !data || !("sessionData" in data))
       throw new Error("The card form could not be loaded.");
-    return data;
+    return data as SessionInfo;
   }, []);
 
   const onFinished = useCallback(async (sessionId: string, sessionResult: string) => {
@@ -36,37 +37,47 @@ export function AccountView({
       setNote("Adyen did not confirm the card yet. Refresh in a moment.");
       return;
     }
-    setView(data.account);
+    setView(data.account as View);
     setSaving(false);
     setNote(`Adyen answered: ${data.result}.`);
   }, []);
 
   async function forget(alias: string) {
     const { data } = await api().account.cards({ alias }).delete();
-    if (data && "cards" in data) setView(data);
+    if (data && "cards" in data) setView(data as View);
   }
 
   async function changeGrant(id: string, change: { revoked?: boolean; spendLimit?: number }) {
     const { data } = await api().account.grants({ id }).post(change);
-    if (data && "agents" in data) setView(data);
+    if (data && "agents" in data) setView(data as View);
+  }
+
+  async function signOut() {
+    await api().session.delete();
+    window.location.assign("/");
   }
 
   return (
     <div className="space-y-10">
-      <div className="space-y-1">
-        <h1 className="text-3xl">Your account</h1>
-        <p className="text-sm text-muted">
-          One demo shopper. Adyen shopper reference{" "}
-          <span className="code">{view.shopperReference}</span>.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-3xl">Your account</h1>
+          <p className="text-sm text-muted">
+            Signed in as {view.customer.email}. Adyen shopper reference{" "}
+            <span className="code">{view.shopperReference}</span>.
+          </p>
+        </div>
+        <button type="button" className="btn-ghost" onClick={signOut}>
+          Sign out
+        </button>
       </div>
 
       <section className="grid gap-6 md:grid-cols-2">
         <div className="panel space-y-4">
-          <h2 className="text-xl">Saved card</h2>
+          <h2 className="text-xl">Saved cards</h2>
           <p className="text-sm text-muted">
-            Agents pay with this card, within the limit you set for each one. Saving it is a
-            zero-value check on Adyen TEST.
+            Your agents may pay with these, within the limit you set for each one, and Drop-in
+            offers them when you pay. Saving one is a zero-value check on Adyen TEST.
           </p>
           {view.cards.length ? (
             <ul className="space-y-2">
@@ -186,6 +197,10 @@ export function AccountView({
         </div>
       </section>
 
+      <section className="grid gap-6 md:grid-cols-2">
+        <PasskeysPanel passkeys={view.passkeys} onChange={setView} />
+      </section>
+
       <section className="space-y-3">
         <h2 className="text-xl">Orders</h2>
         {view.orders.length ? (
@@ -197,7 +212,8 @@ export function AccountView({
                 </Link>
                 <StatusPill status={o.status} />
                 <span className="text-muted">
-                  {o.paidBy === "agent" ? `by ${o.agentName}` : "by you"}
+                  {o.channel === "agent" ? `through ${o.agentName ?? "an agent"}` : "on this site"}
+                  {o.paidBy === "agent" ? ", paid by the agent" : ", paid by you"}
                 </span>
                 <span className="ml-auto tabular-nums">{money(o.total)}</span>
               </li>

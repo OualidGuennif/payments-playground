@@ -1,7 +1,7 @@
-// The Adyen double for bun test: scripted stored cards and payment answers, and a record of every
-// payment request so tests can assert what would have been sent.
+// The Adyen double for bun test: scripted stored cards, card brands and payment answers, and a
+// record of every payment request so tests can assert what would have been sent.
 // Spec: knowledge/components/adyen-agentic-commerce.md
-import type { AgentPayment, StoredCard } from "../adyen";
+import type { AgentPayment, NetworkTokenPayment, SessionRequest, StoredCard } from "../adyen";
 
 type PaymentAnswer = { resultCode: string; pspReference?: string; refusalReason?: string } | Error;
 type SessionAnswer = {
@@ -23,18 +23,33 @@ const VISA: StoredCard = {
 export const fake = {
   cards: [VISA] as StoredCard[],
   answers: [] as PaymentAnswer[],
-  payments: [] as AgentPayment[],
+  payments: [] as (AgentPayment | NetworkTokenPayment)[],
+  // The shopperReference of every stored-card lookup and every Drop-in session request.
+  lookups: [] as string[],
+  sessions: [] as SessionRequest[],
   session: NO_PAYMENT,
+  // The numbers sent to /cardDetails, and the brand (or failure) it answers.
+  brandLookups: [] as string[],
+  brand: "visa" as string | undefined | Error,
   // Runs while the next payment call is in flight, before it answers.
   during: undefined as (() => void) | undefined,
   reset() {
     this.cards = [VISA];
     this.answers = [];
     this.payments = [];
+    this.lookups = [];
+    this.sessions = [];
     this.session = NO_PAYMENT;
+    this.brandLookups = [];
+    this.brand = "visa";
     this.during = undefined;
   },
-  answer(input: AgentPayment) {
+  cardBrand(number: string) {
+    this.brandLookups.push(number);
+    if (this.brand instanceof Error) throw this.brand;
+    return this.brand;
+  },
+  answer(input: AgentPayment | NetworkTokenPayment) {
     this.payments.push(input);
     const during = this.during;
     this.during = undefined;

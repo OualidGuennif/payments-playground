@@ -92,6 +92,7 @@ describe("authorize", () => {
     const again = await handle(
       new Request(`${ORIGIN}/oauth/decision`, {
         method: "POST",
+        headers: { cookie: agent.customerCookie },
         body: new URLSearchParams({ request: requestId!, decision: "approve" }),
       }),
     );

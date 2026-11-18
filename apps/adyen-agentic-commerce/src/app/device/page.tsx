@@ -2,6 +2,8 @@
 // RFC 8628's verification page: the shopper types the code their agent showed, then sees the
 // usual consent page. The code is checked by POST /oauth/device/verify, never here.
 
+import { requireCustomer } from "@/lib/session";
+
 export const metadata = { title: "Connect an agent with a code" };
 export const dynamic = "force-dynamic";
 
@@ -28,6 +30,9 @@ export default async function Device({
       </div>
     );
   }
+  // The code leads to consent, which needs an account: sign in first, keeping the typed code.
+  const typed = user_code.replace(/[^A-Za-z-]/g, "").slice(0, 12);
+  await requireCustomer(typed ? `/device?user_code=${typed}` : "/device");
   const message = error ? (ERRORS[error] ?? ERRORS.invalid_code) : undefined;
   return (
     <form method="post" action="/oauth/device/verify" className="panel mx-auto max-w-lg space-y-5">

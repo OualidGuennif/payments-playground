@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-11-18
+
 - An agent over its spend limit on the agentic store now learns where the shopper changes it: the
   `spend_limit_exceeded` message and every signed-in checkout's `agent_budget` give `manage_url`,
   the account page opened at that agent, and `agent_budget` also shows what remains, read after

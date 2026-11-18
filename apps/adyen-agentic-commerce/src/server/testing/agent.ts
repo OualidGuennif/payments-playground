@@ -76,23 +76,21 @@ export class TestAgent {
   private server?: ReturnType<typeof Bun.serve>;
   private clientKeys!: Keys;
   private clientJwk!: JWK;
+  // The algorithm of the client's published key: its assertions and delegations use it.
+  clientAlg = "ES256";
   sessionKeys!: Keys;
   sessionKid = "";
 
   // grantTypes goes into client.json as grant_types; left out, the document has none, as before.
   // A public agent's document says it signs nothing (token_endpoint_auth_method "none").
+  // `alg` is the client key's algorithm, ES256 unless a test plays another client.
   static async start(
     name = "Test agent",
-    opts: { grantTypes?: string[]; public?: boolean } = {},
+    opts: { grantTypes?: string[]; public?: boolean; alg?: string } = {},
   ): Promise<TestAgent> {
     const agent = new TestAgent();
-    agent.clientKeys = await generateKeyPair("ES256", { extractable: true });
-    agent.clientJwk = {
-      ...(await exportJWK(agent.clientKeys.publicKey)),
-      alg: "ES256",
-      use: "sig",
-    };
-    agent.clientJwk.kid = await calculateJwkThumbprint(agent.clientJwk);
+    agent.clientAlg = opts.alg ?? "ES256";
+    await agent.rotateClientKey();
     agent.sessionKeys = await generateKeyPair("ES256", { extractable: true });
     agent.sessionKid = await calculateJwkThumbprint(await exportJWK(agent.sessionKeys.publicKey));
     const run = crypto.randomUUID().slice(0, 8);
@@ -197,7 +195,7 @@ export class TestAgent {
     };
     for (const k of omit) delete payload[k];
     return new SignJWT(payload)
-      .setProtectedHeader({ alg: "ES256", kid: this.clientJwk.kid })
+      .setProtectedHeader({ alg: this.clientAlg, kid: this.clientJwk.kid })
       .sign(signer.privateKey);
   }
 
@@ -225,8 +223,12 @@ export class TestAgent {
 
   // A key rotation: jwks.json serves only a new key from now on, and the agent signs with it.
   async rotateClientKey() {
-    this.clientKeys = await generateKeyPair("ES256", { extractable: true });
-    this.clientJwk = { ...(await exportJWK(this.clientKeys.publicKey)), alg: "ES256", use: "sig" };
+    this.clientKeys = await generateKeyPair(this.clientAlg, { extractable: true });
+    this.clientJwk = {
+      ...(await exportJWK(this.clientKeys.publicKey)),
+      alg: this.clientAlg,
+      use: "sig",
+    };
     this.clientJwk.kid = await calculateJwkThumbprint(this.clientJwk);
   }
 
@@ -258,7 +260,7 @@ export class TestAgent {
     const iat = opts.iat ?? now();
     return new SignJWT({ cnf: { jwk: opts.cnf ?? (await exportJWK(this.sessionKeys.publicKey)) } })
       .setProtectedHeader({
-        alg: "ES256",
+        alg: this.clientAlg,
         typ: opts.typ ?? "poppy-delegation+jwt",
         kid: this.clientJwk.kid,
       })

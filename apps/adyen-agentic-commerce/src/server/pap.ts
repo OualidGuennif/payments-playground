@@ -22,6 +22,10 @@ import {
 } from "./oauth";
 import { isRecord, sha256b64url } from "./util";
 
+// PAP 1.0 names these two for a delegation; the wider set a client assertion may use
+// (oauth.ts CLIENT_ASSERTION_ALGS) does not reach it.
+const PAP_DELEGATION_ALGS = ["ES256", "PS384"];
+
 export function poppyDocument() {
   const { publicOrigin, domain } = config();
   // PAP 1.0 §3.1 and §4.7: both maps are keyed by scope name, and every hint has both fields.
@@ -126,7 +130,7 @@ export async function verifyPoppy(
   }
   if (
     dlgHeader.typ !== "poppy-delegation+jwt" ||
-    !["ES256", "PS384"].includes(String(dlgHeader.alg))
+    !PAP_DELEGATION_ALGS.includes(String(dlgHeader.alg))
   ) {
     throw invalid("delegation typ or alg not accepted");
   }
@@ -135,7 +139,10 @@ export async function verifyPoppy(
   let client: Awaited<ReturnType<typeof resolveClient>>;
   try {
     client = await resolveClient(dlgClaims.iss);
-    await verifyWithClientKeys(client, dlg, { typ: "poppy-delegation+jwt" });
+    await verifyWithClientKeys(client, dlg, {
+      typ: "poppy-delegation+jwt",
+      algorithms: PAP_DELEGATION_ALGS,
+    });
   } catch (error) {
     // §5.2: a delegation failing any check, expiry included, is invalid_session. jose checks the
     // signature before the claims, so this expiry is the client's own delegation running out.

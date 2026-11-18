@@ -271,7 +271,7 @@ export function authorizationServerMetadata() {
     grant_types_supported: [...DEFAULT_GRANT_TYPES, DEVICE_GRANT],
     code_challenge_methods_supported: ["S256"],
     token_endpoint_auth_methods_supported: ["private_key_jwt", "none"],
-    token_endpoint_auth_signing_alg_values_supported: ["ES256", "PS384"],
+    token_endpoint_auth_signing_alg_values_supported: CLIENT_ASSERTION_ALGS,
     revocation_endpoint_auth_methods_supported: ["private_key_jwt", "none"],
     authorization_response_iss_parameter_supported: true,
     client_id_metadata_document_supported: true,
@@ -477,14 +477,20 @@ async function clientKeys(client: Client, refresh = false): Promise<JSONWebKeySe
   return doc as unknown as JSONWebKeySet;
 }
 
+// RFC 7523 leaves a client assertion's algorithm to the server, and an MCP client known by its
+// client metadata document may sign with none of PAP's two. Asymmetric only: the store holds no
+// client secret, so an HMAC (or `none`) could only be a forgery.
+export const CLIENT_ASSERTION_ALGS = ["ES256", "ES384", "PS256", "PS384", "RS256", "EdDSA"];
+
+// `algorithms` is required: each caller names what its protocol allows for this JWT.
 export async function verifyWithClientKeys(
   client: Client,
   jwt: string,
-  options: { typ?: string; audience?: string },
+  options: { typ?: string; audience?: string; algorithms: string[] },
 ) {
   const verify = async (keys: JSONWebKeySet) =>
     jwtVerify(jwt, createLocalJWKSet(keys), {
-      algorithms: ["ES256", "PS384"],
+      algorithms: options.algorithms,
       typ: options.typ,
       audience: options.audience,
     });
@@ -523,7 +529,9 @@ async function authenticateClient(form: URLSearchParams): Promise<Client> {
       throw new OAuthError("invalid_client", "Client is public", 401);
     let payload: Awaited<ReturnType<typeof verifyWithClientKeys>>["payload"];
     try {
-      ({ payload } = await verifyWithClientKeys(client, assertion, {}));
+      ({ payload } = await verifyWithClientKeys(client, assertion, {
+        algorithms: CLIENT_ASSERTION_ALGS,
+      }));
     } catch (error) {
       throw new OAuthError(
         "invalid_client",

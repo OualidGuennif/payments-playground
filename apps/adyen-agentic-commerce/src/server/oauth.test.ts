@@ -2,6 +2,7 @@
 // consent that can only narrow, single-use codes and rotating refresh tokens.
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { SignJWT, UnsecuredJWT } from "jose";
 import { handle } from "./api";
 import { grants, pendingRequest, updateGrant } from "./oauth";
 import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "./testing/agent";
@@ -584,5 +585,86 @@ describe("dynamic registration", () => {
       token_endpoint_auth_method: "private_key_jwt",
     });
     expect(response.status).toBe(400);
+  });
+});
+
+// RFC 7523 leaves the assertion's algorithm to the server. An MCP client known by its client
+// metadata document (ChatGPT's, 2026-11-18) signs with none of PAP's two, so any of six asymmetric
+// algorithms is accepted on an assertion; a Session's delegation keeps PAP's ES256 or PS384.
+describe("client assertion algorithms", () => {
+  const SIX = ["ES256", "ES384", "PS256", "PS384", "RS256", "EdDSA"];
+
+  test("the metadata lists the six asymmetric algorithms", async () => {
+    const response = await handle(new Request(`${ORIGIN}/.well-known/oauth-authorization-server`));
+    const metadata = (await response.json()) as Record<string, string[]>;
+    expect([...metadata.token_endpoint_auth_signing_alg_values_supported!].sort()).toEqual(
+      [...SIX].sort(),
+    );
+  });
+
+  for (const alg of ["RS256", "PS256", "ES384", "EdDSA"]) {
+    test(`a client whose key is ${alg} signs in, refreshes and calls /mcp with its token`, async () => {
+      const client = await TestAgent.start(`${alg} client`, { alg });
+      try {
+        await client.signIn();
+        const refreshed = await client.token({
+          grant_type: "refresh_token",
+          refresh_token: client.refreshToken,
+        });
+        expect([refreshed.status, refreshed.body.error]).toEqual([200, undefined]);
+        client.accessToken = refreshed.body.access_token!;
+        const listed = await client.mcp(
+          "tools/list",
+          {},
+          { omitHeaders: ["poppy-version", "poppy-session"] },
+        );
+        expect(listed.status).toBe(200);
+        expect(listed.body.result.tools.length).toBeGreaterThan(0);
+      } finally {
+        client.stop();
+      }
+    });
+  }
+
+  test("an assertion signed with an HMAC or not signed at all is invalid_client", async () => {
+    const issued = Math.floor(Date.now() / 1000);
+    const claims = {
+      iss: agent.clientId,
+      sub: agent.clientId,
+      aud: ORIGIN,
+      iat: issued,
+      exp: issued + 60,
+    };
+    const hmac = await new SignJWT({ ...claims, jti: crypto.randomUUID() })
+      .setProtectedHeader({ alg: "HS256" })
+      .sign(new TextEncoder().encode("a secret the store never holds, 32+"));
+    const unsigned = new UnsecuredJWT({ ...claims, jti: crypto.randomUUID() }).encode();
+    for (const assertion of [hmac, unsigned]) {
+      const { status, body } = await exchange(await code(), {}, assertion);
+      expect([status, body.error]).toEqual([401, "invalid_client"]);
+    }
+  });
+
+  test("a client whose key is PS384 signs its assertion and its Session's delegation with it", async () => {
+    const client = await TestAgent.start("PS384 client", { alg: "PS384" });
+    try {
+      await client.signIn();
+      const { status, body } = await client.mcp("ping");
+      expect([status, body.error]).toEqual([200, undefined]);
+    } finally {
+      client.stop();
+    }
+  });
+
+  test("a Session whose delegation is signed RS256 is invalid_session", async () => {
+    const client = await TestAgent.start("RS256 delegation", { alg: "RS256" });
+    try {
+      await client.signIn();
+      const { status, body } = await client.mcp("ping");
+      expect([status, body.error.data.code]).toEqual([400, "invalid_session"]);
+      expect(body.error.data.content).toContain("delegation typ or alg");
+    } finally {
+      client.stop();
+    }
   });
 });

@@ -5,6 +5,15 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
+## v0.5.1: client assertion algorithms for ChatGPT's MCP connector — ACTIVE
+
+- Owner decision: 2026-11-18, in chat: fix and release v0.5.1.
+- State: fix committed on develop with its tests; release v0.5.1 and the live check to do.
+- Next: accept six asymmetric algorithms for client assertions, release, check live (who: agent);
+  then ChatGPT reconnects its plugin (who: owner).
+- Blocker: none.
+- Evidence: live trace 2026-11-18 12:22:10 UTC, /oauth/token 401 "alg not allowed".
+
 ## Passkeys on v0.4.0: owner browser check — WAITING-OWNER
 
 - Owner decision: 2026-11-17, ADR-015 approved; agents choose freely between saved card, front

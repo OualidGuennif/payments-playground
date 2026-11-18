@@ -34,6 +34,11 @@ loopback one unless the store itself runs on a loopback `PUBLIC_ORIGIN`, as a lo
 fetch resolves the name again, so a name whose answer changes in between (DNS rebinding) can still
 be reached. It speaks UCP 2026-08-25 only and verifies no UCP message signature.
 
+A client assertion may be signed with ES256, ES384, PS256, PS384, RS256 or EdDSA, so an MCP client
+known by its client metadata document gets its token. A Poppy-Session's delegation still takes
+only PAP's ES256 or PS384: a client whose published keys allow neither can call `/mcp` with its
+bearer token alone, but a Session it sends is `invalid_session`.
+
 Shoppers open their own accounts with a password and may add passkeys; passkeys have been tried only
 with a software authenticator, not on a real device. An email address is never verified, and there
 is no password reset and no account deletion. Approving an agent needs a signed-in account, and the

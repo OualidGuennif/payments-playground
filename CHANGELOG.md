@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store accepts a client assertion signed with ES256, ES384, PS256, PS384, RS256 or
+  EdDSA and says so in its OAuth metadata, so an MCP client known by its client metadata document,
+  ChatGPT's among them, gets its token; a Session's delegation still takes only ES256 or PS384.
 - The known limits and the agentic README describe the store as v0.4.0 made it: shopper accounts
   instead of one demo shopper, agents paying with a saved card, a network token or the shopper at
   `continue_url`, and the Render disk in use only since `DATABASE_PATH` was set.

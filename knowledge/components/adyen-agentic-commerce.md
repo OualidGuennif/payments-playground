@@ -7,10 +7,10 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T21:12:00Z
+  at: 2026-11-18T21:43:00Z
 verified:
   - at: 2026-11-18
-    check: "v0.7.0 on develop: bun run check green; 23 new tests (resources, tool _meta, ZIP, widget logic). Stand-in host in a browser, under the host CSP: MCP Apps and window.openai bridges, both modes, search to saved-card payment, over-budget links, 375 and 1440 px, light and dark. Not yet in ChatGPT."
+    check: "v0.7.0 on develop: bun run check green; 26 new tests (resources, tool _meta, ZIP, widget logic). Stand-in host in a browser, under the host CSP: MCP Apps and window.openai bridges, both modes, search to saved-card payment, over-budget links, 375 and 1440 px, light and dark. Not yet in ChatGPT."
   - at: 2026-11-18
     check: "v0.6.0 on develop: bun run check green, 379 agentic tests (budget, ucp-rest filter, email masking tests fail before). Localhost browser: consent, account, Back Office, Docs at 375 and 1440 px, light and dark; no page-wide scroll; a stale limit opened the step-up."
   - at: 2026-11-18
@@ -545,11 +545,13 @@ before, every deploy or restart emptied orders, agents and grants.
     no script, style or connection from any origin and images from this origin only, and the
     built widgets match their sources' hash (`src/server/widgets.test.ts`).
 29. A widget has no authority of its own: "By hand" calls only the UCP tools with UCP arguments, a
-    payment names an instrument the checkout itself listed with a fresh idempotency key, and
-    "With the assistant" calls no tool, it only sends a message (`src/widgets/logic.test.ts`; the
-    built requests run against the store in `src/server/widgets.test.ts`).
-30. The plugin ZIP holds exactly its listed files, names this origin's `/mcp` and nothing else, and
-    holds no app reference or hook (`src/server/plugin.test.ts`).
+    payment names an instrument the checkout itself listed with one idempotency key per attempt
+    (the same checkout and card retry with it; another card or checkout gets a new one), an add
+    extends the cart or open checkout the bag shows, and "With the assistant" calls no tool, it
+    only sends a message (`src/widgets/logic.test.ts`; the built requests run against the store in
+    `src/server/widgets.test.ts`).
+30. The plugin ZIP holds exactly its listed files (never a hidden one), names this origin's `/mcp`
+    and nothing else, and holds no app reference or hook (`src/server/plugin.test.ts`).
 
 ## Determinism
 

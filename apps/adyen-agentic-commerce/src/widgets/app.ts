@@ -6,6 +6,7 @@ import { connect, type Host, type Theme } from "./bridge";
 import {
   type Action,
   addCall,
+  attemptFor,
   type BagLine,
   type BagView,
   bagView,
@@ -21,7 +22,7 @@ import {
   isOpen,
   type Mode,
   money,
-  newKey,
+  type PayAttempt,
   offered,
   payCall,
   quantityCall,
@@ -40,7 +41,7 @@ type State = {
   choices: Record<string, Choice>;
   bag?: BagView;
   instrument?: string;
-  payKey?: string;
+  attempt?: PayAttempt;
   busy?: string;
   note?: { tone: "ok" | "bad" | "info"; text: string };
 };
@@ -121,13 +122,13 @@ async function run(label: string, call: Call | undefined) {
   render();
   try {
     const result = await host.call(call.name, call.arguments);
-    if (call.name === "complete_checkout") state.payKey = undefined;
+    if (call.name === "complete_checkout") state.attempt = undefined;
     if (result.isError) state.note = { tone: "bad", text: refusal(result.structuredContent) };
     show(result.structuredContent);
     if (!result.isError && state.bag && call.name !== "search_catalog")
       host.tellModel(contextFor(state.bag));
   } catch (error) {
-    // The payment key stays: the same attempt is retried, never a second one.
+    // The attempt stays: the same checkout and card retry with the same key, never a second payment.
     state.note = { tone: "bad", text: error instanceof Error ? error.message : String(error) };
   } finally {
     state.busy = undefined;
@@ -236,26 +237,33 @@ function search() {
     "aria-label": "Search the collection",
     maxlength: "200",
   }) as HTMLInputElement;
+  // No <form>: a host frame sandboxed without allow-forms blocks the submission, and with it the
+  // submit event, so the button and Enter start the search themselves.
+  const submit = () => {
+    state.query = input.value;
+    act(
+      choose(
+        state.mode,
+        "Searching",
+        () => searchCall(input.value),
+        () => say.search(input.value),
+      ),
+    );
+  };
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.isComposing) return;
+    event.preventDefault();
+    submit();
+  });
   return h(
-    "form",
-    {
-      class: "search",
-      role: "search",
-      onsubmit: (event: Event) => {
-        event.preventDefault();
-        state.query = input.value;
-        act(
-          choose(
-            state.mode,
-            "Searching",
-            () => searchCall(input.value),
-            () => say.search(input.value),
-          ),
-        );
-      },
-    },
+    "div",
+    { class: "search", role: "search" },
     input,
-    h("button", { type: "submit", class: "btn ghost", disabled: !!state.busy }, "Search"),
+    h(
+      "button",
+      { type: "button", class: "btn ghost", disabled: !!state.busy, onclick: submit },
+      "Search",
+    ),
   );
 }
 
@@ -551,8 +559,8 @@ function payArea(bag: BagView) {
                   state.mode,
                   "Paying on Adyen TEST",
                   () => {
-                    state.payKey ??= newKey();
-                    return payCall(bag, chosen.id, state.payKey);
+                    state.attempt = attemptFor(state.attempt, bag.id, chosen.id);
+                    return payCall(bag, chosen.id, state.attempt.key);
                   },
                   () => say.pay(chosen, total),
                 ),

@@ -75,6 +75,8 @@ describe("the UI resources", () => {
       expect(html).not.toMatch(/<link\b/i);
       expect(html).not.toMatch(/@import|url\(\s*["']?https?:/i);
       expect(html.match(/<\/script>/gi)).toHaveLength(1);
+      // A host frame sandboxed without allow-forms drops a form's submit event: no form at all.
+      expect(html).not.toMatch(/<form\b|["']form["']/i);
     }
   });
 
@@ -185,6 +187,18 @@ describe("the widget's own requests against the store", () => {
     await run(payCall(open, card.id, key)!);
     expect(fake.payments).toHaveLength(1);
     expect(grants()[0]!.spent).toBe(paid.total);
+  });
+
+  test("by hand: an add from the carousel to an open checkout extends it, and it stays payable", async () => {
+    await agent.signIn();
+    const socks = catalogView(await run(searchCall("socks")))!.products[0]!;
+    const cart = bagView(await run(addCall(undefined, variantFor(socks, {})!.id))) as BagView;
+    const open = bagView(await run(checkoutCall(cart.id))) as BagView;
+    const beanie = catalogView(await run(searchCall("beanie")))!.products[0]!;
+    const more = bagView(await run(addCall(open, variantFor(beanie, {})!.id))) as BagView;
+    expect(more).toMatchObject({ kind: "checkout", id: open.id, status: "ready_for_complete" });
+    expect(more.lines).toHaveLength(2);
+    expect(more.total).toBeGreaterThan(open.total);
   });
 
   test("over the budget the widget offers the store's pages, and has nothing to pay with", async () => {

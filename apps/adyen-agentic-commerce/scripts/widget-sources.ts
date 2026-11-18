@@ -9,8 +9,11 @@ export const APP = join(import.meta.dir, "..");
 export const WIDGETS_DIR = join(APP, "src/widgets");
 export const PLUGIN_DIR = join(APP, "plugin/atelier-velune");
 
+// Hidden files (a Finder .DS_Store, an editor's swap file) are not in git: left in, they would
+// ship in the ZIP and give a hash that a clean checkout cannot reproduce.
 function walk(dir: string): string[] {
   return readdirSync(dir)
+    .filter((name) => !name.startsWith("."))
     .flatMap((name) => {
       const path = join(dir, name);
       return statSync(path).isDirectory() ? walk(path) : [path];

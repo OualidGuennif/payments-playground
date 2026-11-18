@@ -1,5 +1,6 @@
 /* Spec: knowledge/components/adyen-agentic-commerce.md */
-/* The widget's own look, inlined into each UI resource: it loads no stylesheet or font. */
+/* The widget's own look, inlined into each UI resource: it loads no stylesheet or font. Every
+   control is at least 44 px tall, the touch target in knowledge/policies/ui-ux.md. */
 :root {
   --bg: #ffffff;
   --ink: #1d1d1f;
@@ -118,7 +119,7 @@ input:focus-visible {
   border: 0;
   background: transparent;
   border-radius: 999px;
-  min-height: 32px;
+  min-height: 44px;
   padding: 0 12px;
   font-size: 13px;
   cursor: pointer;
@@ -136,14 +137,14 @@ input:focus-visible {
 .search input {
   flex: 1;
   min-width: 0;
-  min-height: 40px;
+  min-height: 44px;
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 0 12px;
   background: var(--bg);
 }
 .btn {
-  min-height: 40px;
+  min-height: 44px;
   border: 1px solid var(--accent);
   border-radius: 12px;
   padding: 0 16px;
@@ -203,10 +204,11 @@ input:focus-visible {
   gap: 6px;
 }
 .pill {
-  min-height: 32px;
+  min-height: 44px;
+  min-width: 44px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 0 10px;
+  padding: 0 12px;
   background: transparent;
   font-size: 13px;
   cursor: pointer;
@@ -262,14 +264,15 @@ input:focus-visible {
   gap: 8px;
 }
 .step {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: transparent;
   cursor: pointer;
 }
 .link {
+  min-height: 44px;
   border: 0;
   background: transparent;
   color: var(--accent);
@@ -315,7 +318,7 @@ input:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 36px;
+  min-height: 44px;
 }
 .radio input {
   accent-color: var(--accent);

@@ -257,17 +257,25 @@ export function searchCall(query: string, cursor?: string): Call {
   return { name: "search_catalog", arguments: { catalog } };
 }
 
-// A cart this widget knows is extended; without one a new cart starts. A line holds 1 to 10.
+// The bag the widget shows is extended where it is, a cart by update_cart and an open checkout by
+// update_checkout, so the shopper pays for what they see. Without one a new cart starts. A line
+// holds 1 to 10.
 export function addCall(bag: BagView | undefined, variantId: string, key = newKey()): Call {
-  if (bag?.kind === "cart" && bag.status !== "canceled") {
+  const open = bag && (bag.kind === "cart" ? bag.status !== "canceled" : OPEN.has(bag.status));
+  if (bag && open) {
     const lines = linesOf(bag);
     const same = lines.find((l) => l.item.id === variantId);
     if (same) same.quantity = Math.min(same.quantity + 1, 10);
     else lines.push({ item: { id: variantId }, quantity: 1 });
-    return {
-      name: "update_cart",
-      arguments: { meta: meta(key), id: bag.id, cart: { line_items: lines } },
-    };
+    return bag.kind === "cart"
+      ? {
+          name: "update_cart",
+          arguments: { meta: meta(key), id: bag.id, cart: { line_items: lines } },
+        }
+      : {
+          name: "update_checkout",
+          arguments: { meta: meta(key), id: bag.id, checkout: { line_items: lines } },
+        };
   }
   return {
     name: "create_cart",
@@ -307,6 +315,21 @@ export const checkoutCall = (cartId: string, key = newKey()): Call => ({
 });
 
 const OPEN = new Set(["incomplete", "requires_escalation", "ready_for_complete"]);
+
+// One idempotency key per payment attempt: the same checkout and card reuse it, so a retry after
+// a lost answer pays once; another card or checkout is another attempt with a fresh key (the
+// store refuses a reused key with a different body).
+export type PayAttempt = { key: string; checkoutId: string; instrumentId: string };
+export function attemptFor(
+  previous: PayAttempt | undefined,
+  checkoutId: string,
+  instrumentId: string,
+  key = newKey(),
+): PayAttempt {
+  return previous?.checkoutId === checkoutId && previous.instrumentId === instrumentId
+    ? previous
+    : { key, checkoutId, instrumentId };
+}
 
 // Only a card the checkout itself listed, only when the store says it is ready to pay.
 export function payCall(bag: BagView, instrumentId: string, key: string): Call | undefined {

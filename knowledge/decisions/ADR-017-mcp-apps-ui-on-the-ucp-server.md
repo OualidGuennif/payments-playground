@@ -6,7 +6,7 @@ tags: [decision, agentic, mcp, ucp, pap, chatgpt, ui]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T21:30:00Z
+  at: 2026-11-18T21:10:00Z
 sources:
   - id: spec
     resource: ../components/adyen-agentic-commerce.md

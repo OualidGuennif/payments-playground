@@ -44,13 +44,20 @@ async function download() {
 }
 
 describe("the plugin package", () => {
-  test("holds exactly the plugin folder's files", async () => {
+  test("holds exactly the plugin folder's files, never a hidden one", async () => {
     const files = await download();
     expect(Object.keys(files).sort()).toEqual(
       filesOnDisk()
         .map((p) => `atelier-velune/${relative(PLUGIN_DIR, p)}`)
         .sort(),
     );
+    expect(Object.keys(files).sort()).toEqual([
+      "atelier-velune/assets/icon.svg",
+      "atelier-velune/assets/logo.svg",
+      "atelier-velune/mcp.json",
+      "atelier-velune/plugin.json",
+      "atelier-velune/skills/personal-stylist/SKILL.md",
+    ]);
   });
 
   test("names this origin's /mcp as its one server, and holds no app reference or hook", async () => {

@@ -4,6 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   addCall,
+  attemptFor,
   type BagView,
   bagView,
   catalogView,
@@ -186,6 +187,24 @@ describe('"By hand" calls', () => {
     });
   });
 
+  test("an add extends the open checkout the bag shows; a closed one starts a new cart", () => {
+    expect(addCall(checkout("requires_escalation"), "beanie", KEY)).toEqual({
+      name: "update_checkout",
+      arguments: {
+        meta: { "idempotency-key": KEY },
+        id: "chk_1",
+        checkout: {
+          line_items: [
+            { item: { id: "socks" }, quantity: 1 },
+            { item: { id: "beanie" }, quantity: 1 },
+          ],
+        },
+      },
+    });
+    expect(addCall(checkout("completed"), "beanie", KEY).name).toBe("create_cart");
+    expect(addCall(checkout("canceled"), "beanie", KEY).name).toBe("create_cart");
+  });
+
   test("quantities change on a cart or an open checkout; the last line is never removed", () => {
     expect(quantityCall(cart(), "socks", 0, KEY)).toBeUndefined();
     expect(quantityCall(checkout(), "socks", 3, KEY)).toEqual({
@@ -197,6 +216,14 @@ describe('"By hand" calls', () => {
       },
     });
     expect(quantityCall(checkout("completed"), "socks", 3, KEY)).toBeUndefined();
+  });
+
+  test("a retry of the same checkout and card keeps its key; another card or checkout does not", () => {
+    const first = attemptFor(undefined, "chk_1", "alias_visa", KEY);
+    expect(first).toEqual({ key: KEY, checkoutId: "chk_1", instrumentId: "alias_visa" });
+    expect(attemptFor(first, "chk_1", "alias_visa")).toBe(first);
+    expect(attemptFor(first, "chk_1", "alias_mc").key).not.toBe(KEY);
+    expect(attemptFor(first, "chk_2", "alias_visa").key).not.toBe(KEY);
   });
 
   test("pay names only a card the checkout listed, only when it is ready", () => {

@@ -165,6 +165,29 @@ describe("Back Office masking", () => {
     expect(complete).toBeGreaterThan(mcp);
   });
 
+  test("an agent named with an email shows it masked, and the Log's masked actor still filters", async () => {
+    put("grants", "gr_2", {
+      id: "gr_2",
+      clientId: "https://agent.example/client",
+      clientName: `Agent of ${EMAIL}`,
+      customerId: "cus_1",
+      scopes: [],
+      spendLimit: 0,
+      spent: 0,
+      revoked: false,
+      createdAt: "2026-11-18T09:30:00.000Z",
+    });
+    const agents = await page({ tab: "agents" });
+    expect(agents).not.toContain(EMAIL);
+    expect(agents).toContain("Agent of j•••@example.com");
+    const masked = "j•••@example.com";
+    expect(tracePage(logFilters({ actor: masked }), 1, 25).total).toBe(1);
+    const log = await page({ tab: "log", actor: masked });
+    expect(log).not.toContain(EMAIL);
+    expect(log).toContain("POST /mcp");
+    expect(log).not.toContain("Nothing matches");
+  });
+
   test("the agents tab names permissions in words, never as scopes", async () => {
     const html = await page({ tab: "agents" });
     expect(html).toContain("Pay with your saved card, up to your budget");

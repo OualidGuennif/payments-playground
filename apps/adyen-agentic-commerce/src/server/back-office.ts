@@ -74,8 +74,14 @@ function whereOf(f: LogFilters) {
     params.channel = f.channel;
   }
   if (f.actor) {
-    parts.push("actor = $actor");
-    params.actor = f.actor;
+    // The Log offers each actor masked, so the one picked matches every stored actor that masks to
+    // it; the raw value never reaches the page.
+    const raw = storedActors().filter((v) => maskEmails(v) === f.actor);
+    const names = raw.map((v, i) => {
+      params[`actor${i}`] = v;
+      return `$actor${i}`;
+    });
+    parts.push(names.length ? `actor in (${names.join(", ")})` : "0");
   }
   if (f.status) {
     const lo = Number(f.status[0]) * 100;
@@ -113,17 +119,23 @@ export function tracePage(filters: LogFilters, page: number, per: number): Paged
   );
 }
 
-// The values the Log's selects offer, from what the trace holds.
+const distinct = (name: "channel" | "actor", limit: number) =>
+  database()
+    .query<{ v: string }, { n: number }>(
+      `select distinct ${name} as v from trace order by v limit $n`,
+    )
+    .all({ n: limit })
+    .map((r) => r.v);
+
+const storedActors = () => distinct("actor", 1000);
+
+// The values the Log's selects offer, from what the trace holds. Two actors that mask alike are
+// one choice, and picking it shows both.
 export function logChoices() {
-  const db = database();
-  const column = (name: "channel" | "actor") =>
-    db
-      .query<{ v: string }, Record<string, never>>(
-        `select distinct ${name} as v from trace order by v limit 50`,
-      )
-      .all({})
-      .map((r) => r.v);
-  return { channels: column("channel"), actors: maskEmails(column("actor")) };
+  return {
+    channels: distinct("channel", 50),
+    actors: [...new Set(maskEmails(distinct("actor", 50)))],
+  };
 }
 
 function docsPage<T>(collection: "orders" | "payments" | "grants", page: number, per: number) {
@@ -141,10 +153,11 @@ export const ordersPage = (page: number) => maskEmails(docsPage<Order>("orders",
 export const paymentsPage = (page: number) =>
   maskEmails(docsPage<PaymentRecord>("payments", page, 25));
 
-// Every grant: who it acts for, in words, and where its budget stands.
+// Every grant: who it acts for, in words, and where its budget stands. Masked whole: an agent's
+// name and client id are chosen by the agent and may hold an email.
 export function agentsPage(page: number) {
   const grants = docsPage<Grant>("grants", page, 25);
-  return {
+  return maskEmails({
     ...grants,
     items: grants.items.map((g) => ({
       id: g.id,
@@ -161,7 +174,7 @@ export function agentsPage(page: number) {
       lastUsedAt: g.lastUsedAt,
       createdAt: g.createdAt,
     })),
-  };
+  });
 }
 
 // An order's story: the trace entries naming it, its checkout or its payments, oldest first.

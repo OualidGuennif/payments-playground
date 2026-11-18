@@ -63,7 +63,11 @@ export function SequenceDiagram({
     const step = steps[at];
     if (!el || !step || el.scrollWidth <= el.clientWidth) return;
     const mid = (x(step.from) + x(step.to)) / 2 / width;
-    el.scrollTo({ left: mid * el.scrollWidth - el.clientWidth / 2, behavior: "smooth" });
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({
+      left: mid * el.scrollWidth - el.clientWidth / 2,
+      behavior: still ? "auto" : "smooth",
+    });
   });
 
   return (

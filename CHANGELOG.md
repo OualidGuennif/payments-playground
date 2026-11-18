@@ -14,6 +14,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   Security and Sign out (also in the phone menu), and links to the new Docs. The account page has
   a section bar, an overview (agents, budget left, saved cards, last order), each agent's budget as
   a meter and orders in pages of 10.
+- The agentic Back Office has tabs (Overview, Orders, Payments, Agents, Log, Webhooks) instead of
+  one long page: lists come in pages of 25 with a numbered pager, the log also in 50 or 100 and
+  filtered by channel, actor, status class, path or reference, each entry opens its redacted JSON
+  with a copy button, and an order opens its timeline. Every email in it, and in
+  `GET /api/back-office`, is masked; that answer's `trace` is now one page, with `page`, `per`,
+  `trace_total` and `trace_pages`.
 
 ## [0.5.3] - 2026-11-18
 

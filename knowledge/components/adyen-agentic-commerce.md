@@ -272,13 +272,13 @@ before, every deploy or restart emptied orders, agents and grants.
   v0.4.0 read as `agent` when an agent made them, else `web`. UCP and MCP never reach a `web`
   checkout (404), one made by the shopper's browser before v0.4.0 included, and an agent reads a cart, checkout or order only for its own client and account.
 - **Back Office:** `/back-office` with tabs in the URL (`?tab=`): Overview (counts of orders,
-  payments Authorised and refused, connected agents, webhooks, the last error, the latest ten
-  events), Orders, Payments, Agents (every grant: agent, account, permissions in words, limit,
+  payments Authorised and refused, connected agents, webhooks, the last server error (5xx), the
+  latest ten events), Orders, Payments, Agents (every grant: agent, account, permissions in words, limit,
   spent, remaining, state, last use), Log and Webhooks. Lists are pages of 25 (`?page=`, Log also
   50 or 100 with `?per=`) with a pager; a page past the last shows the last, anything not a
   positive integer reads as 1. Log filters: channel, actor, status class (`2xx`, `4xx`, `5xx`),
   path text and reference; each entry opens its redacted detail. An order opens its timeline: the
-  trace entries that name it or its checkout, oldest first. Because the Back Office is public when
+  trace entries that name it, its checkout or its payments, oldest first. Because the Back Office is public when
   the playground's basic auth is unset (as on Render), every email in it is masked (first letter,
   `•••`, domain). `GET /api/back-office` keeps its fields and takes `page`, `per`, the same filters
   and `channel`; its `trace` is the requested page, with `trace_total` and `trace_pages`.

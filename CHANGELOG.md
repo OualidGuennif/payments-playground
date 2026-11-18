@@ -5,6 +5,16 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's consent screen reads like a store's: the agent's name and initial, the
+  account with its email masked, one warning line, each permission in words with a "Read only",
+  "Can be undone" or "Can't be undone" pill and a "Personal data" mark, a budget with presets
+  (EUR 50, 150, 300, 1000) or any amount, and Deny or Allow; the agent's host and where the browser
+  returns sit under Details. The device code page uses the same style.
+- The header shows "Sign in", or the customer's initial opening Orders, Agents, Payment methods,
+  Security and Sign out (also in the phone menu), and links to the new Docs. The account page has
+  a section bar, an overview (agents, budget left, saved cards, last order), each agent's budget as
+  a meter and orders in pages of 10.
+
 ## [0.5.3] - 2026-11-18
 
 - An agent over its spend limit on the agentic store now learns where the shopper changes it: the

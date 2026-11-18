@@ -55,15 +55,25 @@ export function AgentLimit({
     else setError(await send({ spendLimit: wanted }));
   }
 
+  const used = agent.spendLimit > 0 ? Math.min(100, (agent.spent / agent.spendLimit) * 100) : 0;
   return (
     <div className="space-y-2">
-      <p className="text-xs">
-        Spent {money(agent.spent)} of {money(agent.spendLimit)}.{" "}
-        <strong className="font-medium">
-          {money(Math.max(agent.spendLimit - agent.spent, 0))} left
-        </strong>
-        .
-      </p>
+      <div className="flex items-baseline justify-between gap-2 text-xs">
+        <span className="text-sm font-medium tabular-nums">{money(agent.remaining)} left</span>
+        <span className="text-muted tabular-nums">
+          {money(agent.spent)} of {money(agent.spendLimit)} spent
+        </span>
+      </div>
+      {/* Sized by SVG attributes: the site has no inline styles. */}
+      <svg
+        viewBox="0 0 100 4"
+        preserveAspectRatio="none"
+        className="h-1.5 w-full overflow-hidden rounded-full"
+        aria-hidden="true"
+      >
+        <rect width="100" height="4" className="fill-line" />
+        <rect width={used} height="4" className={used >= 90 ? "fill-warn" : "fill-accent"} />
+      </svg>
       {agent.revoked ? null : (
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs">

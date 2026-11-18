@@ -1,6 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AccountMenu, AccountMenuItems } from "@/components/AccountMenu";
 import { CartLink } from "@/components/CartLink";
 import { MobileMenu } from "@/components/MobileMenu";
 import { WebMcpTools } from "@/components/WebMcpTools";
@@ -14,8 +15,8 @@ export const metadata: Metadata = {
 
 const NAV = [
   ["/shop", "Shop"],
-  ["/agents", "For agents"],
-  ["/account", "Account"],
+  ["/agents", "Connect an agent"],
+  ["/docs", "Docs"],
   ["/back-office", "Back Office"],
 ] as const;
 
@@ -38,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Atelier Velune
             </Link>
             <div className="ml-auto flex items-center gap-2 sm:gap-3">
-              <nav aria-label="Main" className="hidden items-center gap-1 text-sm sm:flex sm:gap-3">
+              <nav aria-label="Main" className="hidden items-center gap-1 text-sm md:flex">
                 {NAV.map(([href, label]) => (
                   <Link
                     key={href}
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 ))}
               </nav>
               <CartLink />
+              <AccountMenu />
               <MobileMenu>
                 <summary
                   className="btn-ghost min-h-11 list-none px-3.5 py-1.5 text-sm [&::-webkit-details-marker]:hidden"
@@ -59,7 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </summary>
                 <nav
                   aria-label="Mobile navigation"
-                  className="absolute right-0 top-[calc(100%+8px)] z-30 grid min-w-48 gap-1 rounded-2xl border border-line bg-card p-2 shadow-lg"
+                  className="absolute right-0 top-[calc(100%+8px)] z-30 grid w-64 gap-0.5 rounded-2xl border border-line bg-card p-2 shadow-lg"
                 >
                   {NAV.map(([href, label]) => (
                     <Link
@@ -70,6 +72,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       {label}
                     </Link>
                   ))}
+                  <hr className="my-1 border-line" />
+                  <AccountMenuItems />
                 </nav>
               </MobileMenu>
             </div>

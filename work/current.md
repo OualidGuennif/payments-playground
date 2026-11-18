@@ -5,16 +5,6 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## v0.5.3: agent budget managed from the account page — ACTIVE
-
-- Owner decision: 2026-11-18, in chat: approved the plan after ChatGPT's budget incident; raising a
-  limit needs the password or a passkey; the account page shows what remains.
-- State: implemented; 8 "agent budget" tests fail before and pass after; account page checked
-  in the browser on localhost (raise asks the password, lower does not, 375 px).
-- Next: commit, review, release v0.5.3, check live (who: agent).
-- Blocker: none.
-- Evidence: ChatGPT incident report 2026-11-18 (EUR 1 left of EUR 150, EUR 63.95 escalated).
-
 ## Passkeys on v0.4.0: owner browser check — WAITING-OWNER
 
 - Owner decision: 2026-11-17, ADR-015 approved; agents choose freely between saved card, front

@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.5.3 deploy check: the agentic store on Render serves the account step-up route
+  (401 signed out), documents `manage_url` on `/agents` and in its OpenAPI example, and still
+  refuses `/mcp` without a token. Raising a limit was checked on localhost only.
+
 ## [0.5.3] - 2026-11-18
 
 - An agent over its spend limit on the agentic store now learns where the shopper changes it: the

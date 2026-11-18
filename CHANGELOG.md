@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.5.0 deploy check: the agentic store serves the tasks endpoint and the new MCP
+  refusals on Render, and a checkout written before the deploy still answers after it, which
+  closes the disk check.
+
 ## [0.5.0] - 2026-11-18
 
 - An agentic refresh token keeps every scope and resource of its grant: a token request that

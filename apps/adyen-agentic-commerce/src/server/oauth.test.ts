@@ -4,9 +4,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { SignJWT, UnsecuredJWT } from "jose";
 import { handle } from "./api";
-import { grants, pendingRequest, updateGrant } from "./oauth";
+import { DEVICE_GRANT, grants, pendingRequest, updateGrant } from "./oauth";
 import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "./testing/agent";
 import { ucpAgent } from "./testing/platform";
+import { recentTrace } from "./trace";
 import { sha256b64url } from "./util";
 
 const VERIFIER = "verifier-verifier-verifier-verifier-0123456789";
@@ -183,15 +184,6 @@ describe("token endpoint", () => {
       await agent.assertion({}, await TestAgent.foreignKeys()),
     );
     expect(status).toBe(401);
-  });
-
-  // PAP 1.0 §4.1 and draft-ietf-oauth-rfc7523bis: aud is the issuer, one string, nothing else.
-  test("an assertion whose aud is the token endpoint or an array is refused", async () => {
-    for (const aud of [`${ORIGIN}/oauth/token`, [ORIGIN], [ORIGIN, "https://other.example"]]) {
-      const { status, body } = await exchange(await code(), {}, await agent.assertion({ aud }));
-      expect(status).toBe(401);
-      expect(body.error_description).toContain("aud");
-    }
   });
 
   test("an assertion living more than five minutes is refused", async () => {
@@ -666,5 +658,124 @@ describe("client assertion algorithms", () => {
     } finally {
       client.stop();
     }
+  });
+});
+
+// PAP 1.0 §4.1 (draft-ietf-oauth-rfc7523bis) allows only the issuer. The owner chose on 2026-11-18
+// (ADR-016) to accept the token endpoint too, as RFC 7523 §3 and OpenID Connect Core §9 do, because
+// ChatGPT's MCP connector was refused without it. Arrays stay refused: rfc7523bis's main case.
+describe("assertion audience", () => {
+  test("the issuer, the issuer with a final slash and the token endpoint URL are accepted, and the trace names which", async () => {
+    const forms: [string, string][] = [
+      [ORIGIN, "issuer"],
+      [`${ORIGIN}/`, "issuer with slash"],
+      [`${ORIGIN}/oauth/token`, "token endpoint"],
+    ];
+    for (const [aud, name] of forms) {
+      const { status, body } = await exchange(await code(), {}, await agent.assertion({ aud }));
+      expect([aud, status, body.error_description]).toEqual([aud, 200, undefined]);
+      const row = recentTrace().find((e) => e.path === "/oauth/token");
+      expect([aud, row?.status, row?.detail]).toEqual([
+        aud,
+        200,
+        expect.objectContaining({ audience: name }),
+      ]);
+    }
+  });
+
+  test("the device authorization endpoint takes the same audiences", async () => {
+    const device = await TestAgent.start("Device audience", {
+      grantTypes: ["authorization_code", "refresh_token", DEVICE_GRANT],
+    });
+    try {
+      const start = async (aud: string | string[]) =>
+        handle(
+          new Request(`${ORIGIN}/oauth/device_authorization`, {
+            method: "POST",
+            headers: { "x-forwarded-for": device.ip },
+            body: new URLSearchParams({
+              client_id: device.clientId,
+              client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+              client_assertion: await device.assertion({ aud }),
+              scope: "dev.ucp.shopping.checkout:manage",
+            }),
+          }),
+        );
+      for (const aud of [ORIGIN, `${ORIGIN}/`, `${ORIGIN}/oauth/token`])
+        expect([aud, (await start(aud)).status]).toEqual([aud, 200]);
+      const refused = await start([ORIGIN]);
+      expect(refused.status).toBe(401);
+      expect(((await refused.json()) as { error: string }).error).toBe("invalid_client");
+    } finally {
+      device.stop();
+    }
+  });
+
+  test("a revocation takes the token endpoint URL as aud and refuses an array", async () => {
+    const { body } = await exchange(await code());
+    const revoke = async (aud: string | string[]) =>
+      handle(
+        new Request(`${ORIGIN}/oauth/revoke`, {
+          method: "POST",
+          headers: { "x-forwarded-for": agent.ip },
+          body: new URLSearchParams({
+            client_id: agent.clientId,
+            client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            client_assertion: await agent.assertion({ aud }),
+            token: body.refresh_token!,
+          }),
+        }),
+      );
+    const refused = await revoke([`${ORIGIN}/oauth/token`]);
+    expect(refused.status).toBe(401);
+    expect(((await refused.json()) as { error: string }).error).toBe("invalid_client");
+    expect((await revoke(`${ORIGIN}/oauth/token`)).status).toBe(200);
+    const refreshed = await agent.token({
+      grant_type: "refresh_token",
+      refresh_token: body.refresh_token!,
+    });
+    expect(refreshed.body.error).toBe("invalid_grant");
+  });
+
+  test("an array, another endpoint or host, or no aud is invalid_client, naming what came", async () => {
+    const cases: [string | string[], string][] = [
+      [[ORIGIN], `[${ORIGIN}]`],
+      [[ORIGIN, "https://other.example"], "https://other.example"],
+      [`${ORIGIN}/oauth/revoke`, "/oauth/revoke"],
+      [`${ORIGIN}/mcp`, "/mcp"],
+      [`${ORIGIN}/oauth/token/`, "/oauth/token/"],
+      [`${ORIGIN}//`, `${ORIGIN}//`],
+      ["https://other.example", "https://other.example"],
+      [ORIGIN.replace("http:", "https:"), ORIGIN.replace("http:", "https:")],
+    ];
+    for (const [aud, named] of cases) {
+      const { status, body } = await exchange(await code(), {}, await agent.assertion({ aud }));
+      expect([aud, status, body.error]).toEqual([aud, 401, "invalid_client"]);
+      expect(body.error_description).toContain("aud");
+      expect(body.error_description).toContain(named);
+    }
+    const missing = await exchange(
+      await code(),
+      {},
+      await agent.assertion({}, undefined, 300, ["aud"]),
+    );
+    expect([missing.status, missing.body.error]).toEqual([401, "invalid_client"]);
+    expect(missing.body.error_description).toContain("got no aud");
+  });
+
+  test("the refusal shows a hostile aud in printable ASCII, without quotes or backslashes, cut at 200", async () => {
+    const hostile = `https://x.example/"\\\n\u0007é${"a".repeat(400)}`;
+    const { status, body } = await exchange(
+      await code(),
+      {},
+      await agent.assertion({ aud: hostile }),
+    );
+    expect(status).toBe(401);
+    const shown = body.error_description!.slice(
+      body.error_description!.indexOf("https://x.example/"),
+    );
+    expect(shown).toMatch(/^[\x20\x21\x23-\x5b\x5d-\x7e]+$/);
+    expect(shown.length).toBeLessThanOrEqual(200);
+    expect(shown).toStartWith("https://x.example/????");
   });
 });

@@ -404,7 +404,9 @@ const app = new Elysia()
     const limited = agentLimit(request);
     if (limited) return limited;
     try {
-      const tokens = await oauth.tokenEndpoint(await formOf(request));
+      const form = await formOf(request);
+      const tokens = await oauth.tokenEndpoint(form);
+      const audience = oauth.assertionAudienceUsed(form);
       trace({
         channel: "oauth",
         actor: "agent",
@@ -412,7 +414,7 @@ const app = new Elysia()
         path: "/oauth/token",
         status: 200,
         ref: null,
-        detail: { scope: tokens.scope },
+        detail: { scope: tokens.scope, ...(audience ? { audience } : {}) },
       });
       return json(200, tokens);
     } catch (error) {

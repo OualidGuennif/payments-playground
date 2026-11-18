@@ -5,7 +5,7 @@ description: "One architecture decision record per durable choice."
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T21:00:00Z
+  at: 2026-11-18T13:31:04Z
 ---
 
 # Decisions
@@ -30,3 +30,4 @@ Each ADR states its context, the decision and its consequences. Supersede an ADR
 | [ADR-013: Æion Template v4.0.3, no Graphify or Archify](ADR-013-aeion-template-v4-without-source-analysis.md) | stable | 2026-11-15               |
 | [ADR-014: Every playground on Bun, Next.js, Elysia and Eden](ADR-014-every-playground-on-bun-and-next.md)      | stable | 2026-11-15               |
 | [ADR-015: Customer accounts and agent network tokens](ADR-015-customer-accounts-and-agent-network-tokens.md)  | stable | 2026-11-17               |
+| [ADR-016: A client assertion's aud may be the token endpoint](ADR-016-client-assertion-audience-for-mcp-clients.md) | stable | 2026-11-18               |

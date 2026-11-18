@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T12:35:00Z
+  at: 2026-11-18T13:31:04Z
 verified:
   - at: 2026-11-18
     check: "bun run check green, 333 agentic tests (refresh keeps the grant, device grant too; address guard, profile host too; MCP 401/403/429, signed-out MCP, sign-out, loopback ports, jti, tasks). Local pap-agent.ts --auto-consent handed the checkout over; consent, /agents at 375 px."
@@ -101,9 +101,14 @@ before, every deploy or restart emptied orders, agents and grants.
   optional `Poppy-Session` (PAP 1.0 §5.2: `typ` `poppy-session+jwt`, ES256, the delegation in the
   JWT header's `poppy_dlg`, `aud` the issuer as one string, `htm`, `htu`, `ath`, `iat`, `jti`). A
   Session needs `Poppy-Version` 1.x; a missing one, or any other major version even without a
-  Session, is `version_unsupported`. A `private_key_jwt` client assertion has the issuer as its one
-  `aud` string, `iat` and `jti`, and lives at most 300 s; its `iat` may be at most 60 s ahead of
-  the store's clock. It may be signed with ES256, ES384, PS256, PS384, RS256 or EdDSA, as
+  Session, is `version_unsupported`. A `private_key_jwt` client assertion has one `aud` string,
+  `iat` and `jti`, and lives at most 300 s; its `iat` may be at most 60 s ahead of the store's
+  clock. Owner decision 2026-11-18
+  ([ADR-016](../decisions/ADR-016-client-assertion-audience-for-mcp-clients.md)), against PAP 1.0
+  §4.1, which allows only the issuer: that `aud` may be the issuer, the issuer with one final
+  slash, or the exact token endpoint URL (RFC 7523 §3, OpenID Connect Core §9), so ChatGPT's MCP
+  connector can sign in. An array or any other value is refused, and the refusal names the `aud`
+  received. It may be signed with ES256, ES384, PS256, PS384, RS256 or EdDSA, as
   `token_endpoint_auth_signing_alg_values_supported` says: RFC 7523 leaves the algorithm to the
   server, and an MCP client known by its client metadata document (ChatGPT's, 2026-11-18) signs
   with none of PAP's two. Never `none` or an HMAC: the store holds only public keys. A Session's
@@ -424,6 +429,12 @@ before, every deploy or restart emptied orders, agents and grants.
     asymmetric algorithms; one signed with an HMAC, or not signed, is `invalid_client`, and a
     Session whose delegation is signed with anything but ES256 or PS384 is `invalid_session`
     (`src/server/oauth.test.ts`, "client assertion algorithms").
+23. A client assertion's `aud` is exactly the issuer, the issuer with one final slash, or the token
+    endpoint URL, as one string (ADR-016); an array, another endpoint, another host or no `aud` is
+    `invalid_client`, and the refusal names the received `aud` in printable ASCII without `"` or
+    `\`, at most 200 characters, or says "no aud"; the same holds at the revocation and device
+    authorization endpoints, and a successful token request's trace names the form used
+    (`src/server/oauth.test.ts`, "assertion audience").
 
 ## Determinism
 

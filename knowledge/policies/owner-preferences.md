@@ -5,7 +5,7 @@ description: "Durable project preferences: Render at the root, TEST only, the fa
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T15:00:00Z
+  at: 2026-11-18T13:31:04Z
 sources:
   - resource: ../../AGENTS.md
     title: "Project rules and owner"
@@ -42,6 +42,9 @@ What the owner asked for that a reviewer should not have to ask again.
   [ADR-012](../decisions/ADR-012-agentic-app-on-bun-and-next.md)). Its Render service keeps its name
   and place in the root Blueprint; on 2026-11-17 the owner moved it to `starter` with a 1 GB disk,
   like Digital and styling, so its orders and agents survive a deploy.
+- The agentic store must let real MCP clients such as ChatGPT sign in; where a protocol rule blocks
+  one, the owner decides, and each departure from PAP 1.0 is an ADR (2026-11-18,
+  [ADR-016](../decisions/ADR-016-client-assertion-audience-for-mcp-clients.md)).
 - Existing public docs (`README.md`, `docs/SECURITY.md`, `docs/KNOWN_LIMITS.md`) win over factory
   defaults where they differ; record the divergence here.
 

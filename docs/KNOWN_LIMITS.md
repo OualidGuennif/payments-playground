@@ -39,6 +39,13 @@ known by its client metadata document gets its token. A Poppy-Session's delegati
 only PAP's ES256 or PS384: a client whose published keys allow neither can call `/mcp` with its
 bearer token alone, but a Session it sends is `invalid_session`.
 
+A client assertion's `aud` may be the issuer, the issuer with a final slash, or the store's token
+endpoint URL. PAP 1.0 §4.1 allows only the issuer; the owner chose on 2026-11-18 to accept the
+token endpoint too, because ChatGPT's MCP connector was refused without it
+([ADR-016](../knowledge/decisions/ADR-016-client-assertion-audience-for-mcp-clients.md)). An array
+is still refused. A client tricked by another authorization server into signing an assertion for
+this token endpoint can have it replayed here once, within its lifetime of at most 300 s.
+
 Shoppers open their own accounts with a password and may add passkeys; passkeys have been tried only
 with a software authenticator, not on a real device. An email address is never verified, and there
 is no password reset and no account deletion. Approving an agent needs a signed-in account, and the

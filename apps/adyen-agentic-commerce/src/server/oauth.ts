@@ -502,7 +502,36 @@ export async function verifyWithClientKeys(
   }
 }
 
-// private_key_jwt: aud must be the issuer identifier itself; lifetimes up to 300 s are accepted.
+// What a client assertion's aud may be (ADR-016): the issuer, with or without one final slash, or
+// the token endpoint, each exactly.
+function assertionAudiences() {
+  const iss = issuer();
+  return [iss, `${iss}/`, `${iss}/oauth/token`];
+}
+const AUDIENCE_NAMES = ["issuer", "issuer with slash", "token endpoint"];
+
+// Which accepted form a verified request's assertion used, for the trace: ADR-016 is revisited once
+// the form ChatGPT sends is known. Call it only after authenticateClient accepted the request.
+export function assertionAudienceUsed(form: URLSearchParams): string | undefined {
+  const assertion = form.get("client_assertion");
+  if (!assertion) return undefined;
+  try {
+    const at = assertionAudiences().indexOf(String(decodeJwt(assertion).aud));
+    return at < 0 ? undefined : AUDIENCE_NAMES[at];
+  } catch {
+    return undefined;
+  }
+}
+
+// The refused aud goes back to the client and into the public trace: RFC 6749 §5.2 allows only
+// printable ASCII without `"` or `\` in error_description, and the client chose the value.
+function shownAudience(aud: unknown) {
+  if (aud === undefined) return "no aud";
+  const text = Array.isArray(aud) ? `[${aud.map(String).join(", ")}]` : String(aud);
+  return text.replace(/[^\x20-\x7e]|["\\]/g, "?").slice(0, 200);
+}
+
+// private_key_jwt: aud is checked against assertionAudiences; lifetimes up to 300 s are accepted.
 async function authenticateClient(form: URLSearchParams): Promise<Client> {
   const assertion = form.get("client_assertion");
   const assertionType = form.get("client_assertion_type");
@@ -539,10 +568,16 @@ async function authenticateClient(form: URLSearchParams): Promise<Client> {
         401,
       );
     }
-    // PAP 1.0 §4.1 (draft-ietf-oauth-rfc7523bis): the issuer as one string; an endpoint URL or an
-    // array could name another Company's endpoint too.
-    if (payload.aud !== issuer())
-      throw new OAuthError("invalid_client", "aud must be the issuer, as a single string", 401);
+    // PAP 1.0 §4.1 (draft-ietf-oauth-rfc7523bis) allows only the issuer. ADR-016, owner decision
+    // 2026-11-18: the token endpoint URL too (RFC 7523 §3, OpenID Connect Core §9), which ChatGPT's
+    // MCP connector needs. Never an array: one could name another Company's endpoint as well.
+    if (typeof payload.aud !== "string" || !assertionAudiences().includes(payload.aud)) {
+      throw new OAuthError(
+        "invalid_client",
+        `aud must be the issuer or the token endpoint, as one string; got ${shownAudience(payload.aud)}`,
+        401,
+      );
+    }
     if (typeof payload.exp !== "number" || typeof payload.iat !== "number")
       throw new OAuthError("invalid_client", "iat and exp are required", 401);
     if (payload.exp - payload.iat > MAX_ASSERTION_LIFETIME) {

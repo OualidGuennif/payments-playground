@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-18
+
 - The agentic store accepts a client assertion signed with ES256, ES384, PS256, PS384, RS256 or
   EdDSA and says so in its OAuth metadata, so an MCP client known by its client metadata document,
   ChatGPT's among them, gets its token; a Session's delegation still takes only ES256 or PS384.

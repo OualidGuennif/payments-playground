@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's v0.5.3 review findings: a spend limit posted as anything but a number is
+  stored as no budget, `complete_checkout` answers its status and `agent_budget` from the grant as it
+  stands at the end of the request, and raising a limit from a stale account page opens the password
+  or passkey form instead of an error.
 - The agentic store's consent screen reads like a store's: the agent's name and initial, the
   account with its email masked, one warning line, each permission in words with a "Read only",
   "Can be undone" or "Can't be undone" pill and a "Personal data" mark, a budget with presets

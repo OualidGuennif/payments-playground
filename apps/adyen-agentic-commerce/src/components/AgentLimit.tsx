@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { accountView } from "@/server/api";
 import { type Confirm, StepUp } from "@/components/StepUp";
-import { type Answer, messageOf } from "@/lib/answer";
+import { type Answer, codeOf, messageOf } from "@/lib/answer";
 import { api } from "@/lib/client";
 import { money } from "@/lib/money";
 
@@ -35,6 +35,12 @@ export function AgentLimit({
     setBusy(true);
     try {
       const answer = await api().account.grants({ id: agent.id }).post(change);
+      // A limit read before another tab changed it can make a raise look like a lower one: the
+      // server then asks for the step-up, so the form opens instead of an error.
+      if (!change.confirm && codeOf(answer as Answer) === "confirmation_required") {
+        setConfirming(true);
+        return undefined;
+      }
       const failed = messageOf(answer as Answer, "The change could not be saved.");
       if (failed) return failed;
       const view = answer.data as unknown as View;

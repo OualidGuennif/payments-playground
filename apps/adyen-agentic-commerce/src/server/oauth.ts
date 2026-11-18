@@ -1134,8 +1134,16 @@ export function grants(customerId?: string): Grant[] {
     : findBy<Grant>("grants", "customerId", customerId);
 }
 
+// A limit that is not a number reads as no budget: NaN would compare false and never cap.
 export const limitOf = (amount: number) =>
-  Math.max(0, Math.min(Math.round(amount), SPEND_LIMIT_MAX));
+  Number.isFinite(amount) ? Math.max(0, Math.min(Math.round(amount), SPEND_LIMIT_MAX)) : 0;
+
+// The grant as it stands now, not as the token found it: a payment or the shopper may have changed
+// it since. A revoked grant gives no auth at all.
+export function liveAuth(auth: Auth | undefined): Auth | undefined {
+  const grant = auth ? get<Grant>("grants", auth.grant.id) : undefined;
+  return auth && grant && !grant.revoked ? { ...auth, grant } : undefined;
+}
 
 // The account changes only its own grants; the Back Office passes no customer. A disconnected
 // agent stays disconnected, so its limit no longer means anything and cannot change.

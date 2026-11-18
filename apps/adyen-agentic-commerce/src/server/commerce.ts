@@ -6,7 +6,7 @@ import { productById, variantById } from "./catalog";
 import { config, CURRENCY, paymentsConfigured } from "./config";
 import { type Customer, customerById } from "./customers";
 import { findBy, get, put } from "./db";
-import { allows, type Auth, chargeGrant, type Grant } from "./oauth";
+import { allows, type Auth, chargeGrant, liveAuth } from "./oauth";
 import { trace } from "./trace";
 import { isRecord, newId, sha256 } from "./util";
 
@@ -778,8 +778,7 @@ export async function completeCheckout(
     throw err(409, "checkout_canceled", "This checkout was canceled");
   // The grant as it stands now, not as the token found it: a complete on another checkout may have
   // reserved part of the budget during the await above, or the shopper may have revoked it.
-  const grant = auth ? get<Grant>("grants", auth.grant.id) : undefined;
-  const live = auth && grant && !grant.revoked ? { ...auth, grant } : undefined;
+  const live = liveAuth(auth);
   if (auth && !live) return checkout;
   const assessment = assess(checkout, live, cards);
   if (assessment.status !== "ready_for_complete") return checkout;

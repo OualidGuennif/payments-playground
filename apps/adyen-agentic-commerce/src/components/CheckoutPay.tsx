@@ -32,7 +32,7 @@ export function CheckoutPay({
         .checkouts({ id: view.id })
         ["session-result"].post({ sessionId, sessionResult });
       if (error || !data || "error" in data) {
-        setError("Adyen did not confirm the payment yet. Refresh in a moment.");
+        setError("Adyen has not confirmed the payment yet. Refresh in a moment.");
         return;
       }
       setView(data);
@@ -99,9 +99,9 @@ export function CheckoutPay({
       <section className="panel space-y-4">
         {view.order ? (
           <div className="space-y-3">
-            <h2 className="text-2xl">Thank you. Payment {view.order.status}.</h2>
+            <h2 className="text-2xl">Thank you, your order is in.</h2>
             <p className="text-sm text-muted">
-              Adyen PSP reference{" "}
+              Payment {view.order.status}. Adyen reference{" "}
               <span className="code">{view.order.pspReference ?? "pending"}</span>
             </p>
             <Link href={`/orders/${view.order.id}`} className="btn">
@@ -114,16 +114,18 @@ export function CheckoutPay({
           </p>
         ) : payable ? (
           <DropinPanel
-            label="Pay securely (Adyen TEST)"
+            label="Pay on Adyen TEST"
             createSession={createSession}
             onFinished={onFinished}
             redirect={redirect}
           />
         ) : (
           <p className="text-sm text-muted">
-            {view.paymentsReady
-              ? "This checkout cannot be paid in its current state."
-              : "Payments are not configured on this server."}
+            {!view.paymentsReady
+              ? "Payments are switched off on this server."
+              : view.status === "canceled"
+                ? "This checkout was canceled."
+                : "This checkout is missing details, so it can't be paid yet."}
           </p>
         )}
         {error ? (

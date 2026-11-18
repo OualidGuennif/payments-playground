@@ -11,7 +11,7 @@ export function MobileMenu({ children }: { children: ReactNode }) {
     if (menu.current && pathname) menu.current.open = false;
   }, [pathname]);
   return (
-    <details ref={menu} className="relative sm:hidden">
+    <details ref={menu} className="relative md:hidden">
       {children}
     </details>
   );

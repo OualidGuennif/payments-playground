@@ -1,268 +1,109 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
+import Link from "next/link";
+import { CopyButton } from "@/components/back-office/CopyButton";
 import { config } from "@/server/config";
-import { ADVERTISED_SCOPES, DEVICE_GRANT, SCOPES } from "@/server/oauth";
-import { HARD_GATES } from "@/server/ucp";
 
 // PUBLIC_ORIGIN is read per request so one image serves any origin.
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "For agents" };
+export const metadata = { title: "Connect an agent" };
 
-const CHANGES = {
-  none: "reads only",
-  reversible: "changes that can be undone",
-  irreversible: "changes that cannot be undone",
-} as const;
-
-const WEBMCP_TOOLS: [string, string][] = [
-  ["search_catalog", "products, prices, colours and sizes in stock (read-only)"],
-  ["view_cart", "the cart on this site (read-only)"],
-  ["add_to_cart", "a product in a colour and size"],
-  ["update_cart_item", "a line's quantity; 0 removes it"],
-  ["start_checkout", "opens the checkout page, where you pay yourself"],
-];
-
+// The shopper's page: three steps and the address to paste. How it works sits under /docs.
 export default function Agents() {
   const o = config().publicOrigin;
-  const rows: [string, string][] = [
-    ["MCP server", `${o}/mcp`],
-    ["PAP discovery", `${o}/.well-known/poppy.json`],
-    ["PAP tasks", `${o}/poppy/tasks`],
-    ["UCP profile", `${o}/.well-known/ucp`],
-    ["UCP REST", `${o}/ucp/v1`],
-    ["OpenAPI", `${o}/ucp/v1/openapi.json`],
-    ["Authorization server", `${o}/.well-known/oauth-authorization-server`],
-    ["Protected resource", `${o}/.well-known/oauth-protected-resource/mcp`],
-    ["Device sign-in", `${o}/device`],
-  ];
+  const mcp = `${o}/mcp`;
   return (
-    <div className="mx-auto max-w-3xl space-y-10">
-      <div className="max-w-[68ch] space-y-2">
-        <h1 className="text-3xl">Shop here with any AI agent</h1>
+    <div className="mx-auto max-w-3xl space-y-8">
+      <header className="max-w-[60ch] space-y-2">
+        <h1 className="text-3xl">Connect your AI agent</h1>
         <p className="text-muted">
-          Add <span className="code">{o}/mcp</span> as a remote MCP connector in your assistant. It
-          asks you to sign in to your account here, you choose what it may do and how much it may
-          spend, and it can then search, build a checkout and pay with your saved card. An agent may
-          also pay with its own one-time network token, signed in or not.
+          Let an assistant shop here for you, within a budget you choose. You can change the budget
+          or disconnect it from your account at any time.
         </p>
-      </div>
+      </header>
 
-      <section className="panel space-y-3">
-        <h2 className="text-xl">Endpoints</h2>
-        <dl className="space-y-2 text-sm">
-          {rows.map(([k, v]) => (
-            <div key={k} className="grid gap-1 sm:grid-cols-[12rem_1fr]">
-              <dt className="text-muted">{k}</dt>
-              <dd className="break-all">
-                <a className="underline" href={v}>
-                  {v}
-                </a>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      <section className="max-w-[68ch] space-y-3">
-        <h2 className="text-xl">What your MCP host needs</h2>
-        <ul className="list-disc space-y-2 pl-5 text-sm">
-          <li>
-            Remote MCP servers over Streamable HTTP. A host that only starts local (stdio) servers
-            cannot connect.
-          </li>
-          <li>
-            OAuth for MCP: on the first <span className="code">401</span> it reads{" "}
-            <span className="code">resource_metadata</span> from{" "}
-            <span className="code">WWW-Authenticate</span>, finds the authorization server, and
-            signs in with PKCE S256.
-          </li>
-          <li>
-            A sign-in callback your browser can reach: a loopback address or an https page of the
-            host. A host that runs elsewhere, such as a server or a terminal session, uses the
-            device sign-in below instead.
-          </li>
-          <li>
-            Tool results passed to the model, and links shown to you: when a payment needs you, the
-            answer carries a <span className="code">continue_url</span> to open.
-          </li>
-        </ul>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xl">Two kinds of clients</h2>
-        <div className="grid gap-4 text-sm md:grid-cols-2">
-          <div className="panel space-y-2">
-            <h3 className="font-medium">Any MCP client</h3>
-            <p className="text-muted">
-              Registers itself at <span className="code">/oauth/register</span> (RFC 7591) and gets
-              a public <span className="code">client_id</span>, with no secret. PKCE proves the
-              sign-in; the access token goes in each request.
-            </p>
-          </div>
-          <div className="panel space-y-2">
-            <h3 className="font-medium">A PAP 1.0 agent</h3>
-            <p className="text-muted">
-              Its <span className="code">client_id</span> is the URL of its metadata document. It
-              signs a client assertion with a key from its <span className="code">jwks_uri</span> (
-              <span className="code">private_key_jwt</span>) and can add a signed{" "}
-              <span className="code">Poppy-Session</span> to each call. With a valid Session it can
-              shop signed out over <span className="code">/mcp</span> too, as a guest; it reads the
-              tasks this store does not offer, and reports one it could not do, at{" "}
-              <span className="code">/poppy/tasks</span>.
-            </p>
-          </div>
+      <section className="panel space-y-3" aria-labelledby="mcp-url">
+        <h2 id="mcp-url" className="text-sm font-medium text-muted">
+          This store's MCP address
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="min-w-0 flex-1 break-all rounded-xl border border-line bg-paper px-3 py-2.5 font-mono text-sm">
+            {mcp}
+          </code>
+          <CopyButton text={mcp} label="Copy" />
         </div>
       </section>
 
-      <section className="max-w-[68ch] space-y-3">
-        <h2 className="text-xl">Device sign-in</h2>
-        <p className="text-sm text-muted">
-          For an agent whose sign-in page cannot call it back (RFC 8628). The client declares{" "}
-          <span className="code break-all">{DEVICE_GRANT}</span> in its{" "}
-          <span className="code">grant_types</span>. A client whose{" "}
-          <span className="code">client_id</span> is a URL must also sign its requests (
-          <span className="code">private_key_jwt</span>): with no callback on its host, nothing else
-          shows the request comes from it.
-        </p>
-        <ol className="list-decimal space-y-2 pl-5 text-sm">
-          <li>
-            The agent posts its <span className="code">client_id</span> and{" "}
-            <span className="code">scope</span> to{" "}
-            <span className="code">/oauth/device_authorization</span> and shows you an 8-letter code
-            and <span className="code">{o}/device</span>.
+      <ol className="grid gap-3 md:grid-cols-3">
+        {[
+          ["Add it", "Paste the address as a remote MCP connector in your assistant."],
+          [
+            "Allow it",
+            "The assistant opens this store's sign-in. You see what it asks for and set its budget.",
+          ],
+          [
+            "Ask it to shop",
+            "It searches, builds a checkout and pays with your saved card. Above the budget, it sends you a link to pay yourself.",
+          ],
+        ].map(([title, text], i) => (
+          <li key={title} className="panel space-y-2">
+            <span className="grid size-8 place-items-center rounded-full bg-ink text-sm font-semibold text-paper">
+              {i + 1}
+            </span>
+            <h2 className="font-medium">{title}</h2>
+            <p className="text-sm text-muted">{text}</p>
           </li>
-          <li>
-            You type the code there and see the usual consent page. Only enter a code your own agent
-            showed you.
-          </li>
-          <li>
-            Meanwhile the agent asks <span className="code">/oauth/token</span> every 5 seconds. It
-            hears <span className="code">authorization_pending</span> until you answer,{" "}
-            <span className="code">slow_down</span> if it asks faster, then gets its tokens once, or{" "}
-            <span className="code">access_denied</span>. The code lasts 10 minutes.
-          </li>
-        </ol>
+        ))}
+      </ol>
+
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="panel space-y-2">
+          <h2 className="text-lg">ChatGPT</h2>
+          <p className="text-sm text-muted">
+            Add a custom connector with the address above. ChatGPT opens this store's sign-in the
+            first time it uses it. Tested on 2026-11-18: it signed in and bought an item.
+          </p>
+        </div>
+        <div className="panel space-y-2">
+          <h2 className="text-lg">Other assistants</h2>
+          <p className="text-sm text-muted">
+            Any host that connects to remote MCP servers over Streamable HTTP and signs in with
+            OAuth works the same way.{" "}
+            <Link href="/docs/mcp" className="underline">
+              What it needs
+            </Link>
+          </p>
+        </div>
+        <div className="panel space-y-2">
+          <h2 className="text-lg">An agent showed you a code</h2>
+          <p className="text-sm text-muted">
+            Agents without a browser, in a terminal or on a server, show an 8-letter code. Enter it
+            at{" "}
+            <Link href="/device" className="underline">
+              {o}/device
+            </Link>
+            .
+          </p>
+        </div>
+        <div className="panel space-y-2">
+          <h2 className="text-lg">An agent in your browser</h2>
+          <p className="text-sm text-muted">
+            With WebMCP, an agent built into your browser can search and fill your cart here. You
+            still pay yourself.{" "}
+            <Link href="/docs/webmcp" className="underline">
+              How it works
+            </Link>
+          </p>
+        </div>
       </section>
 
-      <section className="max-w-[68ch] space-y-3">
-        <h2 className="text-xl">How a purchase works</h2>
-        <ol className="list-decimal space-y-2 pl-5 text-sm">
-          <li>
-            Search with <span className="code">search_catalog</span> and pick variant ids (colour
-            and size).
-          </li>
-          <li>
-            <span className="code">create_checkout</span> with line items. The store prices
-            everything; amounts are EUR minor units.
-          </li>
-          <li>
-            If the status is <span className="code">ready_for_complete</span>, call{" "}
-            <span className="code">complete_checkout</span> with the instrument from{" "}
-            <span className="code">checkout.payment.instruments</span>. The merchant charges the
-            saved card on Adyen TEST (ContAuth, UnscheduledCardOnFile). Or send your own network
-            token with the <span className="code">network_token</span> handler below.
-          </li>
-          <li>
-            If the status is <span className="code">requires_escalation</span>, give the shopper{" "}
-            <span className="code">continue_url</span>: they review and pay with Drop-in.
-          </li>
-          <li>
-            <span className="code">get_order</span> reads the orders the agent placed, and needs a
-            token with <span className="code">{HARD_GATES.join(", ")}</span>.
-          </li>
-        </ol>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xl">Scopes</h2>
-        <ul className="space-y-2 text-sm">
-          {ADVERTISED_SCOPES.map((s) => (
-            <li key={s} className="rounded-xl border border-line p-3">
-              <p>{SCOPES[s].label}</p>
-              <p className="mt-1 text-xs text-muted">
-                <span className="code break-all">{s}</span> · {CHANGES[SCOPES[s].changes]}
-                {SCOPES[s].personalData ? " · personal data" : ""}
-              </p>
-            </li>
-          ))}
-        </ul>
-        <p className="max-w-[68ch] text-sm text-muted">
-          <span className="code">/mcp</span> needs a token, or a PAP agent&apos;s valid Session.
-          Over REST, the catalogue, carts and checkouts also work without one; a token that is sent
-          must carry the operation&apos;s scope, or the answer is 403 with the scope to ask for. The
-          earlier names <span className="code">ucp:checkout</span> and{" "}
-          <span className="code">ucp:orders</span> are still accepted.
-        </p>
-        <p className="max-w-[68ch] text-sm text-muted">
-          A PAP agent names the scopes it asks for in every sign-in request, or gets{" "}
-          <span className="code">invalid_scope</span>. Any other MCP client that names none is
-          offered the cart, checkout and pay scopes.
-        </p>
-      </section>
-
-      <section className="max-w-[68ch] space-y-3">
-        <h2 className="text-xl">An agent in your browser</h2>
-        <p className="text-sm text-muted">
-          In a browser with WebMCP (Chrome&apos;s origin trial, or{" "}
-          <span className="code break-all">chrome://flags/#enable-webmcp-testing</span>), the shop
-          pages offer an agent five tools. They use your cart on this site, as the buttons do.
-        </p>
-        <ul className="space-y-1 text-sm">
-          {WEBMCP_TOOLS.map(([name, what]) => (
-            <li key={name}>
-              <span className="code">{name}</span> <span className="text-muted">{what}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="text-sm text-muted">
-          No tool pays: you pay on the checkout page. Your account, consent, device and Back Office
-          pages offer none. This does not replace <span className="code">/mcp</span>, which works as
-          above.
-        </p>
-      </section>
-
-      <section id="saved-card-handler" className="panel space-y-2 text-sm">
-        <h2 className="text-xl">
-          Payment handler <span className="code">saved_card</span>
-        </h2>
-        <p className="max-w-[68ch]">
-          Declared under <span className="code">com.payments-playground.saved_card</span> in the UCP
-          profile. Instruments are aliases of the cards saved with Adyen by the account that
-          approved the agent (its own shopper reference); the raw Adyen token never leaves the
-          merchant. It needs the <span className="code">ucp:pay</span> scope and a total within the
-          grant&apos;s remaining spend limit. Adyen&apos;s own UCP tokenizer can replace it once the
-          account has the role.
-        </p>
-        <p className="max-w-[68ch]">
-          A signed-in agent&apos;s checkout carries <span className="code">agent_budget</span>:{" "}
-          <span className="code">spend_limit</span>, <span className="code">spent</span>,{" "}
-          <span className="code">remaining</span> and <span className="code">manage_url</span>. Over
-          the limit the checkout is <span className="code">requires_escalation</span>: the shopper
-          pays at <span className="code">continue_url</span>, or raises the limit on their account
-          page at <span className="code">manage_url</span>, confirming with their password or a
-          passkey, and the agent completes again on the same sign-in.
-        </p>
-      </section>
-
-      <section id="network-token-handler" className="panel space-y-2 text-sm">
-        <h2 className="text-xl">
-          Payment handler <span className="code">network_token</span>
-        </h2>
-        <p className="max-w-[68ch]">
-          Declared under <span className="code">com.payments-playground.network_token</span>, schema{" "}
-          <span className="code">/ucp/v1/handlers/network_token.json</span>. The credential is the
-          token&apos;s number and its expiry month and year, with an optional holder name: no
-          cryptogram, no CVC and no brand. The store asks Adyen for the brand (
-          <span className="code">/cardDetails</span>), then pays once as a{" "}
-          <span className="code">networkToken</span> payment, merchant-initiated (
-          <span className="code">ContAuth</span>,{" "}
-          <span className="code">UnscheduledCardOnFile</span>
-          ), and never stores, logs or returns it. A guest agent may use it; a signed-in agent stays
-          within its grant&apos;s limit. An agent may also complete with no instrument: the checkout
-          is handed to the shopper, who pays at <span className="code">continue_url</span>. Adyen
-          must enable network-token payments on the merchant account.
-        </p>
-      </section>
+      <p className="text-sm text-muted">
+        Building an agent? The{" "}
+        <Link href="/docs" className="underline">
+          Docs
+        </Link>{" "}
+        walk through PAP 1.0, MCP, UCP and the Adyen calls, message by message, with every endpoint.
+      </p>
     </div>
   );
 }

@@ -7,14 +7,14 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T15:28:00Z
+  at: 2026-11-18T18:30:00Z
 verified:
   - at: 2026-11-18
-    check: "bun run check green, 353 agentic tests (8 agent budget tests fail before v0.5.3). Localhost browser from an #agent- link: sign-in kept it; EUR 150 to 220 asked the password, refused a wrong one; lowering asked nothing; 375 px. Passkey step-up: software authenticator only."
+    check: "v0.6.0 on task/front-v060: bun run check green, 374 agentic tests (NaN limit and stale-grant complete fail before). Localhost browser: consent, account, Back Office, Docs at 375 and 1440 px, light and dark; no page-wide scroll at 375 px; a stale account limit opened the step-up form."
+  - at: 2026-11-18
+    check: "bun run check green, 354 agentic tests (8 agent budget tests fail before v0.5.3). Localhost browser from an #agent- link: sign-in kept it; EUR 150 to 220 asked the password, refused a wrong one; lowering asked nothing; 375 px. Passkey step-up: software authenticator only."
   - at: 2026-11-18
     check: "bun run check green, 333 agentic tests (refresh keeps the grant, device grant too; address guard, profile host too; MCP 401/403/429, signed-out MCP, sign-out, loopback ports, jti, tasks). Local pap-agent.ts --auto-consent handed the checkout over; consent, /agents at 375 px."
-  - at: 2026-11-17
-    check: "Local run on Adyen TEST: a guest agent over UCP REST paid with 4111111111111111 and an expiry only, Authorised (PFZ9SDVTLGKLJJV5, brand visa from /cardDetails, ContAuth, UnscheduledCardOnFile); no instrument gave requires_escalation; the number nowhere in the Back Office."
 sources:
   - id: app
     resource: ../../apps/adyen-agentic-commerce
@@ -74,8 +74,11 @@ before, every deploy or restart emptied orders, agents and grants.
 - **Shopper (browser):** catalogue filters, variant choice, cart edits, shipping details, Drop-in
   (Sessions flow), consent decisions, spend limit, agent revocation, card save (zero-value auth).
   A guest buys without an account; consent, device approval, the account and card save need one.
-  The consent page, where both sign-in flows end, tells the shopper to continue only if they just
-  asked this agent to connect (PAP 1.0 §10.8: a link or code can be sent by someone else).
+  The consent page, where both sign-in flows end, tells the shopper in one sentence to allow only
+  if they just asked this agent to connect (PAP 1.0 §10.8: a link or code can be sent by someone
+  else). It is a short e-commerce screen: the agent's name, the account (email masked), one line
+  per permission, a budget with presets (50, 150, 300, 1000 EUR) and a free amount, Allow and Deny;
+  the client's host and where the browser returns sit in a folded "Details".
 - **Customer account (browser):** sign-up `POST /api/customers` (email, name, a password of 12 to
   128 characters), sign-in `POST /api/session` (email and password), sign-out `DELETE
   /api/session`; passkeys: `POST /api/passkeys/register/options` and `/register/verify` while
@@ -167,7 +170,9 @@ before, every deploy or restart emptied orders, agents and grants.
   | `dev.ucp.shopping.order:read`      | read the orders it placed for the account             | none         | yes           |
   | `profile`                          | read the account's name and email                     | none         | yes           |
 
-  The consent page shows each line above; `poppy.json` and the OpenAPI flows add, for agents,
+  The consent page shows each line above in words: the label, a pill for the change ("Read only",
+  "Can be undone", "Can't be undone") and a mark when the agent sees personal data, never the scope
+  name; `poppy.json` and the OpenAPI flows add, for agents,
   whether the task works without the scope (PAP 1.0 §4.7): guest carts and checkouts need none,
   and a network token or the shopper at `continue_url` pays without `ucp:pay`.
   The earlier names stay accepted, never advertised: `ucp:checkout` stands for the cart and
@@ -247,11 +252,15 @@ before, every deploy or restart emptied orders, agents and grants.
   signed-in agent over its limit gets `requires_escalation`, and the shopper pays or approves at
   `continue_url`; the `spend_limit_exceeded` message also names `manage_url`. A signed-in agent's
   checkout carries `agent_budget` {`spend_limit`, `spent`, `remaining`, `manage_url`}, read from
-  the grant when the answer is built; `manage_url` is `/account#agent-<grant id>`, which opens the
+  the grant when the answer is built; `complete_checkout` judges and renders its status from that
+  same re-read grant, so the status and `agent_budget` agree when the limit changed during the
+  request; `manage_url` is `/account#agent-<grant id>`, which opens the
   account page on that agent. Only the account's signed-in shopper changes the limit there, from 0
-  to 1000 EUR as at consent; raising it needs the account password or one of its passkeys again
+  to 1000 EUR as at consent (a value that is not a number is stored as 0); raising it needs the account password or one of its passkeys again
   (owner, 2026-11-18), lowering it or disconnecting does not, and a disconnected agent's limit no
-  longer changes (409). Adding a passkey needs the same proof, since a passkey can confirm a raise.
+  longer changes (409). A change the account page took for a lowering, on a limit read before
+  another tab changed it, gets `confirmation_required` and opens the same password or passkey form.
+  Adding a passkey needs the same proof, since a passkey can confirm a raise.
   The cap applies when a limit is written: a limit set above 1000 EUR before v0.5.3 stays until the
   shopper changes it. The change applies to the agent's next payment attempt on the same grant,
   keeps what was spent and needs no new sign-in; a payment the shopper makes at `continue_url`
@@ -266,10 +275,36 @@ before, every deploy or restart emptied orders, agents and grants.
   account (`customerId`) when there is one, and for an agent the client; records made before
   v0.4.0 read as `agent` when an agent made them, else `web`. UCP and MCP never reach a `web`
   checkout (404), one made by the shopper's browser before v0.4.0 included, and an agent reads a cart, checkout or order only for its own client and account.
-- **Back Office:** orders (filterable by channel), their checkout, every protocol exchange
-  (secrets redacted), Adyen `pspReference`, result code, webhooks.
-- **Account:** the signed-in customer's saved cards, passkeys, agents (the grants approved from
-  this account) and orders from both channels, each with its channel. Each connected agent shows
+- **Back Office:** `/back-office` with tabs in the URL (`?tab=`): Overview (counts of orders,
+  payments Authorised and refused, connected agents, webhooks, the last server error (5xx), the
+  latest ten events), Orders, Payments, Agents (every grant: agent, account, permissions in words, limit,
+  spent, remaining, state, last use), Log and Webhooks. Lists are pages of 25 (`?page=`, Log also
+  50 or 100 with `?per=`) with a pager; a page past the last shows the last, anything not a
+  positive integer reads as 1. Log filters: channel, actor, status class (`2xx`, `4xx`, `5xx`),
+  path text and reference; each entry opens its redacted detail. An order opens its timeline: the
+  trace entries that name it, its checkout or its payments, oldest first. Because the Back Office is public when
+  the playground's basic auth is unset (as on Render), every email in it is masked (first letter,
+  `•••`, domain). `GET /api/back-office` keeps its fields and takes `page`, `per`, the same filters
+  and `channel`; its `trace` is the requested page, with `trace_total` and `trace_pages`.
+- **Docs:** `/docs` explains, with diagrams drawn in SVG from the theme's tokens, how an agent
+  finds and uses the store: PAP 1.0 (`/docs/poppy`), MCP (`/docs/mcp`), WebMCP (`/docs/webmcp`),
+  UCP (`/docs/ucp`) and the Adyen calls (`/docs/adyen`). Each sequence diagram steps through its
+  messages with Next and Back and has the same steps as text. A "Try it" panel reads, from the
+  visitor's browser, only public documents of this origin (`/.well-known/poppy.json`,
+  `/.well-known/ucp`, `/.well-known/oauth-authorization-server`, MCP `tools/list`); nothing it
+  sends pays, signs in or changes state (MCP `tools/list` is a `POST`, sent without cookies, so it
+  shows the `401` challenge an agent first meets). Each page links to the Back Office log filtered
+  on its channels. The UCP profile's `saved_card` and `network_token` handlers point their `spec`
+  at `/docs/ucp#saved-card-handler` and `#network-token-handler`. `/agents` is a short "Connect
+  your AI agent" page for shoppers: the MCP address with a copy button, three steps, ChatGPT (the
+  one client tested end to end), other MCP hosts, the device code and WebMCP, linking to the Docs.
+- **Account:** the header shows "Sign in" to a visitor and, to a signed-in customer, a button with
+  their initial that opens Orders, Agents, Payment methods, Security and Sign out (the same items
+  in the phone menu). `/account` has those sections with a section bar: an overview (connected
+  agents, budget left across them, saved cards, last order), agents, orders (pages of 10), saved
+  cards and security (passkeys, sign-out). It shows the signed-in customer's saved cards, passkeys,
+  agents (the grants approved from this account) and orders from both channels, each with its
+  channel. Each connected agent shows
   where it stands (`src/lib/agent-status.ts`): consent given, access issued, connected (first and
   last authenticated request, in UTC), or disconnected. A consent alone never reads as connected.
   Each agent shows its limit, what it spent and what remains, and sits at `#agent-<grant id>`,
@@ -460,7 +495,19 @@ before, every deploy or restart emptied orders, agents and grants.
     agent; a session alone cannot add a passkey either (`src/server/customers.test.ts`, "a session
     alone cannot add a passkey"); the trace names how a raise was confirmed; the new limit binds the next payment on the
     same grant, what was spent stays, and the answer's `agent_budget` shows the spend after its
-    own charge (`src/server/network-token.test.ts`, "agent budget").
+    own charge; a limit posted as NaN is stored as 0, and `complete_checkout` on a token checked
+    before the limit was lowered answers `requires_escalation` with the lowered `agent_budget`
+    (`src/server/network-token.test.ts`, "agent budget").
+25. The Back Office pages every list on the server: page and size come only from `page` (a
+    positive integer, else 1, past the last page the last) and `per` (25, 50 or 100, else 25);
+    filters narrow the count and the page together; no email appears unmasked in its HTML or in
+    `GET /api/back-office` (`src/server/back-office.test.ts`).
+26. The consent page names each requested permission in words with its change pill and personal
+    data mark, never a scope name, keeps the one-sentence warning, and sends `spend_limit_eur` 0
+    when `ucp:pay` is not asked (`src/components/ConsentForm.test.tsx`).
+27. The Docs pages render on the server with every diagram's steps as text, and their Try it
+    panels send only a `GET` of this origin's public documents or a `POST` of MCP `tools/list` to
+    this origin's `/mcp` (`src/components/docs/docs.test.tsx`).
 
 ## Determinism
 

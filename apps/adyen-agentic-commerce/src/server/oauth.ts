@@ -27,7 +27,9 @@ const SCOPE_NAMES = [
 export type Scope = (typeof SCOPE_NAMES)[number];
 
 type ScopeInfo = {
-  // The consent page's and the account page's line.
+  // What the consent page and the account page show the shopper.
+  short: string;
+  // The longer line agents read in poppy.json and the OpenAPI flows.
   label: string;
   // For agents only (PAP 1.0 §4.7): whether the task works without the scope.
   withoutIt: string;
@@ -42,18 +44,21 @@ type ScopeInfo = {
 // can change their delivery details; a cart holds only what the agent itself sends.
 export const SCOPES: Record<Scope, ScopeInfo> = {
   "dev.ucp.shopping.cart:manage": {
+    short: "Fill and edit your cart",
     label: "Create, update and cancel carts for you",
     withoutIt: "Signed out, an agent can still build a guest cart.",
     changes: "reversible",
     personalData: false,
   },
   "dev.ucp.shopping.checkout:manage": {
+    short: "Check out with your delivery address",
     label: "Create, update and cancel checkouts for you, with your delivery details",
     withoutIt: "Signed out, an agent can still check out as a guest.",
     changes: "reversible",
     personalData: true,
   },
   "ucp:pay": {
+    short: "Pay with your saved card, up to your budget",
     label: "Pay with your saved card, within the spend limit you set",
     withoutIt:
       "Only the saved card needs it: an agent's own network token, or the shopper at continue_url, pays without it.",
@@ -61,18 +66,21 @@ export const SCOPES: Record<Scope, ScopeInfo> = {
     personalData: true,
   },
   "dev.ucp.shopping.order:read": {
+    short: "See the orders it placed",
     label: "Read the orders it placed for you",
     withoutIt: "Every order read needs it.",
     changes: "none",
     personalData: true,
   },
   profile: {
+    short: "See your name and email",
     label: "Read your name and email address",
     withoutIt: "Shopping works without it; orders then show no buyer.",
     changes: "none",
     personalData: true,
   },
   "ucp:checkout": {
+    short: "Fill your cart and check out with your delivery address",
     label: "Create, update and cancel carts and checkouts for you, with your delivery details",
     withoutIt: "Signed out, an agent can still use guest carts and checkouts.",
     changes: "reversible",
@@ -80,6 +88,7 @@ export const SCOPES: Record<Scope, ScopeInfo> = {
     standsFor: ["dev.ucp.shopping.cart:manage", "dev.ucp.shopping.checkout:manage"],
   },
   "ucp:orders": {
+    short: "See the orders it placed",
     label: "Read the orders it placed for you",
     withoutIt: "Every order read needs it.",
     changes: "none",
@@ -1125,8 +1134,16 @@ export function grants(customerId?: string): Grant[] {
     : findBy<Grant>("grants", "customerId", customerId);
 }
 
+// A limit that is not a number reads as no budget: NaN would compare false and never cap.
 export const limitOf = (amount: number) =>
-  Math.max(0, Math.min(Math.round(amount), SPEND_LIMIT_MAX));
+  Number.isFinite(amount) ? Math.max(0, Math.min(Math.round(amount), SPEND_LIMIT_MAX)) : 0;
+
+// The grant as it stands now, not as the token found it: a payment or the shopper may have changed
+// it since. A revoked grant gives no auth at all.
+export function liveAuth(auth: Auth | undefined): Auth | undefined {
+  const grant = auth ? get<Grant>("grants", auth.grant.id) : undefined;
+  return auth && grant && !grant.revoked ? { ...auth, grant } : undefined;
+}
 
 // The account changes only its own grants; the Back Office passes no customer. A disconnected
 // agent stays disconnected, so its limit no longer means anything and cannot change.

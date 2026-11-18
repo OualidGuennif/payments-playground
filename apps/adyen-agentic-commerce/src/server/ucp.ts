@@ -12,7 +12,7 @@ import * as commerce from "./commerce";
 import { config, CURRENCY, UCP_VERSION } from "./config";
 import { customerById } from "./customers";
 import { get } from "./db";
-import { type Auth, allows, type Grant, type Scope, SCOPES } from "./oauth";
+import { type Auth, allows, type Grant, liveAuth, type Scope, SCOPES } from "./oauth";
 import { isRecord } from "./util";
 
 const SPEC = `https://ucp.dev/${UCP_VERSION}`;
@@ -26,7 +26,7 @@ export function paymentHandler() {
   return {
     id: HANDLER_ID,
     version: UCP_VERSION,
-    spec: `${origin}/agents#saved-card-handler`,
+    spec: `${origin}/docs/ucp#saved-card-handler`,
     schema: `${origin}/ucp/v1/handlers/saved_card.json`,
     available_instruments: [{ type: "card" }],
     config: { environment: "test", required_scope: "ucp:pay", credential_type: "saved_card_alias" },
@@ -40,7 +40,7 @@ export function networkTokenHandler() {
   return {
     id: NETWORK_TOKEN_ID,
     version: UCP_VERSION,
-    spec: `${origin}/agents#network-token-handler`,
+    spec: `${origin}/docs/ucp#network-token-handler`,
     schema: `${origin}/ucp/v1/handlers/network_token.json`,
     available_instruments: [{ type: "card" }],
     config: { environment: "test", credential_type: "network_token", single_use: true },
@@ -797,13 +797,10 @@ const HANDLERS: Record<string, Operation> = {
   },
   complete_checkout: async (args, ctx) => {
     const checkout = commerce.loadCheckout(idOf(args), ctx.auth);
-    return {
-      status: 200,
-      body: await renderCheckout(
-        await commerce.completeCheckout(checkout, part(args, "checkout"), ctx.auth),
-        ctx.auth,
-      ),
-    };
+    const done = await commerce.completeCheckout(checkout, part(args, "checkout"), ctx.auth);
+    // Rendered from the grant the completion judged by, so the status and agent_budget agree when
+    // the shopper changed the limit during the request.
+    return { status: 200, body: await renderCheckout(done, liveAuth(ctx.auth) ?? ctx.auth) };
   },
   cancel_checkout: async (args, ctx) => {
     return {

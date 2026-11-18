@@ -25,7 +25,7 @@ export function SignInForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: 
     const answer = signUp
       ? await api().customers.post({ email, password, name: String(form.get("name") ?? "") })
       : await api().session.post({ email, password });
-    const failed = messageOf(answer as Answer, "Something went wrong; try again.");
+    const failed = messageOf(answer as Answer, "Something went wrong. Try again.");
     setBusy(false);
     if (failed) setError(failed);
     else done();

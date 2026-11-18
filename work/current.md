@@ -5,6 +5,16 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
+## v0.6.0: agentic front rework (consent, account, Back Office, Docs) — ACTIVE
+
+- Owner decision: 2026-11-18, in chat: approved the larger plan; "Oui, release v0.6.0" after the
+  screenshots, once v0.5.3 shipped.
+- State: merged into develop with the v0.5.3 review fixes and the copy pass; check green before
+  the merge (374 agentic tests); 375 and 1440 px, light and dark, checked locally.
+- Next: release bump, review, push, PR, merge after green CI, deploy check (who: agent).
+- Blocker: none.
+- Evidence: commits 95cb565..91042d3; screenshots sent 2026-11-18.
+
 ## Passkeys on v0.4.0: owner browser check — WAITING-OWNER
 
 - Owner decision: 2026-11-17, ADR-015 approved; agents choose freely between saved card, front

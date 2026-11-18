@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { accountView } from "@/server/api";
 import { type Confirm, StepUp } from "@/components/StepUp";
-import { type Answer, messageOf } from "@/lib/answer";
+import { type Answer, codeOf, messageOf } from "@/lib/answer";
 import { api } from "@/lib/client";
 import { money } from "@/lib/money";
 
@@ -35,6 +35,12 @@ export function AgentLimit({
     setBusy(true);
     try {
       const answer = await api().account.grants({ id: agent.id }).post(change);
+      // A limit read before another tab changed it can make a raise look like a lower one: the
+      // server then asks for the step-up, so the form opens instead of an error.
+      if (!change.confirm && codeOf(answer as Answer) === "confirmation_required") {
+        setConfirming(true);
+        return undefined;
+      }
       const failed = messageOf(answer as Answer, "The change could not be saved.");
       if (failed) return failed;
       const view = answer.data as unknown as View;
@@ -55,15 +61,25 @@ export function AgentLimit({
     else setError(await send({ spendLimit: wanted }));
   }
 
+  const used = agent.spendLimit > 0 ? Math.min(100, (agent.spent / agent.spendLimit) * 100) : 0;
   return (
     <div className="space-y-2">
-      <p className="text-xs">
-        Spent {money(agent.spent)} of {money(agent.spendLimit)}.{" "}
-        <strong className="font-medium">
-          {money(Math.max(agent.spendLimit - agent.spent, 0))} left
-        </strong>
-        .
-      </p>
+      <div className="flex items-baseline justify-between gap-2 text-xs">
+        <span className="text-sm font-medium tabular-nums">{money(agent.remaining)} left</span>
+        <span className="text-muted tabular-nums">
+          {money(agent.spent)} of {money(agent.spendLimit)} spent
+        </span>
+      </div>
+      {/* Sized by SVG attributes: the site has no inline styles. */}
+      <svg
+        viewBox="0 0 100 4"
+        preserveAspectRatio="none"
+        className="h-1.5 w-full overflow-hidden rounded-full"
+        aria-hidden="true"
+      >
+        <rect width="100" height="4" className="fill-line" />
+        <rect width={used} height="4" className={used >= 90 ? "fill-warn" : "fill-accent"} />
+      </svg>
       {agent.revoked ? null : (
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs">

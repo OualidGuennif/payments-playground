@@ -19,14 +19,28 @@ export default async function Device({
 }) {
   const { user_code = "", error, done } = await searchParams;
   if (done === "approved" || done === "denied") {
+    const approved = done === "approved";
     return (
-      <div className="panel mx-auto max-w-lg space-y-3" role="status">
-        <h1 className="text-2xl">{done === "approved" ? "Agent connected" : "Request declined"}</h1>
+      <div className="panel mx-auto max-w-md space-y-3 text-center" role="status">
+        <p
+          aria-hidden="true"
+          className={`mx-auto grid size-14 place-items-center rounded-2xl border-2 text-2xl ${
+            approved ? "border-ok text-ok" : "border-line text-muted"
+          }`}
+        >
+          {approved ? "✓" : "✕"}
+        </p>
+        <h1 className="text-xl">{approved ? "Agent connected" : "Request declined"}</h1>
         <p className="text-sm text-muted">
-          {done === "approved"
-            ? "Go back to your agent: it gets access on its own within a few seconds. You can change its limit or disconnect it from your account at any time."
+          {approved
+            ? "Go back to your agent. It gets access on its own within a few seconds."
             : "Your agent gets no access. You can close this page."}
         </p>
+        {approved ? (
+          <a href="/account#agents" className="btn-ghost">
+            Manage your agents
+          </a>
+        ) : null}
       </div>
     );
   }
@@ -35,22 +49,19 @@ export default async function Device({
   await requireCustomer(typed ? `/device?user_code=${typed}` : "/device");
   const message = error ? (ERRORS[error] ?? ERRORS.invalid_code) : undefined;
   return (
-    <form method="post" action="/oauth/device/verify" className="panel mx-auto max-w-lg space-y-5">
-      <div className="space-y-2">
-        <h1 className="text-2xl">Connect an agent with a code</h1>
-        <p className="text-sm text-muted">
-          Type the 8-letter code your AI agent showed you. Next you will see what it asks to do, and
-          you can allow or decline.
-        </p>
+    <form method="post" action="/oauth/device/verify" className="panel mx-auto max-w-md space-y-6">
+      <div className="space-y-1">
+        <h1 className="text-xl">Connect your agent</h1>
+        <p className="text-sm text-muted">Type the code your agent showed you.</p>
       </div>
       <div className="space-y-1">
-        <label htmlFor="user_code" className="block text-xs font-medium text-muted">
+        <label htmlFor="user_code" className="block text-sm font-medium">
           Code
         </label>
         <input
           id="user_code"
           name="user_code"
-          defaultValue={user_code.replace(/[^A-Za-z-]/g, "").slice(0, 12)}
+          defaultValue={typed}
           placeholder="BCDF-GHJK"
           autoComplete="one-time-code"
           autoCapitalize="characters"
@@ -58,7 +69,7 @@ export default async function Device({
           required
           maxLength={12}
           aria-describedby={message ? "code-error code-warning" : "code-warning"}
-          className="field font-mono text-lg tracking-widest uppercase"
+          className="field text-center font-mono text-xl tracking-[0.3em] uppercase"
         />
       </div>
       {message ? (
@@ -66,9 +77,9 @@ export default async function Device({
           {message}
         </p>
       ) : null}
-      <p id="code-warning" className="text-xs text-muted">
-        Only enter a code that your own agent showed you. A code sent by someone else would connect
-        their agent to your account.
+      {/* A code someone else sent would connect their agent to this account (PAP 1.0 §10.8). */}
+      <p id="code-warning" className="rounded-xl border border-warn px-3 py-2 text-sm">
+        Only enter a code your own agent just showed you.
       </p>
       <button type="submit" className="btn w-full">
         Continue

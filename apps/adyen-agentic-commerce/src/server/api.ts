@@ -5,6 +5,7 @@ import { Elysia, status } from "elysia";
 import { accountApi, customerOf, sessionLimit } from "./account-api";
 import { productSvg } from "./art";
 import * as adyen from "./adyen";
+import * as backOffice from "./back-office";
 import { productById, searchProducts, variantById, variantsOf } from "./catalog";
 import * as commerce from "./commerce";
 import { config, paymentsConfigured, UCP_VERSION } from "./config";
@@ -14,10 +15,11 @@ import * as oauth from "./oauth";
 import { poppyDocument } from "./pap";
 import { clientIp, handleMcp, handleRest, rateLimited } from "./protocol";
 import { handleFeedback, handleTasks } from "./tasks";
-import { recentTrace, trace } from "./trace";
+import { trace } from "./trace";
 import { handlerSchema, networkTokenSchema, profile } from "./ucp";
 import { openApi } from "./openapi";
 import { isRecord, json, published, safeEqual } from "./util";
+import { maskEmails } from "../lib/mask";
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -183,6 +185,7 @@ const browserApi = new Elysia({ prefix: "/api" })
       return status(401, { error: "Back Office sign-in required" });
     return backOfficeView(
       query.channel === "web" || query.channel === "agent" ? query.channel : undefined,
+      query,
     );
   })
   .post("/webhooks/adyen", async ({ request }) => {
@@ -263,10 +266,18 @@ export function checkoutView(checkout: commerce.Checkout, viewer?: Customer) {
 
 export { accountView } from "./account-api";
 
-export function backOfficeView(channel?: commerce.Channel) {
+// The JSON view keeps its fields; its trace is one page of the Log, with the same filters, and
+// every email in it is masked (the Back Office is public without the playground's basic auth).
+export function backOfficeView(channel?: commerce.Channel, query: Record<string, unknown> = {}) {
   const keep = (record: Parameters<typeof commerce.channelOf>[0]) =>
     !channel || commerce.channelOf(record) === channel;
-  return {
+  const filters = backOffice.logFilters(query);
+  const log = backOffice.tracePage(
+    filters,
+    backOffice.pageParam(query.page),
+    backOffice.perParam(query.per),
+  );
+  return maskEmails({
     channel: channel ?? "all",
     orders: list<commerce.Order>("orders", 100)
       .filter(keep)
@@ -287,8 +298,13 @@ export function backOfficeView(channel?: commerce.Channel) {
         orderId: c.orderId,
         createdAt: c.createdAt,
       })),
-    trace: recentTrace(200),
-  };
+    trace: log.items,
+    page: log.page,
+    per: log.per,
+    filters,
+    trace_total: log.total,
+    trace_pages: log.pages,
+  });
 }
 
 const app = new Elysia()

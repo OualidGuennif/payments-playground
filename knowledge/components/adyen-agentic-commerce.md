@@ -288,8 +288,12 @@ before, every deploy or restart emptied orders, agents and grants.
   messages with Next and Back and has the same steps as text. A "Try it" panel reads, from the
   visitor's browser, only public documents of this origin (`/.well-known/poppy.json`,
   `/.well-known/ucp`, `/.well-known/oauth-authorization-server`, MCP `tools/list`); nothing it
-  sends pays, signs in or changes state (MCP `tools/list` is a `POST`). Each page links to the Back Office log filtered on its
-  channel.
+  sends pays, signs in or changes state (MCP `tools/list` is a `POST`, sent without cookies, so it
+  shows the `401` challenge an agent first meets). Each page links to the Back Office log filtered
+  on its channels. The UCP profile's `saved_card` and `network_token` handlers point their `spec`
+  at `/docs/ucp#saved-card-handler` and `#network-token-handler`. `/agents` is a short "Connect
+  your AI agent" page for shoppers: the MCP address with a copy button, three steps, ChatGPT (the
+  one client tested end to end), other MCP hosts, the device code and WebMCP, linking to the Docs.
 - **Account:** the header shows "Sign in" to a visitor and, to a signed-in customer, a button with
   their initial that opens Orders, Agents, Payment methods, Security and Sign out (the same items
   in the phone menu). `/account` has those sections with a section bar: an overview (connected

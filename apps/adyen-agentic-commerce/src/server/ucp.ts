@@ -26,7 +26,7 @@ export function paymentHandler() {
   return {
     id: HANDLER_ID,
     version: UCP_VERSION,
-    spec: `${origin}/agents#saved-card-handler`,
+    spec: `${origin}/docs/ucp#saved-card-handler`,
     schema: `${origin}/ucp/v1/handlers/saved_card.json`,
     available_instruments: [{ type: "card" }],
     config: { environment: "test", required_scope: "ucp:pay", credential_type: "saved_card_alias" },
@@ -40,7 +40,7 @@ export function networkTokenHandler() {
   return {
     id: NETWORK_TOKEN_ID,
     version: UCP_VERSION,
-    spec: `${origin}/agents#network-token-handler`,
+    spec: `${origin}/docs/ucp#network-token-handler`,
     schema: `${origin}/ucp/v1/handlers/network_token.json`,
     available_instruments: [{ type: "card" }],
     config: { environment: "test", credential_type: "network_token", single_use: true },

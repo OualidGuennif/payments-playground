@@ -20,6 +20,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   with a copy button, and an order opens its timeline. Every email in it, and in
   `GET /api/back-office`, is masked; that answer's `trace` is now one page, with `page`, `per`,
   `trace_total` and `trace_pages`.
+- New Docs on the agentic store (`/docs`): one whole purchase, then Poppy (PAP 1.0), MCP, WebMCP,
+  UCP and the Adyen calls, each as a sequence diagram you step through or play, with the same
+  steps as text, a "Try it" panel for the public documents and the `/mcp` challenge, and links to
+  the Back Office log of that channel. `/agents` became a short "Connect your AI agent" page; the
+  UCP handlers' `spec` links now point to `/docs/ucp`.
 
 ## [0.5.3] - 2026-11-18
 

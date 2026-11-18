@@ -180,7 +180,10 @@ describe("accounts", () => {
 
 describe("passkeys", () => {
   async function register(cookie: string, authenticator: SoftAuthenticator) {
-    const options = await call("POST", "/api/passkeys/register/options", { cookie });
+    const options = await call("POST", "/api/passkeys/register/options", {
+      cookie,
+      body: { confirm: { password: PASSWORD } },
+    });
     expect(options.status).toBe(200);
     const response = await authenticator.register(options.body.options);
     return call("POST", "/api/passkeys/register/verify", {
@@ -245,6 +248,27 @@ describe("passkeys", () => {
       },
     });
     expect(unknown.status).toBe(401);
+  });
+
+  test("a session alone cannot add a passkey: the password or an existing passkey confirms it", async () => {
+    const { cookie } = await signUpCustomer();
+    const options = (body?: unknown) =>
+      call("POST", "/api/passkeys/register/options", { cookie, body });
+    const refused = await options();
+    expect([refused.status, refused.body.error]).toEqual([401, "confirmation_required"]);
+    const wrong = await options({ confirm: { password: "not the password" } });
+    expect([wrong.status, wrong.body.error]).toEqual([401, "invalid_login"]);
+    const first = await SoftAuthenticator.create(PASSKEY_ORIGIN);
+    expect((await register(cookie, first)).status).toBe(200);
+    const confirmOptions = await call("POST", "/api/account/confirm/options", { cookie });
+    const confirm = {
+      challengeId: confirmOptions.body.challengeId,
+      response: await first.login(confirmOptions.body.options),
+    };
+    const second = await options({ confirm });
+    expect(second.status).toBe(200);
+    expect(second.body.challengeId).toEqual(expect.any(String));
+    expect(list("passkeys")).toHaveLength(1);
   });
 
   test("an account removes its own passkeys only", async () => {

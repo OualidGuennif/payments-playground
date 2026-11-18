@@ -12,7 +12,7 @@ import * as commerce from "./commerce";
 import { config, CURRENCY, UCP_VERSION } from "./config";
 import { customerById } from "./customers";
 import { get } from "./db";
-import { type Auth, allows, type Scope, SCOPES } from "./oauth";
+import { type Auth, allows, type Grant, type Scope, SCOPES } from "./oauth";
 import { isRecord } from "./util";
 
 const SPEC = `https://ucp.dev/${UCP_VERSION}`;
@@ -505,14 +505,19 @@ export async function renderCheckout(checkout: commerce.Checkout, auth?: Auth) {
           permalink_url: `${origin}/orders/${order.id}`,
         }
       : undefined,
-    ...(auth
-      ? {
-          agent_budget: {
-            spend_limit: money(auth.grant.spendLimit),
-            spent: money(auth.grant.spent),
-          },
-        }
-      : {}),
+    ...(auth ? { agent_budget: budgetOf(auth) } : {}),
+  };
+}
+
+// Read again here, not taken from the request's auth: a completion has just charged the grant, and
+// the shopper may have changed its limit since the token was checked.
+function budgetOf(auth: Auth) {
+  const grant = get<Grant>("grants", auth.grant.id) ?? auth.grant;
+  return {
+    spend_limit: money(grant.spendLimit),
+    spent: money(grant.spent),
+    remaining: money(Math.max(grant.spendLimit - grant.spent, 0)),
+    manage_url: commerce.budgetUrl(grant.id),
   };
 }
 

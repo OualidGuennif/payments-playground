@@ -1,8 +1,9 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 "use client";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { accountView } from "@/server/api";
+import { AgentLimit } from "@/components/AgentLimit";
 import { DropinPanel, type SessionInfo } from "@/components/DropinPanel";
 import { PasskeysPanel } from "@/components/PasskeysPanel";
 import { StatusPill } from "@/components/StatusPill";
@@ -22,7 +23,20 @@ export function AccountView({
   const [view, setView] = useState(initial);
   const [saving, setSaving] = useState(Boolean(redirect));
   const [note, setNote] = useState<string>();
-  const [limits, setLimits] = useState<Record<string, string>>({});
+  const [focused, setFocused] = useState<string>();
+
+  // An agent's manage_url opens this page at #agent-<grant id>: that agent is the one to look at.
+  useEffect(() => {
+    const show = () => {
+      // Grant ids are plain ASCII, so the fragment is compared as it is, never decoded.
+      const id = location.hash.slice(1);
+      setFocused(id.startsWith("agent-") ? id : undefined);
+      if (id.startsWith("agent-")) document.getElementById(id)?.scrollIntoView({ block: "center" });
+    };
+    show();
+    window.addEventListener("hashchange", show);
+    return () => window.removeEventListener("hashchange", show);
+  }, []);
 
   const createSession = useCallback(async (): Promise<SessionInfo> => {
     const { data, error } = await api().account["card-session"].post();
@@ -45,11 +59,6 @@ export function AccountView({
   async function forget(alias: string) {
     const { data } = await api().account.cards({ alias }).delete();
     if (data && "cards" in data) setView(data as View);
-  }
-
-  async function changeGrant(id: string, change: { revoked?: boolean; spendLimit?: number }) {
-    const { data } = await api().account.grants({ id }).post(change);
-    if (data && "agents" in data) setView(data as View);
   }
 
   async function signOut() {
@@ -132,7 +141,13 @@ export function AccountView({
           {view.agents.length ? (
             <ul className="space-y-3">
               {view.agents.map((a) => (
-                <li key={a.id} className="space-y-2 rounded-xl border border-line p-3 text-sm">
+                <li
+                  key={a.id}
+                  id={`agent-${a.id}`}
+                  className={`scroll-mt-24 space-y-2 rounded-xl border p-3 text-sm ${
+                    focused === `agent-${a.id}` ? "border-accent ring-2 ring-accent" : "border-line"
+                  }`}
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <strong className="font-medium">{a.name}</strong>
                     <StatusPill status={agentState(a)} />
@@ -144,44 +159,7 @@ export function AccountView({
                       <li key={a.scopes[i]}>{p}</li>
                     ))}
                   </ul>
-                  <p className="text-xs">
-                    Spent {money(a.spent)} of {money(a.spendLimit)}
-                  </p>
-                  {a.revoked ? null : (
-                    <div className="flex flex-wrap items-end gap-2">
-                      <label className="text-xs">
-                        <span className="block text-xs font-medium text-muted">Limit (EUR)</span>
-                        <input
-                          type="number"
-                          min={0}
-                          step={10}
-                          className="field mt-1 w-28"
-                          value={limits[a.id] ?? String(a.spendLimit / 100)}
-                          onChange={(e) => setLimits({ ...limits, [a.id]: e.target.value })}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        className="btn-ghost px-3 py-1.5"
-                        onClick={() =>
-                          changeGrant(a.id, {
-                            spendLimit: Math.round(
-                              Number(limits[a.id] ?? a.spendLimit / 100) * 100,
-                            ),
-                          })
-                        }
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-ghost px-3 py-1.5 text-bad"
-                        onClick={() => changeGrant(a.id, { revoked: true })}
-                      >
-                        Disconnect
-                      </button>
-                    </div>
-                  )}
+                  <AgentLimit agent={a} hasPasskey={view.passkeys.length > 0} onChange={setView} />
                 </li>
               ))}
             </ul>

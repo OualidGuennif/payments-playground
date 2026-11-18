@@ -508,7 +508,7 @@ export async function handleMcp(request: Request): Promise<Response> {
             version: "1.0.0",
           },
           instructions:
-            "Fashion demo store on Adyen TEST. Search the catalogue, create a checkout with variant ids, then complete it: with a saved card listed in checkout.payment.instruments (signed in with ucp:pay), with your own network token (handler network_token: number and expiry), or with no instrument to hand it to the shopper. If status is requires_escalation, give the shopper continue_url. Amounts are EUR minor units.",
+            "Fashion demo store on Adyen TEST. Search the catalogue, create a checkout with variant ids, then complete it: with a saved card listed in checkout.payment.instruments (signed in with ucp:pay), with your own network token (handler network_token: number and expiry), or with no instrument to hand it to the shopper. If status is requires_escalation, give the shopper continue_url; over your limit they may instead raise it at agent_budget.manage_url (their account page), then complete again. Amounts are EUR minor units.",
         }),
       );
     }

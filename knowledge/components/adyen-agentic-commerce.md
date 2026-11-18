@@ -7,14 +7,14 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T13:31:04Z
+  at: 2026-11-18T15:28:00Z
 verified:
+  - at: 2026-11-18
+    check: "bun run check green, 353 agentic tests (8 agent budget tests fail before v0.5.3). Localhost browser from an #agent- link: sign-in kept it; EUR 150 to 220 asked the password, refused a wrong one; lowering asked nothing; 375 px. Passkey step-up: software authenticator only."
   - at: 2026-11-18
     check: "bun run check green, 333 agentic tests (refresh keeps the grant, device grant too; address guard, profile host too; MCP 401/403/429, signed-out MCP, sign-out, loopback ports, jti, tasks). Local pap-agent.ts --auto-consent handed the checkout over; consent, /agents at 375 px."
   - at: 2026-11-17
     check: "Local run on Adyen TEST: a guest agent over UCP REST paid with 4111111111111111 and an expiry only, Authorised (PFZ9SDVTLGKLJJV5, brand visa from /cardDetails, ContAuth, UnscheduledCardOnFile); no instrument gave requires_escalation; the number nowhere in the Back Office."
-  - at: 2026-11-17
-    check: "bun run check green with 292 agentic tests (accounts, passkeys via a software authenticator, account-bound grants, web channel, network tokens). Browser on localhost: sign-up, wrong password, sign-in, sign-out, account at 375 px; a real passkey not tried."
 sources:
   - id: app
     resource: ../../apps/adyen-agentic-commerce
@@ -245,7 +245,17 @@ before, every deploy or restart emptied orders, agents and grants.
   UnscheduledCardOnFile`, no `shopperReference` and no stored-payment field. Either way the
   idempotency key is bound to the checkout attempt and the metadata carries `channel: agent`. A
   signed-in agent over its limit gets `requires_escalation`, and the shopper pays or approves at
-  `continue_url`. An agent that completes with no instrument hands the checkout over: from then on
+  `continue_url`; the `spend_limit_exceeded` message also names `manage_url`. A signed-in agent's
+  checkout carries `agent_budget` {`spend_limit`, `spent`, `remaining`, `manage_url`}, read from
+  the grant when the answer is built; `manage_url` is `/account#agent-<grant id>`, which opens the
+  account page on that agent. Only the account's signed-in shopper changes the limit there, from 0
+  to 1000 EUR as at consent; raising it needs the account password or one of its passkeys again
+  (owner, 2026-11-18), lowering it or disconnecting does not, and a disconnected agent's limit no
+  longer changes (409). Adding a passkey needs the same proof, since a passkey can confirm a raise.
+  The cap applies when a limit is written: a limit set above 1000 EUR before v0.5.3 stays until the
+  shopper changes it. The change applies to the agent's next payment attempt on the same grant,
+  keeps what was spent and needs no new sign-in; a payment the shopper makes at `continue_url`
+  never counts against the agent's limit. An agent that completes with no instrument hands the checkout over: from then on
   agents see it `requires_escalation` (`shopper_pays`) and the shopper pays at `continue_url` in
   Drop-in.
 - **Checkout status for an agent:** with lines, a buyer email and payments configured, a guest's
@@ -262,6 +272,8 @@ before, every deploy or restart emptied orders, agents and grants.
   this account) and orders from both channels, each with its channel. Each connected agent shows
   where it stands (`src/lib/agent-status.ts`): consent given, access issued, connected (first and
   last authenticated request, in UTC), or disconnected. A consent alone never reads as connected.
+  Each agent shows its limit, what it spent and what remains, and sits at `#agent-<grant id>`,
+  highlighted when the page opens there.
   What it may do is listed in the consent page's words, never as scope names.
 - **Task coverage (PAP 1.0 §9):** `GET /poppy/tasks` gives every caller the same document, a
   published artifact (`public, max-age=300`, ETag): `excluded_tasks` and `feedback.endpoint`
@@ -315,7 +327,13 @@ before, every deploy or restart emptied orders, agents and grants.
   `email_taken` 409, `weak_password` 400, `sign_in_required` 401 on `/api/account/*` and passkey
   registration, `too_many_attempts` 429 after ten failed sign-ins (per address and per account),
   `rate_limited` 429 past 20 Drop-in and card-save sessions a minute per address (and 20 passkey
-  sign-in starts), `invalid_passkey` 401. Consent and `/oauth/device/verify` without a session
+  sign-in starts), `invalid_passkey` 401. Raising an agent's limit at `/api/account/grants/:id`
+  without a confirmation is `confirmation_required` 401; a wrong password there is
+  `invalid_login` 401 and counts toward the sign-in limits; a passkey confirmation takes a
+  single-use challenge from `/api/account/confirm/options` (`no_passkey` 409 for an account with
+  none) and must be one of this account's passkeys, verified on the device (`invalid_passkey`
+  401); a disconnected agent's limit is `agent_disconnected` 409. Passkey registration options
+  take the same `confirm` and answer the same refusals. Consent and `/oauth/device/verify` without a session
   answer 303 to `/sign-in?next=…`, which returns only to a path on this site: `next` must start
   with `/`, hold no control character, space or backslash, and resolve to a path of this origin
   that does not itself start with `//` (dot segments collapse while parsing; `src/lib/session.test.ts`).
@@ -435,6 +453,14 @@ before, every deploy or restart emptied orders, agents and grants.
     `\`, at most 200 characters, or says "no aud"; the same holds at the revocation and device
     authorization endpoints, and a successful token request's trace names the form used
     (`src/server/oauth.test.ts`, "assertion audience").
+24. An agent over its remaining limit is escalated with `manage_url` named, and never reaches
+    Adyen; only the grant's own signed-in shopper changes its limit, raising it only after the
+    account password (a wrong one counts toward the sign-in limits) or one of its own passkeys on a
+    single-use confirmation challenge of that account, at most 1000 EUR, never on a disconnected
+    agent; a session alone cannot add a passkey either (`src/server/customers.test.ts`, "a session
+    alone cannot add a passkey"); the trace names how a raise was confirmed; the new limit binds the next payment on the
+    same grant, what was spent stays, and the answer's `agent_budget` shows the spend after its
+    own charge (`src/server/network-token.test.ts`, "agent budget").
 
 ## Determinism
 

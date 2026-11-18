@@ -6,10 +6,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { networkTokenRequest } from "./adyen";
 import { handle } from "./api";
 import type { Order, PaymentRecord } from "./commerce";
-import { database, get, list } from "./db";
+import { database, get, list, put } from "./db";
 import { grants } from "./oauth";
+import { recentTrace } from "./trace";
 import { fake } from "./testing/fake-adyen";
-import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
+import { freshStore, ORIGIN, randomIp, signUpCustomer, TestAgent } from "./testing/agent";
+import { customerFromCookies } from "./customers";
+import { SoftAuthenticator } from "./testing/authenticator";
 import { ucpAgent } from "./testing/platform";
 import { canonicalJson, sha256 } from "./util";
 
@@ -429,5 +432,255 @@ describe("a signed-in agent", () => {
     expect(handed.content.continue_url).toBe(`${ORIGIN}/checkout/${created.id}`);
     expect(fake.payments).toHaveLength(0);
     expect(grants()[0]!.spent).toBe(0);
+  });
+});
+
+// ChatGPT, 2026-11-18: an agent with EUR 1 left was sent to the shopper for a EUR 63.95 shirt, and
+// nothing told either of them where the limit is changed. The shopper changes it on the account
+// page, on the same grant, without the agent signing in again.
+describe("agent budget", () => {
+  const SHIRT = "velune-oxford-shirt-white-l"; // 5900 + 495 shipping
+  let agent: TestAgent;
+  beforeAll(async () => {
+    agent = await TestAgent.start("Budget agent");
+  });
+  afterAll(() => agent.stop());
+  beforeEach(() => {
+    agent.ip = randomIp();
+  });
+
+  const shirt = async () =>
+    (
+      await agent.tool("create_checkout", {
+        checkout: { line_items: [{ item: { id: SHIRT }, quantity: 1 }] },
+      })
+    ).content;
+  const pay = (id: string) =>
+    agent.tool("complete_checkout", {
+      meta: { "idempotency-key": crypto.randomUUID() },
+      id,
+      checkout: { payment: { instruments: [instrument()] } },
+    });
+  const read = async (id: string) => (await agent.tool("get_checkout", { id })).content;
+  const setLimit = (
+    grantId: string,
+    change: Record<string, unknown>,
+    headers: Record<string, string>,
+  ) =>
+    handle(
+      new Request(`${ORIGIN}/api/account/grants/${grantId}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": randomIp(), ...headers },
+        body: JSON.stringify(change),
+      }),
+    );
+  const asShopper = () => ({ cookie: agent.customerCookie });
+  // signUpCustomer's password: raising a limit asks for it again.
+  const confirmed = { confirm: { password: "correct horse battery" } };
+  const errorOf = async (response: Response) => [
+    response.status,
+    ((await response.json()) as { error: string }).error,
+  ];
+  const post = (path: string, body: unknown, cookie: string) =>
+    handle(
+      new Request(`${ORIGIN}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": randomIp(), cookie },
+        body: JSON.stringify(body),
+      }),
+    );
+  // The tests' origin is 127.0.0.1, which WebAuthn refuses as an RP ID; passkeys use localhost.
+  const passkeyOf = async (cookie: string) => {
+    const authenticator = await SoftAuthenticator.create("http://localhost:8003");
+    const options = await (await post("/api/passkeys/register/options", confirmed, cookie)).json();
+    const response = await authenticator.register(options.options);
+    const saved = await post(
+      "/api/passkeys/register/verify",
+      { challengeId: options.challengeId, response },
+      cookie,
+    );
+    expect(saved.status).toBe(200);
+    return authenticator;
+  };
+  const passkeyConfirm = async (cookie: string, authenticator: SoftAuthenticator) => {
+    const options = await (await post("/api/account/confirm/options", {}, cookie)).json();
+    return {
+      challengeId: options.challengeId,
+      response: await authenticator.login(options.options),
+    };
+  };
+  // The incident's state: a EUR 150 grant with EUR 149 spent.
+  const spent149 = () => {
+    const [grant] = grants();
+    put("grants", grant!.id, { ...grant!, spent: 14900 });
+    return grant!;
+  };
+  const eur = (amount: number) => ({ amount, currency: "EUR" });
+
+  test("with EUR 1 left a EUR 63.95 checkout goes to the shopper and names where the limit is raised", async () => {
+    await agent.signIn({ spendLimitEur: 150 });
+    const grant = spent149();
+    const manage = `${ORIGIN}/account#agent-${grant.id}`;
+    const created = await shirt();
+    expect(created.status).toBe("requires_escalation");
+    expect(created.totals.find((t: { type: string }) => t.type === "total").amount).toBe(6395);
+    expect(created.continue_url).toBe(`${ORIGIN}/checkout/${created.id}`);
+    const message = created.messages.find(
+      (m: { code: string }) => m.code === "spend_limit_exceeded",
+    );
+    expect(message.content).toContain("continue_url");
+    expect(message.content).toContain(manage);
+    expect(created.agent_budget).toEqual({
+      spend_limit: eur(15000),
+      spent: eur(14900),
+      remaining: eur(100),
+      manage_url: manage,
+    });
+    expect((await pay(created.id)).content.status).toBe("requires_escalation");
+    expect(fake.payments).toHaveLength(0);
+  });
+
+  test("raised from EUR 150 to 220, EUR 71 is left; the agent pays on the same grant and EUR 7.05 remain", async () => {
+    await agent.signIn({ spendLimitEur: 150 });
+    const grant = spent149();
+    const created = await shirt();
+    expect(created.status).toBe("requires_escalation");
+    expect(
+      (await setLimit(grant.id, { spendLimit: 22000, ...confirmed }, asShopper())).status,
+    ).toBe(200);
+    const before = await read(created.id);
+    expect([before.status, before.agent_budget.remaining]).toEqual([
+      "ready_for_complete",
+      eur(7100),
+    ]);
+    const paid = (await pay(created.id)).content;
+    expect(paid.status).toBe("completed");
+    expect(paid.agent_budget).toMatchObject({ spent: eur(21295), remaining: eur(705) });
+    expect(grants()).toHaveLength(1);
+    expect(grants()[0]).toMatchObject({ id: grant.id, spendLimit: 22000, spent: 21295 });
+    expect(fake.payments).toHaveLength(1);
+  });
+
+  test("a lower limit stops the next payment, on a checkout opened before; what was spent stays", async () => {
+    await agent.signIn({ spendLimitEur: 150 });
+    const [grant] = grants();
+    const created = await shirt();
+    expect(created.status).toBe("ready_for_complete");
+    expect((await setLimit(grant!.id, { spendLimit: 5000 }, asShopper())).status).toBe(200);
+    expect((await pay(created.id)).content.status).toBe("requires_escalation");
+    expect(fake.payments).toHaveLength(0);
+    spent149();
+    expect((await setLimit(grant!.id, { spendLimit: 4000 }, asShopper())).status).toBe(200);
+    expect((await read(created.id)).agent_budget).toMatchObject({
+      spend_limit: eur(4000),
+      spent: eur(14900),
+      remaining: eur(0),
+    });
+  });
+
+  test("only the account's signed-in shopper changes a limit, up to EUR 1000, and not once the agent is disconnected", async () => {
+    await agent.signIn({ spendLimitEur: 150 });
+    const [grant] = grants();
+    const other = await signUpCustomer();
+    expect(
+      (await setLimit(grant!.id, { spendLimit: 99900 }, { cookie: other.cookie })).status,
+    ).toBe(404);
+    const bearer = { authorization: `Bearer ${agent.accessToken}` };
+    expect((await setLimit(grant!.id, { spendLimit: 99900 }, bearer)).status).toBe(401);
+    expect(grants()[0]!.spendLimit).toBe(15000);
+    expect(
+      (await setLimit(grant!.id, { spendLimit: 500_000, ...confirmed }, asShopper())).status,
+    ).toBe(200);
+    expect(grants()[0]!.spendLimit).toBe(100_000);
+    expect((await setLimit(grant!.id, { revoked: true }, asShopper())).status).toBe(200);
+    const raised = await setLimit(grant!.id, { spendLimit: 90_000 }, asShopper());
+    expect(raised.status).toBe(409);
+    expect(grants()[0]).toMatchObject({ revoked: true, spendLimit: 100_000 });
+  });
+
+  test("raising a limit asks for the password again; a wrong one changes nothing; lowering does not ask", async () => {
+    await agent.signIn({ spendLimitEur: 150 });
+    const [grant] = grants();
+    const raise = (extra: Record<string, unknown> = {}) =>
+      setLimit(grant!.id, { spendLimit: 22000, ...extra }, asShopper());
+    expect(await errorOf(await raise())).toEqual([401, "confirmation_required"]);
+    expect(await errorOf(await raise({ confirm: {} }))).toEqual([401, "confirmation_required"]);
+    const wrong = { confirm: { password: "not the password" } };
+    expect(await errorOf(await raise(wrong))).toEqual([401, "invalid_login"]);
+    expect(grants()[0]!.spendLimit).toBe(15000);
+    expect((await raise(confirmed)).status).toBe(200);
+    expect(grants()[0]!.spendLimit).toBe(22000);
+    const shown = recentTrace(10, grant!.id).find((e) => e.path === "/account/grants");
+    expect(shown?.detail).toEqual({ revoked: false, spendLimit: 22000, confirmedBy: "password" });
+    expect((await setLimit(grant!.id, { spendLimit: 22000 }, asShopper())).status).toBe(200);
+    expect((await setLimit(grant!.id, { spendLimit: 9000 }, asShopper())).status).toBe(200);
+    expect((await setLimit(grant!.id, { revoked: true }, asShopper())).status).toBe(200);
+    expect(grants()[0]).toMatchObject({ spendLimit: 9000, revoked: true });
+  });
+
+  test("wrong passwords at the confirmation count toward the account's sign-in limit", async () => {
+    await agent.signIn({ spendLimitEur: 150 });
+    const [grant] = grants();
+    const wrong = { spendLimit: 22000, confirm: { password: "not the password" } };
+    for (let i = 0; i < 10; i++)
+      expect((await setLimit(grant!.id, wrong, asShopper())).status).toBe(401);
+    const locked = await setLimit(grant!.id, { spendLimit: 22000, ...confirmed }, asShopper());
+    expect(await errorOf(locked)).toEqual([429, "too_many_attempts"]);
+    expect(grants()[0]!.spendLimit).toBe(15000);
+    // The same counter as sign-in: the right password is refused there too, from a new address.
+    const email = customerFromCookies(agent.customerCookie)!.email;
+    const signIn = await handle(
+      new Request(`${ORIGIN}/api/session`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": randomIp() },
+        body: JSON.stringify({ email, password: confirmed.confirm.password }),
+      }),
+    );
+    expect(await errorOf(signIn)).toEqual([429, "too_many_attempts"]);
+  });
+
+  test("a passkey of this account confirms a raise, once; another account's passkey or challenge does not", async () => {
+    await agent.signIn({ spendLimitEur: 150 });
+    const [grant] = grants();
+    const raise = (spendLimit: number, confirm: unknown) =>
+      setLimit(grant!.id, { spendLimit, confirm }, asShopper());
+    const other = await signUpCustomer();
+    expect(await errorOf(await post("/api/account/confirm/options", {}, other.cookie))).toEqual([
+      409,
+      "no_passkey",
+    ]);
+    expect((await post("/api/account/confirm/options", {}, "")).status).toBe(401);
+    const own = await passkeyOf(agent.customerCookie);
+    const stranger = await passkeyOf(other.cookie);
+
+    const foreignKey = await passkeyConfirm(agent.customerCookie, stranger);
+    expect(await errorOf(await raise(22000, foreignKey))).toEqual([401, "invalid_passkey"]);
+    const foreignChallenge = await passkeyConfirm(other.cookie, own);
+    expect(await errorOf(await raise(22000, foreignChallenge))).toEqual([401, "invalid_passkey"]);
+    const login = await (await post("/api/passkeys/login/options", {}, "")).json();
+    const signInChallenge = {
+      challengeId: login.challengeId,
+      response: await own.login(login.options, "localhost"),
+    };
+    expect(await errorOf(await raise(22000, signInChallenge))).toEqual([401, "invalid_passkey"]);
+    expect(grants()[0]!.spendLimit).toBe(15000);
+
+    const confirm = await passkeyConfirm(agent.customerCookie, own);
+    expect((await raise(22000, confirm)).status).toBe(200);
+    expect(await errorOf(await raise(30000, confirm))).toEqual([401, "invalid_passkey"]);
+    expect(grants()[0]!.spendLimit).toBe(22000);
+  });
+
+  test("handing the checkout to the shopper reserves nothing of the agent's limit", async () => {
+    await agent.signIn({ spendLimitEur: 150 });
+    const created = await shirt();
+    const handed = await agent.tool("complete_checkout", {
+      meta: { "idempotency-key": crypto.randomUUID() },
+      id: created.id,
+      checkout: { payment: { instruments: [] } },
+    });
+    expect(handed.content.status).toBe("requires_escalation");
+    expect(grants()[0]!.spent).toBe(0);
+    expect((await read(created.id)).agent_budget.remaining).toEqual(eur(15000));
   });
 });

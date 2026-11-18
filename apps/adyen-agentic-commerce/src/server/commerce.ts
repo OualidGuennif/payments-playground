@@ -445,6 +445,9 @@ export type Assessment = {
   total: number;
 };
 
+// Where the shopper changes an agent's limit: the account page, opened at that agent.
+export const budgetUrl = (grantId: string) => `${config().publicOrigin}/account#agent-${grantId}`;
+
 export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAlias[]): Assessment {
   const { total } = price(checkout.lines);
   const messages: Message[] = checkout.lastMessage ? [checkout.lastMessage] : [];
@@ -515,7 +518,7 @@ export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAl
   if (total > remaining) {
     return escalate(
       "spend_limit_exceeded",
-      `Total ${total} exceeds the remaining agent budget of ${Math.max(remaining, 0)} ${CURRENCY} minor units; the shopper must approve at continue_url.`,
+      `Total ${total} exceeds the remaining agent budget of ${Math.max(remaining, 0)} ${CURRENCY} minor units; the shopper must approve at continue_url, or raise this agent's limit at ${budgetUrl(auth.grant.id)} and the agent completes again.`,
     );
   }
   const card = allows(auth.token.scopes, "ucp:pay") ? cards[0] : undefined;

@@ -1,5 +1,6 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // MCP tool descriptors for the UCP shopping operations (names and argument keys from UCP's OpenRPC).
+import { toolUiMeta } from "./widgets";
 
 const meta = (required: boolean) => ({
   type: "object",
@@ -73,7 +74,7 @@ const tool = (
 
 const id = { type: "string" };
 
-export const MCP_TOOLS = [
+const UCP_TOOLS = [
   tool(
     "search_catalog",
     "Search the catalogue",
@@ -259,3 +260,20 @@ export const MCP_TOOLS = [
     true,
   ),
 ];
+
+// A payment reaches Adyen and cannot be taken back by the agent, and a cancel ends a cart or a
+// checkout: hosts that honour these hints ask the shopper first (ADR-017).
+const HINTS: Record<string, { destructiveHint: boolean; openWorldHint?: boolean }> = {
+  complete_checkout: { destructiveHint: true, openWorldHint: true },
+  cancel_cart: { destructiveHint: true },
+  cancel_checkout: { destructiveHint: true },
+};
+
+export const MCP_TOOLS = UCP_TOOLS.map((t) => {
+  const ui = toolUiMeta(t.name);
+  return {
+    ...t,
+    annotations: { ...t.annotations, ...HINTS[t.name] },
+    ...(ui ? { _meta: ui } : {}),
+  };
+});

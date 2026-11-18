@@ -27,6 +27,7 @@ import {
 } from "./ucp";
 import { canonicalJson, isRecord, isUuid, json, readJson, sha256 } from "./util";
 import { MCP_TOOLS } from "./mcp-tools";
+import { listResources, readResource } from "./widgets";
 
 const WINDOW_MS = 60_000;
 const LIMIT = 240;
@@ -484,13 +485,25 @@ export async function handleMcp(request: Request): Promise<Response> {
       channel: "mcp",
       actor: e.actor,
       method,
-      path: method === "tools/call" ? String(params.name) : "/mcp",
+      path:
+        method === "tools/call"
+          ? String(params.name)
+          : method === "resources/read"
+            ? String(params.uri)
+            : "/mcp",
       status,
       ref:
         isRecord(body) && isRecord(body.result) && isRecord(body.result.structuredContent)
           ? refOf(body.result.structuredContent)
           : null,
-      detail: { params, response: body },
+      // A widget document is the same for everyone and about 20 KB: the log keeps its size only.
+      detail: {
+        params,
+        response:
+          method === "resources/read" && isRecord(body) && isRecord(body.result)
+            ? { contents: "widget document", bytes: JSON.stringify(body.result).length }
+            : body,
+      },
     });
     return json(status, body, headers);
   };
@@ -501,7 +514,7 @@ export async function handleMcp(request: Request): Promise<Response> {
       return reply(
         rpc(id, {
           protocolVersion: PROTOCOLS.includes(asked) ? asked : PROTOCOLS[0],
-          capabilities: { tools: { listChanged: false } },
+          capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
           serverInfo: {
             name: "atelier-velune-ucp",
             title: "Atelier Velune (UCP demo store)",
@@ -516,6 +529,17 @@ export async function handleMcp(request: Request): Promise<Response> {
       return reply(rpc(id, {}));
     case "tools/list":
       return reply(rpc(id, { tools: MCP_TOOLS }));
+    // MCP Apps: the UI resources the carousel and bag tools name (ADR-017).
+    case "resources/list":
+      return reply(rpc(id, { resources: listResources() }));
+    case "resources/templates/list":
+      return reply(rpc(id, { resourceTemplates: [] }));
+    case "resources/read": {
+      const found = readResource(params.uri);
+      return reply(
+        found ? rpc(id, found) : rpcError(id, -32002, "Resource not found", { uri: params.uri }),
+      );
+    }
     case "tools/call": {
       const name = String(params.name ?? "");
       if (!OPERATIONS[name]) return reply(rpcError(id, -32602, `Unknown tool ${name}`));

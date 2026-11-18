@@ -26,7 +26,8 @@
       "!tools/release",
       "!tools/repo-health",
       "!tools/skills",
-      "!opencode.json"
+      "!opencode.json",
+      "!apps/adyen-agentic-commerce/src/server/widgets.gen.ts"
     ]
   },
   "formatter": {

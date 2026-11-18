@@ -8,7 +8,8 @@
     "start": "bun --bun next start",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "check": "bun run typecheck && bun test && bun run build"
+    "check": "bun run typecheck && bun test && bun run build",
+    "widgets": "bun scripts/build-widgets.ts"
   },
   "dependencies": {
     "@adyen/adyen-web": "6.48.1",

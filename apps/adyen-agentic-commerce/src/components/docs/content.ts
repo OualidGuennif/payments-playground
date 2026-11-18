@@ -544,6 +544,130 @@ export const DOCS: Doc[] = [
     tries: [],
     channels: ["adyen", "webhook"],
   },
+  {
+    slug: "chatgpt",
+    title: "ChatGPT app",
+    short:
+      "The store's carousel and bag inside the conversation, by hand or through the assistant.",
+    intro:
+      "Hosts that show MCP Apps, ChatGPT among them, draw this store's own carousel and bag in the chat. You can shop in them by hand, or switch them to With the assistant and let it shop for you. Either way the assistant's sign-in and budget decide what can happen, and the widget never sees your card.",
+    actors: [
+      { id: "you", label: "You" },
+      { id: "host", label: "ChatGPT" },
+      { id: "widget", label: "Store widget" },
+      { id: "store", label: "Atelier Velune" },
+      { id: "adyen", label: "Adyen TEST" },
+    ],
+    steps: [
+      {
+        from: "you",
+        to: "host",
+        label: "Find me a trench coat",
+        text: "You ask in the chat, after connecting the store once (below).",
+      },
+      {
+        from: "host",
+        to: "store",
+        label: "tools/call search_catalog",
+        text: "With your sign-in token. The tool's `_meta.ui.resourceUri` names `ui://widget/product-carousel.html`.",
+      },
+      {
+        from: "store",
+        to: "host",
+        label: "UCP products",
+        text: "The same UCP answer every agent gets, in `structuredContent`.",
+        reply: true,
+      },
+      {
+        from: "host",
+        to: "store",
+        label: "resources/read",
+        text: "The carousel's page, `text/html;profile=mcp-app`. ChatGPT runs it in a sandboxed frame that may load images from this store and nothing else.",
+      },
+      {
+        from: "host",
+        to: "widget",
+        label: "tool-result",
+        text: "The carousel shows the products with their colours and sizes.",
+      },
+      {
+        from: "you",
+        to: "widget",
+        label: "Add to bag",
+        text: "By hand: you pick a colour and a size and tap Add to bag. With the assistant, the same tap writes the request in the chat instead.",
+      },
+      {
+        from: "widget",
+        to: "host",
+        label: "tools/call create_cart",
+        text: "The widget holds no token: it asks ChatGPT to run the tool, on the same sign-in and with the same checks as when the assistant calls it.",
+      },
+      {
+        from: "host",
+        to: "store",
+        label: "create_cart, then create_checkout",
+        text: "Checkout lists the cards saved in your account that this assistant may use: brand, last four digits and expiry only.",
+      },
+      {
+        from: "widget",
+        to: "host",
+        label: "tools/call complete_checkout",
+        text: "You tap Pay. `complete_checkout` is marked destructive, so ChatGPT may ask you to confirm before it runs.",
+      },
+      {
+        from: "store",
+        to: "adyen",
+        label: "POST /payments (stored card)",
+        text: "Within the budget you set when connecting; over it, the bag offers to approve on the store or raise the budget there.",
+      },
+      {
+        from: "adyen",
+        to: "store",
+        label: "Authorised",
+        text: "Adyen TEST answers; no real money moves.",
+        reply: true,
+      },
+      {
+        from: "host",
+        to: "widget",
+        label: "Paid, order placed",
+        text: "The bag shows the order with a link to it on this store.",
+        reply: true,
+      },
+    ],
+    notes: [
+      {
+        title: "Two ways to shop",
+        body: [
+          "By hand: the carousel and the bag are a small shop. Search, page through, pick colour and size, change quantities, check out and pay, all in the widget. It tells the assistant what changed, so the chat keeps the same cart.",
+          'With the assistant: the same buttons write a sentence for the assistant ("Add the Linen-blend trench coat in Sand, size M to my bag.") and the assistant calls the tools. Switch at the top of the widget.',
+        ],
+      },
+      {
+        id: "connect",
+        title: "Connect ChatGPT",
+        body: [
+          "Add a custom MCP server with this store's MCP address (on the Agents page) and OAuth. ChatGPT's menus moved in 2026: look for Plugins, then + and Add custom MCP server, or, in older versions, Settings, Apps & Connectors, Advanced and Developer mode.",
+          "When the store asks, sign in, keep Pay with your saved card, and set a budget above what you will buy. A card must already be saved in your account, under Payment methods.",
+        ],
+      },
+      {
+        title: "What the widget cannot do",
+        body: [
+          "Read your card, enter a new one, or pay with a card the checkout did not list. Raise its own budget: over it, the store's own page asks for your password or a passkey. Reach any site but this store.",
+        ],
+      },
+      {
+        id: "plugin",
+        title: "The plugin package",
+        body: [
+          "`atelier-velune-plugin.zip` holds `plugin.json`, `mcp.json` with this store's MCP address, a personal-stylist skill and the icons. Upload it to OpenAI's plugin dashboard or install it in Codex. On a phone, connecting by the MCP address is enough.",
+        ],
+      },
+    ],
+    tries: [TOOLS_LIST],
+    channels: ["mcp"],
+  },
 ];
 
 export const docBySlug = (slug: string) => DOCS.find((d) => d.slug === slug);

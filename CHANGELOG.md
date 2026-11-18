@@ -5,6 +5,15 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's MCP server serves two MCP Apps widgets (ADR-017): a product carousel for
+  `search_catalog` and `get_product`, and a bag for the cart and checkout tools, drawn inside
+  ChatGPT or another MCP Apps host. The shopper picks "By hand", where the widget asks the host to
+  run the UCP tools up to a payment with a card saved in the account, or "With the assistant",
+  where the same buttons only send the assistant a sentence. The widget holds no token or card
+  data, loads nothing but the store's images, and over the budget offers the store's own pages.
+  `complete_checkout` is marked destructive and open-world, the cancel tools destructive. The Docs
+  gain a "ChatGPT app" page with the setup and a download of `atelier-velune-plugin.zip`
+  (`plugin.json`, `mcp.json`, a skill, two icons).
 - Record the v0.6.0 deploy check: on Render the agentic store serves the Docs and their diagrams,
   the short `/agents` page and the tabbed Back Office, whose JSON pages its log and masks every
   email; `/mcp` still refuses a call without a token. An agent's consent and saved-card payment

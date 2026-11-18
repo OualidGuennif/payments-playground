@@ -80,8 +80,13 @@ Biome 2.6.6 replaced `deno fmt` and `deno lint` on 2026-11-15 with the same styl
 spaces, indent 2, line width 100, double quotes, semicolons) and its recommended rules. `biome:ci`
 fails on a formatting difference or a lint error and hides warnings; `bun run lint` lists them (about
 110, mostly non-null assertions). Markdown is not formatted: Biome's Markdown formatter turns YAML
-frontmatter into a heading. Template-owned folders and `opencode.json` are excluded. A rule broken on
-purpose carries `biome-ignore <rule>: <why>` on the line above, never a config switch.
+frontmatter into a heading. Template-owned folders, `opencode.json` and the agentic store's generated
+`src/server/widgets.gen.ts` are excluded. A rule broken on purpose carries `biome-ignore <rule>:
+<why>` on the line above, never a config switch.
+
+The agentic store's MCP Apps widgets and plugin files are built into `widgets.gen.ts` by
+`bun run --cwd apps/adyen-agentic-commerce widgets` (ADR-017); run it after changing `src/widgets`
+or `plugin/atelier-velune`, since a test compares the recorded hash with the sources.
 
 `dev:<app>` and `dev:all` start Next through `tools/dev/bun-app.ts`, which parses the app's env file
 with the platform's dotenv reader and marks it loaded for Next: Next's own loader expands `$name`

@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The known limits and the agentic README describe the store as v0.4.0 made it: shopper accounts
+  instead of one demo shopper, agents paying with a saved card, a network token or the shopper at
+  `continue_url`, and the Render disk in use only since `DATABASE_PATH` was set.
 - Record the v0.5.0 deploy check: the agentic store serves the tasks endpoint and the new MCP
   refusals on Render, and a checkout written before the deploy still answers after it, which
   closes the disk check.

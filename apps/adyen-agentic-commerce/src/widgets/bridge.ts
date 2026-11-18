@@ -35,10 +35,10 @@ export function connect(on: { result(data: unknown): void; theme(theme: Theme): 
   let standard = false;
   let nextId = 1;
   const pending = new Map<number, { resolve(v: unknown): void; reject(e: Error): void }>();
-  // The widget is served as text and does not know who embeds it, so the handshake (and every
-  // message to a host with an opaque origin) can only target "*". Nothing it posts is secret:
-  // tool arguments and sentences built from what the parent itself sent and the shopper's taps.
+  // Served as text to unknown MCP Apps hosts: handshake and opaque ("null") frames must use "*".
+  // Posts carry no secrets (parent-supplied data, taps, and search text <= 200 chars; ADR-017).
   let hostOrigin = "*";
+  // nosemgrep: javascript.browser.security.wildcard-postmessage-configuration.wildcard-postmessage-configuration
   const post = (message: Json) => window.parent.postMessage(message, hostOrigin);
 
   function request(method: string, params: Json, ms: number): Promise<unknown> {

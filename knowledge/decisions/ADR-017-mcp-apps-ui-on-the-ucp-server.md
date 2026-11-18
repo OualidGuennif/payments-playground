@@ -6,7 +6,7 @@ tags: [decision, agentic, mcp, ucp, pap, chatgpt, ui]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T22:12:00Z
+  at: 2026-11-18T22:36:18Z
 sources:
   - id: spec
     resource: ../components/adyen-agentic-commerce.md
@@ -73,9 +73,10 @@ card, two modes, and a plugin that can be downloaded from the site.
   connection; everything goes through the host.
 - The widget is served as text, so it cannot know who embeds it: its handshake goes to `"*"`, and
   from the host's first message on everything goes to the host's origin only (a frame with an
-  opaque origin keeps `"*"`). Semgrep's wildcard-postMessage rule flagged the two literal `"*"`
-  sends of v0.7.0's first draft; what the widget posts is built from what the parent sent and the
-  shopper's taps, never from a secret.
+  opaque origin keeps `"*"`). Semgrep's `wildcard-postmessage-configuration` rule flagged the
+  residual `"*"` target; what the widget posts is built from what the parent sent, the shopper's
+  taps, and search queries (at most 200 characters), never from a secret, so `bridge.ts`'s
+  single `post()` helper carries an inline `nosemgrep` annotation for this rule.
 - Hosts that honour the annotations ask before each payment, so an agent paying on its own, within
   the budget, now meets a confirmation it did not meet before.
 

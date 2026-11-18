@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T22:14:00Z
+  at: 2026-11-18T22:36:18Z
 verified:
   - at: 2026-11-18
     check: "v0.7.0 on develop: bun run check green; 26 new tests (resources, tool _meta, ZIP, widget logic). Stand-in host in a browser, under the host CSP: MCP Apps and window.openai bridges, both modes, search to saved-card payment, over-budget links, 375 and 1440 px, light and dark. Not yet in ChatGPT."
@@ -205,9 +205,10 @@ before, every deploy or restart emptied orders, agents and grants.
   through the host (search, next page, add to bag, quantities, checkout, pay with a listed saved
   card), or "With the assistant", where the same buttons only send the assistant a sentence and the
   assistant calls the tools. Either way every call is the host's `tools/call` on the shopper's
-  grant; the widget holds no token and no card data, and once the host has answered it posts to
-  the host's origin only. It shows the store's refusals in its own plain words for the codes it
-  knows, and the store's text for any other.
+  grant; the widget holds no token and no card data, and from the host's first message on it posts to
+  the host's origin only (keeping `"*"` for the handshake and for an opaque `"null"` host origin).
+  It shows the store's refusals in its own plain words for the codes it knows, and the store's
+  text for any other.
 - **Catalogue:** UCP's `filters.categories` (any of the listed ones) and `filters.price` (`min`,
   `max`, minor units) on search, lookup and product; the singular `category` this store read
   before stays accepted. Search pages with `pagination.limit` (10 by default, at most 50) and the
@@ -550,7 +551,8 @@ before, every deploy or restart emptied orders, agents and grants.
     (the same checkout and card retry with it; another card or checkout gets a new one), an add
     extends the cart or open checkout the bag shows, and "With the assistant" calls no tool, it
     only sends a message (`src/widgets/logic.test.ts`; the built requests run against the store in
-    `src/server/widgets.test.ts`).
+    `src/server/widgets.test.ts`; `src/widgets/bridge.test.ts` covers parent origin pinning and the
+    opaque-origin fallback).
 30. The plugin ZIP holds exactly its listed files (never a hidden one), names this origin's `/mcp`
     and nothing else, and holds no app reference or hook (`src/server/plugin.test.ts`).
 

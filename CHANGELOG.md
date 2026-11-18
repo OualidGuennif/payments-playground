@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-18
+
 - The agentic store's MCP server serves two MCP Apps widgets (ADR-017): a product carousel for
   `search_catalog` and `get_product`, and a bag for the cart and checkout tools, drawn inside
   ChatGPT or another MCP Apps host. The shopper picks "By hand", where the widget asks the host to

@@ -16,16 +16,14 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 - Blocker: needs the owner's device.
 - Evidence: knowledge/current/digital-status.md (v0.4.0 row); ADR-015.
 
-## Agentic data lost on deploy, disk not in effect — WAITING-OWNER
+## Agentic data on the Render disk: one deploy to observe — MEASURING
 
-- Owner decision: 2026-11-17, the Render Blueprint gives agentic a `starter` plan, the
-  `agentic-data` disk at `/var/data` and `DATABASE_PATH=/var/data/agentic.sqlite`.
-- State: marker `chk_FMh1DGYntPlf`, created after the owner added the 1 GB disk, was 404 after
-  the v0.3.4 deploy; no marker was checked across v0.4.0, but accounts and grants share that file.
-- Next: in Render, `agentic-commerce` must show the disk mounted at `/var/data` and
-  `DATABASE_PATH=/var/data/agentic.sqlite` (or a Blueprint sync); then a new marker (who: owner).
-- Blocker: needs the Render dashboard.
-- Evidence: knowledge/current/digital-status.md (v0.3.4 rows); render.yaml.
+- Owner decision: 2026-11-18, `DATABASE_PATH=/var/data/agentic.sqlite` set on `agentic-commerce`.
+- State: checkout `chk_Vut7c1hPlni1` on the disk survived a restart (200 before and after).
+- Next: after the next deploy of a new commit, `GET /api/checkouts/chk_Vut7c1hPlni1` answers 200
+  (who: agent).
+- Blocker: none.
+- Evidence: knowledge/current/digital-status.md (row "Agentic data across a restart").
 
 ## Client address on Render: two-client check — WAITING-OWNER
 

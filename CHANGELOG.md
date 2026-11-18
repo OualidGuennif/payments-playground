@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record that agentic data now lives on the Render disk: `DATABASE_PATH` was unset, so the store
+  wrote to the image's own folder; with it set, a checkout survives a restart of the service.
 - Record the v0.4.0 deploy check: the agentic store serves the account pages and the reworked
   `network_token` handler on Render; the open tasks are now the owner's real passkey check and the
   agentic disk, which accounts and grants now depend on too.

@@ -87,7 +87,7 @@ export function CartView({ variants }: { variants: Info }) {
           <span className="tabular-nums">{money(subtotal)}</span>
         </div>
         <p className="text-xs text-muted">
-          Shipping is free from €100, otherwise €4.95. The server computes the final total.
+          Shipping is free from €100, otherwise €4.95. The total is confirmed at checkout.
         </p>
         <div className="space-y-1">
           <label htmlFor="email" className="eyebrow">

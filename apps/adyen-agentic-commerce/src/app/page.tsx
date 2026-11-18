@@ -23,9 +23,9 @@ export default function Home() {
             A store your AI agent can shop for you.
           </h1>
           <p className="max-w-xl text-muted">
-            Browse it yourself, or point any MCP-capable assistant at{" "}
-            <span className="code">{origin}/mcp</span>. It signs in with your consent and a spend
-            limit, builds a checkout over UCP, and pays with the card you saved, on Adyen TEST.
+            Shop it yourself, or give an AI assistant such as ChatGPT the address{" "}
+            <span className="code">{origin}/mcp</span>. You approve it once, set what it may spend,
+            and it pays with a card you saved here.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/shop" className="btn">
@@ -38,22 +38,10 @@ export default function Home() {
         </div>
         <ol className="panel space-y-4 text-sm">
           {[
-            [
-              "Discover",
-              "/.well-known/poppy.json and /.well-known/ucp describe the store, its APIs and its sign-in.",
-            ],
-            [
-              "Sign in",
-              "OAuth with PKCE, or a code you type at /device. You approve each scope and set what the agent may spend.",
-            ],
-            [
-              "Shop",
-              "Catalogue, cart and checkout over UCP 2026-08-25, by REST or MCP tools, or with WebMCP tools in your browser.",
-            ],
-            [
-              "Pay",
-              "Your saved card, charged by the merchant with ContAuth on Adyen TEST, or you pay at the link.",
-            ],
+            ["Find", "Your agent reads what the store sells and how to sign in."],
+            ["Ask", "You approve what it may do and how much it may spend."],
+            ["Shop", "It searches the catalogue, fills a cart and opens a checkout."],
+            ["Pay", "It pays with your saved card, or sends you a link to pay yourself."],
           ].map(([title, text], i) => (
             <li key={title} className="flex gap-3">
               <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-line font-serif">
@@ -65,6 +53,11 @@ export default function Home() {
               </span>
             </li>
           ))}
+          <li className="border-t border-line pt-3">
+            <Link href="/docs" className="underline">
+              See each step in the Docs
+            </Link>
+          </li>
         </ol>
       </section>
       <section className="space-y-5">

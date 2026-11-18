@@ -571,8 +571,8 @@ describe("the account", () => {
     const connected = await first();
     expect(agentState(connected)).toBe("connected");
     expect(connected.permissions).toEqual([
-      "Create, update and cancel carts for you",
-      "Create, update and cancel checkouts for you, with your delivery details",
+      "Fill and edit your cart",
+      "Check out with your delivery address",
     ]);
     expect(JSON.stringify(connected)).not.toContain(tokens.body.access_token);
   });

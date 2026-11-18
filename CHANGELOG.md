@@ -5,6 +5,46 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-18
+
+- From the release review: the Back Office masks every email shape the store accepts (a non-ASCII
+  name or a numeric top-level domain too), in values and in a detail's keys, and an agent's own
+  name; the Log filters by a masked actor and by the `ucp-rest` channel the UCP Docs link to; on
+  the consent page Enter in the budget field allows rather than denies; the diagrams run their
+  220 ms motion only when reduced motion is off.
+- Record the v0.5.3 deploy check: the agentic store on Render serves the account step-up route
+  (401 signed out), documents `manage_url` on `/agents` and in its OpenAPI example, and still
+  refuses `/mcp` without a token. Raising a limit was not exercised there: on localhost the
+  password raise was checked in a browser, the passkey confirmation only in the tests.
+- The agentic store's copy is plainer: the home page explains the four steps (find, ask, shop, pay)
+  without protocol names and links to the Docs; the order page no longer says an agent paid with
+  your saved card when it paid with its own; checkout says why it cannot be paid and what a refusal
+  was; the privacy notes say each account has its own data and that the Back Office masks emails.
+- The agentic store's v0.5.3 review findings: a spend limit posted as anything but a number is
+  stored as no budget, `complete_checkout` answers its status and `agent_budget` from the grant as it
+  stands at the end of the request, and raising a limit from a stale account page opens the password
+  or passkey form instead of an error.
+- The agentic store's consent screen reads like a store's: the agent's name and initial, the
+  account with its email masked, one warning line, each permission in words with a "Read only",
+  "Can be undone" or "Can't be undone" pill and a "Personal data" mark, a budget with presets
+  (EUR 50, 150, 300, 1000) or any amount, and Deny or Allow; the agent's host and where the browser
+  returns sit under Details. The device code page uses the same style.
+- The header shows "Sign in", or the customer's initial opening Orders, Agents, Payment methods,
+  Security and Sign out (also in the phone menu), and links to the new Docs. The account page has
+  a section bar, an overview (agents, budget left, saved cards, last order), each agent's budget as
+  a meter and orders in pages of 10.
+- The agentic Back Office has tabs (Overview, Orders, Payments, Agents, Log, Webhooks) instead of
+  one long page: lists come in pages of 25 with a numbered pager, the log also in 50 or 100 and
+  filtered by channel, actor, status class, path or reference, each entry opens its redacted JSON
+  with a copy button, and an order opens its timeline. Every email in it, and in
+  `GET /api/back-office`, is masked; that answer's `trace` is now one page, with `page`, `per`,
+  `trace_total` and `trace_pages`.
+- New Docs on the agentic store (`/docs`): one whole purchase, then Poppy (PAP 1.0), MCP, WebMCP,
+  UCP and the Adyen calls, each as a sequence diagram you step through or play, with the same
+  steps as text, a "Try it" panel for the public documents and the `/mcp` challenge, and links to
+  the Back Office log of that channel. `/agents` became a short "Connect your AI agent" page; the
+  UCP handlers' `spec` links now point to `/docs/ucp`.
+
 ## [0.5.3] - 2026-11-18
 
 - An agent over its spend limit on the agentic store now learns where the shopper changes it: the

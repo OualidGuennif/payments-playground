@@ -18,16 +18,18 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         <h1 className="text-3xl">Order {order.id.slice(4, 12)}</h1>
         <StatusPill status={order.status} />
       </div>
-      <p className="text-sm text-muted">
-        {order.paidBy === "agent"
-          ? `Placed by ${order.agentName ?? "an agent"} with your saved card`
-          : "Paid by you with Drop-in"}{" "}
-        on {new Date(order.createdAt).toLocaleString("en-GB")}. Adyen PSP reference{" "}
-        <span className="code">{order.pspReference ?? "pending"}</span>.
-        {order.webhook
-          ? ` Webhook ${order.webhook.eventCode} received.`
-          : " Waiting for the Adyen webhook."}
-      </p>
+      <div className="space-y-1 text-sm text-muted">
+        <p>
+          {order.paidBy === "agent" ? `Paid by ${order.agentName ?? "your agent"}` : "Paid by you"}{" "}
+          on {new Date(order.createdAt).toLocaleString("en-GB")}.
+        </p>
+        <p className="text-xs">
+          Adyen reference <span className="code">{order.pspReference ?? "pending"}</span>.{" "}
+          {order.webhook
+            ? `Adyen's ${order.webhook.eventCode} notification arrived.`
+            : "Waiting for Adyen's notification."}
+        </p>
+      </div>
       <ul className="divide-y divide-line rounded-2xl border border-line bg-card text-sm">
         {order.lines.map((l) => (
           <li key={l.variantId} className="flex justify-between gap-3 p-3">

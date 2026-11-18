@@ -7,3 +7,9 @@ export function messageOf(answer: Answer, fallback: string): string | undefined 
   const value = answer.error.value as { message?: unknown } | undefined;
   return typeof value?.message === "string" ? value.message : fallback;
 }
+
+// The machine-readable code beside the message, for a page that answers one refusal itself.
+export function codeOf(answer: Answer): string | undefined {
+  const value = answer.error?.value as { error?: unknown } | undefined;
+  return typeof value?.error === "string" ? value.error : undefined;
+}

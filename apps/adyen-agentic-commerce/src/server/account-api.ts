@@ -67,7 +67,7 @@ export async function accountView(customer: customers.Customer, refresh = false)
       name: g.clientName,
       scopes: g.scopes,
       // The consent page's words, so the account never shows a shopper a protocol name.
-      permissions: g.scopes.map((s) => oauth.SCOPES[s].label),
+      permissions: g.scopes.map((s) => oauth.SCOPES[s].short),
       spendLimit: g.spendLimit,
       spent: g.spent,
       remaining: Math.max(g.spendLimit - g.spent, 0),

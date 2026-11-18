@@ -7,13 +7,14 @@ import { networkTokenRequest } from "./adyen";
 import { handle } from "./api";
 import type { Order, PaymentRecord } from "./commerce";
 import { database, get, list, put } from "./db";
-import { grants } from "./oauth";
+import { authenticate, grants } from "./oauth";
 import { recentTrace } from "./trace";
 import { fake } from "./testing/fake-adyen";
 import { freshStore, ORIGIN, randomIp, signUpCustomer, TestAgent } from "./testing/agent";
 import { customerFromCookies } from "./customers";
 import { SoftAuthenticator } from "./testing/authenticator";
 import { ucpAgent } from "./testing/platform";
+import { OPERATIONS } from "./ucp";
 import { canonicalJson, sha256 } from "./util";
 
 const SOCKS = "velune-rib-socks-oat-one-size"; // 1200 + 495 shipping
@@ -682,5 +683,29 @@ describe("agent budget", () => {
     expect(handed.content.status).toBe("requires_escalation");
     expect(grants()[0]!.spent).toBe(0);
     expect((await read(created.id)).agent_budget.remaining).toEqual(eur(15000));
+  });
+
+  test("a limit posted as NaN at the consent is stored as zero, not as a limit that never caps", async () => {
+    await agent.signIn({ spendLimitEur: Number.NaN });
+    expect(grants()[0]!.spendLimit).toBe(0);
+  });
+
+  test("complete_checkout answers from the grant as it stands, not as the token found it", async () => {
+    await agent.signIn({ spendLimitEur: 150 });
+    const [grant] = grants();
+    const created = await shirt();
+    expect(created.status).toBe("ready_for_complete");
+    const stale = authenticate(`Bearer ${agent.accessToken}`, "/mcp");
+    if (!stale || stale === "invalid") throw new Error("the agent's token should be valid");
+    put("grants", grant!.id, { ...grant!, spendLimit: 5000 });
+    const answer = await OPERATIONS.complete_checkout!(
+      { id: created.id, checkout: { payment: { instruments: [instrument()] } } },
+      { auth: stale },
+    );
+    expect(answer.body).toMatchObject({
+      status: "requires_escalation",
+      agent_budget: { spend_limit: eur(5000), remaining: eur(5000) },
+    });
+    expect(fake.payments).toHaveLength(0);
   });
 });

@@ -48,7 +48,11 @@ export function DropinPanel({
           result?: { sessionResult?: string; resultCode?: string },
         ) => {
           if (!result?.sessionResult) {
-            setError(`Payment ${result?.resultCode ?? "failed"}.`);
+            setError(
+              result?.resultCode
+                ? `The payment did not go through (${result.resultCode}). Try another card.`
+                : "The payment did not go through. Try again.",
+            );
             setState("error");
             return;
           }

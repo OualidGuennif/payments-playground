@@ -5,15 +5,15 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## v0.5.3: agent budget managed from the account page — ACTIVE
+## v0.6.0: agentic front rework (consent, account, Back Office, Docs) — ACTIVE
 
-- Owner decision: 2026-11-18, in chat: approved the plan after ChatGPT's budget incident; raising a
-  limit needs the password or a passkey; the account page shows what remains.
-- State: implemented; 8 "agent budget" tests fail before and pass after; account page checked
-  in the browser on localhost (raise asks the password, lower does not, 375 px).
-- Next: commit, review, release v0.5.3, check live (who: agent).
+- Owner decision: 2026-11-18, in chat: approved the larger plan; "Oui, release v0.6.0" after the
+  screenshots, once v0.5.3 shipped.
+- State: merged into develop with the v0.5.3 review fixes and the copy pass; check green before
+  the merge (374 agentic tests); 375 and 1440 px, light and dark, checked locally.
+- Next: release bump, review, push, PR, merge after green CI, deploy check (who: agent).
 - Blocker: none.
-- Evidence: ChatGPT incident report 2026-11-18 (EUR 1 left of EUR 150, EUR 63.95 escalated).
+- Evidence: commits 95cb565..91042d3; screenshots sent 2026-11-18.
 
 ## Passkeys on v0.4.0: owner browser check — WAITING-OWNER
 

@@ -123,10 +123,11 @@ export function VariantPicker({
         <div className="panel space-y-1 text-sm">
           <p className="eyebrow">For agents</p>
           <p>
-            Variant id <span className="code">{chosen.id}</span>
+            Item id <span className="code">{chosen.id}</span>
           </p>
           <p className="text-muted">
-            Pass it as <span className="code">line_items[].item.id</span> in a UCP checkout.
+            An agent buys this colour and size by sending it as{" "}
+            <span className="code">line_items[].item.id</span>.
           </p>
         </div>
       </div>

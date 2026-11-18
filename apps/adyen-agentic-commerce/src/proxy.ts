@@ -105,7 +105,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Pages, for the origin-trial header; the agent protocol paths and assets never pass here.
-    "/((?!api/|_next/|mcp|ucp/|oauth/|\\.well-known/|healthz|favicon).*)",
+    "/((?!api/|_next/|mcp|ucp/|oauth/|poppy/|\\.well-known/|healthz|favicon).*)",
     "/account/:path*",
     "/back-office/:path*",
     "/consent/:path*",

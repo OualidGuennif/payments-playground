@@ -14,7 +14,7 @@ import { config, PAP_VERSION } from "./config";
 import { claimJti } from "./db";
 import {
   ADVERTISED_SCOPES,
-  type Auth,
+  agentScopeDescription,
   issuer,
   resolveClient,
   SCOPES,
@@ -31,7 +31,7 @@ export function poppyDocument() {
     organization: { name: "Atelier Velune (demo)", domain },
     auth: {
       issuer: issuer(),
-      scopes: Object.fromEntries(ADVERTISED_SCOPES.map((s) => [s, SCOPES[s].label])),
+      scopes: Object.fromEntries(ADVERTISED_SCOPES.map((s) => [s, agentScopeDescription(s)])),
       scope_hints: Object.fromEntries(
         ADVERTISED_SCOPES.map((s) => [
           s,
@@ -44,7 +44,7 @@ export function poppyDocument() {
         type: "mcp",
         url: `${publicOrigin}/mcp`,
         description:
-          "UCP shopping tools: catalogue, carts, checkout with a saved-card payment, orders.",
+          "UCP shopping tools: catalogue, carts, checkouts and orders. Pay with the account's saved card when signed in, with your own network token, or hand the checkout to the User at continue_url.",
       },
       {
         type: "openapi",
@@ -52,6 +52,7 @@ export function poppyDocument() {
         description: "UCP 2026-08-25 REST binding of the same shopping service.",
       },
     ],
+    tasks: { endpoint: `${publicOrigin}/poppy/tasks` },
     extensions: { ucp: [{ version: "1" }] },
   };
 }
@@ -66,7 +67,12 @@ export class PapError extends Error {
   }
 }
 
-export type PapSession = { clientId: string; sid: string; sub: string };
+// A verified Session: the client it delegates from, as its metadata document names it.
+export type PapSession = { clientId: string; clientName: string; sid: string; sub: string };
+
+// The access token a request carries: `ath` must cover it, and when the store checked it, the
+// token's client must be the Session's.
+export type Bearer = { accessToken: string; clientId?: string };
 
 const MAX_SKEW = 300;
 const MAX_DELEGATION = 24 * 3600;
@@ -78,7 +84,7 @@ const COMPATIBLE_VERSION = new RegExp(`^${PAP_VERSION.split(".")[0]}\\.(0|[1-9][
 export async function verifyPoppy(
   request: Request,
   publicUrl: string,
-  auth: Auth | undefined,
+  bearer: Bearer | undefined,
 ): Promise<PapSession | undefined> {
   const version = request.headers.get("poppy-version");
   const jwt = request.headers.get("poppy-session");
@@ -167,15 +173,20 @@ export async function verifyPoppy(
   target.search = "";
   if (htu !== target.href) throw invalid("htu does not match the request URL");
   if (typeof iat !== "number" || Math.abs(now - iat) > MAX_SKEW) throw invalid("iat is not fresh");
-  if (typeof jti !== "string" || !claimJti(`ps:${dlgClaims.iss}:${jti}`, now + MAX_SKEW))
+  // Remembered until the iat check would refuse the JWT anyway: an iat ahead of the clock keeps
+  // the JWT acceptable longer than now + 300 s.
+  if (
+    typeof jti !== "string" ||
+    !claimJti(`ps:${dlgClaims.iss}:${jti}`, Math.max(now, iat) + MAX_SKEW)
+  )
     throw invalid("jti missing or replayed");
-  if (auth) {
-    if (ath !== sha256b64url(auth.accessToken))
+  if (bearer) {
+    if (ath !== sha256b64url(bearer.accessToken))
       throw invalid("ath does not match the access token");
-    if (auth.token.clientId !== dlgClaims.iss)
+    if (bearer.clientId !== undefined && bearer.clientId !== dlgClaims.iss)
       throw invalid("the session belongs to another client");
   } else if (ath !== undefined) {
     throw invalid("ath sent without an access token");
   }
-  return { clientId: dlgClaims.iss, sid, sub };
+  return { clientId: dlgClaims.iss, clientName: client.name, sid, sub };
 }

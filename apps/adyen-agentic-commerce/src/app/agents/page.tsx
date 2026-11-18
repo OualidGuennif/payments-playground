@@ -27,6 +27,7 @@ export default function Agents() {
   const rows: [string, string][] = [
     ["MCP server", `${o}/mcp`],
     ["PAP discovery", `${o}/.well-known/poppy.json`],
+    ["PAP tasks", `${o}/poppy/tasks`],
     ["UCP profile", `${o}/.well-known/ucp`],
     ["UCP REST", `${o}/ucp/v1`],
     ["OpenAPI", `${o}/ucp/v1/openapi.json`],
@@ -104,7 +105,10 @@ export default function Agents() {
               Its <span className="code">client_id</span> is the URL of its metadata document. It
               signs a client assertion with a key from its <span className="code">jwks_uri</span> (
               <span className="code">private_key_jwt</span>) and can add a signed{" "}
-              <span className="code">Poppy-Session</span> to each call.
+              <span className="code">Poppy-Session</span> to each call. With a valid Session it can
+              shop signed out over <span className="code">/mcp</span> too, as a guest; it reads the
+              tasks this store does not offer, and reports one it could not do, at{" "}
+              <span className="code">/poppy/tasks</span>.
             </p>
           </div>
         </div>
@@ -183,9 +187,10 @@ export default function Agents() {
           ))}
         </ul>
         <p className="max-w-[68ch] text-sm text-muted">
-          <span className="code">/mcp</span> needs a token. Over REST, the catalogue, carts and
-          checkouts also work without one; a token that is sent must carry the operation&apos;s
-          scope. The earlier names <span className="code">ucp:checkout</span> and{" "}
+          <span className="code">/mcp</span> needs a token, or a PAP agent&apos;s valid Session.
+          Over REST, the catalogue, carts and checkouts also work without one; a token that is sent
+          must carry the operation&apos;s scope, or the answer is 403 with the scope to ask for. The
+          earlier names <span className="code">ucp:checkout</span> and{" "}
           <span className="code">ucp:orders</span> are still accepted.
         </p>
         <p className="max-w-[68ch] text-sm text-muted">

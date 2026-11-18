@@ -46,6 +46,12 @@ export default async function Consent({ params }: { params: Promise<{ id: string
         <p className="text-sm text-muted">
           It will act for your account ({customer.email}), with your saved cards.
         </p>
+        {/* PAP 1.0 §10.8: whoever started a sign-in gets its tokens, so a link or code someone
+            else sent would connect their agent to this account. */}
+        <p className="text-sm font-medium">
+          Continue only if you just asked {request.clientName} to connect to this store. If you did
+          not, choose Deny: someone else may have sent you this {request.device ? "code" : "link"}.
+        </p>
       </div>
       <fieldset className="space-y-2">
         <legend className="mb-2 text-xs font-medium text-muted">It asks to</legend>

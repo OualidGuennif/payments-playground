@@ -70,16 +70,26 @@ function metadata(): Record<string, unknown> {
 try {
   // 3. Discovery: poppy.json names the issuer and the MCP endpoint.
   const poppy = (await (await fetch(`${origin}/.well-known/poppy.json`)).json()) as {
+    organization: { domain: string };
     // PAP 1.0 §3.1: scope name -> description.
     auth: { issuer: string; scopes: Record<string, string> };
     apis: { type: string; url: string }[];
   };
+  // PAP 1.0 §3: the document speaks only for the host that served it.
+  if (poppy.organization.domain !== new URL(origin).host)
+    throw new Error(`poppy.json names ${poppy.organization.domain}, not ${new URL(origin).host}`);
   const issuer = poppy.auth.issuer;
   const mcpUrl = poppy.apis.find((a) => a.type === "mcp")!.url;
   const as = (await (await fetch(`${issuer}/.well-known/oauth-authorization-server`)).json()) as {
+    issuer: string;
     authorization_endpoint: string;
     token_endpoint: string;
+    protected_resources?: string[];
   };
+  if (as.issuer !== issuer) throw new Error(`the metadata names issuer ${as.issuer}`);
+  // PAP 1.0 §3.2: a token is asked for a resource only when its issuer lists it.
+  if (!as.protected_resources?.includes(mcpUrl))
+    throw new Error(`${issuer} does not list ${mcpUrl} in protected_resources`);
   console.log("discovered", { issuer, mcpUrl });
 
   // 4. Authorization request with PKCE S256; the store answers with its consent page.
@@ -94,8 +104,8 @@ try {
     scope: Object.keys(poppy.auth.scopes).join(" "),
     code_challenge: await sha256(verifier),
     code_challenge_method: "S256",
-    // RFC 8707, as MCP's authorization spec asks: the token is for the MCP endpoint only.
-    resource: mcpUrl,
+    // No resource here: PAP 1.0 §4.5 makes a sign-in without one cover every resource, and the
+    // token request below names the MCP URL (RFC 8707).
   }))
     authorize.searchParams.set(k, v);
   const consent = await fetch(authorize, { redirect: "manual" });
@@ -278,29 +288,30 @@ try {
   });
   if (created.status !== "ready_for_complete")
     throw new Error(`Not ready: escalate to ${created.continue_url}`);
+  // With no saved card on the account, completing with no instrument hands the checkout to the
+  // shopper, who pays at continue_url.
   const instrument = created.payment?.instruments?.[0];
-  if (!instrument) throw new Error("No saved-card instrument offered");
+  const instruments = instrument ? [{ ...instrument, selected: true }] : [];
 
   const completed = (
     await mcp("tools/call", {
       name: "complete_checkout",
-      arguments: {
-        meta: meta(),
-        id: created.id,
-        checkout: { payment: { instruments: [{ ...instrument, selected: true }] } },
-      },
+      arguments: { meta: meta(), id: created.id, checkout: { payment: { instruments } } },
     })
   ).structuredContent as {
     status: string;
+    continue_url?: string;
     order?: { id: string; permalink_url?: string };
     messages?: unknown[];
   };
   console.log("completed", {
     status: completed.status,
     order: completed.order,
+    continue_url: completed.continue_url,
     messages: completed.messages,
   });
-  if (completed.status !== "completed") process.exitCode = 1;
+  const handedOver = !instrument && completed.status === "requires_escalation";
+  if (completed.status !== "completed" && !handedOver) process.exitCode = 1;
 } finally {
   server.stop(true);
 }

@@ -7,14 +7,14 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T00:19:32Z
+  at: 2026-11-18T12:00:00Z
 verified:
+  - at: 2026-11-18
+    check: "bun run check green, 331 agentic tests (refresh keeps the grant, address guard, MCP 401/403/429, signed-out MCP, sign-out, loopback ports, jti window, tasks). Local pap-agent.ts --auto-consent run handed the checkout over; consent and /agents read at 375 px."
   - at: 2026-11-17
     check: "Local run on Adyen TEST: a guest agent over UCP REST paid with 4111111111111111 and an expiry only, Authorised (PFZ9SDVTLGKLJJV5, brand visa from /cardDetails, ContAuth, UnscheduledCardOnFile); no instrument gave requires_escalation; the number nowhere in the Back Office."
   - at: 2026-11-17
     check: "bun run check green with 292 agentic tests (accounts, passkeys via a software authenticator, account-bound grants, web channel, network tokens). Browser on localhost: sign-up, wrong password, sign-in, sign-out, account at 375 px; a real passkey not tried."
-  - at: 2026-11-17
-    check: "bun run check green: 199 agentic tests (a PAP agent without scope gets invalid_scope, other clients the defaults; device starts limited, capped at 1,000, expired ones deleted), types, Biome, builds, SSR assertion; /agents read at 375 px and desktop width."
 sources:
   - id: app
     resource: ../../apps/adyen-agentic-commerce
@@ -54,13 +54,13 @@ a guest, or hand the checkout to the shopper, who pays at `continue_url`.
 | ----------------------------------------- | -------------------------------------------------------------- | ----- | ------------------- |
 | `src/server/catalog.ts`                   | Products, variants (colour, size), prices in EUR minor units   | Repo  | Shipped with build  |
 | SQLite (`DATABASE_PATH`, `bun:sqlite`)    | Carts, checkouts, orders, OAuth clients/codes/tokens, grants,  | App   | Per request         |
-|                                           | PAP sessions, idempotency records, protocol trace, webhooks,   |       |                     |
+|                                           | seen JWT ids, idempotency records, protocol trace, webhooks,   |       |                     |
 |                                           | customers, customer sessions, passkeys, WebAuthn challenges    |       |                     |
 | Adyen Checkout API v72 TEST               | `/sessions`, `/payments` (stored card or network token), the   | Adyen | Per call            |
 |                                           | stored payment methods of each account's `shopperReference`,   |       |                     |
 |                                           | a network token's brand (`/cardDetails`)                       |       |                     |
 | Adyen standard webhooks (HMAC)            | `AUTHORISATION` and other event codes                          | Adyen | Asynchronous        |
-| Agent client metadata document + jwks_uri | `client_id`, `redirect_uris`, `jwks_uri`, public keys          | Agent | Fetched per sign-in |
+| Agent client metadata document + jwks_uri | `client_id`, `redirect_uris`, `jwks_uri`, public keys          | Agent | Cached 5 min        |
 | Platform profile named by `UCP-Agent`     | `ucp.version`, `ucp.capabilities`                              | Agent | Cached per URL      |
 | `.env` (never read by tooling or agents)  | `ADYEN_API_KEY`, `ADYEN_MERCHANT_ACCOUNT`, `ADYEN_CLIENT_KEY`, | Owner | Boot                |
 |                                           | `ADYEN_HMAC_KEY`, `PUBLIC_ORIGIN`, `DATABASE_PATH`, `PORT`     |       |                     |
@@ -74,6 +74,8 @@ before, every deploy or restart emptied orders, agents and grants.
 - **Shopper (browser):** catalogue filters, variant choice, cart edits, shipping details, Drop-in
   (Sessions flow), consent decisions, spend limit, agent revocation, card save (zero-value auth).
   A guest buys without an account; consent, device approval, the account and card save need one.
+  The consent page, where both sign-in flows end, tells the shopper to continue only if they just
+  asked this agent to connect (PAP 1.0 §10.8: a link or code can be sent by someone else).
 - **Customer account (browser):** sign-up `POST /api/customers` (email, name, a password of 12 to
   128 characters), sign-in `POST /api/session` (email and password), sign-out `DELETE
   /api/session`; passkeys: `POST /api/passkeys/register/options` and `/register/verify` while
@@ -102,9 +104,20 @@ before, every deploy or restart emptied orders, agents and grants.
   Session, is `version_unsupported`. A `private_key_jwt` client assertion has the issuer as its one
   `aud` string, `iat` and `jti`, and lives at most 300 s; its `iat` may be at most 60 s ahead of
   the store's clock.
-  `/mcp` answers 401 with the resource metadata URL until the agent signs in; REST catalogue,
-  carts and checkouts also work anonymously. Client metadata documents must be https, except
-  loopback ones while `PUBLIC_ORIGIN` is itself loopback (local runs and `scripts/pap-agent.ts`).
+  REST catalogue, carts and checkouts work anonymously. `/mcp` answers 401 with the resource
+  metadata URL until the agent signs in, unless the request carries a verified `Poppy-Session`:
+  a PAP agent signed out gets the same guest access as on REST (PAP's UCP extension §8), and a
+  generic MCP client, which sends no Session, keeps the 401. Client metadata documents must be
+  https, except loopback ones while `PUBLIC_ORIGIN` is itself loopback (local runs and
+  `scripts/pap-agent.ts`).
+- **Outbound fetches (PAP 1.0 §3):** before fetching a URL an agent gave it (client document,
+  `jwks_uri`, platform profile), the store resolves the host and refuses it when any address is
+  loopback, private, link-local, unspecified, multicast, shared (`100.64.0.0/10`) or unique-local;
+  loopback passes only while `PUBLIC_ORIGIN` is loopback. A client document and its key set are
+  each cached 5 minutes; a signature whose key id the cached set lacks refetches the set once, at
+  most once a minute per `jwks_uri`. Any failure to resolve, fetch or read them is
+  `invalid_client`. A redirect URI on a loopback host (`127.0.0.1`, `[::1]`, `localhost`, plain
+  http) matches the registered one with any port, for any client (RFC 8252 §7.3).
 - **Platform profile (UCP negotiation):** every REST request names its profile in
   `UCP-Agent: profile="<url>"`; an MCP `tools/call` may name it in `meta["ucp-agent"].profile`
   (deviation, decided 2026-11-17: generic MCP clients send none, so a call without one runs on the
@@ -129,8 +142,12 @@ before, every deploy or restart emptied orders, agents and grants.
   not), and may repeat; at the token endpoint it must also be one the grant was issued for, and it
   is checked before a device code or refresh token is spent. A token issued for one resource is
   accepted only there (401 `invalid_token` elsewhere); a token issued without one is accepted at
-  both; a refresh keeps the resource unless it narrows it. `scripts/pap-agent.ts` asks for the
-  MCP URL, as MCP's authorization spec requires.
+  both. The refresh token always keeps what the grant gave: the resources named at authorization
+  (none means both) and the approved scopes. A token request (code, device code or refresh) may
+  narrow the access token to fewer resources and scopes, never the refresh token, so a later
+  refresh can ask for the rest (PAP 1.0 §4.5, RFC 6749 §6). `scripts/pap-agent.ts` signs in
+  without `resource`, since a PAP sign-in covers every resource, and names the MCP URL at the
+  token request.
 - **Scopes:** advertised under their UCP names, each with its PAP 1.0 §4.7 hint.
 
   | Scope                              | Lets the agent                                        | Changes      | Personal data |
@@ -141,6 +158,9 @@ before, every deploy or restart emptied orders, agents and grants.
   | `dev.ucp.shopping.order:read`      | read the orders it placed for the account             | none         | yes           |
   | `profile`                          | read the account's name and email                     | none         | yes           |
 
+  The consent page shows each line above; `poppy.json` and the OpenAPI flows add, for agents,
+  whether the task works without the scope (PAP 1.0 §4.7): guest carts and checkouts need none,
+  and a network token or the shopper at `continue_url` pays without `ucp:pay`.
   The earlier names stay accepted, never advertised: `ucp:checkout` stands for the cart and
   checkout scopes, `ucp:orders` for `dev.ucp.shopping.order:read`. A token keeps the names it was
   issued with. A PAP agent (a URL `client_id` with `private_key_jwt`) must send `scope` in each
@@ -176,8 +196,9 @@ before, every deploy or restart emptied orders, agents and grants.
 - **Discovery:** `/.well-known/poppy.json`, `/.well-known/oauth-protected-resource` (and
   `/.well-known/oauth-protected-resource/mcp`), `/.well-known/oauth-authorization-server`,
   `/.well-known/ucp`. `poppy.json` gives `auth.scopes` as a map of scope to description and
-  `auth.scope_hints` keyed by scope with both `changes` and `personal_data` (PAP 1.0 §3.1, §4.7).
-  The UCP profile lists `dev.ucp.common.identity_linking` with `config.scopes` holding only
+  `auth.scope_hints` keyed by scope with both `changes` and `personal_data` (PAP 1.0 §3.1, §4.7),
+  `tasks.endpoint`, and an MCP description that names the three ways to pay (saved card, the
+  agent's network token, the shopper at `continue_url`). The UCP profile lists `dev.ucp.common.identity_linking` with `config.scopes` holding only
   `dev.ucp.shopping.order:read`, the one hard gate (an order placed through a linked agent); the
   other scopes are the optional layer in `scopes_supported`. `/ucp/v1/openapi.json` names every
   operation by its UCP `operationId`, refers to the UCP 2026-08-25 schemas, declares per operation
@@ -233,12 +254,29 @@ before, every deploy or restart emptied orders, agents and grants.
   where it stands (`src/lib/agent-status.ts`): consent given, access issued, connected (first and
   last authenticated request, in UTC), or disconnected. A consent alone never reads as connected.
   What it may do is listed in the consent page's words, never as scope names.
+- **Task coverage (PAP 1.0 §9):** `GET /poppy/tasks` gives every caller the same document, a
+  published artifact (`public, max-age=300`, ETag): `excluded_tasks` and `feedback.endpoint`
+  (`/poppy/feedback`), no `skill_index`. The excluded tasks: creating an account, saving a card
+  and changing an agent's spend limit, which only the shopper does on the website (a `web`
+  reference to `/sign-up` or `/account`); paying with a plain card number, whose alternative is a
+  network token or the shopper at `continue_url` (`mcp` and `openapi` references to the complete
+  operation); returns and refunds, with no alternative. `POST /poppy/feedback` takes `task` (1 to
+  200 characters) and `description` (1 to 2,000), answers 202 with no body and records the
+  report in the trace (channel `pap`), attributed to the client of a verified Session, else to
+  "unverified agent"; the text is shown, never acted on. Both check `Poppy-Version` and a
+  `Poppy-Session` when one is sent, with PAP's JSON errors, and share the agents' limit per
+  address. They need no access token; when one is sent, the Session's `ath` must cover it.
+- **Sign-out (RFC 7009):** revoking a live refresh token at `/oauth/revoke` revokes its grant, so
+  every token of that sign-in stops and the account shows the agent disconnected; revoking an
+  access token, or a refresh token already replaced, stops that token only.
 - **Signals:** an anonymous open checkout carries an `identity_optional` info message naming the
   agent's three choices: its own network token, signing in for the account's saved card, or no
   instrument to hand the shopper `continue_url`.
 - **Refusals:** `invalid_session` 400 (an expired or invalid delegation included; the store
-  remembers no ended Session, so it never answers `session_ended`), `version_unsupported` 400
-  (PAP); profile negotiation (UCP error body with
+  remembers no ended Session, so it never answers `session_ended`): PAP's JSON body at
+  `/poppy/*`, a UCP error body (`unrecoverable`) on UCP REST, and a JSON-RPC error `-32000` with
+  `data {code, content}` on MCP (PAP's UCP extension §9); `version_unsupported` 400 keeps PAP's
+  JSON body everywhere (PAP 1.0 §3.4); profile negotiation (UCP error body with
   `continue_url` the store's home page on REST, JSON-RPC `-32001` with `data {code, content,
   continue_url}` on MCP): `invalid_profile_url` 400 (missing, malformed, refused, or header and
   `meta` naming different profiles), `profile_unreachable` 424, `profile_malformed` 422,
@@ -248,11 +286,15 @@ before, every deploy or restart emptied orders, agents and grants.
   for a resource the store does not serve or the grant was not issued for; on UCP REST
   a UCP error body (`ucp` and `messages` only) with `identity_required` 401 or
   `insufficient_scope` 403, whose `WWW-Authenticate: Bearer` carries `realm` (the issuer),
-  `resource_metadata`, `error` when a token was sent, and on 403 the operation's full `scope`; MCP
-  answers 401 `invalid_token` before sign-in; `invalid_scope`/`invalid_client`/`invalid_grant`/
-  `unauthorized_client`, and for the device grant `authorization_pending`, `slow_down`,
-  `access_denied`, `expired_token` (OAuth); 409 idempotency key reused with another body, 404
-  unknown or foreign resource. A 401 or 403 is never stored under its Idempotency-Key: the
+  `resource_metadata`, `error` when a token was sent, and on 403 the operation's full `scope`; on
+  MCP the same 401 (no token and no Session, or a bad token) and 403, with the same challenge,
+  carry a JSON-RPC error `-32000` with `data {code, content}`, never a tool result (UCP: the HTTP
+  status first), and 429 carries `data.retry_after` with `Retry-After`;
+  `invalid_scope`/`invalid_client`/`invalid_grant`/`unauthorized_client`, and for the device
+  grant `authorization_pending`, `slow_down`, `access_denied`, `expired_token` (OAuth);
+  `rate_limited` 429 on `/oauth/token` and `/oauth/revoke` past the agents' limit per address;
+  `invalid_request` 400 for a feedback report that is not a JSON object with both strings in
+  bounds; 409 idempotency key reused with another body, 404 unknown or foreign resource. A 401 or 403 is never stored under its Idempotency-Key: the
   operation did not run, so the same key with a better token runs it. Stored answers belong to
   the agent client and the account together: one client acting for two accounts never gets one
   account's answer replayed to the other (`src/server/customers.test.ts`).
@@ -330,12 +372,15 @@ before, every deploy or restart emptied orders, agents and grants.
     the token check; a profile that cannot be fetched, read or negotiated stops the request before
     any operation runs, and that refusal is never stored under an Idempotency-Key
     (`src/server/profile.test.ts`).
-12. A token works only at the resource it was issued for, a refresh keeps that resource, and a
-    `resource` the store does not serve never yields a code or a token (`src/server/oauth.test.ts`
-    and `src/server/device.test.ts`, "resource indicators").
+12. A token works only at the resource it was issued for; a refresh token keeps every resource and
+    scope of its grant, so narrowing one access token never narrows the next; a `resource` the
+    store does not serve never yields a code or a token (`src/server/oauth.test.ts` and
+    `src/server/device.test.ts`, "resource indicators").
 13. A Session is accepted only with its delegation in the JWT header, signed by a key the client
     publishes, unexpired, and only with `aud` equal to the issuer; a delegation in the claims, an
-    `aud` array or the MCP URL as `aud` is `invalid_session` (`src/server/conformance.test.ts`).
+    `aud` array or the MCP URL as `aud` is `invalid_session`. Its `jti` is remembered until its
+    `iat` can no longer pass the 300 s check (`max(now, iat) + 300 s`), so it is accepted once
+    (`src/server/conformance.test.ts`).
 14. A customer session is 32 random bytes in an HttpOnly, SameSite=Lax cookie (Secure and
     `__Host-` on https), stored only as its SHA-256, valid 7 days and deleted at sign-out; a
     password is stored only as an argon2id hash; a passkey's challenge is used once within 5
@@ -361,6 +406,15 @@ before, every deploy or restart emptied orders, agents and grants.
 18. Drop-in shows saved cards, and the checkout page shows the buyer, only to the checkout's own
     signed-in customer; a guest pays without stored-card fields. The browser API ignores bearer
     tokens (`src/server/customers.test.ts`, "web channel").
+19. The store connects to an agent-given URL only after its host resolved to public addresses
+    alone (loopback too on a loopback store), and a failure there is `invalid_client` or a profile
+    refusal, never a 500 (`src/server/outbound.test.ts`; `src/server/conformance.test.ts` "§3").
+20. On MCP an authorization failure is never a successful answer: HTTP 401 or 403 with the REST
+    challenge, never stored under an idempotency key. A call without a token runs only with a
+    verified Session, with a guest's access and no saved card or order
+    (`src/server/identity.test.ts`, "MCP").
+21. Revoking a live refresh token revokes its grant: no token of that sign-in authenticates again
+    (`src/server/oauth.test.ts`, "sign-out").
 
 ## Determinism
 
@@ -372,8 +426,11 @@ is whatever LLM the shopper points at it.
 - `bun run --cwd apps/adyen-agentic-commerce check` (types, `bun test` with the Adyen double from
   `bunfig.toml`'s preload, `next build`); the root `bun run check` runs the same steps, then
   `ssr:assert` boots the standalone server and expects "Agentic Commerce" on the home page.
-- Locally, `bun run scripts/pap-agent.ts` signs in as a PAP client, waits for the shopper's consent
-  (or `--auto-consent`) and buys one item over MCP.
+- Locally, `bun run scripts/pap-agent.ts` checks that `poppy.json` names the site's own domain and
+  that the issuer lists the MCP URL in `protected_resources`, signs in as a PAP client, waits for
+  the shopper's consent (or `--auto-consent`) and buys one item over MCP.
+- `src/server/conformance.test.ts` "task coverage": the tasks document's shape and references,
+  feedback 202 with attribution only after a verified Session, and its `invalid_request` cases.
 - `poppy.json` passes the PAP 1.0 §3.1/§4.7 shape test; the UCP profile's scope keys match the
   UCP `scope_token` pattern; every OpenAPI path routes to the operation its `operationId` names.
 - Answers captured from a local run (search, lookup, product, cart, checkout, order, the profile
@@ -414,6 +471,9 @@ is whatever LLM the shopper points at it.
   request on those paths whose `Sec-Fetch-Site`, or else `Origin`, names another site; the consent
   decision cannot be forged from another page. Every response carries the platform's security
   headers (`X-Frame-Options: DENY` among them), so the consent page cannot be framed.
-- Conversations, browser sign-in and the Operations extension of PAP.
+- Conversations, browser sign-in and the Operations extension of PAP; `skill_index`, and feedback
+  answered with an alternative (every report gets 202).
+- A host whose DNS answer changes between the address check and the fetch's own lookup (DNS
+  rebinding): the check resolves the name, the fetch resolves it again.
 - UCP message signatures, order webhooks to the platform, `supported_versions` (the store speaks
   2026-08-25 only), OAuth PAR and DPoP.

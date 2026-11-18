@@ -130,11 +130,13 @@ describe("401 and 403", () => {
     expect(challenge).toContain('error="invalid_token"');
   });
 
-  test("on /mcp an invalid token keeps OAuth's body and the realm", async () => {
+  test("on /mcp an invalid token is 401 with the realm and a JSON-RPC error -32000", async () => {
     const response = await agent.mcp("tools/list", {}, { token: "at_forged" });
     expect(response.status).toBe(401);
-    expect(response.body.error).toBe("invalid_token");
+    expect(response.body.error.code).toBe(-32000);
+    expect(response.body.error.data.code).toBe("identity_required");
     expect(response.headers.get("www-authenticate")).toContain(`realm="${ORIGIN}"`);
+    expect(response.headers.get("www-authenticate")).toContain('error="invalid_token"');
     const anonymous = await handle(
       new Request(MCP, {
         method: "POST",
@@ -272,5 +274,122 @@ describe("signals and filters", () => {
     expect(priced.length).toBeGreaterThan(0);
     expect(priced).toEqual(of((p) => p.price >= 5000 && p.price <= 15000));
     for (const id of priced) expect(productById(id)!.price).toBeGreaterThanOrEqual(5000);
+  });
+});
+
+// UCP's protocol errors over MCP: the HTTP status first, a JSON-RPC error -32000 naming the code,
+// the same challenge as REST, and no tool result.
+describe("MCP", () => {
+  const signedOut = async () => {
+    agent.accessToken = "";
+    agent.delegation = await agent.makeDelegation();
+  };
+
+  test("a token without the order scope is 403 with the REST challenge, not a tool result", async () => {
+    await agent.signIn({ ask: `${CART} ${CHECKOUT}`, scopes: [CART, CHECKOUT] });
+    const r = await agent.mcp("tools/call", { name: "get_order", arguments: { id: "ord_x" } });
+    expect(r.status).toBe(403);
+    expect(r.body.result).toBeUndefined();
+    expect(r.body.id).toBe(1);
+    expect(r.body.error.code).toBe(-32000);
+    expect(r.body.error.data.code).toBe("insufficient_scope");
+    const challenge = r.headers.get("www-authenticate")!;
+    expect(challenge).toContain('error="insufficient_scope"');
+    expect(challenge).toContain(`scope="${ORDERS}"`);
+    expect(challenge).toContain(`/.well-known/oauth-protected-resource/mcp"`);
+  });
+
+  test("a 403 on MCP is not kept by idempotency: the same key runs once a better token is sent", async () => {
+    await agent.signIn({ ask: CART, scopes: [CART] });
+    const args = {
+      meta: { "idempotency-key": crypto.randomUUID() },
+      checkout: { line_items: lines(SOCKS) },
+    };
+    const refused = await agent.mcp("tools/call", { name: "create_checkout", arguments: args });
+    expect(refused.status).toBe(403);
+    await agent.signIn({ ask: CHECKOUT, scopes: [CHECKOUT] });
+    const created = await agent.mcp("tools/call", { name: "create_checkout", arguments: args });
+    expect(created.status).toBe(200);
+    expect(created.body.result.structuredContent.id).toStartWith("chk_");
+  });
+
+  test("past the limit, MCP answers 429 with Retry-After and data.retry_after", async () => {
+    await agent.signIn();
+    let limited: Awaited<ReturnType<TestAgent["mcp"]>> | undefined;
+    for (let i = 0; i < 300 && !limited; i++) {
+      const r = await agent.mcp("ping");
+      if (r.status === 429) limited = r;
+    }
+    expect(limited?.body.error.code).toBe(-32000);
+    expect(limited?.body.error.data.retry_after).toBeGreaterThan(0);
+    expect(limited?.headers.get("retry-after")).toBe(String(limited?.body.error.data.retry_after));
+  });
+
+  test("an invalid Session on REST is a UCP error body, unrecoverable", async () => {
+    const jwt = await agent.session(`${ORIGIN}/ucp/v1/catalog/search`, "GET");
+    const response = await rest(
+      "POST",
+      "/catalog/search",
+      { query: "" },
+      { "poppy-version": "1.0", "poppy-session": jwt },
+    );
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.ucp.status).toBe("error");
+    expect(body.messages).toEqual([
+      expect.objectContaining({ code: "invalid_session", severity: "unrecoverable" }),
+    ]);
+  });
+
+  test("signed out with a verified Session, a PAP agent shops as a guest", async () => {
+    await signedOut();
+    expect((await agent.mcp("tools/list")).status).toBe(200);
+    const { content } = await agent.tool("create_checkout", {
+      meta: { "idempotency-key": crypto.randomUUID() },
+      checkout: { line_items: lines(SOCKS), buyer: { email: "guest@example.com" } },
+    });
+    expect(content.status).toBe("ready_for_complete");
+    expect(codes(content)).toContain("identity_optional");
+    // No account, so no saved card is offered.
+    expect(content.payment?.instruments ?? []).toEqual([]);
+  });
+
+  test("signed out, an order needs sign-in: 401 with a challenge without error", async () => {
+    await signedOut();
+    const r = await agent.mcp("tools/call", { name: "get_order", arguments: { id: "ord_x" } });
+    expect(r.status).toBe(401);
+    expect(r.body.error.data.code).toBe("identity_required");
+    const challenge = r.headers.get("www-authenticate")!;
+    expect(challenge).toContain(`realm="${ORIGIN}"`);
+    expect(challenge).not.toContain("error=");
+  });
+
+  test("without a token or a Session, MCP is 401 identity_required, so generic clients sign in", async () => {
+    await signedOut();
+    const r = await agent.mcp(
+      "tools/list",
+      {},
+      { omitHeaders: ["poppy-session", "poppy-version"] },
+    );
+    expect(r.status).toBe(401);
+    expect(r.body.error.data.code).toBe("identity_required");
+    expect(r.headers.get("www-authenticate")).not.toContain("error=");
+  });
+
+  test("a signed-out idempotent answer belongs to the Session's User ID", async () => {
+    await signedOut();
+    const key = crypto.randomUUID();
+    const create = (sub: string) =>
+      agent.mcp(
+        "tools/call",
+        {
+          name: "create_checkout",
+          arguments: { meta: { "idempotency-key": key }, checkout: { line_items: lines(SOCKS) } },
+        },
+        { session: { claims: { sub } } },
+      );
+    const first = (await create("user-a")).body.result.structuredContent.id;
+    expect((await create("user-a")).body.result.structuredContent.id).toBe(first);
+    expect((await create("user-b")).body.result.structuredContent.id).not.toBe(first);
   });
 });

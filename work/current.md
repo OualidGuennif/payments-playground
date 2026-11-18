@@ -5,6 +5,17 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
+## PAP 1.0 fixes and two additions on the agentic store — MEASURING
+
+- Owner decision: 2026-11-18, in chat: fix review findings 1 to 7 and the minor items, add
+  signed-out MCP for verified Sessions and a static tasks endpoint with feedback; then release it
+  to main and check the live site.
+- State: committed on develop and released; bun run check green (331 agentic tests); local PAP
+  agent run and pages at 375 px checked.
+- Next: on Render, poppy.json lists tasks and /poppy/tasks answers 200 (who: agent).
+- Blocker: none.
+- Evidence: knowledge/components/adyen-agentic-commerce.md (verified 2026-11-18); CHANGELOG.
+
 ## Passkeys on v0.4.0: owner browser check — WAITING-OWNER
 
 - Owner decision: 2026-11-17, ADR-015 approved; agents choose freely between saved card, front

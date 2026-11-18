@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-18
+
 - An agent pays the agentic store with a network token's number and expiry only: the store reads
   the brand from Adyen `/cardDetails` and pays `networkToken` with ContAuth and
   UnscheduledCardOnFile (no cryptogram, CVC or brand from the agent); completing with no
@@ -21,7 +23,7 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   checkouts and orders, and grants made before accounts stop working. Every checkout, payment and
   order records its `web` or `agent` channel (Back Office filter); UCP and MCP never reach a web
   checkout. An agent, guest or signed in, may pay with its own one-time network token
-  (`network_token` handler, Adyen `networkToken` with `mpiData`), never stored, traced or echoed;
+  (`network_token` handler, paid on Adyen as `networkToken`), never stored, traced or echoed;
   a signed-in agent's payment counts against its limit. Drop-in and card-save sessions are limited
   to 20 a minute per address.
 - Record the v0.3.4 deploy check: the weak ETag now revalidates to 304 on Render, but the marker
@@ -30,7 +32,7 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 - ADR-015 and the agentic store's spec set the next version: customer accounts (email and
   password, passkeys), `web` and `agent` channels on every checkout and order, agent grants bound
   to the account that approved them, and a one-time network token an agent brings, paid on Adyen
-  as `networkToken` with `mpiData` and never stored.
+  as `networkToken` and never stored.
 
 ## [0.3.4] - 2026-11-17
 

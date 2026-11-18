@@ -7,7 +7,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 - Record the v0.5.3 deploy check: the agentic store on Render serves the account step-up route
   (401 signed out), documents `manage_url` on `/agents` and in its OpenAPI example, and still
-  refuses `/mcp` without a token. Raising a limit was checked on localhost only.
+  refuses `/mcp` without a token. Raising a limit was not exercised there: on localhost the
+  password raise was checked in a browser, the passkey confirmation only in the tests.
 
 ## [0.5.3] - 2026-11-18
 

@@ -182,10 +182,10 @@ describe("Back Office masking", () => {
       name: "José",
       createdAt: "2026-11-18",
     });
-    log(1, { actor: odd[0], detail: { buyer: { email: odd[1] } } });
+    log(1, { actor: odd[0], detail: { buyer: { email: odd[1] }, [EMAIL]: 1 } });
     const json = await (await handle(new Request("http://localhost/api/back-office"))).text();
     const html = await page({ tab: "log" });
-    for (const email of odd) {
+    for (const email of [...odd, EMAIL]) {
       expect(json).not.toContain(email);
       expect(html).not.toContain(email);
     }

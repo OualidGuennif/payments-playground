@@ -7,6 +7,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [0.6.0] - 2026-11-18
 
+- From the release review: the Back Office masks every email shape the store accepts (a non-ASCII
+  name or a numeric top-level domain too), in values and in a detail's keys, and an agent's own
+  name; the Log filters by a masked actor and by the `ucp-rest` channel the UCP Docs link to; on
+  the consent page Enter in the budget field allows rather than denies; the diagrams run their
+  220 ms motion only when reduced motion is off.
 - Record the v0.5.3 deploy check: the agentic store on Render serves the account step-up route
   (401 signed out), documents `manage_url` on `/agents` and in its OpenAPI example, and still
   refuses `/mcp` without a token. Raising a limit was not exercised there: on localhost the

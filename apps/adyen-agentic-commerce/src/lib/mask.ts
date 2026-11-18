@@ -22,6 +22,7 @@ export function maskEmails<T>(value: T, depth = 0): T {
   if (depth > 12) return "[depth]" as T;
   if (Array.isArray(value)) return value.map((v) => maskEmails(v, depth + 1)) as T;
   const out: Record<string, unknown> = {};
-  for (const [key, v] of Object.entries(value)) out[key] = maskEmails(v, depth + 1);
+  // Keys too: a trace detail keeps a caller's argument names, and one may be an email.
+  for (const [key, v] of Object.entries(value)) out[maskEmails(key)] = maskEmails(v, depth + 1);
   return out as T;
 }

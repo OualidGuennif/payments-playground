@@ -53,6 +53,12 @@ describe("consent page", () => {
     expect(html).not.toContain(EMAIL);
   });
 
+  test("Allow is the first submit button, the one Enter presses in the budget field", () => {
+    const { html } = render([...CART, "ucp:pay"]);
+    const first = /<button type="submit" value="([a-z]+)"[^>]*name="decision"/.exec(html);
+    expect(first?.[1]).toBe("approve");
+  });
+
   test("sends a zero budget when the agent cannot pay, and offers one when it can", () => {
     const noPay = render(CART).html;
     expect(noPay).toMatch(/<input type="hidden" name="spend_limit_eur" value="0"\/>/);

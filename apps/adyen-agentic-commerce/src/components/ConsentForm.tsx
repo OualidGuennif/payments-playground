@@ -83,12 +83,14 @@ export function ConsentForm({
 
       {asksToPay ? <BudgetPicker /> : <input type="hidden" name="spend_limit_eur" value="0" />}
 
+      {/* Allow comes first: the first submit button is the one Enter presses in the budget field
+          or a phone's Go key, and the shopper on this page came to connect the agent. */}
       <div className="grid grid-cols-2 gap-3">
-        <button type="submit" name="decision" value="deny" className="btn-ghost">
-          Deny
-        </button>
         <button type="submit" name="decision" value="approve" className="btn">
           Allow
+        </button>
+        <button type="submit" name="decision" value="deny" className="btn-ghost">
+          Deny
         </button>
       </div>
 

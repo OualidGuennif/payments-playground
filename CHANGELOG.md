@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.5.1 deploy check: the agentic store advertises the six client assertion
+  algorithms on Render; ChatGPT's connector has yet to sign in again.
+
 ## [0.5.1] - 2026-11-18
 
 - The agentic store accepts a client assertion signed with ES256, ES384, PS256, PS384, RS256 or

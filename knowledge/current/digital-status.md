@@ -8,7 +8,7 @@ scope: digital-status
 stale_after: 2026-12-15
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T10:30:00Z
+  at: 2026-11-18T13:19:00Z
 sources:
   - id: api
     resource: ../../apps/adyen-digital/src/server/api.ts
@@ -21,11 +21,11 @@ sources:
     title: Meaning of the levels
 verified:
   - at: 2026-11-18
+    check: "v0.5.1 on Render (main ea07dce, CI green, tag v0.5.1, first seen 13:18 UTC): agentic oauth-authorization-server lists ES256, ES384, PS256, PS384, RS256, EdDSA for client assertions; /healthz 200; /mcp with no token 401; chk_Vut7c1hPlni1 still 200."
+  - at: 2026-11-18
     check: "v0.5.0 on Render (main a52f41e, CI green, tag v0.5.0): agentic poppy.json lists tasks; /poppy/tasks 200 public, max-age=300; empty feedback 400; /mcp with no token or Session 401, JSON-RPC -32000 and challenge; chk_Vut7c1hPlni1 still 200 after this deploy."
   - at: 2026-11-18
     check: "Agentic on Render with DATABASE_PATH=/var/data/agentic.sqlite set: chk_cDRtv_prPjAG from the old file 404; new chk_Vut7c1hPlni1 (07:41 UTC) 200; owner restart (/healthz 502 at 07:43:34, 200 at 07:43:51); chk_Vut7c1hPlni1 still 200."
-  - at: 2026-11-18
-    check: "v0.4.0 on Render (main e96de08, CI green, tag v0.4.0): agentic /healthz, /sign-in, /sign-up and /agents 200; network_token.json credential requires only type, number, expiry_month, expiry_year; /.well-known/ucp lists saved_card and network_token; digital and styling 200."
 ---
 
 # adyen-digital: what is verified, and what is still open
@@ -46,6 +46,7 @@ As of 2026-11-15, Adyen Web 6.48.1, Checkout API v72, on Next.js 16 with Elysia 
 | Callbacks reported under the right order                                            | PASS   | BROWSER VERIFIED                  | `frontend_callbacks` rows for `d13195db`: onChange ×5, beforeSubmit, onPaymentCompleted                                                                                                                                                                                                                                                                                                                                                                   |
 | Docker image: no secrets inside, runs with a quoted `.env`, Basic Auth covers pages | PASS   | CODE VERIFIED + TEST API VERIFIED | 14 payment methods listed from inside the container; pages 401/200 without/with credentials                                                                                                                                                                                                                                                                                                                                                               |
 | Production after the v0.3.3 deploy (2026-11-17, agentic conformance)                | PARTIAL | DEPLOYED VERIFIED                | `main` `698423f`, CI green. Agentic: `/.well-known/ucp` `public, max-age=300` with an ETag; REST without `UCP-Agent` 400 `invalid_profile_url`, a made-up profile 424, an IP literal 400. A PAP agent served through ngrok (Session delegation in the JWT header, `aud` the issuer, RFC 8707 resources, its own platform profile in MCP `meta` and REST `UCP-Agent`) placed order `ord_wMf1oLNFrZLY` on the saved card; REST reads 200; the webhook marked it paid. The edge serves the ETag as `W/"…"`, which v0.3.3 does not match, so a revalidation gets 200, not 304 (fix on `develop`, not deployed yet). |
+| Production after the v0.5.1 deploy (2026-11-18, client assertion algorithms)        | PASS   | DEPLOYED VERIFIED                 | `main` `ea07dce`, CI green, tag `v0.5.1`; first seen serving it at 13:18 UTC. Agentic `/.well-known/oauth-authorization-server` lists ES256, ES384, PS256, PS384, RS256 and EdDSA in `token_endpoint_auth_signing_alg_values_supported`, with `client_id_metadata_document_supported` true; `/healthz` 200; `POST /mcp` without a token 401; checkout `chk_Vut7c1hPlni1` still 200 after this deploy. ChatGPT's MCP connector had not signed in again when this was recorded: its last `/oauth/token` in the trace is the 401 of 12:22:10 UTC. |
 | Production after the v0.5.0 deploy (2026-11-18, PAP 1.0 alignment)                 | PASS   | DEPLOYED VERIFIED                 | `main` `a52f41e`, CI green, tag `v0.5.0`; first seen serving it at 10:24 UTC. Agentic `/.well-known/poppy.json` lists `tasks.endpoint` and says what each scope's absence leaves possible; `/poppy/tasks` 200 `public, max-age=300` with an ETag, the five excluded tasks and the feedback endpoint; an empty `POST /poppy/feedback` 400; `POST /mcp` with neither token nor Session 401 with the `WWW-Authenticate` challenge and JSON-RPC `-32000` `identity_required`; `/healthz`, `/agents`, `/sign-in`, `/.well-known/ucp` 200. No signed-in or Session-bearing agent was run on the public host. |
 | Production after the v0.4.0 deploy (2026-11-18, accounts and agent payments)       | PASS   | DEPLOYED VERIFIED                 | `main` `e96de08`, CI green, tag `v0.4.0`. Agentic `/healthz`, `/sign-in`, `/sign-up` and `/agents` 200; `/ucp/v1/handlers/network_token.json` has a credential requiring only `type`, `number`, `expiry_month`, `expiry_year`; `/.well-known/ucp` lists the `saved_card` and `network_token` handlers. The network-token payment itself was run locally on Adyen TEST (Authorised), never on the public host. |
 | Production after the v0.3.4 deploy (2026-11-17, weak ETag)                          | PASS   | DEPLOYED VERIFIED                 | `main` `953d48b`, CI green, tag `v0.3.4`. Agentic `/.well-known/ucp` serves `W/"…"` and answers 304 to `If-None-Match` with the weak or the strong form of it; `/healthz` 200 (TEST, UCP 2026-08-25, PAP 1.0). |

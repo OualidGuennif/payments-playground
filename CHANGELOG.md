@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-18
+
 - The agentic store accepts a client assertion whose `aud` is the issuer, the issuer with a final
   slash or its token endpoint URL, so ChatGPT's MCP connector can get its token; PAP 1.0 allows
   only the issuer, and the owner chose this departure (ADR-016). An array is still refused, and a

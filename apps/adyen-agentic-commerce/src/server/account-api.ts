@@ -40,6 +40,12 @@ function customerError(error: unknown): Response {
   return json(error.status, { error: error.code, message: error.message }, headers);
 }
 
+const disconnected = () =>
+  json(409, {
+    error: "agent_disconnected",
+    message: "This agent is disconnected; its limit can no longer change",
+  });
+
 const signedIn = (customer: customers.Customer, cookie: string) =>
   json(200, { customer: { email: customer.email, name: customer.name } }, { "set-cookie": cookie });
 
@@ -64,6 +70,7 @@ export async function accountView(customer: customers.Customer, refresh = false)
       permissions: g.scopes.map((s) => oauth.SCOPES[s].label),
       spendLimit: g.spendLimit,
       spent: g.spent,
+      remaining: Math.max(g.spendLimit - g.spent, 0),
       revoked: g.revoked,
       createdAt: g.createdAt,
       tokenIssuedAt: g.tokenIssuedAt,
@@ -121,10 +128,14 @@ export const accountApi = new Elysia({ prefix: "/api" })
       { "set-cookie": customers.signOut(request.headers.get("cookie")) },
     ),
   )
-  .post("/passkeys/register/options", async ({ request }) => {
+  .post("/passkeys/register/options", async ({ request, body }) => {
     const customer = customerOf(request);
     if (!customer) return signInRequired();
     try {
+      // A new passkey can confirm a raise, so a session alone cannot add one: the shopper proves it
+      // with the password, or with a passkey already on the account.
+      const confirm = isRecord(body) ? body.confirm : undefined;
+      await customers.confirmIdentity(customer, confirm, clientIp(request));
       return await customers.registrationOptions(customer);
     } catch (error) {
       return customerError(error);
@@ -214,19 +225,42 @@ export const accountApi = new Elysia({ prefix: "/api" })
     });
     return await accountView(customer, true);
   })
+  .post("/account/confirm/options", async ({ request }) => {
+    const customer = customerOf(request);
+    if (!customer) return signInRequired();
+    const limited = sessionLimit(request, "passkey");
+    if (limited) return limited;
+    try {
+      return await customers.confirmOptions(customer);
+    } catch (error) {
+      return customerError(error);
+    }
+  })
   .post("/account/grants/:id", async ({ request, params, body }) => {
     const customer = customerOf(request);
     if (!customer) return signInRequired();
     const input = isRecord(body) ? body : {};
+    const spendLimit = typeof input.spendLimit === "number" ? input.spendLimit : undefined;
+    const current = oauth.grants(customer.id).find((g) => g.id === params.id);
+    if (!current) return json(404, { error: "Unknown agent" });
+    if (spendLimit !== undefined && current.revoked) return disconnected();
+    // Only a higher limit lets an agent spend more; lowering it or disconnecting needs no proof.
+    let confirmedBy: string | undefined;
+    if (spendLimit !== undefined && oauth.limitOf(spendLimit) > current.spendLimit) {
+      try {
+        confirmedBy = await customers.confirmIdentity(customer, input.confirm, clientIp(request));
+      } catch (error) {
+        return customerError(error);
+      }
+    }
+    // Applied after the await, on the grant as it is now: a disconnect meanwhile wins.
     const grant = oauth.updateGrant(
       params.id,
-      {
-        revoked: input.revoked === true ? true : undefined,
-        spendLimit: typeof input.spendLimit === "number" ? input.spendLimit : undefined,
-      },
+      { revoked: input.revoked === true ? true : undefined, spendLimit },
       customer.id,
     );
     if (!grant) return json(404, { error: "Unknown agent" });
+    if (grant === "revoked") return disconnected();
     trace({
       channel: "web",
       actor: "shopper",
@@ -234,7 +268,11 @@ export const accountApi = new Elysia({ prefix: "/api" })
       path: "/account/grants",
       status: 200,
       ref: grant.id,
-      detail: { revoked: grant.revoked, spendLimit: grant.spendLimit },
+      detail: {
+        revoked: grant.revoked,
+        spendLimit: grant.spendLimit,
+        ...(confirmedBy ? { confirmedBy } : {}),
+      },
     });
     return await accountView(customer);
   });

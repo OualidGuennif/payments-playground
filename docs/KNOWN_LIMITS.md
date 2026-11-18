@@ -47,7 +47,10 @@ is still refused. A client tricked by another authorization server into signing 
 this token endpoint can have it replayed here once, within its lifetime of at most 300 s.
 
 Shoppers open their own accounts with a password and may add passkeys; passkeys have been tried only
-with a software authenticator, not on a real device. An email address is never verified, and there
+with a software authenticator, not on a real device. Raising an agent's spend limit asks for the
+password or a passkey every time, and so does adding a passkey; the session alone may lower a limit
+or disconnect the agent. A limit is at most EUR 1000 when set from v0.5.3 on (one set higher before
+stays until changed) and is not split per day or per order. An email address is never verified, and there
 is no password reset and no account deletion. Approving an agent needs a signed-in account, and the
 agent then acts for that account alone. Sign-in, sign-up, the account, consent, device approval and
 the Back Office sit behind the playground's basic auth when it is set; the shop, cart, checkout and

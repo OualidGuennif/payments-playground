@@ -3,6 +3,8 @@
 import { startRegistration } from "@simplewebauthn/browser";
 import { useState } from "react";
 import type { accountView } from "@/server/api";
+import { type Confirm, StepUp } from "@/components/StepUp";
+import { type Answer, messageOf } from "@/lib/answer";
 import { api } from "@/lib/client";
 
 type View = Awaited<ReturnType<typeof accountView>>;
@@ -19,22 +21,30 @@ export function PasskeysPanel({
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
 
-  async function add() {
+  const [confirming, setConfirming] = useState(false);
+
+  // A passkey can confirm a higher agent limit, so adding one needs the password or an existing
+  // passkey first; the server refuses a session alone.
+  async function add(confirm: Confirm): Promise<string | undefined> {
     setBusy(true);
     setError(undefined);
     try {
-      const options = await api().passkeys.register.options.post();
-      if (options.error) throw new Error("A passkey cannot be added right now.");
+      const options = await api().passkeys.register.options.post({ confirm });
+      const failed = messageOf(options as Answer, "A passkey cannot be added right now.");
+      if (failed) return failed;
       const { challengeId, options: optionsJSON } = options.data as unknown as {
         challengeId: string;
         options: Parameters<typeof startRegistration>[0]["optionsJSON"];
       };
       const response = await startRegistration({ optionsJSON });
       const saved = await api().passkeys.register.verify.post({ challengeId, response });
-      if (saved.error) throw new Error("The passkey could not be verified.");
+      if (saved.error) return "The passkey could not be verified.";
+      setConfirming(false);
       onChange(saved.data as unknown as View);
+      return undefined;
     } catch (e) {
-      if ((e as Error).name !== "NotAllowedError") setError((e as Error).message);
+      if ((e as Error).name === "NotAllowedError") return undefined;
+      return (e as Error).message;
     } finally {
       setBusy(false);
     }
@@ -78,9 +88,23 @@ export function PasskeysPanel({
       ) : (
         <p className="text-sm">No passkey yet.</p>
       )}
-      <button type="button" className="btn-ghost" disabled={busy} onClick={add}>
-        Add a passkey
-      </button>
+      {confirming ? (
+        <StepUp
+          prompt="A passkey can sign in and confirm a higher agent limit."
+          hasPasskey={passkeys.length > 0}
+          onConfirm={add}
+          onCancel={() => setConfirming(false)}
+        />
+      ) : (
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={busy}
+          onClick={() => setConfirming(true)}
+        >
+          Add a passkey
+        </button>
+      )}
       {error ? (
         <p role="alert" className="text-sm text-bad">
           {error}

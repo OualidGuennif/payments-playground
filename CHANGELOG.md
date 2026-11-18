@@ -5,6 +5,21 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-11-18
+
+- An agent over its spend limit on the agentic store now learns where the shopper changes it: the
+  `spend_limit_exceeded` message and every signed-in checkout's `agent_budget` give `manage_url`,
+  the account page opened at that agent, and `agent_budget` also shows what remains, read after
+  the payment it answers. The account page shows each agent's remaining budget, caps a limit at
+  EUR 1000 as consent does, refuses a change to a disconnected agent, and asks for the password or
+  a passkey again before a limit goes up (lowering it or disconnecting does not ask); adding a
+  passkey asks too, since a passkey can confirm a raise. Sign-in now returns to the `#agent-…` the
+  shopper was sent to. ChatGPT reported the gap on 2026-11-18.
+- Record the v0.5.2 deploy check: ChatGPT's MCP connector signed in to the agentic store on
+  Render, sending the token endpoint as its assertion's `aud`, and bought an item with a network
+  token, Authorised on Adyen TEST with its webhook. ADR-016 records this outcome and now says that
+  a client whose metadata document declares `none` is a public client, which sends no assertion.
+
 ## [0.5.2] - 2026-11-18
 
 - The agentic store accepts a client assertion whose `aud` is the issuer, the issuer with a final

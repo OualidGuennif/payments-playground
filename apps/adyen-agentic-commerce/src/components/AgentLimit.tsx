@@ -1,0 +1,116 @@
+// Spec: knowledge/components/adyen-agentic-commerce.md
+"use client";
+import { useState } from "react";
+import type { accountView } from "@/server/api";
+import { type Confirm, StepUp } from "@/components/StepUp";
+import { type Answer, messageOf } from "@/lib/answer";
+import { api } from "@/lib/client";
+import { money } from "@/lib/money";
+
+type View = Awaited<ReturnType<typeof accountView>>;
+type Agent = View["agents"][number];
+type Change = { revoked?: boolean; spendLimit?: number; confirm?: Confirm };
+
+// The server's cap, so the confirmation names the limit that will really apply.
+const LIMIT_MAX = 100_000;
+
+// Raising a limit lets the agent spend more, so the server asks for the password or a passkey again
+// (owner, 2026-11-18); lowering it or disconnecting goes through at once.
+export function AgentLimit({
+  agent,
+  hasPasskey,
+  onChange,
+}: {
+  agent: Agent;
+  hasPasskey: boolean;
+  onChange: (view: View) => void;
+}) {
+  const [value, setValue] = useState(String(agent.spendLimit / 100));
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const wanted = Math.min(Math.max(Math.round(Number(value) * 100), 0), LIMIT_MAX);
+
+  async function send(change: Change): Promise<string | undefined> {
+    setBusy(true);
+    try {
+      const answer = await api().account.grants({ id: agent.id }).post(change);
+      const failed = messageOf(answer as Answer, "The change could not be saved.");
+      if (failed) return failed;
+      const view = answer.data as unknown as View;
+      const saved = view.agents.find((a) => a.id === agent.id);
+      if (saved) setValue(String(saved.spendLimit / 100));
+      setConfirming(false);
+      onChange(view);
+      return undefined;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function save() {
+    setError(undefined);
+    if (!value.trim() || !Number.isFinite(Number(value))) setError("Enter the limit in EUR.");
+    else if (wanted > agent.spendLimit) setConfirming(true);
+    else setError(await send({ spendLimit: wanted }));
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs">
+        Spent {money(agent.spent)} of {money(agent.spendLimit)}.{" "}
+        <strong className="font-medium">
+          {money(Math.max(agent.spendLimit - agent.spent, 0))} left
+        </strong>
+        .
+      </p>
+      {agent.revoked ? null : (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs">
+            <span className="block text-xs font-medium text-muted">Limit (EUR, up to 1,000)</span>
+            <input
+              type="number"
+              min={0}
+              max={LIMIT_MAX / 100}
+              step={10}
+              inputMode="decimal"
+              className="field mt-1 w-28"
+              value={value}
+              disabled={confirming}
+              onChange={(e) => setValue(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn-ghost px-3 py-1.5"
+            disabled={busy || confirming}
+            onClick={save}
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            className="btn-ghost px-3 py-1.5 text-bad"
+            disabled={busy}
+            onClick={async () => setError(await send({ revoked: true }))}
+          >
+            Disconnect
+          </button>
+        </div>
+      )}
+      {confirming ? (
+        <StepUp
+          prompt={`Raising the limit to ${money(wanted)} lets ${agent.name} spend more.`}
+          hasPasskey={hasPasskey}
+          onConfirm={(confirm) => send({ spendLimit: wanted, confirm })}
+          onCancel={() => setConfirming(false)}
+        />
+      ) : null}
+      {error ? (
+        <p className="text-xs text-bad" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}

@@ -37,7 +37,7 @@ type CustomerSession = { id: string; customerId: string; expiresAt: number };
 type Challenge = {
   id: string;
   challenge: string;
-  purpose: "register" | "login";
+  purpose: "register" | "login" | "confirm";
   customerId?: string;
   expiresAt: number;
 };
@@ -321,18 +321,31 @@ export async function loginOptions() {
 
 export async function verifyLogin(body: unknown) {
   const challenge = takeChallenge(isRecord(body) ? body.challengeId : undefined, "login");
-  const response = isRecord(body) && isRecord(body.response) ? body.response : undefined;
-  const passkey =
-    typeof response?.id === "string" ? get<Passkey>("passkeys", response.id) : undefined;
+  const { passkey, response } = passkeyOf(body);
   const customer = customerById(passkey?.customerId);
   if (!passkey || !customer)
     throw new CustomerError(401, "invalid_passkey", "This passkey is not registered here");
+  await checkAssertion(challenge, passkey, response, false);
+  return { customer, cookie: startSession(customer) };
+}
+
+function passkeyOf(body: unknown) {
+  const response = isRecord(body) && isRecord(body.response) ? body.response : undefined;
+  const passkey =
+    typeof response?.id === "string" ? get<Passkey>("passkeys", response.id) : undefined;
+  return { passkey, response };
+}
+
+async function checkAssertion(
+  challenge: Challenge,
+  passkey: Passkey,
+  response: unknown,
+  requireUserVerification: boolean,
+) {
   let result: Awaited<ReturnType<typeof verifyAuthenticationResponse>>;
   try {
     result = await verifyAuthenticationResponse({
-      response: response as unknown as Parameters<
-        typeof verifyAuthenticationResponse
-      >[0]["response"],
+      response: response as Parameters<typeof verifyAuthenticationResponse>[0]["response"],
       expectedChallenge: challenge.challenge,
       expectedOrigin: rp().origin,
       expectedRPID: rp().id,
@@ -342,7 +355,7 @@ export async function verifyLogin(body: unknown) {
         counter: passkey.counter,
         transports: passkey.transports,
       },
-      requireUserVerification: false,
+      requireUserVerification,
     });
   } catch {
     throw new CustomerError(401, "invalid_passkey", "The passkey could not be verified");
@@ -354,7 +367,59 @@ export async function verifyLogin(body: unknown) {
     counter: result.authenticationInfo.newCounter,
     lastUsedAt: new Date().toISOString(),
   });
-  return { customer, cookie: startSession(customer) };
+}
+
+// --- step-up confirmation -----------------------------------------------------------------------
+
+// A signed-in session is not enough to let an agent spend more (owner, 2026-11-18), nor to add a
+// passkey that could later confirm that: the shopper proves it again with the account password or
+// one of its own passkeys, verified on the device.
+export async function confirmOptions(customer: Customer) {
+  const passkeys = passkeysOf(customer.id);
+  if (!passkeys.length)
+    throw new CustomerError(409, "no_passkey", "This account has no passkey; use the password");
+  const options = await generateAuthenticationOptions({
+    rpID: rp().id,
+    allowCredentials: passkeys.map((p) => ({ id: p.id, transports: p.transports })),
+    userVerification: "required",
+  });
+  const challengeId = storeChallenge({
+    challenge: options.challenge,
+    purpose: "confirm",
+    customerId: customer.id,
+  });
+  return { challengeId, options };
+}
+
+export async function confirmIdentity(customer: Customer, confirm: unknown, address: string) {
+  if (isRecord(confirm) && typeof confirm.password === "string") {
+    // The sign-in limits apply: a stolen session must not become a way to guess the password.
+    const keys = [`ip:${address}`, `email:${customer.email}`];
+    refuseWhenLimited(keys.map((key) => [key, FAILURES_MAX]));
+    for (const key of keys) countFailure(key);
+    const valid = await Bun.password.verify(
+      confirm.password.slice(0, PASSWORD_MAX),
+      customer.passwordHash,
+    );
+    if (!valid) throw new CustomerError(401, "invalid_login", "Wrong password");
+    for (const key of keys) uncountFailure(key);
+    return "password" as const;
+  }
+  if (isRecord(confirm) && confirm.challengeId !== undefined) {
+    const challenge = takeChallenge(confirm.challengeId, "confirm");
+    if (challenge.customerId !== customer.id)
+      throw new CustomerError(401, "invalid_passkey", "This passkey request is not yours");
+    const { passkey, response } = passkeyOf(confirm);
+    if (!passkey || passkey.customerId !== customer.id)
+      throw new CustomerError(401, "invalid_passkey", "This passkey is not one of this account's");
+    await checkAssertion(challenge, passkey, response, true);
+    return "passkey" as const;
+  }
+  throw new CustomerError(
+    401,
+    "confirmation_required",
+    "Confirm it is you with your password or a passkey",
+  );
 }
 
 export function removePasskey(customer: Customer, id: string): boolean {

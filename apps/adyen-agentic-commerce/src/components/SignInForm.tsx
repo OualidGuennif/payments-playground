@@ -3,24 +3,17 @@
 import { startAuthentication } from "@simplewebauthn/browser";
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
+import { type Answer, messageOf } from "@/lib/answer";
 import { api } from "@/lib/client";
-
-type Answer = { data: unknown; error: { value: unknown } | null };
-
-// The server answers { error, message }; only the message is the shopper's to read.
-function messageOf(answer: Answer, fallback: string): string | undefined {
-  if (!answer.error) return undefined;
-  const value = answer.error.value as { message?: unknown } | undefined;
-  return typeof value?.message === "string" ? value.message : fallback;
-}
 
 export function SignInForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: string }) {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const signUp = mode === "sign-up";
 
-  // A full navigation, so the next page's server render sees the new session cookie.
-  const done = () => window.location.assign(next);
+  // A full navigation, so the next page's server render sees the new session cookie. The fragment
+  // survived the redirect to this page (an agent's manage_url opens /account#agent-<id>).
+  const done = () => window.location.assign(next.includes("#") ? next : next + location.hash);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

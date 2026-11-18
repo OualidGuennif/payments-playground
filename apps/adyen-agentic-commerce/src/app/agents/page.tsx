@@ -233,6 +233,15 @@ export default function Agents() {
           grant&apos;s remaining spend limit. Adyen&apos;s own UCP tokenizer can replace it once the
           account has the role.
         </p>
+        <p className="max-w-[68ch]">
+          A signed-in agent&apos;s checkout carries <span className="code">agent_budget</span>:{" "}
+          <span className="code">spend_limit</span>, <span className="code">spent</span>,{" "}
+          <span className="code">remaining</span> and <span className="code">manage_url</span>. Over
+          the limit the checkout is <span className="code">requires_escalation</span>: the shopper
+          pays at <span className="code">continue_url</span>, or raises the limit on their account
+          page at <span className="code">manage_url</span>, confirming with their password or a
+          passkey, and the agent completes again on the same sign-in.
+        </p>
       </section>
 
       <section id="network-token-handler" className="panel space-y-2 text-sm">

@@ -213,6 +213,8 @@ const MAX_ASSERTION_LIFETIME = 300;
 const ASSERTION_SKEW = 60;
 const ACCESS_TTL = 3600;
 const REFRESH_TTL = 30 * 24 * 3600;
+// EUR 1000: the most an agent may spend, whether set at consent or on the account page.
+export const SPEND_LIMIT_MAX = 100_000;
 const nowSec = () => Math.floor(Date.now() / 1000);
 export const issuer = () => config().publicOrigin;
 // Loopback client documents are accepted only while the store itself runs on a loopback origin.
@@ -733,7 +735,7 @@ export function decide(input: {
     }
     return errorRedirect(request.redirectUri!, "access_denied", why, request.state);
   }
-  const limit = Math.max(0, Math.min(Math.round(input.spendLimit), 100_000));
+  const limit = limitOf(input.spendLimit);
   const grant: Grant = {
     id: newId("gr"),
     clientId: request.clientId,
@@ -1123,21 +1125,23 @@ export function grants(customerId?: string): Grant[] {
     : findBy<Grant>("grants", "customerId", customerId);
 }
 
-// The account changes only its own grants; the Back Office passes no customer.
+export const limitOf = (amount: number) =>
+  Math.max(0, Math.min(Math.round(amount), SPEND_LIMIT_MAX));
+
+// The account changes only its own grants; the Back Office passes no customer. A disconnected
+// agent stays disconnected, so its limit no longer means anything and cannot change.
 export function updateGrant(
   id: string,
   change: { revoked?: boolean; spendLimit?: number },
   customerId?: string,
-): Grant | undefined {
+): Grant | "revoked" | undefined {
   const grant = get<Grant>("grants", id);
   if (!grant || (customerId !== undefined && grant.customerId !== customerId)) return undefined;
+  if (change.spendLimit !== undefined && grant.revoked) return "revoked";
   const next = {
     ...grant,
     revoked: change.revoked ?? grant.revoked,
-    spendLimit:
-      change.spendLimit !== undefined
-        ? Math.max(0, Math.round(change.spendLimit))
-        : grant.spendLimit,
+    spendLimit: change.spendLimit !== undefined ? limitOf(change.spendLimit) : grant.spendLimit,
   };
   return put("grants", id, next);
 }

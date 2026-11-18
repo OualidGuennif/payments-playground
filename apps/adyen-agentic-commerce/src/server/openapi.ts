@@ -170,7 +170,7 @@ const OPERATIONS: Operation[] = [
               type: "error",
               code: "spend_limit_exceeded",
               content:
-                "Total 14900 exceeds the remaining agent budget of 10000 EUR minor units; the shopper must approve at continue_url.",
+                "Total 14900 exceeds the remaining agent budget of 10000 EUR minor units; the shopper must approve at continue_url, or raise this agent's limit at https://…/account#agent-gr_… and the agent completes again.",
               severity: "requires_buyer_review",
             },
           ],

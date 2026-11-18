@@ -7,7 +7,7 @@ import { CommerceError } from "./commerce";
 import { config, UCP_VERSION } from "./config";
 import { database } from "./db";
 import { type Auth, authenticate, issuer } from "./oauth";
-import { PapError, verifyPoppy } from "./pap";
+import { PapError, type PapSession, verifyPoppy } from "./pap";
 import { negotiate, ProfileError, profileFromHeader } from "./profile";
 import { trace } from "./trace";
 import {
@@ -88,43 +88,71 @@ function wwwAuthenticate(resourcePath: string, error?: string, scope?: string) {
 }
 
 // UCP's error_response: `ucp` and `messages` only.
-function ucpError(code: string, content: string) {
+function ucpError(code: string, content: string, severity = "requires_buyer_review") {
   return {
     ucp: { version: UCP_VERSION, status: "error" },
-    messages: [{ type: "error", code, content, severity: "requires_buyer_review" }],
+    messages: [{ type: "error", code, content, severity }],
   };
 }
 
-type Edge = { auth?: Auth; actor: string; response?: Response };
+// UCP over MCP: the HTTP status is the signal, and a JSON-RPC error -32000 says which, never a
+// successful result. Refused before the message is read, the request's id is not known: null.
+const mcpError = (id: unknown, code: string, content: string, extra: object = {}) =>
+  rpcError(id, -32000, content, { code, content, ...extra });
+
+type Edge = { auth?: Auth; session?: PapSession; actor: string; response?: Response };
 
 async function edge(request: Request, resourcePath: "" | "/mcp"): Promise<Edge> {
+  const mcp = resourcePath === "/mcp";
+  const refuse = (response: Response): Edge => ({ actor: "?", response });
   const retry = rateLimited(clientIp(request));
-  if (retry)
-    return {
-      actor: "?",
-      response: json(429, { error: "rate_limited" }, { "retry-after": String(retry) }),
-    };
+  if (retry) {
+    const headers = { "retry-after": String(retry) };
+    return refuse(
+      mcp
+        ? json(
+            429,
+            mcpError(null, "rate_limited", "Too many requests", { retry_after: retry }),
+            headers,
+          )
+        : json(429, { error: "rate_limited" }, headers),
+    );
+  }
   const auth = authenticate(request.headers.get("authorization"), resourcePath);
   if (auth === "invalid") {
-    const header = { "www-authenticate": wwwAuthenticate(resourcePath, "invalid_token") };
-    // MCP clients read OAuth's body; UCP REST platforms read identity_required.
-    const body =
-      resourcePath === "/mcp"
-        ? { error: "invalid_token" }
-        : ucpError("identity_required", "The access token is invalid or expired; sign in again.");
-    return { actor: "?", response: json(401, body, header) };
+    const content = "The access token is invalid or expired; sign in again.";
+    return refuse(
+      json(
+        401,
+        mcp ? mcpError(null, "identity_required", content) : ucpError("identity_required", content),
+        { "www-authenticate": wwwAuthenticate(resourcePath, "invalid_token") },
+      ),
+    );
   }
+  let session: PapSession | undefined;
   try {
-    await verifyPoppy(request, publicUrl(request), auth);
+    const bearer = auth && { accessToken: auth.accessToken, clientId: auth.token.clientId };
+    session = await verifyPoppy(request, publicUrl(request), bearer);
   } catch (error) {
-    if (error instanceof PapError)
-      return {
-        actor: "?",
-        response: json(error.status, { error: error.code, error_description: error.message }),
-      };
-    throw error;
+    if (!(error instanceof PapError)) throw error;
+    // PAP 1.0 §3.4 keeps version_unsupported one JSON body everywhere; PAP's UCP extension §9
+    // gives invalid_session each binding's own error shape.
+    if (error.code === "version_unsupported")
+      return refuse(json(400, { error: error.code, error_description: error.message }));
+    return refuse(
+      json(
+        error.status,
+        mcp
+          ? mcpError(null, error.code, error.message)
+          : ucpError(error.code, error.message, "unrecoverable"),
+      ),
+    );
   }
-  return { auth, actor: auth?.grant.clientName ?? "anonymous agent" };
+  return {
+    auth,
+    session,
+    actor: auth?.grant.clientName ?? session?.clientName ?? "anonymous agent",
+  };
 }
 
 // --- idempotency -------------------------------------------------------------------------------
@@ -421,13 +449,27 @@ export async function handleMcp(request: Request): Promise<Response> {
   if (request.method !== "POST")
     return json(405, rpcError(null, -32000, "Use POST"), { allow: "POST" });
   const e = await edge(request, "/mcp");
-  if (e.response) return e.response;
-  // Signing in is what lets an agent pay; MCP clients start OAuth on this 401.
-  if (!e.auth) {
-    return json(
-      401,
-      { error: "invalid_token", error_description: "Sign in to use the store's tools" },
-      { "www-authenticate": wwwAuthenticate("/mcp") },
+  const refused = (response: Response) => {
+    trace({
+      channel: "mcp",
+      actor: e.actor,
+      method: "POST",
+      path: "/mcp",
+      status: response.status,
+      ref: null,
+      detail: { refused: true },
+    });
+    return response;
+  };
+  if (e.response) return refused(e.response);
+  // Signing in is what lets an agent pay, and MCP clients start OAuth on this 401. A PAP agent
+  // signed out is known by its verified Session, so it shops as a guest does on REST (PAP's UCP
+  // extension §8); a generic MCP client has no Session and gets the challenge.
+  if (!e.auth && !e.session) {
+    return refused(
+      json(401, mcpError(null, "identity_required", "Sign in to use the store's tools"), {
+        "www-authenticate": wwwAuthenticate("/mcp"),
+      }),
     );
   }
   const message = await readJson(request);
@@ -437,20 +479,20 @@ export async function handleMcp(request: Request): Promise<Response> {
   const { id, method } = message;
   const params = isRecord(message.params) ? message.params : {};
   if (id === undefined) return new Response(null, { status: 202 });
-  const reply = (body: unknown) => {
+  const reply = (body: unknown, status = 200, headers: Record<string, string> = {}) => {
     trace({
       channel: "mcp",
       actor: e.actor,
       method,
       path: method === "tools/call" ? String(params.name) : "/mcp",
-      status: 200,
+      status,
       ref:
         isRecord(body) && isRecord(body.result) && isRecord(body.result.structuredContent)
           ? refOf(body.result.structuredContent)
           : null,
       detail: { params, response: body },
     });
-    return json(200, body);
+    return json(status, body, headers);
   };
   switch (method) {
     case "initialize": {
@@ -466,7 +508,7 @@ export async function handleMcp(request: Request): Promise<Response> {
             version: "1.0.0",
           },
           instructions:
-            "Fashion demo store on Adyen TEST. Search the catalogue, create a checkout with variant ids, then complete it with the instrument listed in checkout.payment.instruments. If status is requires_escalation, give the shopper continue_url. Amounts are EUR minor units.",
+            "Fashion demo store on Adyen TEST. Search the catalogue, create a checkout with variant ids, then complete it: with a saved card listed in checkout.payment.instruments (signed in with ucp:pay), with your own network token (handler network_token: number and expiry), or with no instrument to hand it to the shopper. If status is requires_escalation, give the shopper continue_url. Amounts are EUR minor units.",
         }),
       );
     }
@@ -509,7 +551,9 @@ export async function handleMcp(request: Request): Promise<Response> {
           }),
         );
       const key = typeof meta["idempotency-key"] === "string" ? meta["idempotency-key"] : undefined;
-      const scope = `mcp:${actorScope(e.auth)}:${name}:${String(args.id ?? "")}`;
+      // A signed-out call belongs to its Session's client and User ID.
+      const actor = e.auth ? actorScope(e.auth) : `pap:${e.session!.clientId}:${e.session!.sub}`;
+      const scope = `mcp:${actor}:${name}:${String(args.id ?? "")}`;
       const { meta: _meta, ...payload } = args;
       const result =
         MUTATIONS.has(name) && key
@@ -517,6 +561,17 @@ export async function handleMcp(request: Request): Promise<Response> {
           : await runOp(name, args, e.auth);
       if (result.rpcCode !== undefined)
         return reply(rpcError(id, result.rpcCode, "Invalid params", result.body));
+      // UCP identity linking over MCP: the same status and challenge as REST.
+      if (result.status === 401 || result.status === 403) {
+        const [msg] = (result.body as { messages: { code: string; content: string }[] }).messages;
+        const challenge =
+          result.status === 403
+            ? wwwAuthenticate("/mcp", "insufficient_scope", REQUIRED_SCOPE[name])
+            : wwwAuthenticate("/mcp");
+        return reply(mcpError(id, msg!.code, msg!.content), result.status, {
+          "www-authenticate": challenge,
+        });
+      }
       const isError = result.status >= 400;
       return reply(
         rpc(id, {

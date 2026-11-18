@@ -4,6 +4,7 @@
 import { isIP } from "node:net";
 import { UCP_VERSION } from "./config";
 import { metadataUrlAllowed } from "./oauth";
+import { assertPublicHost, OutboundRefused } from "./outbound";
 import { isRecord } from "./util";
 
 // UCP's negotiation errors: REST status; MCP answers each with JSON-RPC -32001.
@@ -106,6 +107,14 @@ async function readBounded(response: Response): Promise<string> {
 }
 
 async function fetchProfile(url: URL): Promise<{ doc: unknown; ttl: number }> {
+  try {
+    await assertPublicHost(url);
+  } catch (error) {
+    if (!(error instanceof OutboundRefused)) throw error;
+    throw error.reason === "not_public"
+      ? new ProfileError("invalid_profile_url", "The profile URL's host is not a public address")
+      : new ProfileError("profile_unreachable", "The profile URL's host does not resolve");
+  }
   let response: Response;
   try {
     response = await fetch(url, {

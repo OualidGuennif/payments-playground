@@ -13,6 +13,7 @@ import { get, list } from "./db";
 import * as oauth from "./oauth";
 import { poppyDocument } from "./pap";
 import { clientIp, handleMcp, handleRest, rateLimited } from "./protocol";
+import { handleFeedback, handleTasks } from "./tasks";
 import { recentTrace, trace } from "./trace";
 import { handlerSchema, networkTokenSchema, profile } from "./ucp";
 import { openApi } from "./openapi";
@@ -22,7 +23,7 @@ const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
   "access-control-allow-headers":
-    "authorization, content-type, mcp-protocol-version, mcp-session-id, ucp-agent, request-id, idempotency-key, poppy-session, poppy-version",
+    "authorization, content-type, mcp-protocol-version, mcp-session-id, ucp-agent, request-id, idempotency-key, poppy-session, poppy-version, poppy-extensions",
   "access-control-expose-headers": "www-authenticate, request-id, retry-after",
   "access-control-max-age": "600",
 };
@@ -45,6 +46,12 @@ function oauthError(error: unknown): Response {
     return json(error.status, { error: error.code, error_description: error.message });
   }
   throw error;
+}
+
+// The per-address limit agents share across UCP, /mcp and the OAuth endpoints that do work.
+function agentLimit(request: Request): Response | undefined {
+  const retry = rateLimited(clientIp(request));
+  return retry ? json(429, { error: "rate_limited" }, { "retry-after": String(retry) }) : undefined;
 }
 
 async function formOf(request: Request): Promise<URLSearchParams> {
@@ -340,8 +347,8 @@ const app = new Elysia()
   })
   .post("/oauth/device_authorization", async ({ request }) => {
     // Every call stores a request, so it shares the limit agents get on UCP and /mcp.
-    const retry = rateLimited(clientIp(request));
-    if (retry) return json(429, { error: "rate_limited" }, { "retry-after": String(retry) });
+    const limited = agentLimit(request);
+    if (limited) return limited;
     try {
       const answer = await oauth.startDeviceAuthorization(await formOf(request));
       // The device code is a secret and the user code half of one: neither goes to the trace.
@@ -392,7 +399,10 @@ const app = new Elysia()
     if (typed) back.searchParams.set("user_code", typed);
     return new Response(null, { status: 303, headers: { location: back.href } });
   })
+  // Each call may fetch the client's documents and checks a signature: the agents' limit too.
   .post("/oauth/token", async ({ request }) => {
+    const limited = agentLimit(request);
+    if (limited) return limited;
     try {
       const tokens = await oauth.tokenEndpoint(await formOf(request));
       trace({
@@ -421,6 +431,8 @@ const app = new Elysia()
     }
   })
   .post("/oauth/revoke", async ({ request }) => {
+    const limited = agentLimit(request);
+    if (limited) return limited;
     try {
       await oauth.revokeEndpoint(await formOf(request));
       return new Response(null, { status: 200 });
@@ -461,6 +473,8 @@ const app = new Elysia()
   )
   .all("/ucp/v1/*", ({ request, params }) => handleRest(request, `/${params["*"]}`))
   .all("/mcp", ({ request }) => handleMcp(request))
+  .get("/poppy/tasks", ({ request }) => handleTasks(request))
+  .post("/poppy/feedback", ({ request }) => handleFeedback(request))
   .use(browserApi)
   .use(accountApi);
 

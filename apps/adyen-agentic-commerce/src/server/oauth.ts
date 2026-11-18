@@ -11,6 +11,7 @@ import {
 } from "jose";
 import { config } from "./config";
 import { claimJti, count, findBy, get, list, put, removeExpired } from "./db";
+import { assertPublicHost, OutboundRefused } from "./outbound";
 import { trace } from "./trace";
 import { isRecord, newId, secret, sha256, sha256b64url } from "./util";
 
@@ -26,8 +27,10 @@ const SCOPE_NAMES = [
 export type Scope = (typeof SCOPE_NAMES)[number];
 
 type ScopeInfo = {
-  // The consent page's line, also the description in poppy.json and the OpenAPI flows.
+  // The consent page's and the account page's line.
   label: string;
+  // For agents only (PAP 1.0 §4.7): whether the task works without the scope.
+  withoutIt: string;
   // PAP 1.0 §4.7 hints.
   changes: "none" | "reversible" | "irreversible";
   personalData: boolean;
@@ -40,38 +43,53 @@ type ScopeInfo = {
 export const SCOPES: Record<Scope, ScopeInfo> = {
   "dev.ucp.shopping.cart:manage": {
     label: "Create, update and cancel carts for you",
+    withoutIt: "Signed out, an agent can still build a guest cart.",
     changes: "reversible",
     personalData: false,
   },
   "dev.ucp.shopping.checkout:manage": {
     label: "Create, update and cancel checkouts for you, with your delivery details",
+    withoutIt: "Signed out, an agent can still check out as a guest.",
     changes: "reversible",
     personalData: true,
   },
   "ucp:pay": {
     label: "Pay with your saved card, within the spend limit you set",
+    withoutIt:
+      "Only the saved card needs it: an agent's own network token, or the shopper at continue_url, pays without it.",
     changes: "irreversible",
     personalData: true,
   },
   "dev.ucp.shopping.order:read": {
     label: "Read the orders it placed for you",
+    withoutIt: "Every order read needs it.",
     changes: "none",
     personalData: true,
   },
-  profile: { label: "Read your name and email address", changes: "none", personalData: true },
+  profile: {
+    label: "Read your name and email address",
+    withoutIt: "Shopping works without it; orders then show no buyer.",
+    changes: "none",
+    personalData: true,
+  },
   "ucp:checkout": {
     label: "Create, update and cancel carts and checkouts for you, with your delivery details",
+    withoutIt: "Signed out, an agent can still use guest carts and checkouts.",
     changes: "reversible",
     personalData: true,
     standsFor: ["dev.ucp.shopping.cart:manage", "dev.ucp.shopping.checkout:manage"],
   },
   "ucp:orders": {
     label: "Read the orders it placed for you",
+    withoutIt: "Every order read needs it.",
     changes: "none",
     personalData: true,
     standsFor: ["dev.ucp.shopping.order:read"],
   },
 };
+// The description agents read in poppy.json and the OpenAPI flows.
+export const agentScopeDescription = (scope: Scope) =>
+  `${SCOPES[scope].label}. ${SCOPES[scope].withoutIt}`;
 export const isScope = (value: string): value is Scope =>
   (SCOPE_NAMES as readonly string[]).includes(value);
 export const ADVERTISED_SCOPES: Scope[] = SCOPE_NAMES.filter((s) => !SCOPES[s].standsFor);
@@ -280,18 +298,37 @@ function sameSite(a: URL, b: URL) {
   return a.hostname === b.hostname || a.hostname.endsWith(`.${b.hostname}`);
 }
 
+// A client's documents and keys are the agent's to serve: whatever goes wrong fetching or reading
+// them is the client's failure, never the store's.
 async function fetchNoRedirect(url: string): Promise<unknown> {
-  const response = await fetch(url, {
-    redirect: "manual",
-    headers: { accept: "application/json" },
-    signal: AbortSignal.timeout(5000),
-  });
-  if (response.status !== 200)
-    throw new OAuthError("invalid_client", `${url} answered ${response.status}`);
-  const text = await response.text();
-  if (text.length > 64_000) throw new OAuthError("invalid_client", `${url} is too large`);
-  return JSON.parse(text);
+  try {
+    await assertPublicHost(new URL(url));
+    const response = await fetch(url, {
+      redirect: "manual",
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (response.status !== 200) {
+      await response.body?.cancel();
+      throw new OAuthError("invalid_client", `${url} answered ${response.status}`);
+    }
+    const text = await response.text();
+    if (text.length > 64_000) throw new OAuthError("invalid_client", `${url} is too large`);
+    return JSON.parse(text);
+  } catch (error) {
+    if (error instanceof OAuthError) throw error;
+    if (error instanceof OutboundRefused) throw new OAuthError("invalid_client", error.message);
+    throw new OAuthError("invalid_client", `${url} could not be fetched or read`);
+  }
 }
+
+const urlOrUndefined = (value: unknown) => {
+  try {
+    return typeof value === "string" ? new URL(value) : undefined;
+  } catch {
+    return undefined;
+  }
+};
 
 // Client metadata documents and UCP platform profiles: https, or loopback on a loopback store.
 export function metadataUrlAllowed(url: URL) {
@@ -336,10 +373,10 @@ export async function resolveClient(clientId: string): Promise<Client> {
     SUPPORTED_GRANTS.includes(g),
   );
   for (const uri of redirectUris) {
-    const r = new URL(uri);
-    const ok =
-      (sameSite(r, url) && (r.protocol === "https:" || isLoopback(r))) ||
-      (authMethod === "none" && isLoopback(r));
+    const r = urlOrUndefined(uri);
+    // RFC 8252 §7.3: a native agent's loopback callback is on the User's own device, whatever the
+    // host of its client document.
+    const ok = r && !r.hash && (isLoopback(r) || (sameSite(r, url) && r.protocol === "https:"));
     if (!ok)
       throw new OAuthError("invalid_client", `redirect_uri ${uri} is not on the client's domain`);
   }
@@ -348,9 +385,8 @@ export async function resolveClient(clientId: string): Promise<Client> {
     throw new OAuthError("invalid_client", "redirect_uris is required");
   let jwksUri: string | undefined;
   if (authMethod === "private_key_jwt") {
-    if (typeof doc.jwks_uri !== "string")
-      throw new OAuthError("invalid_client", "jwks_uri is required");
-    const j = new URL(doc.jwks_uri);
+    const j = urlOrUndefined(doc.jwks_uri);
+    if (!j) throw new OAuthError("invalid_client", "jwks_uri is required");
     if (!sameSite(j, url) || !metadataUrlAllowed(j)) {
       throw new OAuthError("invalid_client", "jwks_uri must be on the client's domain");
     }
@@ -416,11 +452,28 @@ export function registerClient(body: unknown): Client {
   return put("clients", client.clientId, client);
 }
 
-async function clientKeys(client: Client): Promise<JSONWebKeySet> {
-  if (!client.jwksUri) throw new OAuthError("invalid_client", "Client has no jwks_uri");
-  const doc = await fetchNoRedirect(client.jwksUri);
+// Every signed request would otherwise fetch the agent's keys. A key id the cached set lacks may
+// be a rotation, so it refetches the set, at most once a minute, which keeps a stream of unknown
+// kids from turning into a stream of fetches.
+const KEYS_TTL_MS = 5 * 60_000;
+const KEYS_REFETCH_MS = 60_000;
+const KEY_SETS_MAX = 1000;
+const keySets = new Map<string, { keys: JSONWebKeySet; fetchedAt: number }>();
+
+export const forgetClientKeys = () => keySets.clear();
+
+async function clientKeys(client: Client, refresh = false): Promise<JSONWebKeySet> {
+  const uri = client.jwksUri;
+  if (!uri) throw new OAuthError("invalid_client", "Client has no jwks_uri");
+  const cached = keySets.get(uri);
+  const age = cached ? Date.now() - cached.fetchedAt : Infinity;
+  if (cached && age < (refresh ? KEYS_REFETCH_MS : KEYS_TTL_MS)) return cached.keys;
+  const doc = await fetchNoRedirect(uri);
   if (!isRecord(doc) || !Array.isArray(doc.keys))
     throw new OAuthError("invalid_client", "Bad JWKS");
+  keySets.delete(uri);
+  if (keySets.size >= KEY_SETS_MAX) keySets.delete(keySets.keys().next().value!);
+  keySets.set(uri, { keys: doc as unknown as JSONWebKeySet, fetchedAt: Date.now() });
   return doc as unknown as JSONWebKeySet;
 }
 
@@ -429,12 +482,18 @@ export async function verifyWithClientKeys(
   jwt: string,
   options: { typ?: string; audience?: string },
 ) {
-  const keys = createLocalJWKSet(await clientKeys(client));
-  return jwtVerify(jwt, keys, {
-    algorithms: ["ES256", "PS384"],
-    typ: options.typ,
-    audience: options.audience,
-  });
+  const verify = async (keys: JSONWebKeySet) =>
+    jwtVerify(jwt, createLocalJWKSet(keys), {
+      algorithms: ["ES256", "PS384"],
+      typ: options.typ,
+      audience: options.audience,
+    });
+  try {
+    return await verify(await clientKeys(client));
+  } catch (error) {
+    if ((error as { code?: string }).code !== "ERR_JWKS_NO_MATCHING_KEY") throw error;
+    return verify(await clientKeys(client, true));
+  }
 }
 
 // private_key_jwt: aud must be the issuer identifier itself; lifetimes up to 300 s are accepted.
@@ -456,7 +515,10 @@ async function authenticateClient(form: URLSearchParams): Promise<Client> {
       throw new OAuthError("invalid_client", "iss and sub must be the client_id", 401);
     }
     clientId = claims.iss;
-    const client = await resolveClient(clientId);
+    const client = await resolveClient(clientId).catch((error) => {
+      // RFC 6749 §5.2: a client that cannot be authenticated is 401, whatever the reason.
+      throw error instanceof OAuthError ? new OAuthError(error.code, error.message, 401) : error;
+    });
     if (client.authMethod !== "private_key_jwt")
       throw new OAuthError("invalid_client", "Client is public", 401);
     let payload: Awaited<ReturnType<typeof verifyWithClientKeys>>["payload"];
@@ -512,6 +574,18 @@ function errorRedirect(redirectUri: string, error: string, description: string, 
   return url.href;
 }
 
+// Exact, except that RFC 8252 §7.3 lets a loopback redirect take any port: a native agent listens
+// on whichever port is free when it signs in.
+function redirectMatches(registered: string, asked: string): boolean {
+  if (registered === asked) return true;
+  const r = urlOrUndefined(registered);
+  const a = urlOrUndefined(asked);
+  if (!r || !a || !isLoopback(r) || !isLoopback(a) || a.hash) return false;
+  r.port = "";
+  a.port = "";
+  return r.href === a.href;
+}
+
 export async function startAuthorization(params: URLSearchParams): Promise<AuthorizeOutcome> {
   const clientId = params.get("client_id") ?? "";
   const redirectUri = params.get("redirect_uri") ?? "";
@@ -526,7 +600,7 @@ export async function startAuthorization(params: URLSearchParams): Promise<Autho
       description: (error as Error).message,
     };
   }
-  if (!client.redirectUris.includes(redirectUri)) {
+  if (!client.redirectUris.some((registered) => redirectMatches(registered, redirectUri))) {
     return {
       kind: "error",
       status: 400,
@@ -834,7 +908,13 @@ function deviceToken(client: Client, deviceCode: string, asked: string[]) {
     const grant = get<Grant>("grants", device.grantId ?? "");
     if (!grant || grant.revoked || !grant.customerId)
       throw new OAuthError("invalid_grant", "Grant revoked");
-    return issueTokens(client.clientId, grant, device.grantedScopes ?? [], resources);
+    const scopes = device.grantedScopes ?? [];
+    return issueTokens(
+      client.clientId,
+      grant,
+      { scopes, resources: device.resources },
+      { scopes, resources },
+    );
   }
   const now = Date.now();
   const early = device.lastPollMs !== undefined && now - device.lastPollMs < device.interval * 1000;
@@ -846,44 +926,41 @@ function deviceToken(client: Client, deviceCode: string, asked: string[]) {
 
 // --- tokens ------------------------------------------------------------------------------------
 
-function issueTokens(
-  clientId: string,
-  grant: Grant,
-  scopes: Scope[],
-  resources: string[] | undefined,
-) {
+type Reach = { scopes: Scope[]; resources: string[] | undefined };
+
+// RFC 6749 §6 and PAP 1.0 §4.5: a token request may narrow the access token, while the refresh
+// token keeps all the grant gave, so a later refresh can ask for the rest.
+function issueTokens(clientId: string, grant: Grant, granted: Reach, access: Reach = granted) {
   // The first token is when the account starts to show the agent as more than a consent.
   const current = get<Grant>("grants", grant.id);
   if (current && !current.tokenIssuedAt)
     put("grants", grant.id, { ...current, tokenIssuedAt: new Date().toISOString() });
-  const access = `at_${secret()}`;
-  const refresh = `rt_${secret()}`;
-  put<Token>("tokens", sha256(access), {
-    id: sha256(access),
+  const accessToken = `at_${secret()}`;
+  const refreshToken = `rt_${secret()}`;
+  put<Token>("tokens", sha256(accessToken), {
+    id: sha256(accessToken),
     kind: "access",
     clientId,
     grantId: grant.id,
-    scopes,
-    resources,
+    ...access,
     expiresAt: nowSec() + ACCESS_TTL,
     revoked: false,
   });
-  put<Token>("tokens", sha256(refresh), {
-    id: sha256(refresh),
+  put<Token>("tokens", sha256(refreshToken), {
+    id: sha256(refreshToken),
     kind: "refresh",
     clientId,
     grantId: grant.id,
-    scopes,
-    resources,
+    ...granted,
     expiresAt: nowSec() + REFRESH_TTL,
     revoked: false,
   });
   return {
-    access_token: access,
+    access_token: accessToken,
     token_type: "Bearer",
     expires_in: ACCESS_TTL,
-    refresh_token: refresh,
-    scope: scopes.join(" "),
+    refresh_token: refreshToken,
+    scope: access.scopes.join(" "),
   };
 }
 
@@ -906,7 +983,12 @@ export async function tokenEndpoint(form: URLSearchParams) {
     if (!grant || grant.revoked || !grant.customerId)
       throw new OAuthError("invalid_grant", "Grant revoked");
     const resources = grantedResources(code.resources, form.getAll("resource"));
-    return issueTokens(client.clientId, grant, code.scopes, resources);
+    return issueTokens(
+      client.clientId,
+      grant,
+      { scopes: code.scopes, resources: code.resources },
+      { scopes: code.scopes, resources },
+    );
   }
   if (grantType === "refresh_token") {
     const raw = form.get("refresh_token") ?? "";
@@ -931,8 +1013,8 @@ export async function tokenEndpoint(form: URLSearchParams) {
     return issueTokens(
       client.clientId,
       grant,
-      asked.length ? (asked as Scope[]) : token.scopes,
-      resources,
+      { scopes: token.scopes, resources: token.resources },
+      { scopes: asked.length ? [...new Set(asked as Scope[])] : token.scopes, resources },
     );
   }
   if (grantType === DEVICE_GRANT) {
@@ -949,8 +1031,25 @@ export async function tokenEndpoint(form: URLSearchParams) {
 export async function revokeEndpoint(form: URLSearchParams) {
   const client = await authenticateClient(form);
   const token = get<Token>("tokens", sha256(form.get("token") ?? ""));
-  if (token && token.clientId === client.clientId)
-    put("tokens", token.id, { ...token, revoked: true });
+  if (!token || token.clientId !== client.clientId) return;
+  const live = !token.revoked && token.expiresAt >= nowSec();
+  put("tokens", token.id, { ...token, revoked: true });
+  // PAP 1.0 §4.6 and RFC 7009 §2.1: revoking the live refresh token of a sign-in is sign-out, so
+  // its grant ends and every access token issued under it stops. A refresh token a refresh
+  // already replaced, or an access token, ends nothing else.
+  if (token.kind !== "refresh" || !live) return;
+  const grant = get<Grant>("grants", token.grantId);
+  if (!grant || grant.revoked) return;
+  put("grants", grant.id, { ...grant, revoked: true });
+  trace({
+    channel: "oauth",
+    actor: grant.clientName,
+    method: "POST",
+    path: "/oauth/revoke",
+    status: 200,
+    ref: grant.id,
+    detail: { signedOut: true, account: grant.customerId },
+  });
 }
 
 // `path` is the protected resource the request reached: "" for UCP REST, "/mcp" for MCP. A token

@@ -5,27 +5,36 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Customer accounts and agent-brought cards — ACTIVE
+## PAP 1.0 fixes and two additions on the agentic store — MEASURING
 
-- Owner decision: 2026-11-17, ADR-015 approved; 20:50 UTC: agents choose freely between saved
-  card, front payment and a network token (number and expiry only, ContAuth, brand detected).
-- State: on local develop, not pushed: review findings fixed with tests; handler reworked (brand
-  from /cardDetails, ContAuth); a real local TEST payment Authorised; no instrument hands over.
-- Next: independent review of `953d48b..HEAD`, push, v0.4.0 (who: agent); a real passkey on
-  localhost and Render (who: owner).
+- Owner decision: 2026-11-18, in chat: fix review findings 1 to 7 and the minor items, add
+  signed-out MCP for verified Sessions and a static tasks endpoint with feedback; then release it
+  to main and check the live site.
+- State: committed on develop and released; bun run check green (331 agentic tests); local PAP
+  agent run and pages at 375 px checked.
+- Next: on Render, poppy.json lists tasks and /poppy/tasks answers 200 (who: agent).
 - Blocker: none.
-- Evidence: knowledge/components/adyen-agentic-commerce.md (verified 2026-11-17, TEST run).
+- Evidence: knowledge/components/adyen-agentic-commerce.md (verified 2026-11-18); CHANGELOG.
 
-## Agentic data lost on deploy, disk not in effect — WAITING-OWNER
+## Passkeys on v0.4.0: owner browser check — WAITING-OWNER
 
-- Owner decision: 2026-11-17, the Render Blueprint gives agentic a `starter` plan, the
-  `agentic-data` disk at `/var/data` and `DATABASE_PATH=/var/data/agentic.sqlite`.
-- State: v0.3.4 released and deployed (weak ETag 304); marker `chk_FMh1DGYntPlf`, created after
-  the owner added the 1 GB disk, is 404 after that deploy: the database was replaced again.
-- Next: in Render, `agentic-commerce` must show the disk mounted at `/var/data` and
-  `DATABASE_PATH=/var/data/agentic.sqlite` (or a Blueprint sync); then a new marker (who: owner).
-- Blocker: needs the Render dashboard.
-- Evidence: knowledge/current/digital-status.md (v0.3.4 rows); render.yaml.
+- Owner decision: 2026-11-17, ADR-015 approved; agents choose freely between saved card, front
+  payment and a network token (number and expiry only, ContAuth, brand from /cardDetails).
+- State: v0.4.0 released and deployed (main `e96de08`); passkeys tested only with a software
+  authenticator; a network-token payment Authorised locally on Adyen TEST.
+- Next: register a real passkey and sign in with it, on `http://localhost:8003` and on Render
+  (who: owner).
+- Blocker: needs the owner's device.
+- Evidence: knowledge/current/digital-status.md (v0.4.0 row); ADR-015.
+
+## Agentic data on the Render disk: one deploy to observe — MEASURING
+
+- Owner decision: 2026-11-18, `DATABASE_PATH=/var/data/agentic.sqlite` set on `agentic-commerce`.
+- State: checkout `chk_Vut7c1hPlni1` on the disk survived a restart (200 before and after).
+- Next: after the next deploy of a new commit, `GET /api/checkouts/chk_Vut7c1hPlni1` answers 200
+  (who: agent).
+- Blocker: none.
+- Evidence: knowledge/current/digital-status.md (row "Agentic data across a restart").
 
 ## Client address on Render: two-client check — WAITING-OWNER
 

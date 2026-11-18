@@ -3,7 +3,7 @@
 // operationIds and canonical schemas, with this store's token rules and error statuses per
 // operation. Scopes come from REQUIRED_SCOPE and HARD_GATES, the table the server checks.
 import { config, UCP_VERSION } from "./config";
-import { ADVERTISED_SCOPES, DEVICE_GRANT, SCOPES } from "./oauth";
+import { ADVERTISED_SCOPES, agentScopeDescription, DEVICE_GRANT } from "./oauth";
 import { HARD_GATES, MUTATIONS, REQUIRED_SCOPE } from "./ucp";
 
 const UCP = `https://ucp.dev/${UCP_VERSION}`;
@@ -366,7 +366,9 @@ export function openApi() {
               authorizationUrl: `${origin}/oauth/authorize`,
               tokenUrl: `${origin}/oauth/token`,
               refreshUrl: `${origin}/oauth/token`,
-              scopes: Object.fromEntries(ADVERTISED_SCOPES.map((s) => [s, SCOPES[s].label])),
+              scopes: Object.fromEntries(
+                ADVERTISED_SCOPES.map((s) => [s, agentScopeDescription(s)]),
+              ),
             },
           },
         },

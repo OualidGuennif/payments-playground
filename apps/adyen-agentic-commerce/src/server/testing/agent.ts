@@ -14,7 +14,7 @@ import { handle } from "../api";
 import { forgetCardCache } from "../commerce";
 import { customerFromCookies, forgetFailures } from "../customers";
 import { openDatabase, useDatabase } from "../db";
-import { forgetCodeMisses } from "../oauth";
+import { forgetClientKeys, forgetCodeMisses } from "../oauth";
 import { forgetProfiles } from "../profile";
 import { sha256b64url } from "../util";
 import { fake } from "./fake-adyen";
@@ -33,6 +33,7 @@ export function freshStore() {
   forgetCodeMisses();
   forgetFailures();
   forgetProfiles();
+  forgetClientKeys();
 }
 
 // A shopper account created through the browser API; its session cookie as a Cookie header.
@@ -212,8 +213,21 @@ export class TestAgent {
       client_assertion: assertion ?? (await this.assertion()),
       ...form,
     });
-    const response = await handle(new Request(`${ORIGIN}/oauth/token`, { method: "POST", body }));
+    const response = await handle(
+      new Request(`${ORIGIN}/oauth/token`, {
+        method: "POST",
+        headers: { "x-forwarded-for": this.ip },
+        body,
+      }),
+    );
     return { status: response.status, body: (await response.json()) as Record<string, string> };
+  }
+
+  // A key rotation: jwks.json serves only a new key from now on, and the agent signs with it.
+  async rotateClientKey() {
+    this.clientKeys = await generateKeyPair("ES256", { extractable: true });
+    this.clientJwk = { ...(await exportJWK(this.clientKeys.publicKey)), alg: "ES256", use: "sig" };
+    this.clientJwk.kid = await calculateJwkThumbprint(this.clientJwk);
   }
 
   // The happy path: consent with the given scopes and limit, then a token and a delegation.

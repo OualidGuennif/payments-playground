@@ -265,7 +265,7 @@ describe("refresh", () => {
     expect(reused.body.error).toBe("invalid_grant");
   });
 
-  test("a refresh can narrow the scope but not widen it", async () => {
+  test("a refresh can narrow the scope but not widen it, and the next refresh gets the rest back", async () => {
     const first = (await exchange(await code({}, { scopes: ["ucp:checkout", "ucp:orders"] }))).body;
     const wider = await agent.token({
       grant_type: "refresh_token",
@@ -279,6 +279,24 @@ describe("refresh", () => {
       scope: "ucp:orders",
     });
     expect(narrower.body.scope).toBe("ucp:orders");
+    // RFC 6749 §6: the refresh token keeps the grant; only the access token was narrowed.
+    const back = await agent.token({
+      grant_type: "refresh_token",
+      refresh_token: narrower.body.refresh_token!,
+      scope: "ucp:checkout",
+    });
+    expect(back.body.scope).toBe("ucp:checkout");
+    const plain = await agent.token({
+      grant_type: "refresh_token",
+      refresh_token: back.body.refresh_token!,
+    });
+    expect(plain.body.scope).toBe("ucp:checkout ucp:orders");
+    const stillNarrow = await agent.token({
+      grant_type: "refresh_token",
+      refresh_token: plain.body.refresh_token!,
+      scope: "ucp:checkout ucp:pay",
+    });
+    expect(stillNarrow.body.error).toBe("invalid_scope");
   });
 
   test("revoking the agent's grant ends its tokens", async () => {
@@ -291,18 +309,85 @@ describe("refresh", () => {
     ).toBe("invalid_grant");
   });
 
-  test("a revoked access token stops working", async () => {
-    await agent.signIn();
+  const revoke = async (token: string, ip = agent.ip) => {
     const body = new URLSearchParams({
       client_id: agent.clientId,
       client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
       client_assertion: await agent.assertion(),
-      token: agent.accessToken,
+      token,
     });
-    expect(
-      (await handle(new Request(`${ORIGIN}/oauth/revoke`, { method: "POST", body }))).status,
-    ).toBe(200);
+    return handle(
+      new Request(`${ORIGIN}/oauth/revoke`, {
+        method: "POST",
+        headers: { "x-forwarded-for": ip },
+        body,
+      }),
+    );
+  };
+
+  test("a revoked access token stops working; the sign-in itself goes on", async () => {
+    await agent.signIn();
+    expect((await revoke(agent.accessToken)).status).toBe(200);
     expect((await agent.mcp("ping")).status).toBe(401);
+    expect(grants()[0]!.revoked).toBe(false);
+    const next = await agent.token({
+      grant_type: "refresh_token",
+      refresh_token: agent.refreshToken,
+    });
+    expect(next.status).toBe(200);
+  });
+
+  test("sign-out: revoking the live refresh token ends the grant and every token of that sign-in", async () => {
+    await agent.signIn();
+    expect((await agent.mcp("ping")).status).toBe(200);
+    expect((await revoke(agent.refreshToken)).status).toBe(200);
+    expect(grants()[0]!.revoked).toBe(true);
+    expect((await agent.mcp("ping")).status).toBe(401);
+  });
+
+  test("revoking a refresh token a refresh already replaced signs nothing out", async () => {
+    await agent.signIn();
+    const old = agent.refreshToken;
+    const next = await agent.token({ grant_type: "refresh_token", refresh_token: old });
+    agent.accessToken = next.body.access_token!;
+    expect((await revoke(old)).status).toBe(200);
+    expect(grants()[0]!.revoked).toBe(false);
+    expect((await agent.mcp("ping")).status).toBe(200);
+  });
+
+  test("the token and revocation endpoints share the agents' limit per address", async () => {
+    const ip = randomIp();
+    let status = 0;
+    for (let i = 0; i < 241; i++) status = (await revoke("rt_unknown", ip)).status;
+    expect(status).toBe(429);
+    agent.ip = ip;
+    const limited = await agent.token({ grant_type: "refresh_token", refresh_token: "rt_x" });
+    expect([limited.status, limited.body.error]).toEqual([429, "rate_limited"]);
+  });
+});
+
+describe("loopback redirects (RFC 8252 §7.3)", () => {
+  test("a loopback redirect matches with any port, never another host or path", async () => {
+    const withPort = (port: number) => agent.redirectUri.replace(/:(\d+)\//, `:${port}/`);
+    const other = await agent.authorize({ redirect_uri: withPort(54321) });
+    expect(other.requestId).toBeDefined();
+    const back = await agent.decide(other.requestId!);
+    expect(back.port).toBe("54321");
+    const exchanged = await agent.token({
+      grant_type: "authorization_code",
+      code: back.searchParams.get("code")!,
+      redirect_uri: withPort(54321),
+      code_verifier: VERIFIER,
+    });
+    expect(exchanged.status).toBe(200);
+    for (const redirect_uri of [
+      agent.redirectUri.replace("127.0.0.1", "localhost"),
+      agent.redirectUri.replace("/callback", "/elsewhere"),
+      `${agent.redirectUri}#x`,
+    ]) {
+      const refused = await agent.authorize({ redirect_uri });
+      expect([redirect_uri, refused.response.status]).toEqual([redirect_uri, 400]);
+    }
   });
 });
 
@@ -409,6 +494,18 @@ describe("resource indicators", () => {
     const all = (await exchange(await code())).body;
     const narrowed = await refresh(all.refresh_token!, { resource: ORIGIN });
     expect(await worksAt(narrowed.body.access_token!)).toEqual({ mcp: 401, rest: 200 });
+  });
+
+  // PAP 1.0 §4.5: a sign-in without resource covers every resource, at refresh too.
+  test("narrowing one access token never narrows the next: the refresh token keeps the grant's resources", async () => {
+    const exchanged = (await exchange(await code(), { resource: MCP })).body;
+    expect(await worksAt(exchanged.access_token!)).toEqual({ mcp: 200, rest: 401 });
+    const plain = await refresh(exchanged.refresh_token!);
+    expect(await worksAt(plain.body.access_token!)).toEqual({ mcp: 200, rest: 200 });
+    const narrowed = await refresh(plain.body.refresh_token!, { resource: MCP });
+    const toOrigin = await refresh(narrowed.body.refresh_token!, { resource: ORIGIN });
+    expect(toOrigin.status).toBe(200);
+    expect(await worksAt(toOrigin.body.access_token!)).toEqual({ mcp: 401, rest: 200 });
   });
 });
 

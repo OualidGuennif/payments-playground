@@ -5,6 +5,44 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-18
+
+- An agentic refresh token keeps every scope and resource of its grant: a token request that
+  narrowed one access token (a code exchanged for the MCP URL, a refresh asking for one scope) no
+  longer narrowed every later token, as PAP 1.0 §4.5 and RFC 6749 §6 require.
+- The agentic store connects to an agent-given URL (client document, `jwks_uri`, platform
+  profile) only when its host resolves to public addresses (PAP 1.0 §3); a client document that
+  cannot be fetched or read is `invalid_client` instead of a server error, the client's keys are
+  cached 5 minutes (an unknown key id refetches them at most once a minute), and `/oauth/token`
+  and `/oauth/revoke` share the agents' limit per address.
+- Agentic MCP refuses like UCP REST: a missing scope is HTTP 403 and a missing sign-in 401, each
+  with the REST `WWW-Authenticate` challenge and a JSON-RPC error `-32000` naming the code, where
+  they were a successful tool result; a 429 carries `data.retry_after`. `invalid_session` is a UCP
+  error body on REST and a JSON-RPC error on MCP (PAP's UCP extension §9); `version_unsupported`
+  keeps PAP's JSON body.
+- A PAP agent signed out reaches agentic `/mcp` with a verified Session and shops as a guest, as
+  it already could over UCP REST; a client with neither a token nor a Session keeps the 401.
+- The agentic store lists `tasks.endpoint` in `poppy.json` (PAP 1.0 §9): `GET /poppy/tasks`
+  names the tasks agents cannot do here (account creation, card saving and spend limits are the
+  shopper's, on the website; a plain card number has the network token or the shopper as its
+  alternative; returns and refunds exist nowhere), and `POST /poppy/feedback` takes a report,
+  answers 202 and records it in the trace, attributed only after a verified Session.
+- Smaller PAP fixes on the agentic store: scope descriptions for agents say what works without
+  the scope, the MCP description and instructions name the three ways to pay, CORS allows
+  `Poppy-Extensions`, the consent page tells the shopper to continue only if they just asked this
+  agent, the trace names the verified Session's client, and `scripts/pap-agent.ts` checks
+  `organization.domain` and `protected_resources` and names `resource` only at the token request.
+- Revoking a live agentic refresh token signs the agent out: its grant ends, every token of that
+  sign-in stops and the account shows the agent disconnected (PAP 1.0 §4.6, RFC 7009 §2.1).
+- An agent's loopback redirect URI matches with any port, for any client (RFC 8252 §7.3).
+- A Session JWT's `jti` is remembered until its `iat` can no longer pass, so one sent with an
+  `iat` ahead of the clock cannot be replayed.
+- Record that agentic data now lives on the Render disk: `DATABASE_PATH` was unset, so the store
+  wrote to the image's own folder; with it set, a checkout survives a restart of the service.
+- Record the v0.4.0 deploy check: the agentic store serves the account pages and the reworked
+  `network_token` handler on Render; the open tasks are now the owner's real passkey check and the
+  agentic disk, which accounts and grants now depend on too.
+
 ## [0.4.0] - 2026-11-18
 
 - The agentic store keeps idempotent answers per agent client and account: one agent client

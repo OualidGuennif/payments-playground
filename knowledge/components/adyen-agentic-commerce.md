@@ -7,10 +7,10 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T12:00:00Z
+  at: 2026-11-18T15:00:00Z
 verified:
   - at: 2026-11-18
-    check: "bun run check green, 331 agentic tests (refresh keeps the grant, address guard, MCP 401/403/429, signed-out MCP, sign-out, loopback ports, jti window, tasks). Local pap-agent.ts --auto-consent run handed the checkout over; consent and /agents read at 375 px."
+    check: "bun run check green, 333 agentic tests (refresh keeps the grant, device grant too; address guard, profile host too; MCP 401/403/429, signed-out MCP, sign-out, loopback ports, jti, tasks). Local pap-agent.ts --auto-consent handed the checkout over; consent, /agents at 375 px."
   - at: 2026-11-17
     check: "Local run on Adyen TEST: a guest agent over UCP REST paid with 4111111111111111 and an expiry only, Authorised (PFZ9SDVTLGKLJJV5, brand visa from /cardDetails, ContAuth, UnscheduledCardOnFile); no instrument gave requires_escalation; the number nowhere in the Back Office."
   - at: 2026-11-17
@@ -408,7 +408,8 @@ before, every deploy or restart emptied orders, agents and grants.
     tokens (`src/server/customers.test.ts`, "web channel").
 19. The store connects to an agent-given URL only after its host resolved to public addresses
     alone (loopback too on a loopback store), and a failure there is `invalid_client` or a profile
-    refusal, never a 500 (`src/server/outbound.test.ts`; `src/server/conformance.test.ts` "§3").
+    refusal, never a 500 (`src/server/outbound.test.ts`; `src/server/conformance.test.ts` "§3";
+    `src/server/profile.test.ts`, "fetching the profile").
 20. On MCP an authorization failure is never a successful answer: HTTP 401 or 403 with the REST
     challenge, never stored under an idempotency key. A call without a token runs only with a
     verified Session, with a guest's access and no saved card or order

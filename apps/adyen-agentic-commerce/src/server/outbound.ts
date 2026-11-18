@@ -2,7 +2,9 @@
 // PAP 1.0 §3: the store never connects to a loopback, private or link-local address for a URL an
 // agent gave it (client documents, jwks_uri, platform profiles). A name is resolved first and
 // every address it gives must be public, since a fetch may use any of them.
-import { lookup } from "node:dns/promises";
+// Called through the module object so a test can answer for the resolver: no real name resolves
+// to a private address on every machine.
+import dns from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
 import { config } from "./config";
 
@@ -73,7 +75,7 @@ export async function assertPublicHost(url: URL): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     addresses = await Promise.race([
-      lookup(host, { all: true, verbatim: true }),
+      dns.lookup(host, { all: true, verbatim: true }),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error("timeout")), LOOKUP_TIMEOUT_MS);
       }),

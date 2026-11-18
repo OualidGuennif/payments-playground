@@ -1,7 +1,8 @@
 // UCP 2026-08-25 negotiation on the business side: the profile URL rules, the fetch guards, the
 // platform profile check, the version check, the capability intersection, and where it runs.
 // Spec: knowledge/components/adyen-agentic-commerce.md
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import dns from "node:dns/promises";
 import { handle } from "./api";
 import { cachedProfile } from "./profile";
 import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
@@ -99,6 +100,26 @@ describe("fetching the profile", () => {
     const { status, body } = await search(ucpAgent("http://127.0.0.1:9/profile.json"));
     expect(status).toBe(424);
     expect(code(body)).toBe("profile_unreachable");
+  });
+
+  // PAP 1.0 §3: the name is resolved before any fetch, and every address it gives must be public.
+  // `.invalid` never resolves for real, so without the check the fetch fails as unreachable.
+  test("a host that resolves to a private address is invalid_profile_url, and nothing is fetched", async () => {
+    const lookup = spyOn(dns, "lookup").mockImplementation((async () => [
+      { address: "203.0.113.7", family: 4 },
+      { address: "10.0.0.7", family: 4 },
+    ]) as never);
+    const fetches = spyOn(globalThis, "fetch");
+    try {
+      const { status, body } = await search(ucpAgent("https://platform.invalid/profile.json"));
+      expect(status).toBe(400);
+      expect(code(body)).toBe("invalid_profile_url");
+      expect(lookup).toHaveBeenCalledTimes(1);
+      expect(fetches).not.toHaveBeenCalled();
+    } finally {
+      lookup.mockRestore();
+      fetches.mockRestore();
+    }
   });
 
   test("not JSON, not a platform profile, a private key or over 256 KiB is profile_malformed 422", async () => {

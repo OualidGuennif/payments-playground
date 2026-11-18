@@ -95,6 +95,29 @@ async function consentFor(userCode: string) {
   return location.pathname.split("/").pop()!;
 }
 
+// Whether a bearer token is accepted at /mcp and at UCP REST: 200, or 401 when it is not.
+async function worksAt(accessToken: string) {
+  tv.accessToken = accessToken;
+  tv.delegation = await tv.makeDelegation();
+  const mcp = (await tv.mcp("tools/list")).status;
+  const rest = (
+    await handle(
+      new Request(`${ORIGIN}/ucp/v1/catalog/search`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json",
+          "request-id": crypto.randomUUID(),
+          "ucp-agent": ucpAgent(),
+          "x-forwarded-for": randomIp(),
+        },
+        body: JSON.stringify({ query: "" }),
+      }),
+    )
+  ).status;
+  return { mcp, rest };
+}
+
 // Moves a device request past its 600 s.
 function expire(deviceCode: string) {
   const id = sha256(deviceCode);
@@ -504,23 +527,33 @@ describe("resource indicators", () => {
     expect(widened.body.error).toBe("invalid_target");
     const tokens = await poll(tv, started.body.device_code);
     expect(tokens.status).toBe(200);
-    tv.accessToken = tokens.body.access_token;
-    tv.delegation = await tv.makeDelegation();
-    expect((await tv.mcp("tools/list")).status).toBe(200);
-    const rest = await handle(
-      new Request(`${ORIGIN}/ucp/v1/catalog/search`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${tokens.body.access_token}`,
-          "content-type": "application/json",
-          "request-id": crypto.randomUUID(),
-          "ucp-agent": ucpAgent(),
-          "x-forwarded-for": randomIp(),
-        },
-        body: JSON.stringify({ query: "" }),
+    expect(await worksAt(tokens.body.access_token)).toEqual({ mcp: 200, rest: 401 });
+  });
+
+  // PAP 1.0 §4.5 and RFC 6749 §6 for the device grant too: a sign-in without resource covers
+  // every resource, and a poll that names one narrows that access token only.
+  test("a poll that narrows to one resource never narrows the refresh token", async () => {
+    const started = await start(tv, CART);
+    await tv.decide(await consentFor(started.body.user_code), { scopes: [CART] });
+    const narrowed = await answer(
+      await post("/oauth/token", {
+        ...(await assertionOf(tv)),
+        grant_type: DEVICE_GRANT,
+        device_code: started.body.device_code,
+        resource: MCP,
       }),
     );
-    expect(rest.status).toBe(401);
+    expect(narrowed.status).toBe(200);
+    expect(await worksAt(narrowed.body.access_token)).toEqual({ mcp: 200, rest: 401 });
+    const refreshed = await answer(
+      await post("/oauth/token", {
+        ...(await assertionOf(tv)),
+        grant_type: "refresh_token",
+        refresh_token: narrowed.body.refresh_token,
+      }),
+    );
+    expect(refreshed.status).toBe(200);
+    expect(await worksAt(refreshed.body.access_token)).toEqual({ mcp: 200, rest: 200 });
   });
 });
 

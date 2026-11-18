@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.6.0 deploy check: on Render the agentic store serves the Docs and their diagrams,
+  the short `/agents` page and the tabbed Back Office, whose JSON pages its log and masks every
+  email; `/mcp` still refuses a call without a token. An agent's consent and saved-card payment
+  there are the owner's next test.
+
 ## [0.6.0] - 2026-11-18
 
 - From the release review: the Back Office masks every email shape the store accepts (a non-ASCII

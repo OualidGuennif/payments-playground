@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-18
+
 - An agentic refresh token keeps every scope and resource of its grant: a token request that
   narrowed one access token (a code exchanged for the MCP URL, a refresh asking for one scope) no
   longer narrowed every later token, as PAP 1.0 §4.5 and RFC 6749 §6 require.

@@ -2,8 +2,9 @@
 
 A demo fashion store (fictional brand, original SVG art) that a shopper can use directly and that any
 MCP-capable AI agent can shop on their behalf: discovery and sign-in with PAP 1.0, catalogue, cart
-and checkout with UCP 2026-08-25 over REST and MCP, and a real **Adyen TEST** payment on the
-shopper's saved card. No language model runs here.
+and checkout with UCP 2026-08-25 over REST and MCP, and a real **Adyen TEST** payment: on a card the
+shopper's account saved, on a network token the agent brings, or by the shopper at `continue_url`.
+No language model runs here.
 
 One Next.js 16 app on the Bun runtime: pages under `src/app`, one Elysia instance in
 `src/server/api.ts` that the route files re-export, an Eden client in the browser and `bun:sqlite`.

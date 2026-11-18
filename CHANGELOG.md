@@ -5,6 +5,18 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-18
+
+- The agentic store accepts a client assertion signed with ES256, ES384, PS256, PS384, RS256 or
+  EdDSA and says so in its OAuth metadata, so an MCP client known by its client metadata document,
+  ChatGPT's among them, gets its token; a Session's delegation still takes only ES256 or PS384.
+- The known limits and the agentic README describe the store as v0.4.0 made it: shopper accounts
+  instead of one demo shopper, agents paying with a saved card, a network token or the shopper at
+  `continue_url`, and the Render disk in use only since `DATABASE_PATH` was set.
+- Record the v0.5.0 deploy check: the agentic store serves the tasks endpoint and the new MCP
+  refusals on Render, and a checkout written before the deploy still answers after it, which
+  closes the disk check.
+
 ## [0.5.0] - 2026-11-18
 
 - An agentic refresh token keeps every scope and resource of its grant: a token request that

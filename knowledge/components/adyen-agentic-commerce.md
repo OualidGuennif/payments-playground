@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T15:00:00Z
+  at: 2026-11-18T12:35:00Z
 verified:
   - at: 2026-11-18
     check: "bun run check green, 333 agentic tests (refresh keeps the grant, device grant too; address guard, profile host too; MCP 401/403/429, signed-out MCP, sign-out, loopback ports, jti, tasks). Local pap-agent.ts --auto-consent handed the checkout over; consent, /agents at 375 px."
@@ -103,7 +103,11 @@ before, every deploy or restart emptied orders, agents and grants.
   Session needs `Poppy-Version` 1.x; a missing one, or any other major version even without a
   Session, is `version_unsupported`. A `private_key_jwt` client assertion has the issuer as its one
   `aud` string, `iat` and `jti`, and lives at most 300 s; its `iat` may be at most 60 s ahead of
-  the store's clock.
+  the store's clock. It may be signed with ES256, ES384, PS256, PS384, RS256 or EdDSA, as
+  `token_endpoint_auth_signing_alg_values_supported` says: RFC 7523 leaves the algorithm to the
+  server, and an MCP client known by its client metadata document (ChatGPT's, 2026-11-18) signs
+  with none of PAP's two. Never `none` or an HMAC: the store holds only public keys. A Session's
+  delegation keeps PAP's ES256 or PS384.
   REST catalogue, carts and checkouts work anonymously. `/mcp` answers 401 with the resource
   metadata URL until the agent signs in, unless the request carries a verified `Poppy-Session`:
   a PAP agent signed out gets the same guest access as on REST (PAP's UCP extension §8), and a
@@ -416,6 +420,10 @@ before, every deploy or restart emptied orders, agents and grants.
     (`src/server/identity.test.ts`, "MCP").
 21. Revoking a live refresh token revokes its grant: no token of that sign-in authenticates again
     (`src/server/oauth.test.ts`, "sign-out").
+22. A client assertion is verified only with a key the client publishes and one of the six
+    asymmetric algorithms; one signed with an HMAC, or not signed, is `invalid_client`, and a
+    Session whose delegation is signed with anything but ES256 or PS384 is `invalid_session`
+    (`src/server/oauth.test.ts`, "client assertion algorithms").
 
 ## Determinism
 

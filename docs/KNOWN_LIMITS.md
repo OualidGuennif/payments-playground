@@ -16,10 +16,13 @@ The store speaks UCP 2026-08-25 (REST and MCP) behind PAP 1.0 sign-in. No langua
 app: the agent is whatever MCP client the shopper points at it, and `scripts/pap-agent.ts` is a
 scripted one for local runs. **No output is presented as a response from OpenAI, Google or Adyen.**
 
-An agent payment is an ordinary Adyen Checkout TEST `/payments` call on the demo shopper's saved
-card (`ContAuth`, `UnscheduledCardOnFile`). It is not Adyen's own agentic tokenizer or UCP payment
-handler, which needs an account role this repository does not have; the handler id `saved_card` is
-the store's own, not an Adyen one.
+An agent pays with an ordinary Adyen Checkout TEST `/payments` call (`ContAuth`,
+`UnscheduledCardOnFile`): on a card the signed-in account saved (handler `saved_card`), or on a
+network token the agent brings (handler `network_token`: number and expiry only, no cryptogram, the
+brand read from `/cardDetails`). On TEST a test card number stands in for a real scheme token. An
+agent may also hand the checkout to the shopper, who pays in Drop-in at `continue_url`. Neither
+handler is Adyen's own agentic tokenizer or UCP payment handler, which needs an account role this
+repository does not have; both handler ids are the store's own, not Adyen ones.
 
 Every UCP REST request must name a platform profile the store can fetch (`UCP-Agent:
 profile="<https url>"`); a `curl` with a made-up URL now gets `profile_unreachable` (424). An MCP
@@ -31,13 +34,24 @@ loopback one unless the store itself runs on a loopback `PUBLIC_ORIGIN`, as a lo
 fetch resolves the name again, so a name whose answer changes in between (DNS rebinding) can still
 be reached. It speaks UCP 2026-08-25 only and verifies no UCP message signature.
 
-There is one demo shopper (`ogaccountnew`) and no shopper login. The consent page, the account and
-the Back Office are protected only by the playground's basic auth when it is set; without it, anyone
-who can reach the store, an agent included, can approve its own sign-in request.
+A client assertion may be signed with ES256, ES384, PS256, PS384, RS256 or EdDSA, so an MCP client
+known by its client metadata document gets its token. A Poppy-Session's delegation still takes
+only PAP's ES256 or PS384: a client whose published keys allow neither can call `/mcp` with its
+bearer token alone, but a Session it sends is `invalid_session`.
+
+Shoppers open their own accounts with a password and may add passkeys; passkeys have been tried only
+with a software authenticator, not on a real device. An email address is never verified, and there
+is no password reset and no account deletion. Approving an agent needs a signed-in account, and the
+agent then acts for that account alone. Sign-in, sign-up, the account, consent, device approval and
+the Back Office sit behind the playground's basic auth when it is set; the shop, cart, checkout and
+order pages stay public, so a shopper handed a `continue_url` can pay without that pair. Without the
+basic auth, any client that reaches the store, an agent included, can open an account and approve
+its own sign-in to it, an account with no saved card.
 
 Adyen cannot reach `localhost`, so a local run never receives the `AUTHORISATION` webhook; an order
-is still placed from the synchronous `/payments` answer. From v0.3.2 the Render Blueprint puts the
-SQLite file on a 1 GB disk so it outlives a deploy; before, each deploy emptied it. It is not backed
+is still placed from the synchronous `/payments` answer. The Render Blueprint has put the SQLite
+file on a 1 GB disk since v0.3.2, but the service used the disk only from 2026-11-18, once
+`DATABASE_PATH` was set on it; before, each deploy emptied the store. It is not backed
 up, and a local run without `DATABASE_PATH` writes `data/agentic.sqlite` under its working
 directory.
 

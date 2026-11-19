@@ -7,8 +7,13 @@ import { PLUGIN_FILES, WIDGET_CSS, WIDGET_SCRIPT } from "./widgets.gen";
 import { zip } from "./zip";
 
 export const MCP_APP_MIME = "text/html;profile=mcp-app";
-export const CAROUSEL = "ui://widget/product-carousel.html";
-export const BAG = "ui://widget/cart-checkout.html";
+export const CAROUSEL = "ui://widget/product-carousel-v2.html";
+export const BAG = "ui://widget/cart-checkout-v2.html";
+
+const LEGACY_URIS: Record<string, typeof CAROUSEL | typeof BAG> = {
+  "ui://widget/product-carousel.html": CAROUSEL,
+  "ui://widget/cart-checkout.html": BAG,
+};
 
 const WIDGETS = {
   [CAROUSEL]: {
@@ -110,12 +115,13 @@ export function listResources() {
 }
 
 export function readResource(uri: unknown) {
-  if (typeof uri !== "string" || !Object.hasOwn(WIDGETS, uri)) return undefined;
-  const key = uri as keyof typeof WIDGETS;
+  if (typeof uri !== "string") return undefined;
+  const key = Object.hasOwn(WIDGETS, uri) ? (uri as keyof typeof WIDGETS) : LEGACY_URIS[uri];
+  if (!key) return undefined;
   return {
     contents: [
       {
-        uri: key,
+        uri,
         mimeType: MCP_APP_MIME,
         text: widgetHtml(key),
         _meta: resourceMeta(WIDGETS[key].description),
@@ -124,17 +130,34 @@ export function readResource(uri: unknown) {
   };
 }
 
+export function stylistPromptText(): string {
+  const raw = PLUGIN_FILES["skills/personal-stylist/SKILL.md"] ?? "";
+  return raw.replace(/^---[\s\S]*?---\s*/, "").trim();
+}
+
 // --- the plugin package -----------------------------------------------------------------------
 
 export const PLUGIN_ZIP_PATH = "/downloads/atelier-velune-plugin.zip";
 
-// mcp.json names this deployment's own /mcp, so a local build hands out a local address.
+// mcp.json names this deployment's own /mcp and declares OpenAI OAuth CIMD metadata.
 export function pluginFiles(): Record<string, string> {
   const files = { ...PLUGIN_FILES };
   files["mcp.json"] = `${JSON.stringify(
     {
+      $schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
       mcpServers: {
-        "atelier-velune": { type: "streamable-http", url: `${config().publicOrigin}/mcp` },
+        "atelier-velune": {
+          type: "streamable-http",
+          url: `${config().publicOrigin}/mcp`,
+          extensions: {
+            "com.openai": {
+              auth: {
+                type: "oauth",
+                client: { mode: "cimd" },
+              },
+            },
+          },
+        },
       },
     },
     null,

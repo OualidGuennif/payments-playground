@@ -5,16 +5,15 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## v0.7.0: MCP Apps UI on the UCP server (carousel, bag, plugin ZIP) — ACTIVE
+## v0.7.1: ChatGPT widget fixes, card-save return, MCP stylist & ZIP — ACTIVE
 
-- Owner decision: 2026-11-18, in chat: the plan's four recommended answers, plus two modes (by
-  hand, or the assistant shops); ADR-017.
-- State: committed on develop; `bun run check` green; both bridges and both modes checked in a
-  browser inside a stand-in host (CSP, 375 and 1440 px, light and dark); not yet in ChatGPT.
-- Next: review, push, release PR v0.7.0 (who: agent); the merge (who: owner); deploy check
-  (who: agent); connect ChatGPT and shop in both modes (who: owner).
+- Owner decision: 2026-11-19, in chat: fix widget checkout revert and composer leak, fix `/account`
+  card-save 3DS return, expose stylist instructions/prompt on `/mcp`, fix plugin ZIP, ship to `main`.
+- State: code and docs verified on develop (v2 URIs, silent setWidgetState, /api/return, error.tsx,
+  MCP prompts, CIMD/OpenAI plugin ZIP); ready for review and PR to main.
+- Next: Hydrogen review, push develop, merge PR to main, verify Render live (who: agent).
 - Blocker: none.
-- Evidence: work/handovers/d29fee92-35ba-4f31-aca5-58fa336b53a5.md.
+- Evidence: bun run check exit 0 (413 agentic + 107 workspace tests, 3 builds + SSR, template-tests).
 
 ## ChatGPT pays with a saved card through the v0.6.0 consent — WAITING-OWNER
 

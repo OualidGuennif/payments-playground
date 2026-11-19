@@ -26,12 +26,15 @@ const ORDERS_PER_PAGE = 10;
 
 export function AccountView({
   initial,
+  clientKey,
   redirect,
 }: {
   initial: View;
+  clientKey?: string;
   redirect?: { sessionId: string; redirectResult: string };
 }) {
   const [view, setView] = useState(initial);
+  const [pendingRedirect, setPendingRedirect] = useState(redirect);
   const [saving, setSaving] = useState(Boolean(redirect));
   const [note, setNote] = useState<string>();
   const [hash, setHash] = useState<string>();
@@ -59,14 +62,24 @@ export function AccountView({
   }, []);
 
   const onFinished = useCallback(async (sessionId: string, sessionResult: string) => {
+    if (window.location.search) window.history.replaceState(null, "", "/account#cards");
     const { data, error } = await api().account["card-result"].post({ sessionId, sessionResult });
     if (error || !data || !("account" in data)) {
       setNote("Adyen did not confirm the card yet. Refresh in a moment.");
+      window.setTimeout(() => {
+        setPendingRedirect(undefined);
+        setSaving(false);
+      }, 0);
       return;
     }
     setView(data.account as View);
-    setSaving(false);
-    setNote(`Adyen answered: ${data.result}.`);
+    setNote(
+      data.result === "completed" ? "Card saved on Adyen TEST." : `Adyen answered: ${data.result}.`,
+    );
+    window.setTimeout(() => {
+      setPendingRedirect(undefined);
+      setSaving(false);
+    }, 0);
   }, []);
 
   async function forget(alias: string) {
@@ -296,9 +309,10 @@ export function AccountView({
           <DropinPanel
             label="Save a card"
             storedMethods={false}
+            clientKey={clientKey}
             createSession={createSession}
             onFinished={onFinished}
-            redirect={redirect}
+            redirect={pendingRedirect}
           />
         ) : (
           <button type="button" className="btn-ghost" onClick={() => setSaving(true)}>

@@ -68,7 +68,12 @@ function installDom() {
       fn({ source, origin, data });
     }
   };
-  return { parent, posted, dispatchMessage };
+  const dispatchGlobals = (globals: unknown) => {
+    for (const fn of listeners.get("openai:set_globals") ?? []) {
+      fn({ detail: { globals } });
+    }
+  };
+  return { win, parent, posted, dispatchMessage, dispatchGlobals };
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -192,3 +197,119 @@ describe("connect() origin pinning", () => {
     expect(result.structuredContent).toEqual({ ok: true });
   });
 });
+
+describe("host bridge stability and state updates", () => {
+  test("ignores repeated identical toolOutput and stale openai:set_globals once standard host initializes", async () => {
+    const { win, parent, posted, dispatchMessage, dispatchGlobals } = installDom();
+    const seen: unknown[] = [];
+    win.openai = { toolOutput: { id: "cart_1", total: 14900 } };
+    connect({ result: (data) => seen.push(data), theme: () => {} });
+    expect(seen).toEqual([{ id: "cart_1", total: 14900 }]);
+
+    dispatchGlobals({ toolOutput: { id: "cart_1", total: 14900 } });
+    expect(seen).toHaveLength(1);
+
+    dispatchMessage(parent, "https://chatgpt.com", {
+      jsonrpc: "2.0",
+      id: posted[0]?.message.id,
+      result: {},
+    });
+    await flush();
+
+    // Once ui/initialize answered, stale openai:set_globals toolOutput cannot revert the widget.
+    dispatchGlobals({ toolOutput: { id: "cart_old", total: 9900 } });
+    expect(seen).toHaveLength(1);
+
+    // Genuine MCP Apps notifications still update the view.
+    dispatchMessage(parent, "https://chatgpt.com", {
+      jsonrpc: "2.0",
+      method: "ui/notifications/tool-result",
+      params: { structuredContent: { id: "chk_1", total: 14900 } },
+    });
+    expect(seen).toEqual([
+      { id: "cart_1", total: 14900 },
+      { id: "chk_1", total: 14900 },
+    ]);
+  });
+
+  test("tellModel uses silent setWidgetState when openai exists and structuredContent otherwise", async () => {
+    const { win, parent, posted, dispatchMessage } = installDom();
+    const widgetStates: unknown[] = [];
+    win.openai = {
+      widgetState: { privateContent: { mode: "hand" } },
+      setWidgetState(state: Record<string, unknown>) {
+        widgetStates.push(state);
+      },
+    };
+    const hostWithOpenai = connect({ result: () => {}, theme: () => {} });
+    dispatchMessage(parent, "https://chatgpt.com", {
+      jsonrpc: "2.0",
+      id: posted[0]?.message.id,
+      result: {},
+    });
+    await flush();
+
+    hostWithOpenai.tellModel("Cart updated", { id: "cart_1" });
+    expect(hostWithOpenai.recalled()).toEqual({ mode: "hand" });
+    expect(posted.some((p) => p.message.method === "ui/update-model-context")).toBe(false);
+    expect(widgetStates).toEqual([
+      { modelContent: "Cart updated", privateContent: { mode: "hand" } },
+    ]);
+
+    const second = installDom();
+    const standardOnly = connect({ result: () => {}, theme: () => {} });
+    dispatchMessageFrom(second.dispatchMessage, second.parent, second.posted[0]?.message.id);
+    await flush();
+
+    standardOnly.tellModel("Bag ready", { id: "chk_2" });
+    const ctxReq = second.posted.at(-1);
+    expect(ctxReq?.message.method).toBe("ui/update-model-context");
+    expect(ctxReq?.message.params).toEqual({ structuredContent: { id: "chk_2" } });
+  });
+
+  test("call parses JSON text when structuredContent is absent, and open falls back to openExternal", async () => {
+    const { win, parent, posted, dispatchMessage } = installDom();
+    const opened: unknown[] = [];
+    win.openai = {
+      openExternal(args: unknown) {
+        opened.push(args);
+      },
+    };
+    const host = connect({ result: () => {}, theme: () => {} });
+    dispatchMessage(parent, "https://chatgpt.com", {
+      jsonrpc: "2.0",
+      id: posted[0]?.message.id,
+      result: {},
+    });
+    await flush();
+
+    const callPromise = host.call("create_checkout", { checkout: { cart_id: "cart_1" } });
+    const callReq = posted.at(-1);
+    dispatchMessage(parent, "https://chatgpt.com", {
+      jsonrpc: "2.0",
+      id: callReq?.message.id,
+      result: { content: [{ type: "text", text: '{"id":"chk_fallback"}' }] },
+    });
+    expect(await callPromise).toMatchObject({ structuredContent: { id: "chk_fallback" } });
+
+    const openPromise = host.open("https://agentic.payments-playground.com/checkout/chk_1");
+    const openReq = posted.at(-1);
+    dispatchMessage(parent, "https://chatgpt.com", {
+      jsonrpc: "2.0",
+      id: openReq?.message.id,
+      error: { code: -32601, message: "Unsupported" },
+    });
+    await openPromise;
+    expect(opened).toEqual([
+      { href: "https://agentic.payments-playground.com/checkout/chk_1", redirectUrl: false },
+    ]);
+  });
+});
+
+function dispatchMessageFrom(
+  dispatch: (source: unknown, origin: string, data: unknown) => void,
+  parent: unknown,
+  id: unknown,
+) {
+  dispatch(parent, "https://chatgpt.com", { jsonrpc: "2.0", id, result: {} });
+}

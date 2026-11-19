@@ -5,6 +5,31 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-19
+
+- Fix the ChatGPT widget checkout and composer state: once `ui/initialize` finishes, `bridge.ts`
+  ignores stale `openai:set_globals` `toolOutput` snapshots that were reverting `create_checkout`
+  back to the cart, deduplicates repeated host payloads, writes context silently through
+  `window.openai.setWidgetState` instead of filling ChatGPT's composer via `ui/update-model-context`,
+  and falls back cleanly on `openExternal` and JSON text tool responses.
+- Bump the MCP Apps widget URIs to `product-carousel-v2.html` and `cart-checkout-v2.html` so
+  ChatGPT reloads the updated bundle on Refresh while keeping `-v1` URI aliases in `resources/read`,
+  add a "Show all items" empty-carousel action and clear no-saved-card actions (`Pay on Atelier
+  Velune`, `Save a test card`, `Refresh cards`), and advertise boutique stylist `instructions` plus
+  the `personal-stylist` prompt (`prompts/list`, `prompts/get`) directly over `/mcp`.
+- Fix `/account` card saving and 3DS return handling: add a same-origin `/api/return` (`GET` and
+  `POST`) bridge outside cross-site form blocks, look up `sessionId` by stored reference without
+  creating a stray second Adyen session on redirect return, defer Drop-in unmount outside Adyen's
+  `onPaymentCompleted` tick, retry once in production for newly saved cards, and add `app/error.tsx`.
+- Update `atelier-velune-plugin.zip` (`mcp.json` and `plugin.json`) with the Agent Plugins
+  `$schema`, OpenAI OAuth CIMD auth block, valid `category` (`Other`), 30-char `shortDescription`,
+  `supportURL` and array `defaultPrompt`, and clarify `/docs/chatgpt`.
+- Record the v0.7.0 deploy check: after PR #17 merged cleanly on `main` (`1413879`, CI green) and
+  tag `v0.7.0` published, Render's `agentic-commerce` deploy succeeded at 22:52:56 UTC.
+  `/healthz`, `/docs/chatgpt`, `atelier-velune-plugin.zip` (5 files, clean archive targeting prod
+  `/mcp`), and signed-out `POST /mcp` (401) passed live read-only checks; the live test in ChatGPT
+  is the owner's next check.
+
 ## [0.7.0] - 2026-11-18
 
 - The agentic store's MCP server serves two MCP Apps widgets (ADR-017): a product carousel for

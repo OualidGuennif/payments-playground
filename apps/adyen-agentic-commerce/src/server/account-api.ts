@@ -195,12 +195,22 @@ export const accountApi = new Elysia({ prefix: "/api" })
     if (!customer) return signInRequired();
     const input = isRecord(body) ? body : {};
     try {
+      const before = (await commerce.savedCards(customer.id)).length;
       const result = await commerce.finishCardSave(
         customer,
         String(input.sessionId ?? ""),
         String(input.sessionResult ?? ""),
       );
-      return { result, account: await accountView(customer, true) };
+      let account = await accountView(customer, true);
+      if (
+        result === "completed" &&
+        account.cards.length <= before &&
+        process.env.NODE_ENV === "production"
+      ) {
+        await new Promise((r) => setTimeout(r, 700));
+        account = await accountView(customer, true);
+      }
+      return { result, account };
     } catch {
       return json(502, { error: "Adyen could not confirm the card" });
     }

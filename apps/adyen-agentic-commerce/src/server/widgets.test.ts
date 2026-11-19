@@ -42,12 +42,16 @@ describe("the UI resources", () => {
     expect(SOURCE_HASH).toBe(sourceHash());
   });
 
-  test("initialize announces resources, and both widgets are listed as MCP Apps", async () => {
+  test("initialize announces resources and prompts, and serves both v2 widgets and v1 aliases", async () => {
     await agent.signIn();
     const init = await rpc("initialize", { protocolVersion: "2025-11-25" });
     expect(init.result.capabilities.resources).toEqual({ listChanged: false });
+    expect(init.result.capabilities.prompts).toEqual({ listChanged: false });
+    expect(init.result.instructions).toContain("search_catalog");
     const { resources } = (await rpc("resources/list")).result;
     expect(resources.map((r: { uri: string }) => r.uri)).toEqual([CAROUSEL, BAG]);
+    expect(CAROUSEL).toContain("-v2.html");
+    expect(BAG).toContain("-v2.html");
     for (const r of resources) {
       expect(r.mimeType).toBe(MCP_APP_MIME);
       expect(r._meta.ui.csp).toEqual({ connectDomains: [], resourceDomains: [ORIGIN] });
@@ -58,6 +62,22 @@ describe("the UI resources", () => {
       });
     }
     expect((await rpc("resources/templates/list")).result).toEqual({ resourceTemplates: [] });
+    const legacy = await rpc("resources/read", { uri: "ui://widget/cart-checkout.html" });
+    expect(legacy.result.contents[0]).toMatchObject({
+      uri: "ui://widget/cart-checkout.html",
+      mimeType: MCP_APP_MIME,
+    });
+    expect(legacy.result.contents[0].text).toContain('<body data-view="bag">');
+
+    const listedPrompts = await rpc("prompts/list");
+    expect(listedPrompts.result.prompts.map((p: { name: string }) => p.name)).toEqual([
+      "personal-stylist",
+    ]);
+    const prompt = await rpc("prompts/get", { name: "personal-stylist" });
+    expect(prompt.result.messages[0].content.text).toContain("Personal stylist for Atelier Velune");
+    expect(prompt.result.messages[0].content.text).not.toStartWith("---");
+    const badPrompt = await rpc("prompts/get", { name: "other" });
+    expect(badPrompt.error.code).toBe(-32602);
   });
 
   test("each widget is one self-contained document that loads nothing from anywhere", async () => {

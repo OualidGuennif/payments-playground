@@ -43,6 +43,22 @@ async function download() {
   return unzip(new Uint8Array(await response.arrayBuffer()));
 }
 
+const CATEGORIES = new Set([
+  "Productivity",
+  "Creativity",
+  "Developer Tools",
+  "Business & Operations",
+  "Data & Analytics",
+  "Communication",
+  "Education & Research",
+  "Security",
+  "Finance",
+  "Healthcare",
+  "Travel",
+  "Entertainment",
+  "Other",
+]);
+
 describe("the plugin package", () => {
   test("holds exactly the plugin folder's files, never a hidden one", async () => {
     const files = await download();
@@ -60,24 +76,58 @@ describe("the plugin package", () => {
     ]);
   });
 
-  test("names this origin's /mcp as its one server, and holds no app reference or hook", async () => {
+  test("declares schema, OpenAI OAuth CIMD, submission limits, and no app reference or hook", async () => {
     const files = await download();
     const mcp = JSON.parse(files["atelier-velune/mcp.json"]!);
     expect(mcp).toEqual({
-      mcpServers: { "atelier-velune": { type: "streamable-http", url: `${ORIGIN}/mcp` } },
+      $schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+      mcpServers: {
+        "atelier-velune": {
+          type: "streamable-http",
+          url: `${ORIGIN}/mcp`,
+          extensions: {
+            "com.openai": {
+              auth: {
+                type: "oauth",
+                client: { mode: "cimd" },
+              },
+            },
+          },
+        },
+      },
     });
     const manifest = JSON.parse(files["atelier-velune/plugin.json"]!);
     expect(manifest.name).toBe("atelier-velune");
+    expect(manifest.author?.url).toStartWith("https://");
+    const ui = manifest.extensions["com.openai"].interface;
+    expect(ui.shortDescription.length).toBeLessThanOrEqual(30);
+    expect(CATEGORIES.has(ui.category)).toBe(true);
+    expect(ui.supportURL).toStartWith("https://");
+    expect(ui.websiteURL).toStartWith("https://");
+    expect(ui.privacyPolicyURL).toStartWith("https://");
+    expect(ui.termsOfServiceURL).toStartWith("https://");
+    expect(Array.isArray(ui.defaultPrompt)).toBe(true);
+    expect(ui.defaultPrompt.length).toBeGreaterThanOrEqual(1);
+    expect(ui.defaultPrompt.length).toBeLessThanOrEqual(3);
+    for (const p of ui.defaultPrompt as string[]) {
+      expect(p.length).toBeLessThanOrEqual(128);
+      expect(p).not.toContain("@");
+    }
     const keys = JSON.stringify(manifest);
     expect(keys).not.toMatch(/"apps"|"hooks"|\.app\.json/);
     expect(Object.keys(files).some((n) => /hooks|\.app\.json/.test(n))).toBe(false);
   });
 
-  test("every icon the manifest names is in the package", async () => {
+  test("every icon the manifest names is square (>= 48x48) and inside the package", async () => {
     const files = await download();
     const ui = JSON.parse(files["atelier-velune/plugin.json"]!).extensions["com.openai"].interface;
     for (const icon of [ui.logo, ui.composerIcon]) {
-      expect(files[`atelier-velune/${icon.replace(/^\.\//, "")}`]).toContain("<svg");
+      const svg = files[`atelier-velune/${icon.replace(/^\.\//, "")}`] ?? "";
+      expect(svg).toContain("<svg");
+      const box = /viewBox="0 0 (\d+) (\d+)"/.exec(svg);
+      expect(box).toBeTruthy();
+      expect(Number(box![1])).toBe(Number(box![2]));
+      expect(Number(box![1])).toBeGreaterThanOrEqual(48);
     }
   });
 });

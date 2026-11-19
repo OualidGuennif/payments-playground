@@ -9,10 +9,12 @@ import {
   bagView,
   catalogView,
   choose,
+  contextDataFor,
   contextFor,
   offered,
   payCall,
   quantityCall,
+  refreshCheckoutCall,
   say,
   searchCall,
   type UcpProduct,
@@ -278,6 +280,19 @@ describe("the two modes", () => {
     expect(say.pay(checkout().instruments[0]!, "€16.95")).toBe(
       "Pay €16.95 for my bag with my saved card Visa •••• 1111 · 03/30.",
     );
+    expect(say.refreshCheckout()).toContain("Refresh my Atelier Velune checkout");
+    expect(refreshCheckoutCall("chk_1")).toEqual({
+      name: "get_checkout",
+      arguments: { id: "chk_1" },
+    });
     expect(contextFor(cart())).toContain("cart crt_1");
+    expect(contextDataFor(checkout())).toEqual({
+      kind: "checkout",
+      id: "chk_1",
+      status: "ready_for_complete",
+      currency: "EUR",
+      total: 1695,
+      items: [{ id: "socks", title: "socks", quantity: 1 }],
+    });
   });
 });

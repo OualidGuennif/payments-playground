@@ -17,6 +17,7 @@ type Props = {
   // Creates the Adyen session on the server; amount and reference are decided there.
   createSession: () => Promise<SessionInfo>;
   onFinished: (sessionId: string, sessionResult: string) => Promise<void>;
+  clientKey?: string;
   // Set when Adyen redirected back to this page.
   redirect?: { sessionId: string; redirectResult: string };
   label?: string;
@@ -27,6 +28,7 @@ type Props = {
 export function DropinPanel({
   createSession,
   onFinished,
+  clientKey,
   redirect,
   label,
   storedMethods = true,
@@ -34,19 +36,19 @@ export function DropinPanel({
   const host = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"loading" | "ready" | "done" | "error">("loading");
   const [error, setError] = useState<string>();
-  const started = useRef(false);
 
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
+    let active = true;
     let unmount: (() => void) | undefined;
     (async () => {
       try {
         const { AdyenCheckout, Dropin } = await import("@adyen/adyen-web/auto");
+        if (!active) return;
         const finish = async (
           sessionId: string,
           result?: { sessionResult?: string; resultCode?: string },
         ) => {
+          if (!active) return;
           if (!result?.sessionResult) {
             setError(
               result?.resultCode
@@ -60,18 +62,31 @@ export function DropinPanel({
           await onFinished(sessionId, result.sessionResult);
         };
         if (redirect) {
+          const key = clientKey || (await createSession()).clientKey;
+          if (!active) return;
+          if (!key?.startsWith("test_")) throw new Error("Only a TEST client key is accepted");
           const checkout = await AdyenCheckout({
             environment: "test",
-            clientKey: (await createSession()).clientKey,
+            clientKey: key,
             session: { id: redirect.sessionId },
+            countryCode: "FR",
+            locale: "en-US",
             onPaymentCompleted: (data) =>
-              finish(redirect.sessionId, data as { sessionResult?: string }),
-            onPaymentFailed: (data) => finish(redirect.sessionId, data as { resultCode?: string }),
+              finish(redirect.sessionId, data as { sessionResult?: string; resultCode?: string }),
+            onPaymentFailed: (data) =>
+              finish(redirect.sessionId, data as { sessionResult?: string; resultCode?: string }),
+            onError: (e) => {
+              if (!active || e.name === "CANCEL") return;
+              setError(e.message);
+              setState("error");
+            },
           });
+          if (!active) return;
           checkout.submitDetails({ details: { redirectResult: redirect.redirectResult } });
           return;
         }
         const session = await createSession();
+        if (!active) return;
         if (!session.clientKey?.startsWith("test_"))
           throw new Error("Only a TEST client key is accepted");
         const checkout = await AdyenCheckout({
@@ -86,26 +101,35 @@ export function DropinPanel({
           onPaymentFailed: (data) =>
             finish(session.id, data as { sessionResult?: string; resultCode?: string }),
           onError: (e) => {
-            if (e.name !== "CANCEL") {
-              setError(e.message);
-              setState("error");
-            }
+            if (!active || e.name === "CANCEL") return;
+            setError(e.message);
+            setState("error");
           },
         });
-        if (!host.current) return;
+        if (!active || !host.current) return;
         const showStored = storedMethods && session.storedCards !== false;
         const dropin = new Dropin(checkout, { showStoredPaymentMethods: showStored }).mount(
           host.current,
         );
-        unmount = () => dropin.unmount();
+        unmount = () => {
+          try {
+            dropin.unmount();
+          } catch {
+            // Ignore teardown errors if Drop-in already completed or unmounted itself.
+          }
+        };
         setState("ready");
       } catch (e) {
+        if (!active) return;
         setError((e as Error).message);
         setState("error");
       }
     })();
-    return () => unmount?.();
-  }, [createSession, onFinished, redirect, storedMethods]);
+    return () => {
+      active = false;
+      unmount?.();
+    };
+  }, [clientKey, createSession, onFinished, redirect, storedMethods]);
 
   return (
     <div className="space-y-3">

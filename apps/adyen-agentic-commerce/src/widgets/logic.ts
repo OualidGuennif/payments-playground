@@ -314,6 +314,11 @@ export const checkoutCall = (cartId: string, key = newKey()): Call => ({
   arguments: { meta: meta(key), checkout: { cart_id: cartId } },
 });
 
+export const refreshCheckoutCall = (checkoutId: string): Call => ({
+  name: "get_checkout",
+  arguments: { id: checkoutId },
+});
+
 const OPEN = new Set(["incomplete", "requires_escalation", "ready_for_complete"]);
 
 // One idempotency key per payment attempt: the same checkout and card reuse it, so a retry after
@@ -386,6 +391,7 @@ export const say = {
       ? `Change the quantity of ${line.title} in my bag to ${quantity}.`
       : `Remove ${line.title} from my bag.`,
   checkout: () => "Take my bag to checkout.",
+  refreshCheckout: () => "Refresh my Atelier Velune checkout to check my saved cards.",
   pay: (instrument: Instrument, total: string) =>
     `Pay ${total} for my bag with my saved card ${instrument.label}.`,
 };
@@ -397,4 +403,16 @@ export function contextFor(bag: BagView) {
   if (bag.order)
     return `The shopper paid checkout ${bag.id} by hand: ${bag.order.label}, ${total}.`;
   return `The shopper changed their ${bag.kind} ${bag.id} by hand (status ${bag.status || "open"}): ${items}; total ${total}.`;
+}
+
+export function contextDataFor(bag: BagView): Record<string, unknown> {
+  return {
+    kind: bag.kind,
+    id: bag.id,
+    status: bag.status,
+    currency: bag.currency,
+    total: bag.total,
+    items: bag.lines.map((l) => ({ id: l.variantId, title: l.title, quantity: l.quantity })),
+    ...(bag.order ? { order: bag.order.label } : {}),
+  };
 }

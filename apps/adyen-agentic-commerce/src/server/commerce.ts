@@ -967,7 +967,7 @@ export async function startShopperSession(loaded: Checkout, customer?: Customer)
   const session = await adyen.createSession({
     amount: assessment.total,
     reference,
-    returnUrl: `${config().publicOrigin}/checkout/${checkout.id}`,
+    returnUrl: `${config().publicOrigin}/api/return?to=${encodeURIComponent(`/checkout/${checkout.id}`)}&ref=${encodeURIComponent(reference)}`,
     shopperEmail: buyerOf(checkout)?.email ?? (owner ? customer.email : undefined),
     shopperReference: owner ? customer.id : undefined,
     purpose: "order",
@@ -1047,7 +1047,7 @@ export async function startCardSave(customer: Customer) {
   const session = await adyen.createSession({
     amount: 0,
     reference,
-    returnUrl: `${config().publicOrigin}/account`,
+    returnUrl: `${config().publicOrigin}/api/return?to=${encodeURIComponent("/account")}&ref=${encodeURIComponent(reference)}`,
     purpose: "card-save",
     shopperEmail: customer.email,
     shopperReference: customer.id,
@@ -1079,6 +1079,22 @@ export async function startCardSave(customer: Customer) {
     },
   });
   return { ...session, clientKey: config().adyen.clientKey!, amount: 0, currency: CURRENCY };
+}
+
+export function sessionIdForReference(
+  reference: string | undefined,
+  scope: { customerId?: string; checkoutId?: string },
+): string | undefined {
+  if (!reference) return undefined;
+  const record = get<PaymentRecord>("payments", reference);
+  if (!record?.sessionId) return undefined;
+  if (scope.customerId !== undefined)
+    return record.purpose === "card-save" && record.customerId === scope.customerId
+      ? record.sessionId
+      : undefined;
+  if (scope.checkoutId !== undefined)
+    return record.checkoutId === scope.checkoutId ? record.sessionId : undefined;
+  return undefined;
 }
 
 export async function finishCardSave(customer: Customer, sessionId: string, sessionResult: string) {

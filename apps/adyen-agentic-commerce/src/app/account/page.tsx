@@ -2,6 +2,8 @@
 import { AccountView } from "@/components/AccountView";
 import { requireCustomer } from "@/lib/session";
 import { accountView } from "@/server/api";
+import { sessionIdForReference } from "@/server/commerce";
+import { config } from "@/server/config";
 
 export const metadata = { title: "Account" };
 export const dynamic = "force-dynamic";
@@ -9,19 +11,26 @@ export const dynamic = "force-dynamic";
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sessionId?: string; redirectResult?: string }>;
+  searchParams: Promise<{ sessionId?: string; redirectResult?: string; ref?: string }>;
 }) {
-  const { sessionId, redirectResult } = await searchParams;
+  const { sessionId, redirectResult, ref } = await searchParams;
   // Adyen's redirect back keeps its parameters through sign-in.
-  const back =
-    sessionId && redirectResult
-      ? `/account?${new URLSearchParams({ sessionId, redirectResult })}`
-      : "/account";
+  const keep = new URLSearchParams();
+  if (sessionId) keep.set("sessionId", sessionId);
+  if (redirectResult) keep.set("redirectResult", redirectResult);
+  if (ref) keep.set("ref", ref);
+  const back = keep.size ? `/account?${keep}` : "/account";
   const customer = await requireCustomer(back);
+  const resolvedSessionId = sessionId ?? sessionIdForReference(ref, { customerId: customer.id });
   return (
     <AccountView
       initial={await accountView(customer)}
-      redirect={sessionId && redirectResult ? { sessionId, redirectResult } : undefined}
+      clientKey={config().adyen.clientKey ?? ""}
+      redirect={
+        resolvedSessionId && redirectResult
+          ? { sessionId: resolvedSessionId, redirectResult }
+          : undefined
+      }
     />
   );
 }

@@ -18,6 +18,7 @@ import {
   checkoutCall,
   choose,
   coloursOf,
+  contextDataFor,
   contextFor,
   isOpen,
   type Mode,
@@ -26,6 +27,7 @@ import {
   offered,
   payCall,
   quantityCall,
+  refreshCheckoutCall,
   say,
   searchCall,
   sizesOf,
@@ -125,8 +127,10 @@ async function run(label: string, call: Call | undefined) {
     if (call.name === "complete_checkout") state.attempt = undefined;
     if (result.isError) state.note = { tone: "bad", text: refusal(result.structuredContent) };
     show(result.structuredContent);
+    if (!result.isError && call.name === "create_checkout" && !state.bag?.order)
+      state.note = { tone: "info", text: "Checkout ready." };
     if (!result.isError && state.bag && call.name !== "search_catalog")
-      host.tellModel(contextFor(state.bag));
+      host.tellModel(contextFor(state.bag), contextDataFor(state.bag));
   } catch (error) {
     // The attempt stays: the same checkout and card retry with the same key, never a second payment.
     state.note = { tone: "bad", text: error instanceof Error ? error.message : String(error) };
@@ -371,7 +375,30 @@ function catalogScreen() {
     search(),
     view?.products.length
       ? h("ul", { class: "rail" }, ...view.products.map(card))
-      : h("p", { class: "empty" }, "Nothing to show yet. Search the collection above."),
+      : h(
+          "div",
+          {},
+          h("p", { class: "empty" }, "Nothing to show yet. Search the collection above."),
+          h(
+            "button",
+            {
+              type: "button",
+              class: "btn ghost",
+              disabled: !!state.busy,
+              onclick: () => {
+                act(
+                  choose(
+                    state.mode,
+                    "Loading collection",
+                    () => searchCall(""),
+                    () => say.search(""),
+                  ),
+                );
+              },
+            },
+            "Show all items",
+          ),
+        ),
     view?.total !== undefined && view.products.length
       ? h("p", { class: "count" }, `${view.products.length} of ${view.total} shown`)
       : null,
@@ -543,7 +570,7 @@ function payArea(bag: BagView) {
           over
             ? "This is over the budget you gave the assistant. Approve it on the store, or raise the budget."
             : bag.status === "ready_for_complete"
-              ? "No saved card is shared with the assistant. Pay on the store instead."
+              ? "No card is saved on your Atelier Velune account yet. Pay on the store checkout, or save a test card in your account and refresh."
               : "The store needs something before payment; see above.",
         ),
     ready && chosen
@@ -580,8 +607,48 @@ function payArea(bag: BagView) {
     onStore(bag.continueUrl)
       ? h(
           "button",
-          { type: "button", class: "btn ghost", onclick: () => void open(bag.continueUrl) },
-          over ? "Approve on the store" : "Open the store checkout",
+          {
+            type: "button",
+            class: ready ? "btn ghost" : "btn",
+            onclick: () => void open(bag.continueUrl),
+          },
+          over
+            ? "Approve on the store"
+            : ready
+              ? "Open the store checkout"
+              : `Pay ${total} on Atelier Velune`,
+        )
+      : null,
+    !ready && !over && bag.status === "ready_for_complete" && STORE
+      ? h(
+          "button",
+          {
+            type: "button",
+            class: "btn ghost",
+            onclick: () => void open(`${STORE}/account#cards`),
+          },
+          "Save a test card",
+        )
+      : null,
+    !ready && !over && bag.status === "ready_for_complete"
+      ? h(
+          "button",
+          {
+            type: "button",
+            class: "btn ghost",
+            disabled: !!state.busy,
+            onclick: () => {
+              act(
+                choose(
+                  state.mode,
+                  "Checking saved cards",
+                  () => refreshCheckoutCall(bag.id),
+                  () => say.refreshCheckout(),
+                ),
+              );
+            },
+          },
+          "Refresh cards",
         )
       : null,
     h(

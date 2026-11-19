@@ -4,7 +4,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { backOfficeView, handle } from "./api";
 import { SESSIONS_PER_MINUTE } from "./account-api";
-import type { Checkout } from "./commerce";
+import { type Checkout, sessionIdForReference } from "./commerce";
 import { type Customer, customerFromCookies } from "./customers";
 import { database, get, list, put } from "./db";
 import { grants } from "./oauth";
@@ -511,5 +511,57 @@ describe("web channel", () => {
     ).toEqual(["agent", "web"]);
     expect(backOfficeView("web").checkouts.map((c) => c.channel)).toEqual(["web"]);
     expect(backOfficeView("agent").checkouts.map((c) => c.channel)).toEqual(["agent"]);
+  });
+
+  test("Adyen 3DS return bridge converts GET and cross-site POST to 303 same-origin GET and scopes refs", async () => {
+    const getRes = await handle(
+      new Request(`${ORIGIN}/api/return?to=/account&ref=cardsave_1&redirectResult=abc`),
+    );
+    expect(getRes.status).toBe(303);
+    expect(getRes.headers.get("location")).toBe(
+      `${ORIGIN}/account?redirectResult=abc&ref=cardsave_1`,
+    );
+
+    const postRes = await handle(
+      new Request(`${ORIGIN}/api/return?to=/checkout/chk_123&ref=chk_123-s1`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "sec-fetch-site": "cross-site",
+        },
+        body: "redirectResult=xyz",
+      }),
+    );
+    expect(postRes.status).toBe(303);
+    expect(postRes.headers.get("location")).toBe(
+      `${ORIGIN}/checkout/chk_123?redirectResult=xyz&ref=chk_123-s1`,
+    );
+
+    for (const bad of ["https://evil.example", "//evil.example", "/sign-in", "/oauth/decision"]) {
+      const denied = await handle(
+        new Request(`${ORIGIN}/api/return?to=${encodeURIComponent(bad)}&redirectResult=x`),
+      );
+      expect(denied.status).toBe(400);
+    }
+
+    const { cookie } = await signUpCustomer("cardowner@example.com");
+    const customer = customerFromCookies(cookie)!;
+    const other = customerFromCookies((await signUpCustomer("other@example.com")).cookie)!;
+    const cardSession = await call("POST", "/api/account/card-session", { cookie });
+    expect(cardSession.status).toBe(200);
+    const cardReturnUrl = new URL(fake.sessions.at(-1)!.returnUrl);
+    expect(cardReturnUrl.pathname).toBe("/api/return");
+    const cardRef = cardReturnUrl.searchParams.get("ref") ?? undefined;
+    expect(sessionIdForReference(cardRef, { customerId: customer.id })).toBe(cardSession.body.id);
+    expect(sessionIdForReference(cardRef, { customerId: other.id })).toBeUndefined();
+    expect(sessionIdForReference("cardsave_missing", { customerId: customer.id })).toBeUndefined();
+
+    const chk = await call("POST", "/api/checkouts", { body: checkoutBody });
+    const chkSession = await call("POST", `/api/checkouts/${chk.body.id}/session`);
+    const chkReturnUrl = new URL(fake.sessions.at(-1)!.returnUrl);
+    expect(chkReturnUrl.pathname).toBe("/api/return");
+    const chkRef = chkReturnUrl.searchParams.get("ref") ?? undefined;
+    expect(sessionIdForReference(chkRef, { checkoutId: chk.body.id })).toBe(chkSession.body.id);
+    expect(sessionIdForReference(chkRef, { checkoutId: "chk_other" })).toBeUndefined();
   });
 });

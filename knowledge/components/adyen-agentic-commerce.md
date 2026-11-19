@@ -6,15 +6,15 @@ tags: [component, agentic, pap, ucp, mcp, checkout, bun]
 status: draft
 scope: component-adyen-agentic-commerce
 generated:
-  by: claude-code/opus-5.5
-  at: 2026-11-18T22:36:18Z
+  by: antigravity/gemini
+  at: 2026-11-19T00:54:08Z
 verified:
+  - at: 2026-11-19
+    check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
   - at: 2026-11-18
     check: "v0.7.0 on develop: bun run check green; 26 new tests (resources, tool _meta, ZIP, widget logic). Stand-in host in a browser, under the host CSP: MCP Apps and window.openai bridges, both modes, search to saved-card payment, over-budget links, 375 and 1440 px, light and dark. Not yet in ChatGPT."
   - at: 2026-11-18
     check: "v0.6.0 on develop: bun run check green, 379 agentic tests (budget, ucp-rest filter, email masking tests fail before). Localhost browser: consent, account, Back Office, Docs at 375 and 1440 px, light and dark; no page-wide scroll; a stale limit opened the step-up."
-  - at: 2026-11-18
-    check: "bun run check green, 354 agentic tests (8 agent budget tests fail before v0.5.3). Localhost browser from an #agent- link: sign-in kept it; EUR 150 to 220 asked the password, refused a wrong one; lowering asked nothing; 375 px. Passkey step-up: software authenticator only."
 sources:
   - id: app
     resource: ../../apps/adyen-agentic-commerce
@@ -314,34 +314,30 @@ before, every deploy or restart emptied orders, agents and grants.
   at `/docs/ucp#saved-card-handler` and `#network-token-handler`. `/agents` is a short "Connect
   your AI agent" page for shoppers: the MCP address with a copy button, three steps, ChatGPT (the
   one client tested end to end), other MCP hosts, the device code and WebMCP, linking to the Docs.
-- **MCP Apps UI:** `initialize` announces `resources`; `resources/list` and `resources/read` serve
-  `ui://widget/product-carousel.html` and `ui://widget/cart-checkout.html` as
-  `text/html;profile=mcp-app`, one self-contained document each (inline script and style), with
-  `_meta.ui.csp` allowing images from `PUBLIC_ORIGIN` only and no connect domain, and ChatGPT's
-  `openai/widgetCSP` alias adding that origin as the one redirect domain; an unknown URI is
-  `-32002`. `search_catalog` and `get_product` name the carousel, the cart and checkout tools
-  (`complete_checkout` included) the bag, in `_meta.ui.resourceUri` and its alias
-  `openai/outputTemplate`, with `ui.visibility` `["model","app"]`, `openai/widgetAccessible` and
-  the `openai/toolInvocation` texts. Their results stay the UCP body in `structuredContent`.
-  `complete_checkout` is annotated destructive and open-world (it reaches Adyen) and the cancel
-  tools destructive, so a host asks the shopper before running them. `src/widgets/` is built into
-  `src/server/widgets.gen.ts` by `scripts/build-widgets.ts`, which records its sources' hash.
-- **Plugin package:** `GET /downloads/atelier-velune-plugin.zip` is built from
-  `plugin/atelier-velune/` (`plugin.json`, `mcp.json` naming `${PUBLIC_ORIGIN}/mcp`, a
-  personal-stylist skill, icons), with no app references and no hooks, so OpenAI's plugin
-  dashboard may take it; `/docs/chatgpt` explains connecting ChatGPT and both modes.
-- **Account:** the header shows "Sign in" to a visitor and, to a signed-in customer, a button with
-  their initial that opens Orders, Agents, Payment methods, Security and Sign out (the same items
-  in the phone menu). `/account` has those sections with a section bar: an overview (connected
-  agents, budget left across them, saved cards, last order), agents, orders (pages of 10), saved
-  cards and security (passkeys, sign-out). It shows the signed-in customer's saved cards, passkeys,
-  agents (the grants approved from this account) and orders from both channels, each with its
-  channel. Each connected agent shows
-  where it stands (`src/lib/agent-status.ts`): consent given, access issued, connected (first and
-  last authenticated request, in UTC), or disconnected. A consent alone never reads as connected.
-  Each agent shows its limit, what it spent and what remains, and sits at `#agent-<grant id>`,
-  highlighted when the page opens there.
-  What it may do is listed in the consent page's words, never as scope names.
+- **MCP Apps UI:** `initialize` announces `resources`, `prompts` and boutique stylist instructions;
+  `prompts/list` and `prompts/get` serve `personal-stylist`. `resources/list` serves
+  `ui://widget/product-carousel-v2.html` and `ui://widget/cart-checkout-v2.html`
+  (`text/html;profile=mcp-app`, inline script and style; `resources/read` keeps v1 aliases; unknown
+  URI `-32002`), with `_meta.ui.csp` images from `PUBLIC_ORIGIN` only and `openai/widgetCSP` adding
+  that origin to `redirect_domains`. `search_catalog` and `get_product` name the carousel; cart
+  and checkout tools (`complete_checkout` included) name the bag (`_meta.ui.resourceUri`, alias
+  `openai/outputTemplate`, `ui.visibility` `["model","app"]`, `openai/widgetAccessible`,
+  `openai/toolInvocation`). `bridge.ts` deduplicates host payloads, ignores stale
+  `openai:set_globals` after `ui/initialize`, keeps updates silent via `setWidgetState` in ChatGPT
+  and structured `ui/update-model-context` elsewhere, and falls back on `openExternal`. The bag
+  offers "Save a test card" and "Refresh cards" when no saved card is present. `complete_checkout`
+  is destructive and open-world, cancel tools destructive. `src/widgets/` builds into
+  `src/server/widgets.gen.ts` with a source hash check.
+- **Plugin package:** `GET /downloads/atelier-velune-plugin.zip` packages `plugin/atelier-velune/`
+  (`plugin.json` meeting OpenAI listing limits, `mcp.json` with Agent Plugins `$schema`,
+  `${PUBLIC_ORIGIN}/mcp` and `extensions["com.openai"].auth` CIMD, `personal-stylist` skill,
+  icons), without hooks or app references; `/docs/chatgpt` explains direct MCP vs ZIP import.
+- **Account:** the header shows "Sign in" or the initial menu (desktop and mobile). `/account`
+  shows overview tiles, agents (state from `agent-status.ts`, UTC dates, `#agent-<grant>`), orders
+  (pages of 10), saved cards and security (passkeys, sign-out). Card saves and `/checkout/[id]`
+  Drop-in return through `/api/return` (`GET`/`POST`, validated `/account` or `/checkout/chk_*`
+  target, session lookup by ref), pass the public `clientKey`, defer unmount off Adyen's callback
+  tick, retry card refresh once in production, and fall back to `app/error.tsx` on UI error.
 - **Task coverage (PAP 1.0 §9):** `GET /poppy/tasks` gives every caller the same document, a
   published artifact (`public, max-age=300`, ETag): `excluded_tasks` and `feedback.endpoint`
   (`/poppy/feedback`), no `skill_index`. The excluded tasks: creating an account, saving a card
@@ -543,18 +539,15 @@ before, every deploy or restart emptied orders, agents and grants.
 27. The Docs pages render on the server with every diagram's steps as text, and their Try it
     panels send only a `GET` of this origin's public documents or a `POST` of MCP `tools/list` to
     this origin's `/mcp` (`src/components/docs/docs.test.tsx`).
-28. The two UI resources answer only where `tools/list` does (a token or a verified Session), load
-    no script, style or connection from any origin and images from this origin only, and the
-    built widgets match their sources' hash (`src/server/widgets.test.ts`).
-29. A widget has no authority of its own: "By hand" calls only the UCP tools with UCP arguments, a
-    payment names an instrument the checkout itself listed with one idempotency key per attempt
-    (the same checkout and card retry with it; another card or checkout gets a new one), an add
-    extends the cart or open checkout the bag shows, and "With the assistant" calls no tool, it
-    only sends a message (`src/widgets/logic.test.ts`; the built requests run against the store in
-    `src/server/widgets.test.ts`; `src/widgets/bridge.test.ts` covers parent origin pinning and the
-    opaque-origin fallback).
-30. The plugin ZIP holds exactly its listed files (never a hidden one), names this origin's `/mcp`
-    and nothing else, and holds no app reference or hook (`src/server/plugin.test.ts`).
+28. The UI resources (v2 URIs and v1 aliases) answer where `tools/list` does, load nothing outside
+    `PUBLIC_ORIGIN`, match their sources' hash, and serve `prompts/list`/`prompts/get`
+    (`src/server/widgets.test.ts`).
+29. A widget has no authority: "By hand" calls UCP tools (named `saved_card`, single-attempt
+    idempotency keys, extending the open bag), "With the assistant" sends a sentence, and the bridge
+    pins parent origin and suppresses stale host `toolOutput` / composer text
+    (`src/widgets/logic.test.ts`, `src/server/widgets.test.ts`, `src/widgets/bridge.test.ts`).
+30. The plugin ZIP holds its listed files, `$schema`, `${PUBLIC_ORIGIN}/mcp`, OpenAI OAuth CIMD
+    and valid listing fields, with no app reference or hook (`src/server/plugin.test.ts`).
 
 ## Determinism
 

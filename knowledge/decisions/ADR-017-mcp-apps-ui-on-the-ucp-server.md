@@ -5,8 +5,8 @@ description: "Owner, 2026-11-18: the agentic store's MCP server serves a product
 tags: [decision, agentic, mcp, ucp, pap, chatgpt, ui]
 status: stable
 generated:
-  by: claude-code/opus-5.5
-  at: 2026-11-18T22:36:18Z
+  by: antigravity/gemini
+  at: 2026-11-19T00:48:02Z
 sources:
   - id: spec
     resource: ../components/adyen-agentic-commerce.md
@@ -79,6 +79,13 @@ card, two modes, and a plugin that can be downloaded from the site.
   single `post()` helper carries an inline `nosemgrep` annotation for this rule.
 - Hosts that honour the annotations ask before each payment, so an agent paying on its own, within
   the budget, now meets a confirmation it did not meet before.
+- After the first ChatGPT live test (v0.7.1): resource URIs moved to `-v2.html` (with v1 aliases in
+  `resources/read`) so ChatGPT clears cached bundles on Refresh; `bridge.ts` deduplicates host
+  outputs, ignores stale `openai:set_globals.toolOutput` after `ui/initialize`, keeps model updates
+  silent via `setWidgetState` (instead of text `ui/update-model-context` that leaked into
+  ChatGPT's composer) and falls back cleanly on `openExternal`; `/mcp` exposes stylist
+  `instructions` plus `prompts/list`/`prompts/get` (`personal-stylist`); and the ZIP carries
+  `$schema` plus OpenAI OAuth CIMD and directory metadata for `platform.openai.com/plugins`.
 
 ## Revisit when
 

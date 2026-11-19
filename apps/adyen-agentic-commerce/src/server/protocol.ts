@@ -27,7 +27,7 @@ import {
 } from "./ucp";
 import { canonicalJson, isRecord, isUuid, json, readJson, sha256 } from "./util";
 import { MCP_TOOLS } from "./mcp-tools";
-import { listResources, readResource } from "./widgets";
+import { listResources, readResource, stylistPromptText } from "./widgets";
 
 const WINDOW_MS = 60_000;
 const LIMIT = 240;
@@ -514,14 +514,18 @@ export async function handleMcp(request: Request): Promise<Response> {
       return reply(
         rpc(id, {
           protocolVersion: PROTOCOLS.includes(asked) ? asked : PROTOCOLS[0],
-          capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
+          capabilities: {
+            tools: { listChanged: false },
+            resources: { listChanged: false },
+            prompts: { listChanged: false },
+          },
           serverInfo: {
             name: "atelier-velune-ucp",
             title: "Atelier Velune (UCP demo store)",
             version: "1.0.0",
           },
           instructions:
-            "Fashion demo store on Adyen TEST. Search the catalogue, create a checkout with variant ids, then complete it: with a saved card listed in checkout.payment.instruments (signed in with ucp:pay), with your own network token (handler network_token: number and expiry), or with no instrument to hand it to the shopper. If status is requires_escalation, give the shopper continue_url; over your limit they may instead raise it at agent_budget.manage_url (their account page), then complete again. Amounts are EUR minor units.",
+            "Boutique demo fashion store Atelier Velune on Adyen TEST (fictional products, no real money moves, prices in EUR minor units). If a shopper asks vaguely for styling advice without a category, item or budget, ask at most two short questions (occasion and preferred colours). As soon as they name an item, category or budget, or ask to browse, call search_catalog right away so the interactive product carousel renders. When a tool returns a carousel or bag widget, keep chat text brief and do not repeat raw JSON or every option shown in the widget. Add only items the shopper chose using real variant ids from the catalogue, and keep reusing their active cart or checkout id (including changes made by hand in the widget). Complete checkout only when asked, naming the total and card brand and last digits first: use a saved card from checkout.payment.instruments (with ucp:pay), your own network_token, or no instrument to give the shopper continue_url. If requires_escalation, share continue_url, and over budget also share agent_budget.manage_url (or /account#cards when no card is saved yet). Never ask for card numbers, CVC or passwords, and never pay twice for one checkout.",
         }),
       );
     }
@@ -538,6 +542,29 @@ export async function handleMcp(request: Request): Promise<Response> {
       const found = readResource(params.uri);
       return reply(
         found ? rpc(id, found) : rpcError(id, -32002, "Resource not found", { uri: params.uri }),
+      );
+    }
+    case "prompts/list":
+      return reply(
+        rpc(id, {
+          prompts: [
+            {
+              name: "personal-stylist",
+              title: "Atelier Velune personal stylist",
+              description:
+                "Shop Atelier Velune like a boutique adviser using the UCP tools and interactive carousel and bag widgets.",
+            },
+          ],
+        }),
+      );
+    case "prompts/get": {
+      if (params.name !== "personal-stylist")
+        return reply(rpcError(id, -32602, "Prompt not found", { name: params.name }));
+      return reply(
+        rpc(id, {
+          description: "Boutique personal stylist instructions for Atelier Velune.",
+          messages: [{ role: "user", content: { type: "text", text: stylistPromptText() } }],
+        }),
       );
     }
     case "tools/call": {

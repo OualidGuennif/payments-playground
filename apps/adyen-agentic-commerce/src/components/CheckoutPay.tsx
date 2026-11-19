@@ -12,9 +12,11 @@ type View = ReturnType<typeof checkoutView>;
 
 export function CheckoutPay({
   initial,
+  clientKey,
   redirect,
 }: {
   initial: View;
+  clientKey?: string;
   redirect?: { sessionId: string; redirectResult: string };
 }) {
   const [view, setView] = useState(initial);
@@ -28,6 +30,7 @@ export function CheckoutPay({
 
   const onFinished = useCallback(
     async (sessionId: string, sessionResult: string) => {
+      if (window.location.search) window.history.replaceState(null, "", `/checkout/${view.id}`);
       const { data, error } = await api()
         .checkouts({ id: view.id })
         ["session-result"].post({ sessionId, sessionResult });
@@ -115,6 +118,7 @@ export function CheckoutPay({
         ) : payable ? (
           <DropinPanel
             label="Pay on Adyen TEST"
+            clientKey={clientKey}
             createSession={createSession}
             onFinished={onFinished}
             redirect={redirect}

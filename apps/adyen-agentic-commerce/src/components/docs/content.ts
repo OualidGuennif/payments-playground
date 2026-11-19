@@ -569,7 +569,7 @@ export const DOCS: Doc[] = [
         from: "host",
         to: "store",
         label: "tools/call search_catalog",
-        text: "With your sign-in token. The tool's `_meta.ui.resourceUri` names `ui://widget/product-carousel.html`.",
+        text: "With your sign-in token. The tool's `_meta.ui.resourceUri` names `ui://widget/product-carousel-v2.html`.",
       },
       {
         from: "store",
@@ -647,8 +647,8 @@ export const DOCS: Doc[] = [
         id: "connect",
         title: "Connect ChatGPT",
         body: [
-          "Add a custom MCP server with this store's MCP address (on the Agents page) and OAuth. ChatGPT's menus moved in 2026: look for Plugins, then + and Add custom MCP server, or, in older versions, Settings, Apps & Connectors, Advanced and Developer mode.",
-          "When the store asks, sign in, keep Pay with your saved card, and set a budget above what you will buy. A card must already be saved in your account, under Payment methods.",
+          "To get the carousel, bag and built-in stylist instructions in ChatGPT right away, add a custom MCP server with this store's `/mcp` address (on the Agents page) and OAuth. In `chatgpt.com/plugins`, click `+` and choose Add custom MCP server (or look in Settings, Apps & Connectors, Advanced and Developer mode). Use Refresh on that connector after store updates.",
+          "When the store asks, sign in, keep Pay with your saved card, and set a budget above what you will buy. Saving a test card in your account under Payment methods lets the bag pay directly in chat.",
         ],
       },
       {
@@ -661,7 +661,7 @@ export const DOCS: Doc[] = [
         id: "plugin",
         title: "The plugin package",
         body: [
-          "`atelier-velune-plugin.zip` holds `plugin.json`, `mcp.json` with this store's MCP address, a personal-stylist skill and the icons. Upload it to OpenAI's plugin dashboard or install it in Codex. On a phone, connecting by the MCP address is enough.",
+          "`atelier-velune-plugin.zip` holds `plugin.json`, `mcp.json` (with the Agent Plugins `$schema`, this store's `/mcp` address and OpenAI OAuth CIMD settings), the personal-stylist skill and icons. Use it on `platform.openai.com/plugins` (With MCP, then MCPs -> Connect) or install it in Codex; importing a ZIP directly in `chatgpt.com/plugins` loads only the skill without connecting MCP.",
         ],
       },
     ],

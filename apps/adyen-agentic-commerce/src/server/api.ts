@@ -77,7 +77,32 @@ export function backOfficeAllowed(header: string | null): boolean {
   return safeEqual(decoded, `${cfg.user}:${cfg.password}`);
 }
 
+const RETURN_DEST = /^\/(account|checkout\/chk_[A-Za-z0-9_-]+)$/;
+const RETURN_FIELDS = ["sessionId", "redirectResult", "payload", "ref"] as const;
+
+// Adyen 3DS returns by GET or cross-site form POST; landing on /api/return converts both to a
+// same-origin 303 GET so SameSite=Lax cookies stay attached and Next App Router renders cleanly.
+async function redirectFromAdyen(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const to = url.searchParams.get("to") ?? "";
+  if (!RETURN_DEST.test(to)) return json(400, { error: "Invalid return destination" });
+  const form =
+    request.method.toUpperCase() === "POST" ? await formOf(request) : new URLSearchParams();
+  const target = new URL(`${config().publicOrigin}${to}`);
+  for (const key of RETURN_FIELDS) {
+    const value = form.get(key) ?? url.searchParams.get(key);
+    if (typeof value === "string" && value.length > 0 && value.length <= 8192)
+      target.searchParams.set(key, value);
+  }
+  return new Response(null, {
+    status: 303,
+    headers: { location: target.href, "cache-control": "no-store" },
+  });
+}
+
 const browserApi = new Elysia({ prefix: "/api" })
+  .get("/return", ({ request }) => redirectFromAdyen(request))
+  .post("/return", ({ request }) => redirectFromAdyen(request))
   .get("/art/:file", ({ params }) => {
     const variant = variantById(params.file.replace(/\.svg$/, ""));
     const product = variant && productById(variant.productId);

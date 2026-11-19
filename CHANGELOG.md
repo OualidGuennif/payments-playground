@@ -5,6 +5,14 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.7.1 deploy check: after PR #18 merged cleanly on `main` (`10b59cb`, CI
+  `44434136862` green) and tag `v0.7.1` published, Render's `agentic-commerce` deploy succeeded at
+  01:06:53 UTC (`dep-dbv4mejm8hqs73almun0`). `/healthz` (agentic, digital, styling),
+  `/docs/chatgpt`, `atelier-velune-plugin.zip` (5 clean files with `$schema` and OpenAI CIMD
+  metadata), `POST /api/return` (cross-site 303 to `/account`, 400 on external origin) and
+  signed-out `POST /mcp` (401) passed live checks; ChatGPT Refresh and live card-save/checkout
+  await the owner's test.
+
 ## [0.7.1] - 2026-11-19
 
 - Fix the ChatGPT widget checkout and composer state: once `ui/initialize` finishes, `bridge.ts`

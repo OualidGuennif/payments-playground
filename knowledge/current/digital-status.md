@@ -1,14 +1,14 @@
 ---
 type: Current State
 title: "adyen-digital: what is verified, and what is still open"
-description: "Evidence-backed state of the digital playground as of 2026-11-18: each flow with the verification level it reached, and the open gaps in priority order."
+description: "Evidence-backed state of the digital playground as of 2026-11-19: each flow with the verification level it reached, and the open gaps in priority order."
 tags: [current, digital, verification]
 status: stable
 scope: digital-status
 stale_after: 2026-12-15
 generated:
   by: antigravity/gemini
-  at: 2026-11-18T22:56:30Z
+  at: 2026-11-19T01:10:30Z
 sources:
   - id: api
     resource: ../../apps/adyen-digital/src/server/api.ts
@@ -20,12 +20,12 @@ sources:
     resource: ../policies/verification-and-reporting.md
     title: Meaning of the levels
 verified:
+  - at: 2026-11-19
+    check: "v0.7.1 on Render (main 10b59cb, tag v0.7.1, deployed 01:06:53 UTC): /healthz 200 on agentic, digital, styling; /docs/chatgpt 200; zip 200 (5 files, $schema + CIMD); POST /api/return cross-site 303, bad target 400; POST /mcp signed out 401."
   - at: 2026-11-18
     check: "v0.7.0 on Render (main 1413879, tag v0.7.0, deployed 22:52:56 UTC): /healthz 200 on agentic, digital, styling; /docs/chatgpt 200; atelier-velune-plugin.zip 200 (application/zip, 5 files, no hidden files, prod /mcp URL); POST /mcp signed out 401."
   - at: 2026-11-18
     check: "v0.6.0 on Render (main c072111, tag v0.6.0, deployed 20:17:46 UTC): agentic /healthz 200; /docs and its five topics 200; /agents is the Connect page; Back Office Log 200 with tabs; /api/back-office pages its trace, no email unmasked; POST /mcp signed out 401."
-  - at: 2026-11-18
-    check: "v0.5.3 on Render (main 3786f64, tag v0.5.3, deployed 17:56:32 UTC): agentic /healthz 200; POST /api/account/confirm/options signed out 401 sign_in_required; /agents names manage_url; the OpenAPI escalation names the account link; POST /mcp signed out 401."
 ---
 
 # adyen-digital: what is verified, and what is still open
@@ -46,6 +46,7 @@ As of 2026-11-15, Adyen Web 6.48.1, Checkout API v72, on Next.js 16 with Elysia 
 | Callbacks reported under the right order                                            | PASS   | BROWSER VERIFIED                  | `frontend_callbacks` rows for `d13195db`: onChange ×5, beforeSubmit, onPaymentCompleted                                                                                                                                                                                                                                                                                                                                                                   |
 | Docker image: no secrets inside, runs with a quoted `.env`, Basic Auth covers pages | PASS   | CODE VERIFIED + TEST API VERIFIED | 14 payment methods listed from inside the container; pages 401/200 without/with credentials                                                                                                                                                                                                                                                                                                                                                               |
 | Production after the v0.3.3 deploy (2026-11-17, agentic conformance)                | PARTIAL | DEPLOYED VERIFIED                | `main` `698423f`, CI green. Agentic: `/.well-known/ucp` `public, max-age=300` with an ETag; REST without `UCP-Agent` 400 `invalid_profile_url`, a made-up profile 424, an IP literal 400. A PAP agent served through ngrok (Session delegation in the JWT header, `aud` the issuer, RFC 8707 resources, its own platform profile in MCP `meta` and REST `UCP-Agent`) placed order `ord_wMf1oLNFrZLY` on the saved card; REST reads 200; the webhook marked it paid. The edge serves the ETag as `W/"…"`, which v0.3.3 does not match, so a revalidation gets 200, not 304 (fix on `develop`, not deployed yet). |
+| Production after the v0.7.1 deploy (2026-11-19, ChatGPT widget fixes, card-save return, ZIP) | PARTIAL | DEPLOYED VERIFIED                | `main` `10b59cb` (tree = reviewed `7c7c22d`), `main` CI `44434136862` green, tag `v0.7.1`; Render `agentic-commerce` deploy `dep-dbv4mejm8hqs73almun0` (GitHub `7900926886`) succeeded at 01:06:53 UTC (digital `dep-dbv4mejm8hqs73almuu0`, styling `dep-dbv4mejm8hqs73almv40` and landing `dep-dbv4mejm8hqs73almv9g` also succeeded). Live checks: `/healthz` 200 on agentic, digital and styling; `/docs/chatgpt` 200 with `product-carousel-v2.html` and Refresh note; `/downloads/atelier-velune-plugin.zip` 200 (`application/zip`, 5169 B, `unzip -t` clean, 5 `atelier-velune/` files, `mcp.json` has `$schema` + prod `/mcp` + OpenAI CIMD auth, `plugin.json` has `category` `Other`, 29-char `shortDescription`, `supportURL`, 3 `defaultPrompt` entries); `POST /api/return?to=/account` cross-site 303 to `/account?redirectResult=test`; `POST /api/return?to=https://evil.example` 400; `POST /mcp` signed out 401 `identity_required`. Gap: Refresh ChatGPT MCP connector, saving a card on `/account#cards` and live widget checkout await owner's test. |
 | Production after the v0.7.0 deploy (2026-11-18, MCP Apps widgets)                   | PARTIAL | DEPLOYED VERIFIED                | `main` `1413879` (tree = reviewed `62a3225`), `main` CI `44415404412` green, tag `v0.7.0`; Render `agentic-commerce` deploy `dep-dbv2nhjrjlhs73e16pt0` (GitHub `7898534335`) succeeded at 22:52:56 UTC (digital, styling and landing also succeeded). Live checks: `/healthz` 200 on agentic, digital and styling; `/docs/chatgpt` 200 with setup and download link; `/downloads/atelier-velune-plugin.zip` 200 (`application/zip`, `unzip -t` clean, 5 `atelier-velune/` files, `mcp.json` targets `https://agentic.payments-playground.com/mcp`, no hidden files); `POST /mcp` signed out returns 401 `identity_required`. Gap: live flow in ChatGPT (connecting `/mcp`, both modes, saved-card purchase) awaits owner's test. |
 | Production after the v0.6.0 deploy (2026-11-18, consent, account, Back Office, Docs) | PARTIAL | DEPLOYED VERIFIED                | `main` `c072111` (tree = reviewed `716bce0`), tag `v0.6.0`; Render's deployment of `agentic-commerce` succeeded at 20:17:46 UTC. Agentic `/healthz` 200 (TEST, payments on); `/docs`, `/docs/poppy`, `/docs/mcp`, `/docs/webmcp`, `/docs/ucp` and `/docs/adyen` 200 (new in this release), `/docs/ucp` carries its sequence diagram; `/agents` is the "Connect your AI agent" page; `/back-office?tab=log` 200 with its tabs; `GET /api/back-office` answers `trace_total`, `trace_pages` and `per`, with three masked emails and none unmasked (the Log page none either); `POST /mcp` signed out 401; `/account` signed out 307. CI on the PR head green. Not exercised on the public host: the new consent screen with an agent and an agent's saved-card payment, which the owner's ChatGPT test covers next. |
 | Production after the v0.5.3 deploy (2026-11-18, agent budget on the account page)    | PARTIAL | DEPLOYED VERIFIED                | `main` `3786f64`, tag `v0.5.3`; Render's deployment of `agentic-commerce` succeeded at 17:56:32 UTC. Agentic `/healthz` 200 (TEST, payments on); the new `POST /api/account/confirm/options` answers 401 `sign_in_required` signed out (404 before this release); `/agents` documents `agent_budget` with `manage_url`; the OpenAPI escalation example names the account link; `POST /mcp` signed out 401; `/account` signed out redirects to sign-in (307). CI green on `3786f64`. Not exercised on the public host: raising a limit, since no account there may be signed in to for this check; on localhost the password raise was checked in a browser and the passkey confirmation only with the tests' software authenticator. |

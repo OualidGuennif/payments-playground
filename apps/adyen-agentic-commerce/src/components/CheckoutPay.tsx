@@ -20,6 +20,7 @@ export function CheckoutPay({
   redirect?: { sessionId: string; redirectResult: string };
 }) {
   const [view, setView] = useState(initial);
+  const [pendingRedirect, setPendingRedirect] = useState(redirect);
   const [error, setError] = useState<string>();
 
   const createSession = useCallback(async (): Promise<SessionInfo> => {
@@ -34,6 +35,7 @@ export function CheckoutPay({
       const { data, error } = await api()
         .checkouts({ id: view.id })
         ["session-result"].post({ sessionId, sessionResult });
+      setPendingRedirect(undefined);
       if (error || !data || "error" in data) {
         setError("Adyen has not confirmed the payment yet. Refresh in a moment.");
         return;
@@ -121,7 +123,7 @@ export function CheckoutPay({
             clientKey={clientKey}
             createSession={createSession}
             onFinished={onFinished}
-            redirect={redirect}
+            redirect={pendingRedirect}
           />
         ) : (
           <p className="text-sm text-muted">

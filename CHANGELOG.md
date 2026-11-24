@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Split `adyen-v6-styling` by area without changing behaviour: the 1,490-line option catalogue
+  becomes `src/options` (controls, secured fields, CSS tokens, Drop-in, card, wallets, themes,
+  Drop-in props) with the token audit beside it as `css-tokens.test.ts`; the three panel tabs move
+  to `src/components/panels`, the Components tab's option groups to their own files; `app.css`
+  becomes seven stylesheets in `src/styles`, imported in cascade order. Browser-checked on TEST:
+  each tab and its export, the Brazil-only group, light and dark, 375 and 1440 px.
 - Split `adyen-digital`'s `FlowWorkbench` (1,485 to 998 lines) without changing behaviour: what
   each flow sends moves to one module per flow in `src/checkout` (`sessions.ts`, `advanced.ts`
   with the partial-payment callbacks, `api-only.ts`, `pay-by-link.ts`, `mit.ts`), the method

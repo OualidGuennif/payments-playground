@@ -1,8 +1,8 @@
 // Spec: knowledge/components/adyen-v6-styling.md
 import { detectCountryFromLanguages, FALLBACK_COUNTRY } from "@suite/platform/markets.ts";
 import { INSTALLMENT_COUNTRIES } from "@suite/ui/paymentMethods.ts";
-import { DEFAULT_CARD } from "./adyenOptions.ts";
-import type { CardOptions } from "./adyenOptions.ts";
+import { DEFAULT_CARD } from "../options/card.ts";
+import type { CardOptions } from "../options/card.ts";
 
 /**
  * The panel's static tables and the two guesses derived from them: which

@@ -9,7 +9,8 @@ import { test } from "bun:test";
  * an SDK bump has to be looked at rather than merged on green.
  */
 import { assertEquals } from "../../../../testing/assert.ts";
-import { ADYEN_CSS_URL, ADYEN_WEB_VERSION, CSS_TOKEN_SPECS } from "./adyenOptions.ts";
+import { ADYEN_CSS_URL, ADYEN_WEB_VERSION } from "./controls.ts";
+import { CSS_TOKEN_SPECS } from "./css-tokens.ts";
 
 /** Minified CSS drops leading zeroes and spaces; those are the same value. */
 function normalise(value: string): string {

@@ -1,0 +1,202 @@
+/* ---------- Test cards beside the Drop-in ---------- */
+
+/* Translucent tiles, Wallet-style: the PAN is the point, so it is the only
+   thing set in a large mono face and the whole tile is the copy button. */
+.test-data {
+  display: flex;
+  width: 100%;
+  max-width: 650px;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.test-cards {
+  width: 100%;
+}
+
+/* Both sections collapse on every screen, phone or desktop: this is reference
+   material you open when you need it, not part of the checkout. */
+.test-cards__toggle {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--canvas-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.test-cards[data-open="false"] .test-cards__body {
+  display: none;
+}
+
+.test-cards__body {
+  margin-top: 10px;
+}
+
+/* Four everyday schemes are enough to start on any screen; the market-specific
+   ones stay one tap away rather than filling the column. */
+.test-cards[data-expanded="false"] .test-card[data-secondary="true"] {
+  display: none;
+}
+
+.test-cards__more {
+  display: block;
+  width: 100%;
+  padding: 8px 2px 0;
+  border: 0;
+  background: none;
+  color: var(--color-green-dark);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 750;
+  text-align: right;
+}
+
+.test-cards__more--link {
+  display: block;
+  text-decoration: none;
+}
+
+.test-cards__more:hover {
+  text-decoration: underline;
+}
+
+.test-cards__chevron {
+  color: var(--color-ink-muted);
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.test-cards__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* An odd number of tiles (the alternative set has seven) would leave the last
+   one alone with a hole beside it; letting it span both columns closes the
+   row instead of ending the section on a gap. */
+.test-cards__list > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.test-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 11px 13px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 14px;
+  background: var(--canvas-surface);
+  box-shadow: 0 6px 18px rgba(0, 17, 44, 0.08);
+  color: var(--color-ink);
+  cursor: pointer;
+  text-align: left;
+  backdrop-filter: blur(10px) saturate(140%);
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    border-color 140ms ease;
+}
+
+.test-card:hover {
+  border-color: var(--color-green);
+  box-shadow: 0 10px 24px rgba(0, 17, 44, 0.14);
+  transform: translateY(-1px);
+}
+
+.test-card__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  row-gap: 5px;
+}
+
+.test-card__scheme {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+/* Full country names run long next to the scheme, so the badge keeps its own
+   line rather than squeezing "United States" against "Klarna". */
+.test-card__note {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--color-green-soft);
+  color: var(--color-green-dark);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* Sized so the longest number still sits on one line in the narrowest tile ,
+   the extra tracking and the larger size were costing about ten pixels, which
+   was the whole margin. A wrapped PAN is worse than a slightly smaller one:
+   you can't read a card number that has been cut in half. */
+.test-card__pan {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The gift card number is 23 digits, four more than a PAN, and past what the
+   tile holds at any size the card numbers are comfortable at. It takes the
+   step down rather than making every tile smaller for the one outlier. */
+.test-card__pan--long {
+  font-size: 0.6875rem;
+}
+
+.test-card__bottom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+}
+
+.test-card__copy {
+  margin-left: auto;
+  color: var(--color-green-dark);
+  font-weight: 800;
+}
+
+/* Wallets can't be faked from here, so their tile is informational: no copy
+   affordance, no hover lift, just the pointer to the provider's sandbox. */
+.test-card--static {
+  cursor: default;
+}
+
+.test-card--static:hover {
+  border-color: var(--glass-edge);
+  box-shadow: 0 6px 18px rgba(0, 17, 44, 0.08);
+  transform: none;
+}
+
+.test-card__disclaimer {
+  color: var(--color-ink-muted);
+  font-size: 0.7rem;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.test-card__disclaimer a {
+  color: var(--color-ink-muted);
+}
+
+:root[data-theme="dark"] .test-card,
+:root[data-theme="dark"] .test-card--static:hover {
+  box-shadow: var(--shadow-card);
+}

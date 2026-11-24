@@ -7,7 +7,7 @@ status: stable
 scope: build-and-test
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-16T03:00:00Z
+  at: 2026-11-25T13:00:00Z
 sources:
   - id: tasks
     resource: ../../package.json
@@ -102,7 +102,7 @@ Bun 1.4.4 (`oven/bun:1.4.4` in the images, `bun-version: 1.4.4` in CI) and Pytho
 
 ## Tests that reach the network
 
-`apps/adyen-v6-styling/src/components/adyenOptions.test.ts` fetches the real `adyen.css` for the
+`apps/adyen-v6-styling/src/options/css-tokens.test.ts` fetches the real `adyen.css` for the
 pinned Adyen Web version from Adyen's CDN and fails if the styling panel offers a token Adyen no
 longer reads, misses a new one, or shows a wrong default. Offline it fails on the fetch, not on a
 regression. Every other test is offline; Adyen calls are tested with a replaced transport.

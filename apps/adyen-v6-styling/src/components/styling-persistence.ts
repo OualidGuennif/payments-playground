@@ -1,12 +1,9 @@
 // Spec: knowledge/components/adyen-v6-styling.md
-import type {
-  CardOptions,
-  CssRules,
-  CssTokens,
-  NativeOptions,
-  SecureStyles,
-  WalletOptions,
-} from "./adyenOptions.ts";
+import type { CardOptions } from "../options/card.ts";
+import type { CssRules, CssTokens } from "../options/css-tokens.ts";
+import type { NativeOptions } from "../options/dropin.ts";
+import type { SecureStyles } from "../options/secured-fields.ts";
+import type { WalletOptions } from "../options/wallets.ts";
 
 /* -------------------------------------------------------------------------- */
 /* Persistence                                                                */

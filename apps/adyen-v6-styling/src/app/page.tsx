@@ -1,6 +1,6 @@
 // Spec: knowledge/components/adyen-v6-styling.md
 import { TestPill } from "@suite/ui/components.tsx";
-import { ADYEN_WEB_VERSION } from "@/components/adyenOptions.ts";
+import { ADYEN_WEB_VERSION } from "@/options/controls.ts";
 import { ClientPlayground } from "@/components/ClientPlayground.tsx";
 
 export default function Home() {

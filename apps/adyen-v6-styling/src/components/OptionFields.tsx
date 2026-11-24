@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import type { ControlSpec } from "./adyenOptions.ts";
+import type { ControlSpec } from "../options/controls.ts";
 
 const HEX_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 

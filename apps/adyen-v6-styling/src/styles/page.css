@@ -1,0 +1,147 @@
+/* ---------- Page shell: toolbar, layout and the preview column ---------- */
+
+@keyframes button-success-flash {
+  0%,
+  100% {
+    border-color: var(--color-border-strong);
+    box-shadow: none;
+  }
+  50% {
+    border-color: var(--color-green);
+    box-shadow: 0 0 0 3px var(--color-green-soft);
+  }
+}
+
+.button--success-flash {
+  animation: button-success-flash 0.7s ease-in-out 3;
+}
+
+.styling-main {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+}
+
+/* Four glass blocks of one height at the top of the preview column, so their
+   edges are the checkout's and the test data's. Two rows of two until the
+   column is wide enough for the Drop-in and the test data side by side;
+   then one row. It stays where it is, at the top of the page, instead of
+   floating over the checkout as it scrolls (owner, 2026-10-10). */
+.styling-toolbar {
+  display: grid;
+  order: -2;
+  width: 100%;
+  max-width: 650px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.toolbar-field {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 56px;
+  align-items: center;
+  border: 1px solid var(--glass-edge);
+  border-radius: 18px;
+  background: var(--glass-fill);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+/* The name sits over the select and lets clicks through, so the whole block
+   opens the list. */
+.toolbar-field__label {
+  position: absolute;
+  top: 9px;
+  left: 14px;
+  color: var(--color-ink-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.toolbar-field select {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 56px;
+  padding: 24px 34px 7px 14px;
+  border: 0;
+  border-radius: inherit;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%238d95a3' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right 14px center;
+  background-repeat: no-repeat;
+  background-size: 10px 7px;
+  color: var(--color-ink);
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  appearance: none;
+}
+
+.toolbar-field:hover {
+  border-color: var(--color-border-control-hover);
+}
+
+.toolbar-field select:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.toolbar-field--mode {
+  justify-content: center;
+}
+
+/* The disclaimer page has no preview: a back link and the switch. */
+.legal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px clamp(16px, 3vw, 34px);
+}
+
+.styling-back {
+  min-height: 52px;
+  padding: 0 20px;
+  color: var(--color-ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.styling-layout {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: minmax(420px, 1fr) minmax(360px, 480px);
+}
+
+/* Vertical and horizontal are not the same problem. 5vw all round put 68px of
+   nothing above the checkout, dead space before anything you came to look at.
+   Sideways that same room is what frames the pair and keeps the tiles off the
+   window edge, so only the vertical is cut. */
+.styling-preview {
+  /* The tool's own controls on this canvas carry a near-opaque surface of the
+     tool's theme: translucent white turned a muddy grey whenever what lay
+     behind it was dark. */
+  --canvas-surface: color-mix(in srgb, var(--color-surface) 94%, transparent);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  container: preview / inline-size;
+  padding: clamp(20px, 2.4vw, 36px) clamp(20px, 5vw, 68px);
+  /* No background of its own: the page's glows show through. Never the
+     merchant's background-secondary either: with a dark theme in the light
+     playground (or the reverse) that painted half the page in the other
+     theme. The theme shows on the Drop-in card, which is all the export
+     describes. */
+  background: transparent;
+}

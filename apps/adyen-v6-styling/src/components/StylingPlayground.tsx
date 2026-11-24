@@ -11,7 +11,9 @@ import { INSTALLMENT_COUNTRIES, isNonFatalWalletError } from "@suite/ui/paymentM
 import "@suite/ui/registerPaymentMethods.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TestCards } from "./TestCards.tsx";
-import { ComponentsPanel, FieldStylesPanel, ThemePanel } from "./styling-panels.tsx";
+import { ComponentsPanel } from "./panels/ComponentsPanel.tsx";
+import { FieldStylesPanel } from "./panels/FieldStylesPanel.tsx";
+import { ThemePanel } from "./panels/ThemePanel.tsx";
 import {
   cardDefaultsFor,
   COUNTRIES,
@@ -29,25 +31,17 @@ import {
   cssTokenSetCount,
   cssTokenSpec,
   DEFAULT_CSS_RULES,
-  DEFAULT_NATIVE,
-  DEFAULT_SECURE,
-  DEFAULT_WALLETS,
-  dropinProps,
-  THEME_PRESETS,
-  themeSignature,
-} from "./adyenOptions.ts";
-import type {
-  CardOptions,
-  CssRules,
-  CssTokens,
-  InstantPaymentType,
-  NativeOptions,
-  PlaceholderKey,
-  SecureProperty,
-  SecureState,
-  SecureStyles,
-  WalletOptions,
-} from "./adyenOptions.ts";
+} from "../options/css-tokens.ts";
+import { DEFAULT_NATIVE } from "../options/dropin.ts";
+import { dropinProps } from "../options/dropin-props.ts";
+import { DEFAULT_SECURE } from "../options/secured-fields.ts";
+import { THEME_PRESETS, themeSignature } from "../options/themes.ts";
+import { DEFAULT_WALLETS } from "../options/wallets.ts";
+import type { CardOptions, PlaceholderKey } from "../options/card.ts";
+import type { CssRules, CssTokens } from "../options/css-tokens.ts";
+import type { InstantPaymentType, NativeOptions } from "../options/dropin.ts";
+import type { SecureProperty, SecureState, SecureStyles } from "../options/secured-fields.ts";
+import type { WalletOptions } from "../options/wallets.ts";
 
 function ResetIcon() {
   return (

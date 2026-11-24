@@ -6,11 +6,14 @@ tags: [reference, adyen, checkout-api]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-16T22:30:00Z
+  at: 2026-11-25T10:00:00Z
 sources:
   - id: api
-    resource: ../../apps/adyen-digital/src/server/api.ts
-    title: Request bodies and the comments recording each rejection
+    resource: ../../apps/adyen-digital/src/server/requests.ts
+    title: Request bodies and the comments recording each rejection (moved out of server/api.ts on 2026-11-25)
+  - id: routes
+    resource: ../../apps/adyen-digital/src/server/routes
+    title: The flow routes that send them, one file per flow
   - id: typings
     resource: https://www.npmjs.com/package/@adyen/api-library/v/32.3.0
     title: "@adyen/api-library 32: lib/src/typings/checkout/*.d.ts are the field lists"

@@ -9,7 +9,7 @@ import {
 import type { Theme } from "@suite/ui/theme.ts";
 import type { Flow } from "./flows.ts";
 // field() below reads strings only; orders and balances are objects and numbers.
-import { field as valueAt } from "./read.ts";
+import { field as valueAt } from "../lib/read.ts";
 
 export interface PublicProfile {
   id: string;

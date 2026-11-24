@@ -6,7 +6,7 @@ tags: [decision, state-machine, lifecycle]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-15T08:00:00Z
+  at: 2026-11-25T10:00:00Z
 sources:
   - id: state-machine
     resource: ../../packages/platform/state-machine.ts
@@ -15,8 +15,11 @@ sources:
     resource: ../../packages/platform/state-machine.test.ts
     title: Invariant tests
   - id: api
-    resource: ../../apps/adyen-digital/src/server/api.ts
-    title: settleAttempt, resolveAndStore, webhook handler
+    resource: ../../apps/adyen-digital/src/server/orders.ts
+    title: settleAttempt and resolveAndStore (moved out of server/api.ts on 2026-11-25)
+  - id: webhook
+    resource: ../../apps/adyen-digital/src/server/routes/webhooks.ts
+    title: The webhook handler
 ---
 
 # ADR-007: An order's state comes only from authoritative events

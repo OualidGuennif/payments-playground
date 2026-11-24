@@ -6,7 +6,7 @@ import {
   LOCALE_OPTIONS,
   MARKETS,
   type PublicProfile,
-} from "./flow-helpers.ts";
+} from "../../checkout/flow-helpers.ts";
 import { Sheet } from "./Sheet.tsx";
 
 /** The settings sheet: market, integration, 3DS and server profile. */

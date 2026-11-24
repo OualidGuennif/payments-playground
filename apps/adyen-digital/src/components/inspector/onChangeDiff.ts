@@ -3,7 +3,7 @@
  * re-sent whole on every edit, so a row per event only reads well as a diff.
  */
 
-import { clip, field, text } from "./read.ts";
+import { clip, field, text } from "../../lib/read.ts";
 
 /** Fields that change on every call without meaning anything to a reader. */
 const NOISE = /(^|\.)(sdkData|checkoutAttemptId|riskData|browserInfo)(\.|$)/;

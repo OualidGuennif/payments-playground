@@ -27,7 +27,7 @@ sources:
     title: "One Adyen Web and one React across the Bun workspace"
   - resource: ../decisions/ADR-010-one-theme-attribute-and-token-sets.md
     title: "Dark mode is one data-theme attribute over two token sets"
-  - resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
+  - resource: ../../apps/adyen-digital/src/components/workbench/FlowWorkbench.tsx
     title: "The focus app's Drop-in and Components usage"
   - resource: ../../apps/adyen-v6-styling/src/components/adyenOptions.test.ts
     title: "The only automated check of an Adyen Web surface"

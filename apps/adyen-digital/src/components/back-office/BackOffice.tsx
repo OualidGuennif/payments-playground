@@ -8,8 +8,14 @@ import {
   type Modification,
   type Permission,
 } from "./LifecyclePanel.tsx";
-import { attemptStatus, isAbandoned, type LedgerLike, orderStatus, type Tone } from "./status.ts";
-import { Timeline, type TimelineEntry } from "./Timeline.tsx";
+import {
+  attemptStatus,
+  isAbandoned,
+  type LedgerLike,
+  orderStatus,
+  type Tone,
+} from "../../lib/status.ts";
+import { Timeline, type TimelineEntry } from "../inspector/Timeline.tsx";
 import type { App } from "@/server/api";
 
 // Built per call: the client reads window, which a server render does not have.

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { type Change, diff, onChangeSummary, plain } from "./onChangeDiff.ts";
 import { asCurl } from "./curl.ts";
-import { clip, field, text } from "./read.ts";
+import { clip, field, text } from "../../lib/read.ts";
 
 export interface TimelineEntry {
   id: string;

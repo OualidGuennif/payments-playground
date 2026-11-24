@@ -1,5 +1,5 @@
 import { DigitalLayout } from "@/components/Layout.tsx";
-import RedirectReturn from "@/components/RedirectReturn.tsx";
+import RedirectReturn from "@/components/workbench/RedirectReturn.tsx";
 
 type Query = Record<string, string | string[] | undefined>;
 

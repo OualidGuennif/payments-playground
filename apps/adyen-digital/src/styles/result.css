@@ -1,0 +1,120 @@
+/* ---------- Result ---------- */
+
+.result {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 12px 0 4px;
+  text-align: center;
+}
+
+.result__icon {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 10px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-surface-strong);
+  color: var(--color-ink);
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.result--positive .result__icon {
+  background: var(--color-green-soft);
+  color: var(--color-green-dark);
+}
+
+.result--danger .result__icon {
+  background: var(--color-red-soft);
+  color: var(--color-red);
+}
+
+.result--warning .result__icon {
+  background: var(--color-amber-soft);
+  color: var(--color-amber);
+}
+
+.result h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+}
+
+.result__amount {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.result__detail {
+  max-width: 380px;
+  margin: 2px 0 12px;
+  font-size: 0.84rem;
+}
+
+.result .facts {
+  width: min(420px, 100%);
+  padding: 14px 16px;
+  border: 0;
+  border-radius: var(--radius-m);
+  background: var(--color-surface-muted);
+  text-align: left;
+}
+
+.result__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* ---------- Redirect return ---------- */
+
+.return-page {
+  display: grid;
+  min-height: 60vh;
+  place-items: center;
+}
+
+.return-card {
+  display: grid;
+  width: min(520px, 100%);
+  justify-items: center;
+  gap: 14px;
+  padding: 32px 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.return-card--loading p {
+  margin: 0;
+  color: var(--color-ink-muted);
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-ink);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}

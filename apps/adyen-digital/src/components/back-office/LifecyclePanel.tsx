@@ -3,7 +3,7 @@ import { apiClient, formatMinorAmount, unwrap } from "@suite/ui/client.ts";
 import type { App } from "@/server/api";
 import { useCopy } from "@suite/ui/useCopy.ts";
 import { useRef, useState } from "react";
-import type { LedgerLike } from "./status.ts";
+import type { LedgerLike } from "../../lib/status.ts";
 
 export interface Permission {
   allowed: boolean;

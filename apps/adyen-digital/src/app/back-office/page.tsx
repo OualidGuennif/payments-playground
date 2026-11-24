@@ -1,5 +1,5 @@
 import { DigitalLayout } from "@/components/Layout.tsx";
-import BackOffice from "@/components/BackOffice.tsx";
+import BackOffice from "@/components/back-office/BackOffice.tsx";
 
 export default function BackOfficePage() {
   return (

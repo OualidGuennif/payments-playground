@@ -1,0 +1,93 @@
+/* ---------- Narrow screens ---------- */
+
+@media (max-width: 1080px) {
+  .checkout-workspace.has-inspector {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .scenario-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .scenario-chip {
+    flex: 1 1 100%;
+    border-radius: 18px;
+  }
+
+  .scenario-chip__text {
+    flex: 1;
+  }
+
+  .scenario-bar__actions .pill-button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .checkout-card {
+    border-radius: 18px;
+  }
+
+  .checkout-pay {
+    padding: 20px 16px 24px;
+  }
+
+  /* On a phone the inspector sits under the checkout, open like on desktop:
+     a sheet open by default would cover the payment form. */
+  .inspector-panel {
+    position: static;
+    max-height: 78vh;
+    border-radius: 18px;
+  }
+
+  .sheet__panel {
+    top: auto;
+    left: 0;
+    width: 100%;
+    max-height: 90vh;
+    border-radius: 22px 22px 0 0;
+    animation: slide-up 220ms cubic-bezier(0.3, 0.7, 0.4, 1);
+  }
+
+  .sheet__grip {
+    display: block;
+    width: 40px;
+    height: 5px;
+    margin: 8px auto 0;
+    border-radius: 999px;
+    background: var(--color-border-strong);
+  }
+
+  .sheet__header {
+    padding: 12px 18px 10px;
+  }
+
+  .sheet__body {
+    padding: 4px 18px 18px;
+  }
+
+  .config-row {
+    grid-template-columns: 1fr;
+  }
+
+  .tl-search {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 760px), (pointer: coarse) {
+  .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .pill-button,
+  .tl-filter,
+  .tl-tool,
+  .tl-search,
+  .chip {
+    min-height: 44px;
+  }
+}

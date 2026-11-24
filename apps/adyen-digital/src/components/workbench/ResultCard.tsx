@@ -1,5 +1,5 @@
 import { useCopy } from "@suite/ui/useCopy.ts";
-import { resultCodeStatus } from "./status.ts";
+import { resultCodeStatus } from "../../lib/status.ts";
 
 /** What the result screen shows once a payment has an outcome. */
 export interface PaymentOutcome {

@@ -18,7 +18,7 @@ sources:
     resource: ../../packages/ui/components.tsx
     title: ThemeScript, ThemeToggle, TestPill, AppShell
   - id: workbench
-    resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
+    resource: ../../apps/adyen-digital/src/components/workbench/FlowWorkbench.tsx
     title: securedFieldStyles and the theme-driven remount
 ---
 
@@ -63,5 +63,5 @@ only.
 **Consequences.** A new colour means a token in both sets; a hard-coded colour is a bug in dark
 mode. Toggling the theme on a checkout remounts it, which for Sessions creates a new order,
 except once a gift card has paid part of it: that session is resumed instead (amended 2026-11-24,
-`components/session-restore.ts`). IPP and
+`checkout/session-restore.ts`). IPP and
 agentic get the dark shell for free; their app-specific CSS was not reworked for it.

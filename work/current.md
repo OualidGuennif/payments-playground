@@ -5,15 +5,16 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Reorganize the three apps' code layout — WAITING-OWNER
+## Reorganize the three apps' code layout — ACTIVE
 
-- Owner decision: 2026-11-24, in chat: reorganize digital, styling and agentic into readable,
-  decoupled modules, inspired by adyen-examples `checkout-example-advanced`; no stack change.
-- State: plan proposed in chat (per-flow client modules, server routes by endpoint, domain
-  folders for agentic, CSS split; moves only, same URLs and behaviour); no code moved yet.
-- Next: owner approves the plan and the order (digital first) (who: owner); then build per app.
-- Blocker: plan approval.
-- Evidence: session of 2026-11-24; reload restore before it is `a67d717` on `develop` (unpushed).
+- Owner decision: 2026-11-25, in chat: plan approved; digital, then styling, then agentic;
+  moves and splits only, no stack, URL or behaviour change.
+- State: digital components in folders, CSS split in `src/styles/`, server split into
+  `src/server/routes/`; typecheck, 27 tests and a TEST browser smoke pass; committed on `develop`
+  (unpushed).
+- Next: split FlowWorkbench into per-flow modules, then styling, then agentic (who: agent).
+- Blocker: none.
+- Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 
 ## v0.7.1: ChatGPT widget fixes, card-save return, MCP stylist & ZIP — WAITING-OWNER
 

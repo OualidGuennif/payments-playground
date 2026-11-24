@@ -5,6 +5,13 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Reorganize `adyen-digital` into readable modules, with no change to routes, URLs, behaviour or
+  UI: client components in `components/workbench`, `inspector`, `back-office` and `settings`;
+  flow list and checkout helpers in `src/checkout`; shared readers in `src/lib`; `app.css` split
+  into 14 stylesheets in `src/styles`, imported in the old cascade order; the 1,139-line
+  `server/api.ts` split into one Elysia plugin per flow in `server/routes` and helpers for request
+  bodies, order recording, payments and webhook items. Browser-checked on TEST: every page renders,
+  a Sessions and an Advanced card payment were Authorised, the Back Office renders in both themes.
 - Resume a part-paid Sessions checkout after a reload in `adyen-digital`: `onOrderUpdated`'s
   `sessionData` (Adyen Web 6.48+) is kept in the tab's `sessionStorage` with the session and the
   settings it was made with, and the next start mounts Adyen Web on that session instead of

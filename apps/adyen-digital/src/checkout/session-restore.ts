@@ -1,6 +1,6 @@
 // Spec: knowledge/components/adyen-digital.md
 import type { OrderProgress } from "./partial.ts";
-import { field } from "./read.ts";
+import { field } from "../lib/read.ts";
 
 // One entry per tab: sessionStorage survives a reload and ends with the tab,
 // which is as long as a shopper would expect a half-paid checkout to wait.

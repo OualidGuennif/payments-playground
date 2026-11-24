@@ -1,5 +1,5 @@
 import { test } from "bun:test";
-import { assertEquals, assertStringIncludes } from "../../../../testing/assert.ts";
+import { assertEquals, assertStringIncludes } from "../../../../../testing/assert.ts";
 import { asCurl } from "./curl.ts";
 
 test("a POST replays its body and leaves the API key to the environment", () => {

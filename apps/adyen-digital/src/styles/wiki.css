@@ -1,0 +1,43 @@
+/* ---------- Wiki: capability table ---------- */
+
+.wiki-table-wrap {
+  margin: 14px 0;
+  overflow-x: auto;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.wiki-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.wiki-table th,
+.wiki-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.wiki-table thead th {
+  background: var(--color-surface-raised);
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: normal;
+}
+
+.wiki-table tbody th {
+  text-align: left;
+}
+
+.wiki-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.wiki-source {
+  color: var(--color-ink-muted);
+  font-size: 0.74rem;
+}

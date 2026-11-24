@@ -1,4 +1,4 @@
-import { field } from "./read.ts";
+import { field } from "../lib/read.ts";
 
 /** An Adyen order split across payment methods, in minor units. */
 export interface OrderProgress {

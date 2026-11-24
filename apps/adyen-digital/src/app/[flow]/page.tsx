@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { ClientWorkbench } from "@/components/ClientWorkbench.tsx";
-import { isFlow } from "@/components/flows.ts";
-import type { Bootstrap } from "@/components/flow-helpers.ts";
+import { ClientWorkbench } from "@/components/workbench/ClientWorkbench.tsx";
+import { isFlow } from "@/checkout/flows.ts";
+import type { Bootstrap } from "@/checkout/flow-helpers.ts";
 import { DigitalLayout } from "@/components/Layout.tsx";
 import { bootstrapFor } from "@/server/api";
 

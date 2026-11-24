@@ -7,7 +7,7 @@ status: stable
 scope: local-development
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T20:30:00Z
+  at: 2026-11-25T10:00:00Z
 sources:
   - id: readme
     resource: ../../apps/adyen-digital/README.md
@@ -42,7 +42,7 @@ on.
 ## When to restart
 
 - After editing `next.config.ts`, `.env` or a dependency: stop `bun run dev:digital` and start it
-  again. Next reloads pages, components and `src/server/api.ts` on its own.
+  again. Next reloads pages, components and `src/server/` on its own.
 - The Vite-era restart rules (a stale SSR graph, `_fresh/` and SQLite watchers) ended with the move
   to Next.js on 2026-11-15.
 

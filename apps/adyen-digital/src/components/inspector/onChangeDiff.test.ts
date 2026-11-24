@@ -1,5 +1,5 @@
 import { test } from "bun:test";
-import { assertEquals } from "../../../../testing/assert.ts";
+import { assertEquals } from "../../../../../testing/assert.ts";
 import { diff, onChangeSummary } from "./onChangeDiff.ts";
 
 // Shaped like the onChange state Adyen Web 6.46 sends for a card.

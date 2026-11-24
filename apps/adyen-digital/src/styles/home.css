@@ -1,0 +1,131 @@
+/* ---------- Home ---------- */
+
+/* The home page is only the flow tiles. Their width and type follow the
+   viewport up to a cap, their height follows their content, and the block is
+   centred in the space between header and footer. */
+main:has(> .home) {
+  display: flex;
+  width: min(1480px, 100%);
+  flex-direction: column;
+  padding: clamp(16px, 3vh, 32px) clamp(16px, 3vw, 32px);
+}
+
+.home {
+  display: flex;
+  width: 100%;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(24px, 4vh, 40px);
+}
+
+.home-group h2 {
+  margin-bottom: clamp(10px, 1.6vh, 16px);
+  color: var(--color-ink-muted);
+  font-size: clamp(0.76rem, 0.62vw, 0.84rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(12px, 1.2vw, 20px);
+}
+
+.home-card {
+  display: flex;
+  min-height: clamp(120px, 15vh, 160px);
+  align-items: flex-start;
+  gap: 16px;
+  padding: clamp(20px, 1.6vw, 28px);
+  border: 1px solid var(--color-border);
+  border-radius: clamp(20px, 1.4vw, 26px);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.home-card:hover {
+  border-color: var(--color-border-control-hover);
+  box-shadow: var(--shadow-raised);
+  transform: translateY(-2px);
+}
+
+.home-card__body {
+  display: grid;
+  flex: 1;
+  gap: clamp(4px, 0.6vh, 8px);
+}
+
+.home-card__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: clamp(1.05rem, 1.15vw, 1.3rem);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.home-card__badge {
+  padding: 0.25em 0.75em;
+  border-radius: 999px;
+  background: var(--color-green-soft);
+  color: var(--color-green-dark);
+  font-size: clamp(0.6875rem, 0.55vw, 0.75rem);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.home-card__text {
+  max-width: 42ch;
+  color: var(--color-ink-muted);
+  font-size: clamp(0.84rem, 0.82vw, 0.98rem);
+  line-height: 1.45;
+}
+
+/* Level with the title. */
+.home-card__arrow {
+  flex: 0 0 auto;
+  color: var(--color-ink-subtle);
+  font-size: clamp(1.1rem, 1.2vw, 1.35rem);
+  line-height: 1.2;
+  transition:
+    transform 160ms ease,
+    color 160ms ease;
+}
+
+.home-card:hover .home-card__arrow {
+  color: var(--color-ink);
+  transform: translateX(3px);
+}
+
+@media (max-width: 1100px) {
+  .home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* A phone scrolls: one column of compact tiles. */
+@media (max-width: 760px) {
+  .home-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-card {
+    min-height: 0;
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .home-card__arrow {
+    align-self: center;
+  }
+}

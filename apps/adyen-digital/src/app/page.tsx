@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { type FlowInfo, FLOWS } from "@/components/flows.ts";
+import { type FlowInfo, FLOWS } from "@/checkout/flows.ts";
 import { DigitalLayout } from "@/components/Layout.tsx";
 
 function Card(props: { href: string; title: string; children: ReactNode; badge?: string }) {

@@ -14,7 +14,7 @@ sources:
     resource: ../../apps/adyen-digital/src/server/api.ts
     title: Server behaviour verified below
   - id: workbench
-    resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
+    resource: ../../apps/adyen-digital/src/components/workbench/FlowWorkbench.tsx
     title: Client behaviour verified below
   - id: policy
     resource: ../policies/verification-and-reporting.md

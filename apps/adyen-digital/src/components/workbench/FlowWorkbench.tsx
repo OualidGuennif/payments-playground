@@ -18,7 +18,7 @@ import "@suite/ui/registerPaymentMethods.ts";
 import { currentTheme, type Theme, THEME_CHANGE_EVENT } from "@suite/ui/theme.ts";
 import { useCopy } from "@suite/ui/useCopy.ts";
 import { useEffect, useRef, useState } from "react";
-import { type Flow, flowInfo } from "./flows.ts";
+import { type Flow, flowInfo } from "../../checkout/flows.ts";
 import {
   type AvailableComponent,
   type Bootstrap,
@@ -34,12 +34,12 @@ import {
   SESSION_REFUSAL_LIMIT,
   type StoredMethod,
   VALIDITY_OPTIONS,
-} from "./flow-helpers.ts";
+} from "../../checkout/flow-helpers.ts";
 import { FlowIcon } from "./FlowIcon.tsx";
-import { FlowInspector } from "./FlowInspector.tsx";
+import { FlowInspector } from "../inspector/FlowInspector.tsx";
 import { FlowSettings } from "./FlowSettings.tsx";
-import { type OrderProgress, orderProgress, partialAmount } from "./partial.ts";
-import { field as valueAt } from "./read.ts";
+import { type OrderProgress, orderProgress, partialAmount } from "../../checkout/partial.ts";
+import { field as valueAt } from "../../lib/read.ts";
 import { type PaymentOutcome, ResultCard } from "./ResultCard.tsx";
 import {
   type CheckoutSettings,
@@ -52,10 +52,10 @@ import {
   saveSession,
   tabStore,
   withLatestSessionData,
-} from "./session-restore.ts";
+} from "../../checkout/session-restore.ts";
 import { Sheet } from "./Sheet.tsx";
 import { TestData } from "./TestData.tsx";
-import type { TimelineEntry } from "./Timeline.tsx";
+import type { TimelineEntry } from "../inspector/Timeline.tsx";
 import type { App } from "@/server/api";
 
 export type { Bootstrap };

@@ -41,6 +41,18 @@ import { FlowSettings } from "./FlowSettings.tsx";
 import { type OrderProgress, orderProgress, partialAmount } from "./partial.ts";
 import { field as valueAt } from "./read.ts";
 import { type PaymentOutcome, ResultCard } from "./ResultCard.tsx";
+import {
+  type CheckoutSettings,
+  forgetSession,
+  partPaidSession,
+  readSavedSession,
+  refreshedSession,
+  type SavedSession,
+  sameSettings,
+  saveSession,
+  tabStore,
+  withLatestSessionData,
+} from "./session-restore.ts";
 import { Sheet } from "./Sheet.tsx";
 import { TestData } from "./TestData.tsx";
 import type { TimelineEntry } from "./Timeline.tsx";
@@ -152,7 +164,8 @@ export default function FlowWorkbench({
   // of the split goes into, what is left on it, and the balance of the gift
   // card being used, which caps what that payment may charge.
   const partialOrderIdRef = useRef<string | null>(null);
-  // When the current Sessions session stops accepting payments.
+  // The current Sessions session, and when it stops accepting payments.
+  const sessionIdRef = useRef<string | null>(null);
   const sessionExpiresAtRef = useRef<number | null>(null);
   const sessionRefusalsRef = useRef(0);
   const sessionClosedRef = useRef(false);
@@ -171,6 +184,20 @@ export default function FlowWorkbench({
     correlationRef.current = value;
     setCorrelationId(value);
     setCorrelationIds((current) => (current.includes(value) ? current : [...current, value]));
+  }
+
+  function currentSettings(): CheckoutSettings {
+    return { profileId, integration, country, currency, amount, locale, nativeThreeDS };
+  }
+
+  function applySettings(settings: CheckoutSettings) {
+    setIntegration(settings.integration);
+    setCountry(settings.country);
+    setCurrency(settings.currency);
+    setAmount(settings.amount);
+    setLocale(settings.locale);
+    setNativeThreeDS(settings.nativeThreeDS);
+    setAmountDraft(null);
   }
 
   useEffect(() => {
@@ -195,8 +222,47 @@ export default function FlowWorkbench({
   useEffect(() => {
     if (!hasAutoInit || autoInitRef.current || !bootstrap?.clientKey) return;
     autoInitRef.current = true;
+    // A reload in the middle of a split payment: take back the settings the
+    // session was made with, and let the restart that change causes resume
+    // it. Another profile's session cannot be resumed with this client key.
+    const saved = flow === "sessions" ? readSavedSession(tabStore(), Date.now()) : null;
+    if (
+      saved &&
+      saved.settings.profileId === bootstrap.profile.id &&
+      !sameSettings(saved.settings, currentSettings())
+    ) {
+      applySettings(saved.settings);
+      skipFirstAutoRestart.current = false;
+      setLoading(true);
+      return;
+    }
     start();
   }, [bootstrap]);
+
+  // Drop-in's "Supprimer" cancels the order through the session and calls no
+  // merchant callback, so the sessionData kept at onOrderUpdated would still
+  // show the gift card as paid after a reload. Leaving the page re-reads what
+  // the live checkout holds: its latest sessionData and what is left.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: flow is fixed per page and the handler reads refs.
+  useEffect(() => {
+    if (flow !== "sessions") return;
+    const refresh = () => {
+      const checkout = checkoutRef.current;
+      const sessionId = sessionIdRef.current;
+      const store = tabStore();
+      const saved = readSavedSession(store, Date.now());
+      if (!checkout || !sessionId || !saved) return;
+      const next = refreshedSession(saved, {
+        sessionId,
+        sessionData: checkout.session?.data,
+        progress: orderProgress(checkout.options.order),
+      });
+      if (next) saveSession(store, next);
+      else forgetSession(store);
+    };
+    globalThis.addEventListener("pagehide", refresh);
+    return () => globalThis.removeEventListener("pagehide", refresh);
+  }, []);
 
   // No "Update" button: any change to the scenario reloads the checkout on
   // its own, debounced so typing an amount doesn't refire on every keystroke.
@@ -349,6 +415,17 @@ export default function FlowWorkbench({
     giftCardBalanceRef.current = null;
   }
 
+  // A refusal into a part-paid order moves the session on: the next restore
+  // needs the sessionData of that answer, not the one before it.
+  function keepLatestSessionData(answer: unknown) {
+    if (flow !== "sessions") return;
+    const store = tabStore();
+    const saved = readSavedSession(store, Date.now());
+    if (saved && saved.sessionId === sessionIdRef.current) {
+      saveSession(store, withLatestSessionData(saved, answer));
+    }
+  }
+
   function commonConfiguration(extra: Record<string, unknown>) {
     if (!bootstrap?.clientKey) throw new Error("A valid TEST client key is required.");
     return {
@@ -361,12 +438,18 @@ export default function FlowWorkbench({
       onChange: (state: unknown) => addCallback("onChange", state),
       onPaymentCompleted: (result: unknown) => {
         addCallback("onPaymentCompleted", result);
+        if (flow === "sessions") forgetSession(tabStore());
         finish(result);
       },
       onPaymentFailed: (result: unknown) => {
         addCallback("onPaymentFailed", result);
         if (field(result, "resultCode") === "Refused") sessionRefusalsRef.current += 1;
-        if (closesSession(result)) sessionClosedRef.current = true;
+        if (closesSession(result)) {
+          sessionClosedRef.current = true;
+          forgetSession(tabStore());
+        } else {
+          keepLatestSessionData(result);
+        }
         finish(result);
       },
       // Part of the order is paid. Adyen Web has already applied the order to
@@ -379,6 +462,15 @@ export default function FlowWorkbench({
         setPartialOrder(progress);
         remainingRef.current = progress?.remaining ?? null;
         giftCardBalanceRef.current = null;
+        // Sessions only: kept so a reload resumes this order, not a new one.
+        const partPaid = partPaidSession(data, {
+          sessionId: sessionIdRef.current,
+          expiresAt: sessionExpiresAtRef.current,
+          correlationId: correlationRef.current,
+          progress,
+          settings: currentSettings(),
+        });
+        if (flow === "sessions" && partPaid) saveSession(tabStore(), partPaid);
         const methods = (checkoutRef.current?.paymentMethodsResponse?.paymentMethods ??
           []) as AvailableComponent[];
         if (integration === "component" && methods.some((method) => method.type === "scheme")) {
@@ -391,6 +483,7 @@ export default function FlowWorkbench({
         // onPaymentFailed reports it too, with a way out; no second banner.
         if (closesSession(cause)) {
           sessionClosedRef.current = true;
+          forgetSession(tabStore());
           return;
         }
         setError(cause instanceof Error ? cause.message : "Adyen Web reported an error.");
@@ -489,6 +582,7 @@ export default function FlowWorkbench({
   function retry() {
     const checkout = checkoutRef.current;
     if (!checkout || !dropinHost.current || flow === "api-only" || retryNeedsNewSession()) {
+      if (retryNeedsNewSession()) forgetSession(tabStore());
       start();
       return;
     }
@@ -501,8 +595,13 @@ export default function FlowWorkbench({
     else mountComponentType(componentType);
   }
 
-  async function mountCheckout(configuration: Record<string, unknown>, stale: () => boolean) {
+  async function mountCheckout(
+    configuration: Record<string, unknown>,
+    stale: () => boolean,
+    prepare?: (checkout: Core) => Promise<void>,
+  ) {
     const checkout = (await AdyenCheckout(configuration as never)) as Core;
+    await prepare?.(checkout);
     // A newer run owns the host now; mounting this one too would stack two
     // checkouts in it. The previous checkout stays up until then.
     if (stale() || !dropinHost.current) return;
@@ -563,7 +662,69 @@ export default function FlowWorkbench({
     mountComponentType(nextType);
   }
 
+  function sessionConfiguration(
+    correlationId: string,
+    session: { id: string; sessionData: string },
+  ): Record<string, unknown> {
+    return commonConfiguration({
+      session,
+      beforeSubmit: (state: unknown, _component: unknown, actions: CallbackActions) => {
+        addCallback("beforeSubmit", state, correlationId);
+        // beforeSubmit's resolve() is not a plain continue, Adyen Web sends
+        // back whatever is passed here as the actual /payments payload. An
+        // empty resolve() submits with no paymentMethod at all, which Adyen
+        // then rejects as "Required field 'paymentMethod' is null".
+        actions.resolve(state);
+      },
+    });
+  }
+
+  // The part-paid session kept before a reload, mounted again from its latest
+  // sessionData. Its setup answer carries the order, but Adyen Web 6.48.1
+  // prices the checkout before reading it (Pay showed the full amount), so
+  // the order is applied again, as Adyen Web itself does after a partial
+  // payment. Adyen's answer, not the saved copy, says what is left.
+  async function resumeSession(saved: SavedSession, stale: () => boolean) {
+    updateCorrelation(saved.correlationId);
+    sessionIdRef.current = saved.sessionId;
+    sessionExpiresAtRef.current = saved.expiresAt;
+    setPartialOrder(saved.progress);
+    remainingRef.current = saved.progress?.remaining ?? null;
+    await mountCheckout(
+      sessionConfiguration(saved.correlationId, {
+        id: saved.sessionId,
+        sessionData: saved.sessionData,
+      }),
+      stale,
+      async (checkout) => {
+        const order = checkout.options.order;
+        const progress = orderProgress(order);
+        setPartialOrder(progress);
+        remainingRef.current = progress?.remaining ?? null;
+        if (order && progress) await checkout.update({ order });
+      },
+    );
+  }
+
   async function startSession(stale: () => boolean) {
+    const store = tabStore();
+    const saved = readSavedSession(store, Date.now());
+    if (saved && sameSettings(saved.settings, currentSettings())) {
+      try {
+        await resumeSession(saved, stale);
+        return;
+      } catch {
+        // Adyen no longer takes that session (closed, expired, unknown): its
+        // order is left to expire and the shopper starts a new checkout.
+        forgetSession(store);
+        if (stale()) return;
+        setError(null);
+        resetPartialOrder();
+      }
+    } else if (saved) {
+      // Other settings mean another checkout; the part-paid one is left.
+      forgetSession(store);
+    }
     const data = unwrap(
       await api(profileId).api.digital.sessions.post({
         flow: `sessions-${integration}`,
@@ -579,21 +740,10 @@ export default function FlowWorkbench({
     };
     if (stale()) return;
     updateCorrelation(data.correlationId);
-    sessionExpiresAtRef.current = data.session.expiresAt
-      ? Date.parse(data.session.expiresAt)
-      : null;
-    const configuration = commonConfiguration({
-      session: data.session,
-      beforeSubmit: (state: unknown, _component: unknown, actions: CallbackActions) => {
-        addCallback("beforeSubmit", state, data.correlationId);
-        // beforeSubmit's resolve() is not a plain continue, Adyen Web sends
-        // back whatever is passed here as the actual /payments payload. An
-        // empty resolve() submits with no paymentMethod at all, which Adyen
-        // then rejects as "Required field 'paymentMethod' is null".
-        actions.resolve(state);
-      },
-    });
-    await mountCheckout(configuration, stale);
+    sessionIdRef.current = data.session.id;
+    const expiresAt = data.session.expiresAt ? Date.parse(data.session.expiresAt) : Number.NaN;
+    sessionExpiresAtRef.current = Number.isFinite(expiresAt) ? expiresAt : null;
+    await mountCheckout(sessionConfiguration(data.correlationId, data.session), stale);
   }
 
   async function startAdvanced(stale: () => boolean) {
@@ -854,6 +1004,12 @@ export default function FlowWorkbench({
     });
   }
 
+  // "New payment": a part-paid order is left behind on purpose, not resumed.
+  function startOver() {
+    if (flow === "sessions") forgetSession(tabStore());
+    start();
+  }
+
   async function start() {
     setError(null);
     setOutcome(null);
@@ -863,6 +1019,7 @@ export default function FlowWorkbench({
     lastPaymentRef.current = {};
     // A conversion id belongs to one checkout; the next one mints its own.
     shopperConversionRef.current = null;
+    sessionIdRef.current = null;
     sessionExpiresAtRef.current = null;
     sessionRefusalsRef.current = 0;
     sessionClosedRef.current = false;
@@ -1141,7 +1298,7 @@ export default function FlowWorkbench({
                 : amountText
             }
             orderId={correlationId}
-            onRestart={start}
+            onRestart={startOver}
             onRetry={flow === "api-only" ? undefined : retry}
             retryStartsOver={retryNeedsNewSession()}
           />

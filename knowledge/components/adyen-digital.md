@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-16T22:30:00Z
+  at: 2026-11-24T22:30:00Z
 sources:
   - resource: ../../apps/adyen-digital
     title: "The Next.js app: pages, Elysia API, client components"
@@ -169,7 +169,20 @@ the card for the rest (Drop-in shows its own); Advanced also implements `onBalan
 a refused, cancelled or failed payment the result card offers "Try again": it remounts on the same
 AdyenCheckout instance, so the session (with its latest `sessionData`) and any gift card order
 survive; "New payment" starts a new session, and so does a retry after the fifth refusal in a
-session, a `14_0422`/`14_0423` answer, or once the session expired (the card says so). The inspector
+session, a `14_0422`/`14_0423` answer, or once the session expired (the card says so). A Sessions
+checkout that is part paid survives a reload (`components/session-restore.ts`): `onOrderUpdated`
+(Adyen Web 6.48+) hands over the latest `sessionData`, which is kept in the tab's `sessionStorage`
+with the session id, its expiry, the correlation id, what is paid and left, and the settings the
+session was made with; a later refusal's `sessionData` replaces it, and so does, on `pagehide`,
+what the live checkout holds (`checkout.session.data` and its order): Drop-in's "Supprimer" cancels
+the order through the session and calls no merchant callback, so without that a reload showed the
+removed gift card as paid again. The next start, a reload included, takes those settings back and
+mounts Adyen Web on `session: { id, sessionData }` instead of creating a session. Its setup answer
+carries the order, but Adyen Web 6.48.1 prices the checkout before reading it (Pay showed the full
+amount), so the workbench applies that order again with `checkout.update({ order })` and the
+shopper pays only what is left. The entry is dropped once the payment completes, the session
+closes or expires, nothing is left part paid when the page is left, the settings change, "New
+payment" is chosen, or the restore fails (a new session then starts). The inspector
 is open from the start (owner, 2026-10-10), polls the timeline every 2.5 s ("Live") and follows new
 events unless the reader scrolled up.
 
@@ -262,7 +275,9 @@ the set. Markets are 36 countries with their own currency, locale and default am
    attempt before the same derivation.
 4. **A refusal ends an attempt, not an order.** `packages/platform/state-machine.test.ts` ("a
    refused attempt never closes a still-valid order"); the workbench's retry keeps the session and its
-   gift card order (`src/components/FlowWorkbench.tsx`).
+   gift card order (`src/components/FlowWorkbench.tsx`), and a reload resumes a part-paid Sessions
+   order only under the settings it was made with and before it expires
+   (`apps/adyen-digital/src/components/session-restore.test.ts`).
 5. **Request bodies are built per endpoint; `state.data` is never forwarded wholesale.**
    `apps/adyen-digital/src/server/api.ts` (`requestBase`, `FORWARDED_STATE_DATA`) and
    `packages/platform/adyen.ts`; `packages/platform/adyen.test.ts` pins the session endpoint, the
@@ -292,7 +307,7 @@ the set. Markets are 36 countries with their own currency, locale and default am
 
 `deterministic`. Every page, JSON body, stored row and order state is produced by code from the
 request and the recorded Adyen answers; there is no model and no free text. The pure parts
-(`resolveOrder`, `partial.ts`, `onChangeDiff.ts`, `curl.ts`, `read.ts`) are pinned by tests, and the
+(`resolveOrder`, `partial.ts`, `session-restore.ts`, `onChangeDiff.ts`, `curl.ts`, `read.ts`) are pinned by tests, and the
 same recorded attempts and webhooks always derive the same state. Adyen's own answer and the moment
 a webhook arrives are external input: a payment whose webhook never arrives stays `open` or
 `payment_pending` until the event does.

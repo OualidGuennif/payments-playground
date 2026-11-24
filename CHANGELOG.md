@@ -5,6 +5,14 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Resume a part-paid Sessions checkout after a reload in `adyen-digital`: `onOrderUpdated`'s
+  `sessionData` (Adyen Web 6.48+) is kept in the tab's `sessionStorage` with the session and the
+  settings it was made with, and the next start mounts Adyen Web on that session instead of
+  creating one. The order from the setup answer is applied again so Pay shows what is left (6.48.1
+  showed the full amount), a refusal's `sessionData` replaces the kept one, and leaving the page
+  re-reads `checkout.session.data` so Drop-in's "Supprimer" is not undone by a reload. The entry is
+  dropped on completion, a closed or expired session, changed settings or "New payment".
+  Browser-verified on TEST with Components and Drop-in.
 - Record the v0.7.1 deploy check: after PR #18 merged cleanly on `main` (`10b59cb`, CI
   `44434136862` green) and tag `v0.7.1` published, Render's `agentic-commerce` deploy succeeded at
   01:06:53 UTC (`dep-dbv4mejm8hqs73almun0`). `/healthz` (agentic, digital, styling),

@@ -6,7 +6,7 @@ tags: [decision, ui, theme, dark-mode]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-24T22:30:00Z
 sources:
   - id: theme
     resource: ../../packages/ui/theme.ts
@@ -61,5 +61,7 @@ only.
   preview controls, the theme switch and settings (owner, 2026-10-10).
 
 **Consequences.** A new colour means a token in both sets; a hard-coded colour is a bug in dark
-mode. Toggling the theme on a checkout remounts it, which for Sessions creates a new order. IPP and
+mode. Toggling the theme on a checkout remounts it, which for Sessions creates a new order,
+except once a gift card has paid part of it: that session is resumed instead (amended 2026-11-24,
+`components/session-restore.ts`). IPP and
 agentic get the dark shell for free; their app-specific CSS was not reworked for it.

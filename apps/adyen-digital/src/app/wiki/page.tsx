@@ -202,6 +202,17 @@ export default function WikiPage() {
               nothing is left. Drop-in does all of this itself.
             </p>
             <p>
+              <strong>Sessions, after a reload.</strong> Since Adyen Web 6.48,{" "}
+              <code>onOrderUpdated</code> also returns the latest <code>sessionData</code>. Keep it
+              with the session <code>id</code> and mount the checkout on{" "}
+              <code>session: {"{ id, sessionData }"}</code> when the shopper comes back, instead of
+              creating a new session: the part-paid order resumes. In 6.48.1 the Pay button still
+              shows the full amount until the order from the setup answer is applied again with{" "}
+              <code>checkout.update({"{ order }"})</code>. Drop-in&apos;s &quot;Supprimer&quot;
+              cancels the order without a merchant callback, so this playground re-reads{" "}
+              <code>checkout.session.data</code> when the page is left.
+            </p>
+            <p>
               <strong>Advanced.</strong> The merchant's server does that work:{" "}
               <code>onBalanceCheck</code> calls <code>/paymentMethods/balance</code>,{" "}
               <code>onOrderRequest</code> calls <code>/orders</code>, and each{" "}

@@ -7,8 +7,8 @@ status: stable
 scope: digital-status
 stale_after: 2026-12-15
 generated:
-  by: antigravity/gemini
-  at: 2026-11-19T01:10:30Z
+  by: claude-code/opus-5.5
+  at: 2026-11-24T22:30:00Z
 sources:
   - id: api
     resource: ../../apps/adyen-digital/src/server/api.ts
@@ -20,12 +20,12 @@ sources:
     resource: ../policies/verification-and-reporting.md
     title: Meaning of the levels
 verified:
+  - at: 2026-11-24
+    check: "Sessions part-paid order survives a reload (dev :8001, Adyen Web 6.48.1): Components Givex 50.00 > reload > same session CSE59FE2DAAC08B23710C323D, Pay 59,99 € > card Authorised into order CZT2ZTCK285GW7V5; Drop-in restore and Supprimer-then-reload both checked."
   - at: 2026-11-19
     check: "v0.7.1 on Render (main 10b59cb, tag v0.7.1, deployed 01:06:53 UTC): /healthz 200 on agentic, digital, styling; /docs/chatgpt 200; zip 200 (5 files, $schema + CIMD); POST /api/return cross-site 303, bad target 400; POST /mcp signed out 401."
   - at: 2026-11-18
     check: "v0.7.0 on Render (main 1413879, tag v0.7.0, deployed 22:52:56 UTC): /healthz 200 on agentic, digital, styling; /docs/chatgpt 200; atelier-velune-plugin.zip 200 (application/zip, 5 files, no hidden files, prod /mcp URL); POST /mcp signed out 401."
-  - at: 2026-11-18
-    check: "v0.6.0 on Render (main c072111, tag v0.6.0, deployed 20:17:46 UTC): agentic /healthz 200; /docs and its five topics 200; /agents is the Connect page; Back Office Log 200 with tabs; /api/back-office pages its trace, no email unmasked; POST /mcp signed out 401."
 ---
 
 # adyen-digital: what is verified, and what is still open
@@ -72,6 +72,7 @@ As of 2026-11-15, Adyen Web 6.48.1, Checkout API v72, on Next.js 16 with Elysia 
 | Gift card partial payment, Advanced (2026-10-16)                                    | PASS   | BROWSER VERIFIED                  | Components, order `6dded2b5`: `/paymentMethods/balance` NotEnoughBalance 5000 > `/orders` > `/payments` giftcard 5000 with `order` Authorised (5999 left) > `/paymentMethods` with `order` > `/payments` scheme 5999 Authorised (0 left); order `payment_pending`. Drop-in, order `bd311783`: « Supprimer » on the paid gift card > `onOrderCancel` > `/orders/cancel` Received, Drop-in back to 109.99. Before the fix: `Refused`, "Not enough balance". |
 | Retry after a refusal keeps the session and the gift card order (2026-10-16)        | PASS   | BROWSER VERIFIED                  | Sessions Drop-in, order `8eb7bb62`: one `/sessions` (`expiresAt` 25 min), Givex 50.00 > `onOrderUpdated` > card `DECLINED` > `onPaymentFailed` > result "59,99 € left to pay" > Try again: Drop-in still lists the paid gift card > stored Visa > `onPaymentCompleted`, no second session. Advanced Drop-in: refused card, Try again remounts with no new Adyen call.                                                                                     |
 | Five refusals close a session; Try again then opens a new one (2026-10-16)          | PASS   | BROWSER VERIFIED                  | Sessions Components. Before the fix: 5 × `DECLINED` = `200 Refused`, then a valid card = HTTP 422 `14_0422` (onError + onPaymentFailed) and Try again would have reused the dead session. After: 5 × `Refused`, the card says a new session opens, Try again creates `CSB297991D5FA78EE5BFF627E`, valid card `Authorised`. A lone `14_0422`/`14_0423` after the fix is handled in code, not re-observed.                                                  |
+| Gift card partial payment, Sessions, survives a reload (2026-11-24)                 | PASS   | BROWSER VERIFIED                  | Dev server :8001, Adyen Web 6.48.1, FR 109,99 €. Components: Givex 50.00 > `onOrderUpdated` with `sessionData` kept in `sessionStorage` > reload: no `POST /api/digital/sessions`, two `/sessions/CSE59FE2DAAC08B23710C323D/setup`, banner "50,00 € paid · 59,99 € left", Pay 59,99 € (109,99 € before the `checkout.update({ order })` fix) > Visa 4111 > `beforeSubmit` with order `CZT2ZTCK285GW7V5` > `onPaymentCompleted` Authorised, entry cleared, no console error. Drop-in: reload lists the paid Givex with Supprimer and 59,99 € left; Supprimer then reload: entry dropped on `pagehide`, a new session, full amount (before the `pagehide` refresh the removed gift card showed as paid again). Webhooks not delivered locally. |
 | Advanced Drop-in, `shopperIP` sent, `deliveryAddress` without names (2026-10-13)    | PASS   | BROWSER VERIFIED                  | Order `fddfac4a`, stored Visa: `/payments` request has `shopperIP: 127.0.0.1` (dev server, from the socket) and `deliveryAddress` with postal fields only; Authorised `TN9S74RKTVL4C5V5`. On Render the IP comes from `CF-Connecting-IP` (since 2026-11-17), not yet observed.                                                                                                                                                                            |
 | Next.js port: Advanced, API only, Back Office, Pay by Link (2026-11-15)             | PASS   | BROWSER VERIFIED                  | Dev server :8001. Advanced Components, 4111 1111 1111 1111: `/payments` Authorised `TQGXS48Z7Q8TRTV5` with `shopperIP: 127.0.0.1` (from Next's `X-Forwarded-For`) and no names in `deliveryAddress`. API only Custom Card Authorised through the shared payment handler. Back Office capture `202` received, the browser's Idempotency-Key stored. Pay by Link created and re-read (`GET /paymentLinks/{id}`). Webhooks not delivered locally.            |
 

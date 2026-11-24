@@ -8,7 +8,7 @@ scope: digital-status
 stale_after: 2026-12-15
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-24T22:30:00Z
+  at: 2026-11-25T12:00:00Z
 sources:
   - id: api
     resource: ../../apps/adyen-digital/src/server/api.ts
@@ -20,12 +20,12 @@ sources:
     resource: ../policies/verification-and-reporting.md
     title: Meaning of the levels
 verified:
+  - at: 2026-11-25
+    check: "After the code reorganization (dev :8001, TEST): Sessions Components Givex 50.00 > reload > same session CS78DA5D1AEA14E1BEAECB288, Pay 59,99 € > card Authorised; Advanced Givex + card Authorised; API only Custom Card, Pay by Link create and refresh, MIT on a stored Visa Authorised."
   - at: 2026-11-24
     check: "Sessions part-paid order survives a reload (dev :8001, Adyen Web 6.48.1): Components Givex 50.00 > reload > same session CSE59FE2DAAC08B23710C323D, Pay 59,99 € > card Authorised into order CZT2ZTCK285GW7V5; Drop-in restore and Supprimer-then-reload both checked."
   - at: 2026-11-19
     check: "v0.7.1 on Render (main 10b59cb, tag v0.7.1, deployed 01:06:53 UTC): /healthz 200 on agentic, digital, styling; /docs/chatgpt 200; zip 200 (5 files, $schema + CIMD); POST /api/return cross-site 303, bad target 400; POST /mcp signed out 401."
-  - at: 2026-11-18
-    check: "v0.7.0 on Render (main 1413879, tag v0.7.0, deployed 22:52:56 UTC): /healthz 200 on agentic, digital, styling; /docs/chatgpt 200; atelier-velune-plugin.zip 200 (application/zip, 5 files, no hidden files, prod /mcp URL); POST /mcp signed out 401."
 ---
 
 # adyen-digital: what is verified, and what is still open

@@ -24,13 +24,13 @@ sources:
   - resource: ../../apps/adyen-digital/next.config.ts
     title: "Next.js configuration: standalone build, security headers, tracing excludes"
   - resource: ../../apps/adyen-digital/src/components/workbench/FlowWorkbench.tsx
-    title: "Checkout and inspector client component"
+    title: "Checkout and inspector client component: state, AdyenCheckout mount, retry, layout"
   - resource: ../../apps/adyen-digital/src/app
     title: "Pages and the route handlers for /api, /healthz and /webhook"
   - resource: ../../apps/adyen-digital/src/components
     title: "Client components by area: workbench, inspector, back-office, settings"
   - resource: ../../apps/adyen-digital/src/checkout
-    title: "Flow list and checkout helpers: partial payments, Sessions reload restore"
+    title: "One module per flow (sessions, advanced with partial payments, api-only, pay-by-link, mit), method configuration, Sessions reload restore"
   - resource: ../../apps/adyen-digital/README.md
     title: "Environment variables and quick start"
 ---
@@ -162,8 +162,11 @@ browser's same-host `Origin`
 
 `FlowWorkbench` is one row on top: the flow as a rounded badge (the page's `h1`) and a scenario chip
 (flag, market, amount, integration) that opens the configuration sheet; then the checkout, with the
-inspector beside it (under it on a phone). Switching flow goes through Home. It mounts Drop-in, a
-single Component or the API-only Custom Card; Sessions, Advanced and API only start on load, and
+inspector beside it (under it on a phone). Switching flow goes through Home. It holds the state and
+mounts Drop-in, a single Component or the API-only Custom Card; what each flow sends lives in one
+module per flow in `src/checkout` (`sessions.ts`, `advanced.ts` with the partial-payment callbacks,
+`api-only.ts`, `pay-by-link.ts`, `mit.ts`), and the Pay by Link and MIT forms are their own
+components. Sessions, Advanced and API only start on load, and
 every scenario or theme change restarts the checkout 500 ms later. A run counter stops a slow
 superseded start from mounting a second checkout, and callbacks are reported under the current run's
 correlation id (a ref, not render state). The result card replaces the checkout once a payment ends,

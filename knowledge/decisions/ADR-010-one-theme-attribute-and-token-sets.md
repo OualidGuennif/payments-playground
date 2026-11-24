@@ -6,7 +6,7 @@ tags: [decision, ui, theme, dark-mode]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-24T22:30:00Z
+  at: 2026-11-25T12:00:00Z
 sources:
   - id: theme
     resource: ../../packages/ui/theme.ts
@@ -19,7 +19,10 @@ sources:
     title: ThemeScript, ThemeToggle, TestPill, AppShell
   - id: workbench
     resource: ../../apps/adyen-digital/src/components/workbench/FlowWorkbench.tsx
-    title: securedFieldStyles and the theme-driven remount
+    title: The theme-driven remount
+  - id: methods
+    resource: ../../apps/adyen-digital/src/checkout/methods.ts
+    title: securedFieldStyles on every method typed into secured fields
 ---
 
 # ADR-010: Dark mode is one data-theme attribute over two token sets

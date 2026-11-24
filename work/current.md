@@ -9,10 +9,8 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-25, in chat: plan approved; digital, then styling, then agentic;
   moves and splits only, no stack, URL or behaviour change.
-- State: digital components in folders, CSS split in `src/styles/`, server split into
-  `src/server/routes/`; typecheck, 27 tests and a TEST browser smoke pass; committed on `develop`
-  (unpushed).
-- Next: split FlowWorkbench into per-flow modules, then styling, then agentic (who: agent).
+- State: digital done, committed on `develop` (unpushed), check green, every flow TEST-checked.
+- Next: styling (`adyenOptions.ts`, panels, `app.css`), then agentic domain folders (who: agent).
 - Blocker: none.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 

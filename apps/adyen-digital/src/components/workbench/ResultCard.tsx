@@ -1,12 +1,8 @@
 import { useCopy } from "@suite/ui/useCopy.ts";
+import type { PaymentOutcome } from "../../checkout/client.ts";
 import { resultCodeStatus } from "../../lib/status.ts";
 
-/** What the result screen shows once a payment has an outcome. */
-export interface PaymentOutcome {
-  resultCode?: string;
-  pspReference?: string;
-  method?: string;
-}
+export type { PaymentOutcome };
 
 export function ResultCard(props: {
   outcome: PaymentOutcome;

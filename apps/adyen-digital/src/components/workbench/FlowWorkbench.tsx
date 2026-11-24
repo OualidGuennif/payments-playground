@@ -1,89 +1,79 @@
 "use client";
-import { AdyenCheckout, CustomCard, Dropin } from "@adyen/adyen-web";
+import { AdyenCheckout, Dropin } from "@adyen/adyen-web";
 import type { Core } from "@adyen/adyen-web";
-import { apiClient, formatMinorAmount, unwrap } from "@suite/ui/client.ts";
-import { Field } from "@suite/ui/components.tsx";
+import { formatMinorAmount, unwrap } from "@suite/ui/client.ts";
 import {
   currencyForCountry,
   defaultAmountForCurrency,
   localeForCountry,
 } from "@suite/platform/markets.ts";
 import { weeklyShopperReference } from "@suite/platform/shopper.ts";
-import {
-  INSTALLMENT_COUNTRIES,
-  isNonFatalWalletError,
-  paymentMethodsConfiguration,
-} from "@suite/ui/paymentMethods.ts";
+import { INSTALLMENT_COUNTRIES, isNonFatalWalletError } from "@suite/ui/paymentMethods.ts";
 import "@suite/ui/registerPaymentMethods.ts";
 import { currentTheme, type Theme, THEME_CHANGE_EVENT } from "@suite/ui/theme.ts";
-import { useCopy } from "@suite/ui/useCopy.ts";
 import { useEffect, useRef, useState } from "react";
+import {
+  type AdvancedRun,
+  loadPaymentMethods,
+  partialPaymentHandlers,
+  paymentHandlers,
+} from "../../checkout/advanced.ts";
+import { mountCustomCard } from "../../checkout/api-only.ts";
+import {
+  api,
+  type ComponentConstructor,
+  field,
+  type MountedComponent,
+} from "../../checkout/client.ts";
 import { type Flow, flowInfo } from "../../checkout/flows.ts";
 import {
   type AvailableComponent,
   type Bootstrap,
   closesSession,
-  CUSTOM_CARD_MARKUP,
   detectInitialCountry,
   flagEmoji,
   MARKETS,
   minorExponent,
   recordSafe,
   type RecurringModel,
-  securedFieldStyles,
   SESSION_REFUSAL_LIMIT,
   type StoredMethod,
-  VALIDITY_OPTIONS,
 } from "../../checkout/flow-helpers.ts";
-import { FlowIcon } from "./FlowIcon.tsx";
-import { FlowInspector } from "../inspector/FlowInspector.tsx";
-import { FlowSettings } from "./FlowSettings.tsx";
-import { type OrderProgress, orderProgress, partialAmount } from "../../checkout/partial.ts";
-import { field as valueAt } from "../../lib/read.ts";
-import { type PaymentOutcome, ResultCard } from "./ResultCard.tsx";
+import { methodsConfiguration as createMethodsConfiguration } from "../../checkout/methods.ts";
+import { chargeStoredMethod, listStoredMethods } from "../../checkout/mit.ts";
+import { type OrderProgress, orderProgress } from "../../checkout/partial.ts";
+import { createPaymentLink, readLinkState } from "../../checkout/pay-by-link.ts";
 import {
   type CheckoutSettings,
   forgetSession,
   partPaidSession,
   readSavedSession,
-  refreshedSession,
   type SavedSession,
   sameSettings,
   saveSession,
   tabStore,
   withLatestSessionData,
 } from "../../checkout/session-restore.ts";
+import {
+  createSession,
+  reapplyRestoredOrder,
+  sessionExpiry,
+  sessionHandlers,
+  useSessionKeptOnLeave,
+} from "../../checkout/sessions.ts";
+import { field as valueAt } from "../../lib/read.ts";
+import { FlowInspector } from "../inspector/FlowInspector.tsx";
+import type { TimelineEntry } from "../inspector/Timeline.tsx";
+import { useTimelinePolling } from "../inspector/useTimeline.ts";
+import { FlowIcon } from "./FlowIcon.tsx";
+import { FlowSettings } from "./FlowSettings.tsx";
+import { MitPanel } from "./MitPanel.tsx";
+import { PayByLinkPanel } from "./PayByLinkPanel.tsx";
+import { type PaymentOutcome, ResultCard } from "./ResultCard.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { TestData } from "./TestData.tsx";
-import type { TimelineEntry } from "../inspector/Timeline.tsx";
-import type { App } from "@/server/api";
 
 export type { Bootstrap };
-
-// Built per call with the profile the call is for: the client reads window,
-// which a server render does not have.
-const api = (profileId?: string) => apiClient<App>(() => profileId);
-
-type ComponentConstructor = new (
-  checkout: Core,
-  props?: Record<string, unknown>,
-) => MountedComponent;
-
-interface CallbackActions {
-  resolve(value?: unknown): void;
-  reject(): void;
-}
-
-interface MountedComponent {
-  mount(el: HTMLElement): void;
-  unmount(): void;
-}
-
-function field(value: unknown, key: string): string | undefined {
-  const entry =
-    value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined;
-  return typeof entry === "string" && entry ? entry : undefined;
-}
 
 export default function FlowWorkbench({
   flow,
@@ -173,7 +163,6 @@ export default function FlowWorkbench({
   const giftCardBalanceRef = useRef<number | null>(null);
   const inspectorBody = useRef<HTMLDivElement>(null);
   const followEvents = useRef(true);
-  const { copied, copy } = useCopy();
 
   const amountText = formatMinorAmount(Number.isFinite(amount) ? amount : 0, currency);
   const exponent = minorExponent(currency);
@@ -239,30 +228,7 @@ export default function FlowWorkbench({
     start();
   }, [bootstrap]);
 
-  // Drop-in's "Supprimer" cancels the order through the session and calls no
-  // merchant callback, so the sessionData kept at onOrderUpdated would still
-  // show the gift card as paid after a reload. Leaving the page re-reads what
-  // the live checkout holds: its latest sessionData and what is left.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: flow is fixed per page and the handler reads refs.
-  useEffect(() => {
-    if (flow !== "sessions") return;
-    const refresh = () => {
-      const checkout = checkoutRef.current;
-      const sessionId = sessionIdRef.current;
-      const store = tabStore();
-      const saved = readSavedSession(store, Date.now());
-      if (!checkout || !sessionId || !saved) return;
-      const next = refreshedSession(saved, {
-        sessionId,
-        sessionData: checkout.session?.data,
-        progress: orderProgress(checkout.options.order),
-      });
-      if (next) saveSession(store, next);
-      else forgetSession(store);
-    };
-    globalThis.addEventListener("pagehide", refresh);
-    return () => globalThis.removeEventListener("pagehide", refresh);
-  }, []);
+  useSessionKeptOnLeave(flow === "sessions", checkoutRef, sessionIdRef);
 
   // No "Update" button: any change to the scenario reloads the checkout on
   // its own, debounced so typing an amount doesn't refire on every keystroke.
@@ -285,56 +251,15 @@ export default function FlowWorkbench({
   useEffect(() => {
     if (flow !== "mit" || !bootstrap?.clientKey) return;
     setStoredMethods(null);
-    api(profileId)
-      .api.digital["payment-methods"].post({
-        amount: { value: amount, currency },
-        countryCode: country,
-        shopperLocale: locale,
-      })
-      .then(
-        (result) =>
-          unwrap(result) as { paymentMethodsResponse: { storedPaymentMethods?: StoredMethod[] } },
-      )
-      .then((response) => {
-        const methods = response.paymentMethodsResponse.storedPaymentMethods ?? [];
+    listStoredMethods({ profileId, amount, currency, country, locale })
+      .then((methods) => {
         setStoredMethods(methods);
         setStoredPaymentMethodId((current) => current || methods[0]?.id || "");
       })
       .catch(() => setStoredMethods([]));
   }, [bootstrap, country, currency, profileId]);
 
-  const polledCorrelations = correlationIds.join("|");
-  useEffect(() => {
-    if (!polledCorrelations || !inspectorOpen) return;
-    let active = true;
-    const refresh = async () => {
-      try {
-        const responses = await Promise.all(
-          polledCorrelations.split("|").map((id) =>
-            api()
-              .api.timeline({ correlationId: id })
-              .get()
-              .then((result) => unwrap(result) as { entries: TimelineEntry[] })
-              .catch(() => ({ entries: [] as TimelineEntry[] })),
-          ),
-        );
-        if (!active) return;
-        const merged = new Map<string, TimelineEntry>();
-        for (const response of responses) {
-          for (const entry of response.entries) merged.set(entry.id, entry);
-        }
-        setTimeline([...merged.values()]);
-      } catch {
-        // Inspector polling is best-effort and must not interrupt checkout.
-      }
-    };
-    refresh();
-    const interval = globalThis.setInterval(refresh, 2500);
-    return () => {
-      active = false;
-      globalThis.clearInterval(interval);
-    };
-  }, [polledCorrelations, inspectorOpen]);
+  useTimelinePolling(correlationIds, inspectorOpen, setTimeline);
 
   async function switchProfile(nextId: string) {
     setError(null);
@@ -492,38 +417,14 @@ export default function FlowWorkbench({
     };
   }
 
-  // Card-only settings. Adyen Web reads these from the card's own
-  // configuration and ignores them, with a console warning, at the
-  // AdyenCheckout level.
   function methodsConfiguration(): Record<string, unknown> {
-    const configuration = paymentMethodsConfiguration(country, bootstrap?.profile.merchantAccount, {
-      enableStoreDetails: flow !== "sessions",
+    return createMethodsConfiguration({
+      country,
+      merchantAccount: bootstrap?.profile.merchantAccount,
+      storeDetails: flow !== "sessions",
+      theme,
+      addCallback: (name, payload) => addCallback(name, payload),
     });
-    const styles = securedFieldStyles(theme);
-    const cardOptions = {
-      onBinLookup: (data: unknown) => addCallback("onBinLookup", data),
-      onBinValue: (data: unknown) => addCallback("onBinValue", data),
-      onBrand: (data: unknown) => addCallback("onBrand", data),
-      ...(styles ? { styles } : {}),
-    };
-    for (const type of ["card", "scheme", "storedCard"]) {
-      configuration[type] = { ...(configuration[type] as Record<string, unknown>), ...cardOptions };
-    }
-    // Gift cards, meal vouchers and Bancontact type into the same secured
-    // field iframes: without these colours their digits stay dark on the
-    // dark theme. Giftcard hands its props to the iframes, styles included.
-    if (styles) {
-      for (const type of [
-        "giftcard",
-        "bcmc",
-        "mealVoucher_FR_groupeup",
-        "mealVoucher_FR_natixis",
-        "mealVoucher_FR_sodexo",
-      ]) {
-        configuration[type] = { ...(configuration[type] as Record<string, unknown>), styles };
-      }
-    }
-    return configuration;
   }
 
   function mountComponentType(type: string) {
@@ -610,40 +511,9 @@ export default function FlowWorkbench({
     checkoutRef.current = checkout;
 
     if (flow === "api-only") {
-      // Bring-your-own-UI: this markup is ours, only the three data-cse spans
-      // become Adyen-hosted Secure Fields iframes when CustomCard.mount()
-      // scans this container. No prebuilt Card component involved.
-      dropinHost.current.innerHTML = CUSTOM_CARD_MARKUP;
-      const statusEl = dropinHost.current.querySelector<HTMLElement>('[data-role="status"]');
-      const submitBtn = dropinHost.current.querySelector<HTMLButtonElement>('[data-role="submit"]');
-      customCardHolderNameRef.current =
-        dropinHost.current.querySelector<HTMLInputElement>("#customCardHolderName");
-      const styles = securedFieldStyles(theme);
-      const component = new CustomCard(checkout, {
-        type: "card",
-        autoFocus: true,
-        ...(styles ? { styles } : {}),
-        onLoad: () => {
-          if (statusEl) statusEl.textContent = "Loading secure fields…";
-        },
-        onConfigSuccess: () => {
-          if (statusEl) statusEl.textContent = "";
-          if (submitBtn) submitBtn.disabled = false;
-        },
-        onBrand: (event: { brand?: string }) => {
-          if (statusEl && event?.brand) {
-            statusEl.textContent = `Detected network: ${event.brand.toUpperCase()}`;
-          }
-        },
-        onValidationError: (errors: Array<{ fieldType?: string }>) => {
-          const first = errors?.[0];
-          if (statusEl && first?.fieldType) statusEl.textContent = `Check ${first.fieldType}.`;
-        },
-      } as never);
-      if (submitBtn) submitBtn.textContent = `Pay ${amountText}`;
-      submitBtn?.addEventListener("click", () => component.submit());
-      component.mount(dropinHost.current);
-      mounted.current = component as MountedComponent;
+      const custom = mountCustomCard(checkout, dropinHost.current, { theme, amountText });
+      customCardHolderNameRef.current = custom.holderName;
+      mounted.current = custom.component;
       setCheckoutMounted(true);
       return;
     }
@@ -666,24 +536,11 @@ export default function FlowWorkbench({
     correlationId: string,
     session: { id: string; sessionData: string },
   ): Record<string, unknown> {
-    return commonConfiguration({
-      session,
-      beforeSubmit: (state: unknown, _component: unknown, actions: CallbackActions) => {
-        addCallback("beforeSubmit", state, correlationId);
-        // beforeSubmit's resolve() is not a plain continue, Adyen Web sends
-        // back whatever is passed here as the actual /payments payload. An
-        // empty resolve() submits with no paymentMethod at all, which Adyen
-        // then rejects as "Required field 'paymentMethod' is null".
-        actions.resolve(state);
-      },
-    });
+    return commonConfiguration({ session, ...sessionHandlers(correlationId, addCallback) });
   }
 
   // The part-paid session kept before a reload, mounted again from its latest
-  // sessionData. Its setup answer carries the order, but Adyen Web 6.48.1
-  // prices the checkout before reading it (Pay showed the full amount), so
-  // the order is applied again, as Adyen Web itself does after a partial
-  // payment. Adyen's answer, not the saved copy, says what is left.
+  // sessionData, with the order its setup answer carries applied again.
   async function resumeSession(saved: SavedSession, stale: () => boolean) {
     updateCorrelation(saved.correlationId);
     sessionIdRef.current = saved.sessionId;
@@ -697,11 +554,9 @@ export default function FlowWorkbench({
       }),
       stale,
       async (checkout) => {
-        const order = checkout.options.order;
-        const progress = orderProgress(order);
+        const progress = await reapplyRestoredOrder(checkout);
         setPartialOrder(progress);
         remainingRef.current = progress?.remaining ?? null;
-        if (order && progress) await checkout.update({ order });
       },
     );
   }
@@ -725,239 +580,74 @@ export default function FlowWorkbench({
       // Other settings mean another checkout; the part-paid one is left.
       forgetSession(store);
     }
-    const data = unwrap(
-      await api(profileId).api.digital.sessions.post({
-        flow: `sessions-${integration}`,
-        amount: { value: amount, currency },
-        countryCode: country,
-        shopperLocale: locale,
-        installments,
-        nativeThreeDS,
-      }),
-    ) as {
-      correlationId: string;
-      session: { id: string; sessionData: string; expiresAt?: string };
-    };
+    const data = await createSession({
+      profileId,
+      integration,
+      amount,
+      currency,
+      country,
+      locale,
+      installments,
+      nativeThreeDS,
+    });
     if (stale()) return;
     updateCorrelation(data.correlationId);
     sessionIdRef.current = data.session.id;
-    const expiresAt = data.session.expiresAt ? Date.parse(data.session.expiresAt) : Number.NaN;
-    sessionExpiresAtRef.current = Number.isFinite(expiresAt) ? expiresAt : null;
+    sessionExpiresAtRef.current = sessionExpiry(data.session);
     await mountCheckout(sessionConfiguration(data.correlationId, data.session), stale);
   }
 
-  async function startAdvanced(stale: () => boolean) {
-    const methods = unwrap(
-      await api(profileId).api.digital["payment-methods"].post({
-        amount: { value: amount, currency },
-        countryCode: country,
-        shopperLocale: locale,
-      }),
-    ) as {
-      correlationId: string;
-      shopperConversionId: string;
-      paymentMethodsResponse: unknown;
+  function advancedRun(): AdvancedRun {
+    return {
+      flow: flow === "api-only" ? "api-only" : "advanced",
+      integration,
+      profileId,
+      amount,
+      currency,
+      country,
+      locale,
+      nativeThreeDS,
+      refs: {
+        correlation: correlationRef,
+        shopperConversion: shopperConversionRef,
+        partialOrderId: partialOrderIdRef,
+        remaining: remainingRef,
+        giftCardBalance: giftCardBalanceRef,
+        customCardHolderName: customCardHolderNameRef,
+        lastPayment: lastPaymentRef,
+      },
+      addCallback: (name, payload) => addCallback(name, payload),
+      updateCorrelation,
+      resetPartialOrder,
+      setError,
     };
+  }
+
+  async function startAdvanced(stale: () => boolean) {
+    const run = advancedRun();
+    const methods = await loadPaymentMethods(run);
     if (stale()) return;
     updateCorrelation(methods.correlationId);
     shopperConversionRef.current = methods.shopperConversionId;
     const configuration = commonConfiguration({
       amount: { value: amount, currency },
       paymentMethodsResponse: methods.paymentMethodsResponse,
-      onSubmit: async (state: unknown, _component: unknown, actions: CallbackActions) => {
-        addCallback("onSubmit", state);
-        try {
-          const stateData = (state as { data?: Record<string, unknown> }).data ?? {};
-          const holderName = customCardHolderNameRef.current?.value;
-          if (flow === "api-only" && holderName) {
-            stateData.paymentMethod = {
-              ...((stateData.paymentMethod as Record<string, unknown>) ?? {}),
-              holderName,
-            };
-          }
-          const response = unwrap(
-            await (flow === "api-only"
-              ? api(profileId).api.digital["api-only"]
-              : api(profileId).api.digital.payments
-            ).post({
-              flow: flow === "api-only" ? "api-only-pci" : `advanced-${integration}`,
-              countryCode: country,
-              shopperLocale: locale,
-              shopperConversionId: shopperConversionRef.current,
-              nativeThreeDS,
-              ...stateData,
-              // Once a gift card opened an order, every payment goes into it and
-              // charges only its share; otherwise the whole amount.
-              ...(partialOrderIdRef.current ? { orderId: partialOrderIdRef.current } : {}),
-              amount: {
-                value: partialAmount({
-                  total: amount,
-                  remaining: remainingRef.current,
-                  giftCardBalance:
-                    field(stateData.paymentMethod, "type") === "giftcard"
-                      ? giftCardBalanceRef.current
-                      : null,
-                }),
-                currency,
-              },
-            }),
-          ) as {
-            correlationId: string;
-            result: unknown;
-          };
-          updateCorrelation(response.correlationId);
-          // onPaymentMethodsRequest runs before onOrderUpdated reports this.
-          const progress = orderProgress(valueAt(response.result, "order"));
-          if (progress) remainingRef.current = progress.remaining;
-          lastPaymentRef.current = {
-            pspReference: field(response.result, "pspReference"),
-            resultCode: field(response.result, "resultCode"),
-            method:
-              field(stateData.paymentMethod, "brand") ?? field(stateData.paymentMethod, "type"),
-          };
-          actions.resolve(response.result);
-        } catch (cause) {
-          setError(cause instanceof Error ? cause.message : "Payment request failed.");
-          actions.reject();
-        }
-      },
-      onAdditionalDetails: async (
-        state: unknown,
-        _component: unknown,
-        actions: CallbackActions,
-      ) => {
-        addCallback("onAdditionalDetails", state);
-        try {
-          const stateData = (state as { data?: Record<string, unknown> }).data ?? {};
-          const response = unwrap(
-            await api(profileId).api.digital.payments.details.post({
-              correlationId: correlationRef.current,
-              ...stateData,
-            }),
-          ) as { result: unknown };
-          lastPaymentRef.current = {
-            ...lastPaymentRef.current,
-            pspReference:
-              field(response.result, "pspReference") ?? lastPaymentRef.current.pspReference,
-            resultCode: field(response.result, "resultCode"),
-          };
-          actions.resolve(response.result);
-        } catch (cause) {
-          setError(cause instanceof Error ? cause.message : "Additional details failed.");
-          actions.reject();
-        }
-      },
-      ...(flow === "advanced" ? partialPaymentCallbacks() : {}),
+      ...paymentHandlers(run),
+      ...(flow === "advanced" ? partialPaymentHandlers(run) : {}),
     });
     await mountCheckout(configuration, stale);
   }
 
-  // Advanced flow: what Adyen Web does on its own with a session, the
-  // merchant's server does here. Without onBalanceCheck a gift card is
-  // submitted for the whole amount and refused ("Not enough balance").
-  function partialPaymentCallbacks(): Record<string, unknown> {
-    const failure = (cause: unknown, fallback: string) =>
-      cause instanceof Error ? cause : new Error(fallback);
-    return {
-      onBalanceCheck: async (
-        resolve: (response: unknown) => void,
-        reject: (error: Error) => void,
-        data: unknown,
-      ) => {
-        addCallback("onBalanceCheck", data);
-        try {
-          const response = unwrap(
-            await api(profileId).api.digital["gift-card-balance"].post({
-              correlationId: partialOrderIdRef.current ?? correlationRef.current,
-              amount: { value: remainingRef.current ?? amount, currency },
-              paymentMethod: valueAt(data, "paymentMethod"),
-            }),
-          ) as { result: unknown };
-          const balance = valueAt(response.result, "balance.value");
-          giftCardBalanceRef.current = typeof balance === "number" ? balance : null;
-          resolve(response.result);
-        } catch (cause) {
-          reject(failure(cause, "The balance check failed."));
-        }
-      },
-      onOrderRequest: async (
-        resolve: (order: unknown) => void,
-        reject: (error: Error) => void,
-        data: unknown,
-      ) => {
-        addCallback("onOrderRequest", data);
-        try {
-          const response = unwrap(
-            await api(profileId).api.digital["partial-orders"].post({
-              amount: { value: amount, currency },
-            }),
-          ) as { correlationId: string; adyenOrder: unknown };
-          partialOrderIdRef.current = response.correlationId;
-          updateCorrelation(response.correlationId);
-          remainingRef.current = orderProgress(response.adyenOrder)?.remaining ?? null;
-          resolve(response.adyenOrder);
-        } catch (cause) {
-          reject(failure(cause, "The order could not be created."));
-        }
-      },
-      // Drop-in offers to remove a paid gift card, which cancels the order.
-      onOrderCancel: async (
-        data: unknown,
-        actions: { resolve(value: unknown): void; reject(error: string): void },
-      ) => {
-        addCallback("onOrderCancel", data);
-        try {
-          if (partialOrderIdRef.current) {
-            unwrap(
-              await api(profileId)
-                .api.digital["partial-orders"]({ id: partialOrderIdRef.current })
-                .cancel.post({ order: valueAt(data, "order") }),
-            );
-          }
-          resetPartialOrder();
-          actions.resolve({ amount: { value: amount, currency } });
-        } catch (cause) {
-          actions.reject(failure(cause, "The order could not be cancelled.").message);
-        }
-      },
-      // After a partial payment: the methods that can pay what is left.
-      onPaymentMethodsRequest: async (
-        data: unknown,
-        actions: { resolve(response: unknown): void; reject(): void },
-      ) => {
-        addCallback("onPaymentMethodsRequest", data);
-        try {
-          const response = unwrap(
-            await api(profileId).api.digital["payment-methods"].post({
-              correlationId: partialOrderIdRef.current ?? correlationRef.current,
-              amount: { value: remainingRef.current ?? amount, currency },
-              countryCode: country,
-              shopperLocale: locale,
-              shopperConversionId: shopperConversionRef.current,
-              order: valueAt(data, "order"),
-            }),
-          ) as { paymentMethodsResponse: unknown };
-          actions.resolve(response.paymentMethodsResponse);
-        } catch {
-          actions.reject();
-        }
-      },
-    };
-  }
-
-  async function createPaymentLink() {
-    const response = unwrap(
-      await api(profileId).api.digital["payment-links"].post({
-        amount: { value: amount, currency },
-        countryCode: country,
-        shopperLocale: locale,
-        validityHours,
-        reusable,
-      }),
-    ) as {
-      correlationId: string;
-      paymentLink: Record<string, unknown>;
-    };
+  async function startPaymentLink() {
+    const response = await createPaymentLink({
+      profileId,
+      amount,
+      currency,
+      country,
+      locale,
+      validityHours,
+      reusable,
+    });
     updateCorrelation(response.correlationId);
     setLink(response.paymentLink);
     setLinkState(field(response.paymentLink, "status") ?? "active");
@@ -967,15 +657,7 @@ export default function FlowWorkbench({
     if (!correlationRef.current) return;
     setLoading(true);
     try {
-      const response = unwrap(
-        await api(profileId)
-          .api.digital["payment-links"]({ orderId: correlationRef.current })
-          .get(),
-      ) as {
-        paymentLink: Record<string, unknown>;
-        resolution: { state: string };
-      };
-      setLinkState(field(response.paymentLink, "status") ?? response.resolution.state);
+      setLinkState(await readLinkState(profileId, correlationRef.current));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not read the link.");
     } finally {
@@ -984,17 +666,14 @@ export default function FlowWorkbench({
   }
 
   async function runMit() {
-    const response = unwrap(
-      await api(profileId).api.digital.mit.post({
-        amount: { value: amount, currency },
-        storedPaymentMethodId,
-        shopperReference,
-        recurringProcessingModel: recurringModel,
-      }),
-    ) as {
-      correlationId: string;
-      result: Record<string, unknown>;
-    };
+    const response = await chargeStoredMethod({
+      profileId,
+      amount,
+      currency,
+      storedPaymentMethodId,
+      shopperReference,
+      recurringModel,
+    });
     updateCorrelation(response.correlationId);
     const stored = storedMethods?.find((method) => method.id === storedPaymentMethodId);
     setOutcome({
@@ -1030,7 +709,7 @@ export default function FlowWorkbench({
     try {
       if (flow === "sessions") await startSession(stale);
       else if (flow === "advanced" || flow === "api-only") await startAdvanced(stale);
-      else if (flow === "pay-by-link") await createPaymentLink();
+      else if (flow === "pay-by-link") await startPaymentLink();
       else await runMit();
     } catch (cause) {
       if (!stale()) setError(cause instanceof Error ? cause.message : "The flow could not start.");
@@ -1071,108 +750,22 @@ export default function FlowWorkbench({
 
   function renderPayment() {
     if (flow === "pay-by-link") {
-      if (link) {
-        const url = field(link, "url") ?? "";
-        const expiresAt = field(link, "expiresAt");
-        return (
-          <div className="link-card">
-            <div className="link-card__head">
-              <h3>Payment link ready</h3>
-              <span className="status-pill status-pill--info">{linkState ?? "active"}</span>
-            </div>
-            <a className="link-card__url" href={url} target="_blank" rel="noopener noreferrer">
-              {url}
-            </a>
-            <div className="link-card__actions">
-              <button
-                className="button button--primary"
-                type="button"
-                onClick={() => copy(url, { raw: true })}
-              >
-                {copied === url ? "Copied" : "Copy link"}
-              </button>
-              <a
-                className="button button--secondary"
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open ↗
-              </a>
-              <button
-                className="button button--secondary"
-                type="button"
-                disabled={loading}
-                onClick={refreshLink}
-              >
-                Refresh status
-              </button>
-            </div>
-            <dl className="facts">
-              <dt>Amount</dt>
-              <dd>{amountText}</dd>
-              {expiresAt ? (
-                <>
-                  <dt>Expires</dt>
-                  <dd>{new Date(expiresAt).toLocaleString()}</dd>
-                </>
-              ) : null}
-              <dt>Reusable</dt>
-              <dd>{field(link, "reusable") ?? (reusable ? "yes" : "no")}</dd>
-            </dl>
-            <div className="result__actions">
-              <button className="text-button" type="button" onClick={() => setLink(null)}>
-                Create another link
-              </button>
-              {correlationId ? (
-                <a className="text-button" href={`/back-office?orderId=${correlationId}`}>
-                  Open in Back Office
-                </a>
-              ) : null}
-            </div>
-          </div>
-        );
-      }
       return (
-        <form
-          className="pay-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            start();
-          }}
-        >
-          <Field label="Link valid for" htmlFor="validity">
-            <select
-              id="validity"
-              value={validityHours}
-              onChange={(event) => setValidityHours(Number(event.currentTarget.value))}
-            >
-              {VALIDITY_OPTIONS.map(([hours, label]) => (
-                <option key={hours} value={hours}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <label className="switch-row">
-            <span>
-              <strong>Reusable</strong>
-              <small>Several shoppers can pay with the same link.</small>
-            </span>
-            <input
-              type="checkbox"
-              checked={reusable}
-              onChange={(event) => setReusable(event.currentTarget.checked)}
-            />
-          </label>
-          <button
-            className="button button--primary button--block"
-            type="submit"
-            disabled={loading || !selectedProfile?.isConfigured}
-          >
-            {loading ? "Creating…" : `Create a link for ${amountText}`}
-          </button>
-        </form>
+        <PayByLinkPanel
+          link={link}
+          linkState={linkState}
+          amountText={amountText}
+          correlationId={correlationId}
+          validityHours={validityHours}
+          onValidityHours={setValidityHours}
+          reusable={reusable}
+          onReusable={setReusable}
+          loading={loading}
+          canCreate={Boolean(selectedProfile?.isConfigured)}
+          onCreate={start}
+          onRefresh={refreshLink}
+          onAnother={() => setLink(null)}
+        />
       );
     }
 
@@ -1187,103 +780,20 @@ export default function FlowWorkbench({
           />
         );
       }
-      const selected = storedMethods?.find((method) => method.id === storedPaymentMethodId);
-      const modelMismatch =
-        selected?.supportedRecurringProcessingModels?.length &&
-        !selected.supportedRecurringProcessingModels.includes(recurringModel);
       return (
-        <form
-          className="pay-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            start();
-          }}
-        >
-          <fieldset className="choice-list">
-            <legend>Saved payment method</legend>
-            {storedMethods === null ? (
-              <p className="muted">Looking up this week's saved cards…</p>
-            ) : storedMethods.length ? (
-              storedMethods.map((method) => (
-                <label className="choice" key={method.id}>
-                  <input
-                    type="radio"
-                    name="stored"
-                    checked={storedPaymentMethodId === method.id}
-                    onChange={() => setStoredPaymentMethodId(method.id)}
-                  />
-                  <span className="choice__main">
-                    <strong>
-                      {method.brand ?? method.name ?? "Card"}
-                      {method.lastFour ? ` •••• ${method.lastFour}` : ""}
-                    </strong>
-                    <small>
-                      {method.expiryMonth
-                        ? `Expires ${method.expiryMonth}/${method.expiryYear}`
-                        : ""}
-                    </small>
-                  </span>
-                </label>
-              ))
-            ) : (
-              <p className="muted">
-                No saved card for this week's shopper yet. Pay once in{" "}
-                <a href="/advanced?integration=dropin">Advanced</a> with “Save for my next payment”
-                ticked, then come back.
-              </p>
-            )}
-          </fieldset>
-          <div className="field">
-            <span>Recurring model</span>
-            <div className="segmented-control">
-              {(["UnscheduledCardOnFile", "Subscription"] as const).map((model) => (
-                <button
-                  key={model}
-                  type="button"
-                  aria-pressed={recurringModel === model}
-                  onClick={() => setRecurringModel(model)}
-                >
-                  {model === "UnscheduledCardOnFile" ? "Unscheduled" : "Subscription"}
-                </button>
-              ))}
-            </div>
-            {modelMismatch ? (
-              <small className="field-warning">
-                This card was saved for {selected?.supportedRecurringProcessingModels?.join(", ")};
-                Adyen may refuse a {recurringModel} charge.
-              </small>
-            ) : null}
-          </div>
-          <details className="more">
-            <summary>Use another token</summary>
-            <Field
-              label="storedPaymentMethodId"
-              htmlFor="stored-id"
-              hint="Adyen token, never a PAN"
-            >
-              <input
-                id="stored-id"
-                autoComplete="off"
-                value={storedPaymentMethodId}
-                onChange={(event) => setStoredPaymentMethodId(event.currentTarget.value)}
-              />
-            </Field>
-            <Field label="Shopper reference" htmlFor="shopper-ref" hint="Must not contain PII">
-              <input
-                id="shopper-ref"
-                value={shopperReference}
-                onChange={(event) => setShopperReference(event.currentTarget.value)}
-              />
-            </Field>
-          </details>
-          <button
-            className="button button--primary button--block"
-            type="submit"
-            disabled={loading || !storedPaymentMethodId || !selectedProfile?.isConfigured}
-          >
-            {loading ? "Charging…" : `Charge ${amountText}`}
-          </button>
-        </form>
+        <MitPanel
+          storedMethods={storedMethods}
+          storedPaymentMethodId={storedPaymentMethodId}
+          onStoredPaymentMethodId={setStoredPaymentMethodId}
+          recurringModel={recurringModel}
+          onRecurringModel={setRecurringModel}
+          shopperReference={shopperReference}
+          onShopperReference={setShopperReference}
+          amountText={amountText}
+          loading={loading}
+          canCharge={Boolean(selectedProfile?.isConfigured)}
+          onCharge={start}
+        />
       );
     }
 

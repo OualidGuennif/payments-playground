@@ -5,6 +5,13 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Split `adyen-digital`'s `FlowWorkbench` (1,485 to 998 lines) without changing behaviour: what
+  each flow sends moves to one module per flow in `src/checkout` (`sessions.ts`, `advanced.ts`
+  with the partial-payment callbacks, `api-only.ts`, `pay-by-link.ts`, `mit.ts`), the method
+  configuration to `methods.ts`, the Eden client and callback shapes to `client.ts`; the Pay by
+  Link and MIT forms become `PayByLinkPanel` and `MitPanel`; inspector polling becomes a hook.
+  Browser-checked on TEST: Sessions gift card, reload, card Authorised; Advanced gift card and card;
+  API only; Pay by Link create and refresh; MIT on a stored card.
 - Reorganize `adyen-digital` into readable modules, with no change to routes, URLs, behaviour or
   UI: client components in `components/workbench`, `inspector`, `back-office` and `settings`;
   flow list and checkout helpers in `src/checkout`; shared readers in `src/lib`; `app.css` split

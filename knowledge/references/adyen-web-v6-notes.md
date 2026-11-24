@@ -6,11 +6,14 @@ tags: [reference, adyen-web, drop-in]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-24T22:30:00Z
+  at: 2026-11-25T12:00:00Z
 sources:
   - id: workbench
     resource: ../../apps/adyen-digital/src/components/workbench/FlowWorkbench.tsx
-    title: Callbacks and configuration in use
+    title: The AdyenCheckout configuration and the callbacks shared by every flow
+  - id: flows
+    resource: ../../apps/adyen-digital/src/checkout
+    title: The per-flow callbacks (Sessions beforeSubmit, Advanced onSubmit and partial payments)
   - id: methods
     resource: ../../packages/ui/paymentMethods.ts
     title: Per-method configuration and non-fatal errors

@@ -3,13 +3,13 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { beforeEach, describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import BackOffice from "../app/back-office/page";
-import { pageItems } from "../components/back-office/Pager";
-import { handle } from "./api";
+import BackOffice from "../../app/back-office/page";
+import { pageItems } from "../../components/back-office/Pager";
+import { handle } from "../api";
 import { logFilters, pageParam, perParam, tracePage } from "./back-office";
-import { put } from "./db";
-import { freshStore } from "./testing/agent";
-import { trace } from "./trace";
+import { put } from "../core/db";
+import { freshStore } from "../testing/agent";
+import { trace } from "../core/trace";
 
 const EMAIL = "jane.doe@example.com";
 

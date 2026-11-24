@@ -3,9 +3,9 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { describe, expect, test } from "bun:test";
 import { relative } from "node:path";
-import { PLUGIN_DIR, pluginFiles as filesOnDisk } from "../../scripts/widget-sources";
-import { handle } from "./api";
-import { ORIGIN } from "./testing/agent";
+import { PLUGIN_DIR, pluginFiles as filesOnDisk } from "../../../scripts/widget-sources";
+import { handle } from "../api";
+import { ORIGIN } from "../testing/agent";
 import { PLUGIN_ZIP_PATH } from "./widgets";
 
 // Reads a stored-entry ZIP through its central directory, checking each entry's CRC-32.

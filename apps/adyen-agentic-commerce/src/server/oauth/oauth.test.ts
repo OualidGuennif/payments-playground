@@ -3,12 +3,12 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { SignJWT, UnsecuredJWT } from "jose";
-import { handle } from "./api";
+import { handle } from "../api";
 import { DEVICE_GRANT, grants, pendingRequest, updateGrant } from "./oauth";
-import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "./testing/agent";
-import { ucpAgent } from "./testing/platform";
-import { recentTrace } from "./trace";
-import { sha256b64url } from "./util";
+import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "../testing/agent";
+import { ucpAgent } from "../testing/platform";
+import { recentTrace } from "../core/trace";
+import { sha256b64url } from "../core/util";
 
 const VERIFIER = "verifier-verifier-verifier-verifier-0123456789";
 let agent: TestAgent;

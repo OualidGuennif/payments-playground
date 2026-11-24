@@ -2,7 +2,7 @@
 // The signed-in customer of a page request (ADR-015), read from the session cookie on the server.
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { type Customer, customerFromToken, sessionCookieName } from "@/server/customers";
+import { type Customer, customerFromToken, sessionCookieName } from "@/server/accounts/customers";
 
 export async function currentCustomer(): Promise<Customer | undefined> {
   const jar = await cookies();

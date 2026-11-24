@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Group `adyen-agentic-commerce`'s 40 flat server files into domain folders without changing
+  behaviour: `core` (config, db, util, trace, outbound, zip), `payments`, `catalog`, `commerce`,
+  `accounts`, `oauth`, `ucp`, `mcp` (tools, widgets, plugin), `pap` and `back-office`, each test
+  beside its module; `api.ts` and `protocol.ts` stay at the top. The widget bundle is rebuilt
+  only for its source hash. 413 tests pass; pages and public endpoints checked on :8003.
 - Split `adyen-v6-styling` by area without changing behaviour: the 1,490-line option catalogue
   becomes `src/options` (controls, secured fields, CSS tokens, Drop-in, card, wallets, themes,
   Drop-in props) with the token audit beside it as `css-tokens.test.ts`; the three panel tabs move

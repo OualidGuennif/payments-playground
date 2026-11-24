@@ -72,7 +72,7 @@ Keeping PAP's rule as it is would leave ChatGPT unable to sign in. The owner cho
 
 ## Decision
 
-`authenticateClient` (`apps/adyen-agentic-commerce/src/server/oauth.ts`) accepts a client
+`authenticateClient` (`apps/adyen-agentic-commerce/src/server/oauth/oauth.ts`) accepts a client
 assertion whose `aud` is exactly one of these strings:
 - the issuer, e.g. `https://agentic.payments-playground.com`;
 - the issuer with one final slash, `https://agentic.payments-playground.com/`;

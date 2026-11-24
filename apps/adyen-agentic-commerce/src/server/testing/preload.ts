@@ -15,9 +15,9 @@ Object.assign(process.env, {
   PLAYGROUND_BASIC_AUTH_PASSWORD: "",
 });
 
-const real = await import("../adyen");
+const real = await import("../payments/adyen");
 const { fake } = await import("./fake-adyen");
-mock.module("../adyen", () => ({
+mock.module("../payments/adyen", () => ({
   ...real,
   storedCards: async (shopperReference: string) => {
     fake.lookups.push(shopperReference);

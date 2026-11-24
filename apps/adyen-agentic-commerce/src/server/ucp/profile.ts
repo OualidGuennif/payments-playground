@@ -2,10 +2,10 @@
 // UCP 2026-08-25 negotiation, business side: resolve the platform profile a request names, check
 // it, and keep the capabilities both sides support at a common version.
 import { isIP } from "node:net";
-import { UCP_VERSION } from "./config";
-import { metadataUrlAllowed } from "./oauth";
-import { assertPublicHost, OutboundRefused } from "./outbound";
-import { isRecord } from "./util";
+import { UCP_VERSION } from "../core/config";
+import { metadataUrlAllowed } from "../oauth/oauth";
+import { assertPublicHost, OutboundRefused } from "../core/outbound";
+import { isRecord } from "../core/util";
 
 // UCP's negotiation errors: REST status; MCP answers each with JSON-RPC -32001.
 const STATUS = {

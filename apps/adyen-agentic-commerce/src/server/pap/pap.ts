@@ -10,8 +10,8 @@ import {
   jwtVerify,
   type ProtectedHeaderParameters,
 } from "jose";
-import { config, PAP_VERSION } from "./config";
-import { claimJti } from "./db";
+import { config, PAP_VERSION } from "../core/config";
+import { claimJti } from "../core/db";
 import {
   ADVERTISED_SCOPES,
   agentScopeDescription,
@@ -19,8 +19,8 @@ import {
   resolveClient,
   SCOPES,
   verifyWithClientKeys,
-} from "./oauth";
-import { isRecord, sha256b64url } from "./util";
+} from "../oauth/oauth";
+import { isRecord, sha256b64url } from "../core/util";
 
 // PAP 1.0 names these two for a delegation; the wider set a client assertion may use
 // (oauth.ts CLIENT_ASSERTION_ALGS) does not reach it.

@@ -2,11 +2,11 @@
 // paging, lookup correlation, product option selection, and the order's fulfilment and quantities.
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { handle } from "./api";
-import { PRODUCTS } from "./catalog";
-import { cardAlias } from "./commerce";
-import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
-import { ucpAgent } from "./testing/platform";
+import { handle } from "../api";
+import { PRODUCTS } from "../catalog/catalog";
+import { cardAlias } from "../commerce/commerce";
+import { freshStore, ORIGIN, randomIp, TestAgent } from "../testing/agent";
+import { ucpAgent } from "../testing/platform";
 
 const TRENCH = "velune-trench";
 const OXFORD = "velune-oxford-shirt";

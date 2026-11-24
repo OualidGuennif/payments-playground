@@ -7,13 +7,13 @@ import {
   type Variant,
   variantById,
   variantsOf,
-} from "./catalog";
-import * as commerce from "./commerce";
-import { config, CURRENCY, UCP_VERSION } from "./config";
-import { customerById } from "./customers";
-import { get } from "./db";
-import { type Auth, allows, type Grant, liveAuth, type Scope, SCOPES } from "./oauth";
-import { isRecord } from "./util";
+} from "../catalog/catalog";
+import * as commerce from "../commerce/commerce";
+import { config, CURRENCY, UCP_VERSION } from "../core/config";
+import { customerById } from "../accounts/customers";
+import { get } from "../core/db";
+import { type Auth, allows, type Grant, liveAuth, type Scope, SCOPES } from "../oauth/oauth";
+import { isRecord } from "../core/util";
 
 const SPEC = `https://ucp.dev/${UCP_VERSION}`;
 export const HANDLER_KEY = "com.payments-playground.saved_card";

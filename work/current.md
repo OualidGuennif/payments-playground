@@ -9,8 +9,8 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-25, in chat: plan approved; digital, then styling, then agentic;
   moves and splits only, no stack, URL or behaviour change.
-- State: digital (`12c999a`, `8155e41`) and styling (options, panels, styles) committed, unpushed.
-- Next: agentic server domain folders, then `pr-review` and the owner's yes to push (who: agent).
+- State: digital, styling and agentic folders committed on `develop`, unpushed.
+- Next: split agentic `oauth.ts` and `commerce.ts`, then `pr-review` and the owner's yes (who: agent).
 - Blocker: none.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 

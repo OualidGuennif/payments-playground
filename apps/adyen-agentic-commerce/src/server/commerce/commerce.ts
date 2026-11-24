@@ -1,14 +1,14 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // Carts, checkouts and orders. Prices come from the catalogue only; a checkout's status comes from
 // its lines, the caller's grant and Adyen's answers, never from what a client says it paid.
-import * as adyen from "./adyen";
-import { productById, variantById } from "./catalog";
-import { config, CURRENCY, paymentsConfigured } from "./config";
-import { type Customer, customerById } from "./customers";
-import { findBy, get, put } from "./db";
-import { allows, type Auth, chargeGrant, liveAuth } from "./oauth";
-import { trace } from "./trace";
-import { isRecord, newId, sha256 } from "./util";
+import * as adyen from "../payments/adyen";
+import { productById, variantById } from "../catalog/catalog";
+import { config, CURRENCY, paymentsConfigured } from "../core/config";
+import { type Customer, customerById } from "../accounts/customers";
+import { findBy, get, put } from "../core/db";
+import { allows, type Auth, chargeGrant, liveAuth } from "../oauth/oauth";
+import { trace } from "../core/trace";
+import { isRecord, newId, sha256 } from "../core/util";
 
 export type Line = { id: string; variantId: string; quantity: number };
 // Where a record was made: the store's pages and /api, or UCP REST and MCP (ADR-015).

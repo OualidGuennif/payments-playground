@@ -2,7 +2,7 @@
 // run against the store, from a search to a saved-card payment (invariants 28 and 29).
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { sourceHash } from "../../scripts/widget-sources";
+import { sourceHash } from "../../../scripts/widget-sources";
 import {
   addCall,
   type BagView,
@@ -13,12 +13,12 @@ import {
   quantityCall,
   searchCall,
   variantFor,
-} from "../widgets/logic";
-import { handle } from "./api";
-import { grants } from "./oauth";
-import { recentTrace } from "./trace";
-import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "./testing/agent";
-import { fake } from "./testing/fake-adyen";
+} from "../../widgets/logic";
+import { handle } from "../api";
+import { grants } from "../oauth/oauth";
+import { recentTrace } from "../core/trace";
+import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "../testing/agent";
+import { fake } from "../testing/fake-adyen";
 import { BAG, CAROUSEL, MCP_APP_MIME } from "./widgets";
 import { SOURCE_HASH } from "./widgets.gen";
 

@@ -2,8 +2,8 @@
 // OpenAPI 3.1 for the UCP REST binding, for PAP's `apis` entry of type openapi: UCP's own
 // operationIds and canonical schemas, with this store's token rules and error statuses per
 // operation. Scopes come from REQUIRED_SCOPE and HARD_GATES, the table the server checks.
-import { config, UCP_VERSION } from "./config";
-import { ADVERTISED_SCOPES, agentScopeDescription, DEVICE_GRANT } from "./oauth";
+import { config, UCP_VERSION } from "../core/config";
+import { ADVERTISED_SCOPES, agentScopeDescription, DEVICE_GRANT } from "../oauth/oauth";
 import { HARD_GATES, MUTATIONS, REQUIRED_SCOPE } from "./ucp";
 
 const UCP = `https://ucp.dev/${UCP_VERSION}`;

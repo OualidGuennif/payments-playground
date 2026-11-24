@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: antigravity/gemini
-  at: 2026-11-19T00:54:08Z
+  at: 2026-11-25T14:00:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -27,7 +27,7 @@ sources:
     title: "Standalone output; no rewrites: route files re-export the Elysia handler at the public paths"
   - id: src
     resource: ../../apps/adyen-agentic-commerce/src
-    title: Pages (app/), API (app/api), server modules (server/)
+    title: "Pages (app/), API (app/api), server modules (server/: api.ts and protocol.ts at the top, one folder per domain: core, payments, catalog, commerce, accounts, oauth, ucp, mcp, pap, back-office)"
   - id: widgets
     resource: ../../apps/adyen-agentic-commerce/src/widgets
     title: "MCP Apps widgets (carousel, bag), their bridge and logic"
@@ -58,7 +58,7 @@ a guest, or hand the checkout to the shopper, who pays at `continue_url`.
 
 | Source                                    | What is read                                                   | Owner | Freshness           |
 | ----------------------------------------- | -------------------------------------------------------------- | ----- | ------------------- |
-| `src/server/catalog.ts`                   | Products, variants (colour, size), prices in EUR minor units   | Repo  | Shipped with build  |
+| `src/server/catalog/catalog.ts`                   | Products, variants (colour, size), prices in EUR minor units   | Repo  | Shipped with build  |
 | SQLite (`DATABASE_PATH`, `bun:sqlite`)    | Carts, checkouts, orders, OAuth clients/codes/tokens, grants,  | App   | Per request         |
 |                                           | seen JWT ids, idempotency records, protocol trace, webhooks,   |       |                     |
 |                                           | customers, customer sessions, passkeys, WebAuthn challenges    |       |                     |
@@ -151,7 +151,7 @@ before, every deploy or restart emptied orders, agents and grants.
   2026-08-25. The negotiated
   capabilities are the store's and the profile's with the same name and a common version; an
   entry whose `schema` host, reversed, does not own its name is left out (UCP authority binding).
-  Each operation belongs to one capability (`OP_CAPABILITY` in `src/server/ucp.ts`); it runs only
+  Each operation belongs to one capability (`OP_CAPABILITY` in `src/server/ucp/ucp.ts`); it runs only
   when that capability was kept. The cheap checks (route, headers, body, Idempotency-Key) come
   before the fetch.
 - **Resource indicators (RFC 8707):** `resource` on authorize, device authorization and token
@@ -217,7 +217,7 @@ before, every deploy or restart emptied orders, agents and grants.
   them all, the last one is dropped first (UCP keeps the higher-priority selections).
 - **Cart to checkout:** a create-checkout request with `cart_id` takes the cart's lines and buyer
   (UCP 2026-08-25 cart extension); its own `line_items`, and its `buyer` when the cart has one, are
-  ignored, not parsed (`src/server/ucp.test.ts` "cart to checkout").
+  ignored, not parsed (`src/server/ucp/ucp.test.ts` "cart to checkout").
 - **Amounts:** integers in EUR minor units, computed by the server from the catalogue. An agent
   never sends a price; any client-sent price or total is ignored.
 
@@ -327,7 +327,7 @@ before, every deploy or restart emptied orders, agents and grants.
   and structured `ui/update-model-context` elsewhere, and falls back on `openExternal`. The bag
   offers "Save a test card" and "Refresh cards" when no saved card is present. `complete_checkout`
   is destructive and open-world, cancel tools destructive. `src/widgets/` builds into
-  `src/server/widgets.gen.ts` with a source hash check.
+  `src/server/mcp/widgets.gen.ts` with a source hash check.
 - **Plugin package:** `GET /downloads/atelier-velune-plugin.zip` packages `plugin/atelier-velune/`
   (`plugin.json` meeting OpenAI listing limits, `mcp.json` with Agent Plugins `$schema`,
   `${PUBLIC_ORIGIN}/mcp` and `extensions["com.openai"].auth` CIMD, `personal-stylist` skill,
@@ -381,7 +381,7 @@ before, every deploy or restart emptied orders, agents and grants.
   bounds; 409 idempotency key reused with another body, 404 unknown or foreign resource. A 401 or 403 is never stored under its Idempotency-Key: the
   operation did not run, so the same key with a better token runs it. Stored answers belong to
   the agent client and the account together: one client acting for two accounts never gets one
-  account's answer replayed to the other (`src/server/customers.test.ts`).
+  account's answer replayed to the other (`src/server/accounts/customers.test.ts`).
   Payment instruments: `unsupported_handler` 400 for a handler other than the two,
   `unknown_instrument` 400 for a saved card the token may not use or an instrument with no id, `invalid_credential` 400 with
   the path of the bad network-token field (`number` when Adyen gives the number no brand),
@@ -428,7 +428,7 @@ before, every deploy or restart emptied orders, agents and grants.
    attempt, a network error retries the same key; a completed checkout is immutable. A Drop-in
    result is likewise re-read after Adyen answers, so a repeated result places one order.
 5. Every PAP MUST that applies to the merchant side maps to a test (matrix in the app's
-   `src/server/conformance.test.ts`).
+   `src/server/pap/conformance.test.ts`).
 6. No secret, token, client assertion or stored payment method id appears in the trace, logs or
    pages unredacted.
 7. A token acts only within the scopes the shopper approved; a legacy name grants exactly the UCP
@@ -457,31 +457,31 @@ before, every deploy or restart emptied orders, agents and grants.
     The first entry of a longer chain is the caller's to write and never counts, so a forged one
     neither escapes a limit nor gets another address limited. `packages/platform`'s
     `clientAddress` applies the same rule for Digital and styling (`src/server/security.test.ts`
-    "client address", `src/server/device.test.ts` the two forged-entry tests).
+    "client address", `src/server/oauth/device.test.ts` the two forged-entry tests).
 11. A platform profile is fetched only under the guards above, and only after the rate limit and
     the token check; a profile that cannot be fetched, read or negotiated stops the request before
     any operation runs, and that refusal is never stored under an Idempotency-Key
-    (`src/server/profile.test.ts`).
+    (`src/server/ucp/profile.test.ts`).
 12. A token works only at the resource it was issued for; a refresh token keeps every resource and
     scope of its grant, so narrowing one access token never narrows the next; a `resource` the
-    store does not serve never yields a code or a token (`src/server/oauth.test.ts` and
-    `src/server/device.test.ts`, "resource indicators").
+    store does not serve never yields a code or a token (`src/server/oauth/oauth.test.ts` and
+    `src/server/oauth/device.test.ts`, "resource indicators").
 13. A Session is accepted only with its delegation in the JWT header, signed by a key the client
     publishes, unexpired, and only with `aud` equal to the issuer; a delegation in the claims, an
     `aud` array or the MCP URL as `aud` is `invalid_session`. Its `jti` is remembered until its
     `iat` can no longer pass the 300 s check (`max(now, iat) + 300 s`), so it is accepted once
-    (`src/server/conformance.test.ts`).
+    (`src/server/pap/conformance.test.ts`).
 14. A customer session is 32 random bytes in an HttpOnly, SameSite=Lax cookie (Secure and
     `__Host-` on https), stored only as its SHA-256, valid 7 days and deleted at sign-out; a
     password is stored only as an argon2id hash; a passkey's challenge is used once within 5
     minutes. A sign-in attempt counts per address and per account before the password is checked,
     and a right password takes its count back, so ten failures, a burst sent at once included,
-    refuse that address or account for 15 minutes (`src/server/customers.test.ts`).
+    refuse that address or account for 15 minutes (`src/server/accounts/customers.test.ts`).
 15. A grant belongs to the customer who approved it, and consent or device approval without a
     signed-in customer grants nothing; a grant without a customer authenticates nothing, so grants
     made before accounts stop working. The account page lists every grant of the account, looked up
     by account rather than among the newest grants of the store, so each stays revocable
-    (`src/server/customers.test.ts`, "agents act for an account").
+    (`src/server/accounts/customers.test.ts`, "agents act for an account").
 16. A network-token credential serves one `/cardDetails` and one `/payments` call: it is never
     stored, traced, logged or returned (digits in an error text are masked; the idempotency
     record's hash takes each `credential` only through an HMAC whose key never reaches the
@@ -489,49 +489,49 @@ before, every deploy or restart emptied orders, agents and grants.
     `networkToken` with the brand it read, `ContAuth` and `UnscheduledCardOnFile`, with no
     stored-payment field. A bad field, or a checkout not ready to pay, sends the number nowhere;
     a checkout handed to the shopper takes no instrument from agents
-    (`src/server/network-token.test.ts`).
+    (`src/server/payments/network-token.test.ts`).
 17. A signed-in agent's payment, by saved card or network token, is reserved on its grant's limit
     before Adyen is called, as invariant 3 describes; a guest's network-token payment has no limit
-    of the store's (`src/server/network-token.test.ts`).
+    of the store's (`src/server/payments/network-token.test.ts`).
 18. Drop-in shows saved cards, and the checkout page shows the buyer, only to the checkout's own
     signed-in customer; a guest pays without stored-card fields. The browser API ignores bearer
-    tokens (`src/server/customers.test.ts`, "web channel").
+    tokens (`src/server/accounts/customers.test.ts`, "web channel").
 19. The store connects to an agent-given URL only after its host resolved to public addresses
     alone (loopback too on a loopback store), and a failure there is `invalid_client` or a profile
-    refusal, never a 500 (`src/server/outbound.test.ts`; `src/server/conformance.test.ts` "§3";
-    `src/server/profile.test.ts`, "fetching the profile").
+    refusal, never a 500 (`src/server/core/outbound.test.ts`; `src/server/pap/conformance.test.ts` "§3";
+    `src/server/ucp/profile.test.ts`, "fetching the profile").
 20. On MCP an authorization failure is never a successful answer: HTTP 401 or 403 with the REST
     challenge, never stored under an idempotency key. A call without a token runs only with a
     verified Session, with a guest's access and no saved card or order
-    (`src/server/identity.test.ts`, "MCP").
+    (`src/server/ucp/identity.test.ts`, "MCP").
 21. Revoking a live refresh token revokes its grant: no token of that sign-in authenticates again
-    (`src/server/oauth.test.ts`, "sign-out").
+    (`src/server/oauth/oauth.test.ts`, "sign-out").
 22. A client assertion is verified only with a key the client publishes and one of the six
     asymmetric algorithms; one signed with an HMAC, or not signed, is `invalid_client`, and a
     Session whose delegation is signed with anything but ES256 or PS384 is `invalid_session`
-    (`src/server/oauth.test.ts`, "client assertion algorithms").
+    (`src/server/oauth/oauth.test.ts`, "client assertion algorithms").
 23. A client assertion's `aud` is exactly the issuer, the issuer with one final slash, or the token
     endpoint URL, as one string (ADR-016); an array, another endpoint, another host or no `aud` is
     `invalid_client`, and the refusal names the received `aud` in printable ASCII without `"` or
     `\`, at most 200 characters, or says "no aud"; the same holds at the revocation and device
     authorization endpoints, and a successful token request's trace names the form used
-    (`src/server/oauth.test.ts`, "assertion audience").
+    (`src/server/oauth/oauth.test.ts`, "assertion audience").
 24. An agent over its remaining limit is escalated with `manage_url` named, and never reaches
     Adyen; only the grant's own signed-in shopper changes its limit, raising it only after the
     account password (a wrong one counts toward the sign-in limits) or one of its own passkeys on a
     single-use confirmation challenge of that account, at most 1000 EUR, never on a disconnected
-    agent; a session alone cannot add a passkey either (`src/server/customers.test.ts`, "a session
+    agent; a session alone cannot add a passkey either (`src/server/accounts/customers.test.ts`, "a session
     alone cannot add a passkey"); the trace names how a raise was confirmed; the new limit binds the next payment on the
     same grant, what was spent stays, and the answer's `agent_budget` shows the spend after its
     own charge; a limit posted as NaN is stored as 0, and `complete_checkout` on a token checked
     before the limit was lowered answers `requires_escalation` with the lowered `agent_budget`
-    (`src/server/network-token.test.ts`, "agent budget").
+    (`src/server/payments/network-token.test.ts`, "agent budget").
 25. The Back Office pages every list on the server: page and size come only from `page` (a
     positive integer, else 1, past the last page the last) and `per` (25, 50 or 100, else 25);
     filters narrow the count and the page together; no email appears unmasked in its HTML or in
     `GET /api/back-office`, whatever shape the store accepts (any `x@y.z` without spaces, so a
     non-ASCII name or a numeric top-level domain too), an agent's own name included
-    (`src/server/back-office.test.ts`).
+    (`src/server/back-office/back-office.test.ts`).
 26. The consent page names each requested permission in words with its change pill and personal
     data mark, never a scope name, keeps the one-sentence warning, sends `spend_limit_eur` 0
     when `ucp:pay` is not asked, and has Allow as its first submit button, the one Enter in the
@@ -541,13 +541,13 @@ before, every deploy or restart emptied orders, agents and grants.
     this origin's `/mcp` (`src/components/docs/docs.test.tsx`).
 28. The UI resources (v2 URIs and v1 aliases) answer where `tools/list` does, load nothing outside
     `PUBLIC_ORIGIN`, match their sources' hash, and serve `prompts/list`/`prompts/get`
-    (`src/server/widgets.test.ts`).
+    (`src/server/mcp/widgets.test.ts`).
 29. A widget has no authority: "By hand" calls UCP tools (named `saved_card`, single-attempt
     idempotency keys, extending the open bag), "With the assistant" sends a sentence, and the bridge
     pins parent origin and suppresses stale host `toolOutput` / composer text
-    (`src/widgets/logic.test.ts`, `src/server/widgets.test.ts`, `src/widgets/bridge.test.ts`).
+    (`src/widgets/logic.test.ts`, `src/server/mcp/widgets.test.ts`, `src/widgets/bridge.test.ts`).
 30. The plugin ZIP holds its listed files, `$schema`, `${PUBLIC_ORIGIN}/mcp`, OpenAI OAuth CIMD
-    and valid listing fields, with no app reference or hook (`src/server/plugin.test.ts`).
+    and valid listing fields, with no app reference or hook (`src/server/mcp/plugin.test.ts`).
 
 ## Determinism
 
@@ -562,7 +562,7 @@ is whatever LLM the shopper points at it.
 - Locally, `bun run scripts/pap-agent.ts` checks that `poppy.json` names the site's own domain and
   that the issuer lists the MCP URL in `protected_resources`, signs in as a PAP client, waits for
   the shopper's consent (or `--auto-consent`) and buys one item over MCP.
-- `src/server/conformance.test.ts` "task coverage": the tasks document's shape and references,
+- `src/server/pap/conformance.test.ts` "task coverage": the tasks document's shape and references,
   feedback 202 with attribution only after a verified Session, and its `invalid_request` cases.
 - `poppy.json` passes the PAP 1.0 §3.1/§4.7 shape test; the UCP profile's scope keys match the
   UCP `scope_token` pattern; every OpenAPI path routes to the operation its `operationId` names.
@@ -584,7 +584,7 @@ is whatever LLM the shopper points at it.
   Authorised with ContAuth; the matching `AUTHORISATION` webhook accepted.
 - Accounts: sign-up, sign-in, sign-out and a passkey registered then used to sign in, in a
   browser on `localhost` (passkeys need a secure context) and on Render.
-- Network token: `src/server/network-token.test.ts` checks the brand lookup, the exact `/payments`
+- Network token: `src/server/payments/network-token.test.ts` checks the brand lookup, the exact `/payments`
   body against the Adyen double and that no credential field reaches the database, the trace or an
   answer. On TEST (2026-11-17, local run) a guest agent's payment with `4111111111111111` and an
   expiry was Authorised, brand `visa`; another merchant account may need Adyen Support to enable

@@ -3,10 +3,10 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import dns from "node:dns/promises";
-import { handle } from "./api";
+import { handle } from "../api";
 import { cachedProfile } from "./profile";
-import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
-import { fetchesOf, PLATFORM, PROFILE, ucpAgent } from "./testing/platform";
+import { freshStore, ORIGIN, randomIp, TestAgent } from "../testing/agent";
+import { fetchesOf, PLATFORM, PROFILE, ucpAgent } from "../testing/platform";
 import { OP_CAPABILITY, OPERATIONS, STORE_CAPABILITIES } from "./ucp";
 
 let agent: TestAgent;

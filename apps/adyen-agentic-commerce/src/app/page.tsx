@@ -1,8 +1,8 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import Link from "next/link";
 import { ProductCard } from "@/components/ProductCard";
-import { PRODUCTS } from "@/server/catalog";
-import { config } from "@/server/config";
+import { PRODUCTS } from "@/server/catalog/catalog";
+import { config } from "@/server/core/config";
 
 // PUBLIC_ORIGIN is read per request so one image serves any origin.
 export const dynamic = "force-dynamic";

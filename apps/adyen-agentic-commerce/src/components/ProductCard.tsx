@@ -1,6 +1,6 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import Link from "next/link";
-import { type Product, variantsOf } from "@/server/catalog";
+import { type Product, variantsOf } from "@/server/catalog/catalog";
 import { money } from "@/lib/money";
 
 export function ProductCard({

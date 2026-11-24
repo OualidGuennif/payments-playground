@@ -4,18 +4,18 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { networkTokenRequest } from "./adyen";
-import { handle } from "./api";
-import type { Order, PaymentRecord } from "./commerce";
-import { database, get, list, put } from "./db";
-import { authenticate, grants } from "./oauth";
-import { recentTrace } from "./trace";
-import { fake } from "./testing/fake-adyen";
-import { freshStore, ORIGIN, randomIp, signUpCustomer, TestAgent } from "./testing/agent";
-import { customerFromCookies } from "./customers";
-import { SoftAuthenticator } from "./testing/authenticator";
-import { ucpAgent } from "./testing/platform";
-import { OPERATIONS } from "./ucp";
-import { canonicalJson, sha256 } from "./util";
+import { handle } from "../api";
+import type { Order, PaymentRecord } from "../commerce/commerce";
+import { database, get, list, put } from "../core/db";
+import { authenticate, grants } from "../oauth/oauth";
+import { recentTrace } from "../core/trace";
+import { fake } from "../testing/fake-adyen";
+import { freshStore, ORIGIN, randomIp, signUpCustomer, TestAgent } from "../testing/agent";
+import { customerFromCookies } from "../accounts/customers";
+import { SoftAuthenticator } from "../testing/authenticator";
+import { ucpAgent } from "../testing/platform";
+import { OPERATIONS } from "../ucp/ucp";
+import { canonicalJson, sha256 } from "../core/util";
 
 const SOCKS = "velune-rib-socks-oat-one-size"; // 1200 + 495 shipping
 // Visa's TEST number, the owner's choice for a network token on TEST (2026-11-17).

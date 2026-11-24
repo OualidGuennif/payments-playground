@@ -1,7 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import Link from "next/link";
 import { ProductCard } from "@/components/ProductCard";
-import { searchProducts } from "@/server/catalog";
+import { searchProducts } from "@/server/catalog/catalog";
 
 export const metadata = { title: "Shop" };
 

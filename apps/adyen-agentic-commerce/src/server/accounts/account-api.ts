@@ -2,15 +2,15 @@
 // The customer's own routes (ADR-015): sign-up, sign-in and sign-out, passkeys, and the account.
 // They read the session cookie and nothing else: a bearer token here binds nothing to an account.
 import { Elysia } from "elysia";
-import * as adyen from "./adyen";
-import * as commerce from "./commerce";
-import { paymentsConfigured } from "./config";
+import * as adyen from "../payments/adyen";
+import * as commerce from "../commerce/commerce";
+import { paymentsConfigured } from "../core/config";
 import * as customers from "./customers";
-import { findBy } from "./db";
-import * as oauth from "./oauth";
-import { clientIp, rateLimited } from "./protocol";
-import { trace } from "./trace";
-import { isRecord, json } from "./util";
+import { findBy } from "../core/db";
+import * as oauth from "../oauth/oauth";
+import { clientIp, rateLimited } from "../protocol";
+import { trace } from "../core/trace";
+import { isRecord, json } from "../core/util";
 
 // Drop-in, card-save and passkey sign-in sessions each open a form or store a challenge; a script
 // testing cards would run through them, so each address gets this many a minute.

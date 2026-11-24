@@ -3,10 +3,10 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, setSystemTime, test } from "bun:test";
 import { exportJWK } from "jose";
-import { handle } from "./api";
-import { recentTrace } from "./trace";
-import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "./testing/agent";
-import { sha256b64url } from "./util";
+import { handle } from "../api";
+import { recentTrace } from "../core/trace";
+import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "../testing/agent";
+import { sha256b64url } from "../core/util";
 
 let agent: TestAgent;
 let other: TestAgent;

@@ -2,25 +2,25 @@
 // One Elysia instance for every server route. Next.js route files under src/app re-export `handle`
 // for their paths, so the request URL each handler sees is the public path (PAP's htu needs it).
 import { Elysia, status } from "elysia";
-import { accountApi, customerOf, sessionLimit } from "./account-api";
-import { productSvg } from "./art";
-import * as adyen from "./adyen";
-import * as backOffice from "./back-office";
-import { productById, searchProducts, variantById, variantsOf } from "./catalog";
-import * as commerce from "./commerce";
-import { config, paymentsConfigured, UCP_VERSION } from "./config";
-import type { Customer } from "./customers";
-import { get, list } from "./db";
-import * as oauth from "./oauth";
-import { poppyDocument } from "./pap";
+import { accountApi, customerOf, sessionLimit } from "./accounts/account-api";
+import { productSvg } from "./catalog/art";
+import * as adyen from "./payments/adyen";
+import * as backOffice from "./back-office/back-office";
+import { productById, searchProducts, variantById, variantsOf } from "./catalog/catalog";
+import * as commerce from "./commerce/commerce";
+import { config, paymentsConfigured, UCP_VERSION } from "./core/config";
+import type { Customer } from "./accounts/customers";
+import { get, list } from "./core/db";
+import * as oauth from "./oauth/oauth";
+import { poppyDocument } from "./pap/pap";
 import { clientIp, handleMcp, handleRest, rateLimited } from "./protocol";
-import { handleFeedback, handleTasks } from "./tasks";
-import { trace } from "./trace";
-import { handlerSchema, networkTokenSchema, profile } from "./ucp";
-import { openApi } from "./openapi";
-import { isRecord, json, published, safeEqual } from "./util";
+import { handleFeedback, handleTasks } from "./pap/tasks";
+import { trace } from "./core/trace";
+import { handlerSchema, networkTokenSchema, profile } from "./ucp/ucp";
+import { openApi } from "./ucp/openapi";
+import { isRecord, json, published, safeEqual } from "./core/util";
 import { maskEmails } from "../lib/mask";
-import { PLUGIN_ZIP_PATH, pluginZip } from "./widgets";
+import { PLUGIN_ZIP_PATH, pluginZip } from "./mcp/widgets";
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -290,7 +290,7 @@ export function checkoutView(checkout: commerce.Checkout, viewer?: Customer) {
   };
 }
 
-export { accountView } from "./account-api";
+export { accountView } from "./accounts/account-api";
 
 // The JSON view keeps its fields; its trace is one page of the Log, with the same filters, and
 // every email in it is masked (the Back Office is public without the playground's basic auth).

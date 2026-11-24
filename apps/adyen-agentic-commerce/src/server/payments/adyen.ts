@@ -2,7 +2,7 @@
 // Every Adyen call of the app. The client is always built for EnvironmentEnum.TEST, and each request
 // lists its fields explicitly: nothing from a browser or an agent is forwarded as is.
 import { CheckoutAPI, Client, EnvironmentEnum, hmacValidator, Types } from "@adyen/api-library";
-import { config, CURRENCY } from "./config";
+import { config, CURRENCY } from "../core/config";
 
 type C = typeof Types.checkout;
 const checkoutTypes: C = Types.checkout;

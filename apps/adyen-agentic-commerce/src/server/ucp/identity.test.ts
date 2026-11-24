@@ -3,13 +3,13 @@
 // search filters.
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { handle } from "./api";
-import { PRODUCTS, productById } from "./catalog";
-import { cardAlias } from "./commerce";
-import { put } from "./db";
-import { ADVERTISED_SCOPES } from "./oauth";
-import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "./testing/agent";
-import { ucpAgent } from "./testing/platform";
+import { handle } from "../api";
+import { PRODUCTS, productById } from "../catalog/catalog";
+import { cardAlias } from "../commerce/commerce";
+import { put } from "../core/db";
+import { ADVERTISED_SCOPES } from "../oauth/oauth";
+import { freshStore, MCP, ORIGIN, randomIp, TestAgent } from "../testing/agent";
+import { ucpAgent } from "../testing/platform";
 import { HARD_GATES } from "./ucp";
 
 const SOCKS = "velune-rib-socks-oat-one-size";

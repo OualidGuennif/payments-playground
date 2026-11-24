@@ -2,17 +2,17 @@
 // failures, agents that act for the account that approved them, and the web channel.
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { backOfficeView, handle } from "./api";
+import { backOfficeView, handle } from "../api";
 import { SESSIONS_PER_MINUTE } from "./account-api";
-import { type Checkout, sessionIdForReference } from "./commerce";
+import { type Checkout, sessionIdForReference } from "../commerce/commerce";
 import { type Customer, customerFromCookies } from "./customers";
-import { database, get, list, put } from "./db";
-import { grants } from "./oauth";
-import { SoftAuthenticator } from "./testing/authenticator";
-import { fake } from "./testing/fake-adyen";
-import { freshStore, ORIGIN, randomIp, signUpCustomer, TestAgent } from "./testing/agent";
-import { ucpAgent } from "./testing/platform";
-import { sha256 } from "./util";
+import { database, get, list, put } from "../core/db";
+import { grants } from "../oauth/oauth";
+import { SoftAuthenticator } from "../testing/authenticator";
+import { fake } from "../testing/fake-adyen";
+import { freshStore, ORIGIN, randomIp, signUpCustomer, TestAgent } from "../testing/agent";
+import { ucpAgent } from "../testing/platform";
+import { sha256 } from "../core/util";
 
 const SOCKS = "velune-rib-socks-oat-one-size";
 const PASSWORD = "correct horse battery";

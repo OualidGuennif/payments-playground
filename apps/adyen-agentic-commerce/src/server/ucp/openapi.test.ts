@@ -2,14 +2,14 @@
 // operationId names, and the declared token rules, scopes, statuses and headers match the answers.
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { handle } from "./api";
-import { productById, variantById } from "./catalog";
-import { UCP_VERSION } from "./config";
-import { MCP_TOOLS } from "./mcp-tools";
-import { ADVERTISED_SCOPES } from "./oauth";
+import { handle } from "../api";
+import { productById, variantById } from "../catalog/catalog";
+import { UCP_VERSION } from "../core/config";
+import { MCP_TOOLS } from "../mcp/mcp-tools";
+import { ADVERTISED_SCOPES } from "../oauth/oauth";
 import { OPENAPI_OPERATIONS, openApi } from "./openapi";
-import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
-import { ucpAgent } from "./testing/platform";
+import { freshStore, ORIGIN, randomIp, TestAgent } from "../testing/agent";
+import { ucpAgent } from "../testing/platform";
 import { OPERATIONS, routeRest } from "./ucp";
 
 type Op = {

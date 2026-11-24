@@ -2,13 +2,13 @@
 // payment state machine against the Adyen double (Authorised, Refused, Pending, network error).
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { handle } from "./api";
-import { cardAlias, type Checkout, completeCheckout, loadCheckout } from "./commerce";
-import { get } from "./db";
-import { type Auth, authenticate, grants } from "./oauth";
-import { fake } from "./testing/fake-adyen";
-import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
-import { ucpAgent } from "./testing/platform";
+import { handle } from "../api";
+import { cardAlias, type Checkout, completeCheckout, loadCheckout } from "../commerce/commerce";
+import { get } from "../core/db";
+import { type Auth, authenticate, grants } from "../oauth/oauth";
+import { fake } from "../testing/fake-adyen";
+import { freshStore, ORIGIN, randomIp, TestAgent } from "../testing/agent";
+import { ucpAgent } from "../testing/platform";
 
 const SOCKS = "velune-rib-socks-oat-one-size"; // 1200 + 495 shipping
 const OXFORD = "velune-oxford-shirt-white-s"; // 5900 + 495 shipping

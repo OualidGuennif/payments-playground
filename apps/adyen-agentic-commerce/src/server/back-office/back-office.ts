@@ -2,13 +2,13 @@
 // The Back Office's lists, paged and filtered in SQL: a page reads what it shows and no more. Every
 // answer leaves through maskEmails, because the Back Office is public when the playground's basic
 // auth is unset (as on Render).
-import { agentState } from "../lib/agent-status";
-import { maskEmail, maskEmails } from "../lib/mask";
-import type { Order, PaymentRecord } from "./commerce";
-import type { Customer } from "./customers";
-import { count, database, findBy, get } from "./db";
-import { type Grant, SCOPES } from "./oauth";
-import type { TraceEntry } from "./trace";
+import { agentState } from "../../lib/agent-status";
+import { maskEmail, maskEmails } from "../../lib/mask";
+import type { Order, PaymentRecord } from "../commerce/commerce";
+import type { Customer } from "../accounts/customers";
+import { count, database, findBy, get } from "../core/db";
+import { type Grant, SCOPES } from "../oauth/oauth";
+import type { TraceEntry } from "../core/trace";
 
 export const PER_PAGE = [25, 50, 100] as const;
 export type Per = (typeof PER_PAGE)[number];

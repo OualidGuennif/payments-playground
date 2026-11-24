@@ -8,9 +8,9 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
-import { config } from "./config";
-import { count, findBy, get, put, remove, removeExpired } from "./db";
-import { isRecord, newId, secret, sha256 } from "./util";
+import { config } from "../core/config";
+import { count, findBy, get, put, remove, removeExpired } from "../core/db";
+import { isRecord, newId, secret, sha256 } from "../core/util";
 
 export type Customer = {
   id: string;

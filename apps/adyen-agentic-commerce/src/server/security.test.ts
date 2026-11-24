@@ -4,12 +4,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { hmacValidator } from "@adyen/api-library";
 import { handle } from "./api";
-import * as commerce from "./commerce";
-import { ConfigError, readConfig } from "./config";
+import * as commerce from "./commerce/commerce";
+import { ConfigError, readConfig } from "./core/config";
 import { basicAuthAllows, crossSiteRefused } from "../proxy";
-import { list, put } from "./db";
+import { list, put } from "./core/db";
 import { clientIp, rateLimited, trackedRateAddresses } from "./protocol";
-import { recentTrace, redact } from "./trace";
+import { recentTrace, redact } from "./core/trace";
 import { freshStore, ORIGIN, randomIp, TestAgent } from "./testing/agent";
 import { fake } from "./testing/fake-adyen";
 

@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { VariantPicker } from "@/components/VariantPicker";
-import { productById, variantsOf } from "@/server/catalog";
+import { productById, variantsOf } from "@/server/catalog/catalog";
 
 export default async function ProductPage({
   params,

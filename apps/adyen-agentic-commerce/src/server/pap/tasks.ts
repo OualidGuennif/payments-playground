@@ -1,11 +1,11 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // PAP 1.0 §9, task coverage: what agents cannot do at this store, with another way when there is
 // one, and where an agent reports a task it could not do.
-import { config } from "./config";
+import { config } from "../core/config";
 import { PapError, type PapSession, verifyPoppy } from "./pap";
-import { clientIp, publicUrl, rateLimited } from "./protocol";
-import { trace } from "./trace";
-import { isRecord, json, published, readJson } from "./util";
+import { clientIp, publicUrl, rateLimited } from "../protocol";
+import { trace } from "../core/trace";
+import { isRecord, json, published, readJson } from "../core/util";
 
 const TASK_MAX = 200;
 const DESCRIPTION_MAX = 2000;

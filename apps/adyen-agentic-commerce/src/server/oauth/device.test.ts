@@ -2,10 +2,10 @@
 // shopper types at /device, the same consent page, polling rules, and tokens once.
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { afterAll, beforeAll, beforeEach, describe, expect, setSystemTime, test } from "bun:test";
-import { agentState } from "../lib/agent-status";
-import { accountView, handle } from "./api";
-import { customerFromCookies } from "./customers";
-import { count, get, put } from "./db";
+import { agentState } from "../../lib/agent-status";
+import { accountView, handle } from "../api";
+import { customerFromCookies } from "../accounts/customers";
+import { count, get, put } from "../core/db";
 import {
   DEVICE_GRANT,
   DEVICE_REQUESTS_MAX,
@@ -14,10 +14,10 @@ import {
   trackedMissAddresses,
   verifyUserCode,
 } from "./oauth";
-import { recentTrace } from "./trace";
-import { freshStore, MCP, ORIGIN, randomIp, signUpCustomer, TestAgent } from "./testing/agent";
-import { ucpAgent } from "./testing/platform";
-import { sha256 } from "./util";
+import { recentTrace } from "../core/trace";
+import { freshStore, MCP, ORIGIN, randomIp, signUpCustomer, TestAgent } from "../testing/agent";
+import { ucpAgent } from "../testing/platform";
+import { sha256 } from "../core/util";
 
 const ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
 const CART = "dev.ucp.shopping.cart:manage";

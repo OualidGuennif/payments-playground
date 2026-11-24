@@ -3,9 +3,9 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { beforeEach, describe, expect, test } from "bun:test";
 import * as commerce from "./commerce";
-import { list, put } from "./db";
-import { freshStore } from "./testing/agent";
-import { fake } from "./testing/fake-adyen";
+import { list, put } from "../core/db";
+import { freshStore } from "../testing/agent";
+import { fake } from "../testing/fake-adyen";
 
 const SOCKS = "velune-rib-socks-oat-one-size"; // 1200
 const OXFORD = "velune-oxford-shirt-white-s"; // 5900

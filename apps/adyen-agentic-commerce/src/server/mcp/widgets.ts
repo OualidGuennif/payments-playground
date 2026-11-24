@@ -2,9 +2,9 @@
 // The MCP Apps side of /mcp: the two UI resources and the _meta that ties a UCP tool to one of
 // them, in the standard keys and in ChatGPT's aliases. The widgets themselves are built from
 // src/widgets into widgets.gen.ts (ADR-017).
-import { config } from "./config";
+import { config } from "../core/config";
 import { PLUGIN_FILES, WIDGET_CSS, WIDGET_SCRIPT } from "./widgets.gen";
-import { zip } from "./zip";
+import { zip } from "../core/zip";
 
 export const MCP_APP_MIME = "text/html;profile=mcp-app";
 export const CAROUSEL = "ui://widget/product-carousel-v2.html";

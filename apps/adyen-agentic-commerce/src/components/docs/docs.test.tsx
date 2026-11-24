@@ -5,7 +5,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import DocPage from "../../app/docs/[topic]/page";
 import Docs from "../../app/docs/page";
-import { logFilters } from "../../server/back-office";
+import { logFilters } from "../../server/back-office/back-office";
 import { DOCS, OVERVIEW, PUBLIC_DOCUMENTS, type Step } from "./content";
 import { send } from "./TryIt";
 

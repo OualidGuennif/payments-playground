@@ -2,8 +2,8 @@
 import { notFound } from "next/navigation";
 import { CheckoutPay } from "@/components/CheckoutPay";
 import { checkoutView } from "@/server/api";
-import { loadCheckout, sessionIdForReference } from "@/server/commerce";
-import { config } from "@/server/config";
+import { loadCheckout, sessionIdForReference } from "@/server/commerce/commerce";
+import { config } from "@/server/core/config";
 
 export const metadata = { title: "Checkout" };
 export const dynamic = "force-dynamic";

@@ -9,11 +9,11 @@ import {
   type JSONWebKeySet,
   jwtVerify,
 } from "jose";
-import { config } from "./config";
-import { claimJti, count, findBy, get, list, put, removeExpired } from "./db";
-import { assertPublicHost, OutboundRefused } from "./outbound";
-import { trace } from "./trace";
-import { isRecord, newId, secret, sha256, sha256b64url } from "./util";
+import { config } from "../core/config";
+import { claimJti, count, findBy, get, list, put, removeExpired } from "../core/db";
+import { assertPublicHost, OutboundRefused } from "../core/outbound";
+import { trace } from "../core/trace";
+import { isRecord, newId, secret, sha256, sha256b64url } from "../core/util";
 
 const SCOPE_NAMES = [
   "dev.ucp.shopping.cart:manage",

@@ -7,6 +7,7 @@ import { customerOf } from "../accounts/account-api";
 import type { Customer } from "../accounts/customers";
 import { config } from "../core/config";
 import { isRecord, json } from "../core/util";
+import { BAG, CAROUSEL, widgetHtml } from "../mcp/widgets";
 import { OAuthError } from "../oauth/oauth";
 import { clientIp, rateLimited } from "../protocol";
 import { AGENT_VERSION, agentCanary, callStoreTool, houseAgentRunner, payRefusal } from "./agent";
@@ -49,6 +50,26 @@ export const WIDGET_TOOLS = new Set([
   "get_checkout",
   "complete_checkout",
 ]);
+
+// The panel hosts a widget in a sandboxed srcdoc frame (opaque origin, scripts only). This policy
+// adds what the sandbox does not say: no connection at all, images from the store only.
+export function panelWidgetHtml(uri: string): string | undefined {
+  if (uri !== CAROUSEL && uri !== BAG) return undefined;
+  const origin = config().publicOrigin;
+  const policy = [
+    "default-src 'none'",
+    `img-src ${origin} data:`,
+    "style-src 'unsafe-inline'",
+    "script-src 'unsafe-inline'",
+    "connect-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join("; ");
+  return widgetHtml(uri).replace(
+    '<meta charset="utf-8">',
+    `<meta charset="utf-8">\n<meta http-equiv="Content-Security-Policy" content="${policy}">`,
+  );
+}
 
 const problem = (
   status: number,
@@ -254,6 +275,13 @@ const STREAM_HEADERS = {
 
 export const askApi = new Elysia({ prefix: "/api/ask" })
   .get("/session", ({ request }) => json(200, sessionView(here(request))))
+  // JSON, never text/html: opened directly, the widget must not run on the store's own origin.
+  .get("/widget-frame", ({ request }) => {
+    const uri = new URL(request.url).searchParams.get("uri") ?? "";
+    const html = panelWidgetHtml(uri);
+    if (!html) return problem(400, "invalid_request", "Unknown widget.");
+    return json(200, { uri, html, storeOrigin: config().publicOrigin });
+  })
   .post("/session", ({ request }) => {
     if (foreign(request)) return forbidden();
     const h = here(request);

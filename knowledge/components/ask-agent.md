@@ -70,6 +70,9 @@ voice mode (GPT-Live) talks to the same agent through the same gate.
 - **Widget action** `POST /api/ask/widget` `{ name, arguments }` from a widget in the panel: a
   shopper's tap, forwarded to `/mcp` as the session's identity, allowlist below; a widget's
   `ui/message` is sent as an ordinary shopper message.
+- **Widget frame** `GET /api/ask/widget-frame?uri=` (the carousel or the bag): the widget's HTML
+  as JSON, never `text/html`, with a Content-Security-Policy meta (no connection, images from
+  `PUBLIC_ORIGIN` only); anything else is `invalid_request`.
 - **Voice** `POST /api/ask/voice/unlock` `{ password }`; `POST /api/ask/voice/call` `{ sdp }` (an
   SDP offer, ≤ 20 KB); `POST /api/ask/voice/hangup`.
 - **Console** `POST /api/console/login` `{ password }`, `POST /api/console/logout`, `GET
@@ -104,6 +107,16 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   normal | strict, signedIn, connected, voice: { available, unlocked }, messages: [{ role, text,
   widgets, at }] }`; an ended session shows no messages.
   A shopper never sees scores, verdicts, models, costs or other sessions.
+- **Panel:** an "Ask" button in the header (icon only under 640 px) opens a right sidebar of
+  420 px; from 1024 px the page makes room for it, from 768 px it overlays, below it is a sheet
+  over a dimmed page; full screen on demand; Escape closes it and focus returns to the button; it
+  reopens after a reload in the same tab. It is absent on `/console`, `/back-office`, `/consent`,
+  `/device` and `/oauth`. Answers are light Markdown parsed to data and drawn by React (no HTML;
+  a link is a store path or http(s), a store link opens in place). Each widget runs in a sandboxed
+  `srcdoc` frame (`allow-scripts` only, so an opaque origin) as an MCP Apps host: `ui/initialize`
+  with the page's theme, `tools/call` sent to `POST /api/ask/widget`, `ui/message` sent through
+  the five stages, `ui/open-link` for the store's pages only, size changes clamped to 120 to
+  900 px. Only the newest carousel and the newest bag stay live; an older one becomes a line.
 - **Errors** (JSON `{ error, message }`): `ask_disabled` 503 (no answer model with a key, or the
   switch off), `budget_exhausted` 503 (daily budget spent, until 00:00 UTC), `rate_limited` 429
   with `retry-after`, `session_ended` 409 with `reason` (`time`, `idle`, `messages`, `budget`,
@@ -213,6 +226,10 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     `widget_tool_refused`. Test: `ask/api.test.ts` "widget allowlist".
 16. **Disabled is safe:** without an answer model whose key is set, the panel shows the assistant
     as unavailable and no route calls a model. Test: `ask/config.test.ts`.
+17. **A widget reaches nothing by itself:** its frame has an opaque origin and a policy with no
+    connection; the host answers only the requests listed under Panel, posts it only its own data
+    and theme, and accepts messages only from that frame. An answer's text never becomes HTML.
+    Test: `ask/api.test.ts` "the panel's widget frame"; `components/ask/askLogic.test.ts`.
 
 ## Determinism
 
@@ -230,6 +247,8 @@ store's tools and Adyen, and links and amounts pass stage 5.
   conversation; connects through `/device` with a budget; the agent pays with a saved card within
   it; signs out and the panel starts empty. At 375 and 1440 px, light and dark, Firefox, Safari and
   Chrome.
+- Locally, Chromium refuses an opaque-origin frame's requests to a loopback address, so widget
+  images stay blank in the panel on `localhost`; on the public origin they load.
 - Red-team list in the console: every case refused at the stage it names.
 - `/console`: wrong password five times then 429; model change audited; a session's transcript with
   verdicts and costs.

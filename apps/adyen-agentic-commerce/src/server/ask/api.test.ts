@@ -321,6 +321,24 @@ describe("widget actions", () => {
     expect(body.result.structuredContent).toBeDefined();
   });
 
+  test("the panel's widget frame: JSON, no connection, images from the store only", async () => {
+    const browser = new Browser();
+    const response = await browser.call(
+      "GET",
+      `/api/ask/widget-frame?uri=${encodeURIComponent(CAROUSEL)}`,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    const body = (await response.json()) as { html: string; storeOrigin: string };
+    expect(body.storeOrigin).toBe(ORIGIN);
+    expect(body.html).toContain(`img-src ${ORIGIN} data:`);
+    expect(body.html).toContain("connect-src 'none'");
+    // Placed before every script, the policy governs all of them.
+    expect(body.html.indexOf("Content-Security-Policy")).toBeLessThan(body.html.indexOf("<script"));
+    const unknown = await browser.call("GET", "/api/ask/widget-frame?uri=ui://widget/other.html");
+    expect(unknown.status).toBe(400);
+  });
+
   test("a widget needs a live session", async () => {
     const browser = new Browser();
     const response = await browser.call("POST", "/api/ask/widget", {

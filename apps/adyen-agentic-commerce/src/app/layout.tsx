@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AccountMenu, AccountMenuItems } from "@/components/AccountMenu";
+import { AskLauncher, AskPanel } from "@/components/ask/AskPanel";
 import { CartLink } from "@/components/CartLink";
 import { MobileMenu } from "@/components/MobileMenu";
 import { WebMcpTools } from "@/components/WebMcpTools";
@@ -35,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
         <header className="sticky top-0 z-10 border-b border-line bg-paper/90 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
-            <Link href="/" className="font-serif text-xl tracking-tight">
+            <Link href="/" className="whitespace-nowrap font-serif text-xl tracking-tight">
               Atelier Velune
             </Link>
             <div className="ml-auto flex items-center gap-2 sm:gap-3">
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   </Link>
                 ))}
               </nav>
+              <AskLauncher />
               <CartLink />
               <AccountMenu />
               <MobileMenu>
@@ -83,6 +85,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <WebMcpTools />
+        <AskPanel />
         <footer className="border-t border-line py-8 text-xs text-muted">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 sm:px-6">
             <span>Atelier Velune is a fictional brand. Drawings are original.</span>

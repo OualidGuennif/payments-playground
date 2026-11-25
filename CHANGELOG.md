@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add the Ask agent's panel on the agentic store: an Ask button in the header opens a right
+  sidebar (the page makes room on wide screens), a sheet on phones, or full screen; answers stream
+  their progress, then light Markdown drawn without HTML; the store's carousel and bag run inside
+  it as MCP Apps widgets in sandboxed frames, their taps sent through `/api/ask/widget` and their
+  messages through the five stages; a signed-in shopper connects the account from it.
 - Add the Atelier Velune console page at `/console` (not found without a console password, never
   indexed): an overview of today's sessions, cost against the daily budget, cache reads and
   refusals; the sessions with each transcript and its verdicts; model, effort and limit settings

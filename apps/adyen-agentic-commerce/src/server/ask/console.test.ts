@@ -223,7 +223,9 @@ describe("keys stay server-side", () => {
     for await (const path of new Bun.Glob("src/**/*.{ts,tsx}").scan(".")) {
       const text = await Bun.file(path).text();
       const browser =
-        /^\s*["']use client["']/.test(text) || path.startsWith("src/components/console/");
+        /^\s*["']use client["']/.test(text) ||
+        path.startsWith("src/components/console/") ||
+        path.startsWith("src/components/ask/");
       if (browser && /from\s+["'](@\/server\/ask|[./]+\/server\/ask|[./]+\/ask\/)/.test(text))
         offenders.push(path);
     }

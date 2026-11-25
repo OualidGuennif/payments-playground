@@ -9,9 +9,10 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-25, in chat: guest-or-signed-in chat sidebar, Flue agent, server-only
   keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
-- State: committed locally from `2f371ab`: five stages, Flue house agent, `/api/ask` and
-  `/api/console` routes, the `/console` page, the shopper panel with its widget host.
-- Next: GPT-Live voice, then env and deploy docs, checks, review (who: agent).
+- State: built, committed locally from `2f371ab` (unpushed), `bun run check` green, incl. panel,
+  voice, Render secrets; no real model answer or voice call yet (no key here).
+- Next: keys, password, 375/1440 light/dark and voice checks (who: owner); independent review,
+  push (owner decides); drop the bunfig Pi exemption on 2026-11-27 (who: agent).
 - Blocker: none to build; an independent review before any push.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 

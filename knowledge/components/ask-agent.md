@@ -235,8 +235,10 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     the session's and the day's voice minutes (running calls reserve theirs), both budgets at
     0.05 USD a minute, and the session's time left; the cap, an unexpected `session.updated`, an
     ended session or the switch turned off closes it. Its seconds and cost land on the session and
-    on a note the day's totals count, even when the sideband is lost. Test: `ask/voice.test.ts`
-    with a stubbed OpenAI.
+    on a note the day's totals count, even when the sideband is lost. The voice model's own words
+    outside a delegation pass no stage: it has no tool, its instructions keep it to the shop, the
+    shopper sees its captions, and the minutes cap bounds it. Test: `ask/voice.test.ts` with a
+    stubbed OpenAI.
 15. **Widget actions** go to `/mcp` only for `search_catalog`, `get_product`, `lookup_catalog`,
     `create_cart`, `update_cart`, `get_cart`, `create_checkout`, `update_checkout`,
     `get_checkout`, and `complete_checkout` only when connected and normal; anything else is

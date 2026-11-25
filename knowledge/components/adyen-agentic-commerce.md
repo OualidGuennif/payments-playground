@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T21:00:00Z
+  at: 2026-11-25T22:30:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -323,7 +323,11 @@ before, every deploy or restart emptied orders, agents and grants.
   finds and uses the store: PAP 1.0 (`/docs/poppy`), MCP (`/docs/mcp`), Code Mode
   (`/docs/code-mode`), WebMCP (`/docs/webmcp`),
   UCP (`/docs/ucp`) and the Adyen calls (`/docs/adyen`). Each sequence diagram steps through its
-  messages with Next and Back and has the same steps as text. A "Try it" panel reads, from the
+  messages with Next and Back and has the same steps as text. Before each diagram an "In plain
+  words" panel says, for a visitor who is not technical, what the page is about and how to read
+  the diagram; after it a "What to remember" list keeps the two or three facts that matter
+  (`src/components/docs/plain.ts`). The overview adds "Words you will meet", a short glossary
+  (MCP, UCP, Poppy, token, scope, webhook, Adyen TEST). A "Try it" panel reads, from the
   visitor's browser, only public documents of this origin (`/.well-known/poppy.json`,
   `/.well-known/ucp`, `/.well-known/oauth-authorization-server`, MCP `tools/list`); nothing it
   sends pays, signs in or changes state (MCP `tools/list` is a `POST`, sent without cookies, so it
@@ -549,7 +553,8 @@ before, every deploy or restart emptied orders, agents and grants.
     data mark, never a scope name, keeps the one-sentence warning, sends `spend_limit_eur` 0
     when `ucp:pay` is not asked, and has Allow as its first submit button, the one Enter in the
     budget field presses (`src/components/ConsentForm.test.tsx`).
-27. The Docs pages render on the server with every diagram's steps as text, and their Try it
+27. The Docs pages render on the server with every diagram's steps as text, plain words before
+    every diagram and what to remember after it, and no dash a reader would trip on; their Try it
     panels send only a `GET` of this origin's public documents or a `POST` of MCP `tools/list` to
     this origin's `/mcp` (`src/components/docs/docs.test.tsx`).
 28. to 30. The MCP Apps widgets and the plugin ZIP: invariants 1 to 3 of

@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Explain every agentic `/docs` page in plain words: before each diagram, what it is about and
+  how to read it; after it, what to remember; and a short glossary on the overview, written for a
+  visitor who is not technical.
 - Add Code Mode at `/mcp/code` (Cloudflare's pattern): two tools, `search` and `execute`, where
   an agent sends one short JavaScript function that calls the store's own MCP tools and gets only
   its result back. The code runs in a fresh QuickJS WebAssembly sandbox (no network, files or

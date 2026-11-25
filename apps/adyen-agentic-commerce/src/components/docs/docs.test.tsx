@@ -7,6 +7,7 @@ import DocPage from "../../app/docs/[topic]/page";
 import Docs from "../../app/docs/page";
 import { logFilters } from "../../server/back-office/back-office";
 import { DOCS, OVERVIEW, PUBLIC_DOCUMENTS, type Step } from "./content";
+import { GLOSSARY, OVERVIEW_PLAIN, PLAIN } from "./plain";
 import { send } from "./TryIt";
 
 // What a reader sees: no tags, entities decoded, backticks gone the way Rich renders them.
@@ -45,6 +46,40 @@ describe("Docs", () => {
 
   test("the overview page renders the whole purchase as text", () => {
     expectSteps(renderToStaticMarkup(Docs()), OVERVIEW.steps);
+  });
+
+  test("every diagram has plain words before it and what to remember after it", async () => {
+    for (const doc of DOCS) {
+      const words = PLAIN[doc.slug];
+      if (!words) throw new Error(`no plain words for ${doc.slug}`);
+      expect(words.plain.length).toBeGreaterThan(0);
+      expect(words.remember.length).toBeGreaterThan(1);
+      const html = renderToStaticMarkup(
+        await DocPage({ params: Promise.resolve({ topic: doc.slug }) }),
+      );
+      const before = html.indexOf("In plain words");
+      const diagram = html.indexOf("<svg");
+      const after = html.indexOf("What to remember");
+      expect(before).toBeGreaterThan(-1);
+      expect(before).toBeLessThan(diagram);
+      expect(after).toBeGreaterThan(diagram);
+      for (const line of [...words.plain, ...words.remember])
+        expect(visible(html)).toContain(plain(line));
+    }
+    const overview = visible(renderToStaticMarkup(Docs()));
+    for (const line of [...OVERVIEW_PLAIN.plain, ...OVERVIEW_PLAIN.remember])
+      expect(overview).toContain(plain(line));
+    for (const [term] of GLOSSARY) expect(overview).toContain(term);
+    expect(Object.keys(PLAIN).sort()).toEqual(DOCS.map((d) => d.slug).sort());
+  });
+
+  test("the plain words use no dashes as punctuation", () => {
+    const all = [
+      ...OVERVIEW_PLAIN.plain,
+      ...OVERVIEW_PLAIN.remember,
+      ...Object.values(PLAIN).flatMap((p) => [...p.plain, ...p.remember]),
+    ];
+    for (const line of all) expect(line).not.toMatch(/[\u2013\u2014]| -- /);
   });
 
   test("every step joins two different actors of its diagram", () => {

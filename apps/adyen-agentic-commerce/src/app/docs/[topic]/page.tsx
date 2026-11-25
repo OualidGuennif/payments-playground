@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DOCS, docBySlug } from "@/components/docs/content";
+import { PLAIN } from "@/components/docs/plain";
+import { PlainWords, Remember } from "@/components/docs/PlainWords";
 import { PluginDownload } from "@/components/docs/PluginDownload";
 import { Rich } from "@/components/docs/Rich";
 import { SequenceDiagram } from "@/components/docs/SequenceDiagram";
@@ -24,6 +26,7 @@ export default async function DocPage({ params }: { params: Params }) {
   const at = DOCS.indexOf(doc);
   const before = DOCS[at - 1];
   const after = DOCS[at + 1];
+  const plain = PLAIN[doc.slug];
   return (
     <article className="space-y-8">
       <header className="max-w-[68ch] space-y-2">
@@ -34,7 +37,11 @@ export default async function DocPage({ params }: { params: Params }) {
         </p>
       </header>
 
+      {plain ? <PlainWords paragraphs={plain.plain} /> : null}
+
       <SequenceDiagram title={`${doc.title}: ${doc.short}`} actors={doc.actors} steps={doc.steps} />
+
+      {plain ? <Remember items={plain.remember} /> : null}
 
       {doc.notes.length ? (
         <div className="grid gap-4 md:grid-cols-2">

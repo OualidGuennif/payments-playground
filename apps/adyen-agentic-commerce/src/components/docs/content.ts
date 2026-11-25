@@ -548,9 +548,9 @@ export const DOCS: Doc[] = [
     slug: "chatgpt",
     title: "ChatGPT app",
     short:
-      "The store's carousel and bag inside the conversation, by hand or through the assistant.",
+      "The store's carousel and bag inside the conversation: tap to shop, or ask the assistant.",
     intro:
-      "Hosts that show MCP Apps, ChatGPT among them, draw this store's own carousel and bag in the chat. You can shop in them by hand, or switch them to With the assistant and let it shop for you. Either way the assistant's sign-in and budget decide what can happen, and the widget never sees your card.",
+      "Hosts that show MCP Apps, ChatGPT among them, draw this store's own carousel and bag in the chat. You shop in them with a tap, or ask the assistant in the chat to shop for you. Either way the assistant's sign-in and budget decide what can happen, and the widget never sees your card.",
     actors: [
       { id: "you", label: "You" },
       { id: "host", label: "ChatGPT" },
@@ -594,7 +594,7 @@ export const DOCS: Doc[] = [
         from: "you",
         to: "widget",
         label: "Add to bag",
-        text: "By hand: you pick a colour and a size and tap Add to bag. With the assistant, the same tap writes the request in the chat instead.",
+        text: "You pick a colour and a size and tap Add to bag.",
       },
       {
         from: "widget",
@@ -637,10 +637,10 @@ export const DOCS: Doc[] = [
     ],
     notes: [
       {
-        title: "Two ways to shop",
+        title: "Shopping in the widget",
         body: [
-          "By hand: the carousel and the bag are a small shop. Search, page through, pick colour and size, change quantities, check out and pay, all in the widget. It tells the assistant what changed, so the chat keeps the same cart.",
-          'With the assistant: the same buttons write a sentence for the assistant ("Add the Linen-blend trench coat in Sand, size M to my bag.") and the assistant calls the tools. Switch at the top of the widget.',
+          "The carousel and the bag are a small shop. Search, page through, pick colour and size, change quantities, check out and pay, all in the widget. It tells the assistant what changed, so the chat keeps the same cart.",
+          "To let the assistant do it instead, ask in the chat: it calls the same tools, with the same sign-in and checks. The widget's buttons never write in the chat.",
         ],
       },
       {

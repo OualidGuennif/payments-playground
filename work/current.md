@@ -9,10 +9,10 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-25, in chat: guest-or-signed-in chat sidebar, Flue agent, server-only
   keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
-- State: committed locally from `2f371ab` (unpushed), check green; live with the owner's key:
-  answers, carousel photos, bag, hand-off, injections refused, console, red team 10/10.
-- Next: Pi log noise (who: agent); voice call and 375/1440 checks (who: owner); review, push
-  (owner decides); Pi exemption off 2026-11-27.
+- State: committed locally from `2f371ab` (unpushed), check green; injection hardening, one
+  widget, receipt email block live with the owner's key; red team 16/16.
+- Next: plan for cart/checkout sync, payment lock, Code Mode, docs (who: agent, owner's yes);
+  voice and 375/1440 checks (owner); review, push (owner); Pi exemption off 2026-11-27.
 - Blocker: none to build; an independent review before any push.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 

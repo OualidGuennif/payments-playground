@@ -3,9 +3,12 @@
 // of stage events, connecting the account, and taps in a widget. Keys, models, scores, verdicts
 // and costs never leave here; the customer comes from the store's session cookie, never a body.
 import { Elysia } from "elysia";
+import { maskEmail } from "../../lib/mask";
 import { customerOf } from "../accounts/account-api";
 import type { Customer } from "../accounts/customers";
+import * as commerce from "../commerce/commerce";
 import { config } from "../core/config";
+import { trace } from "../core/trace";
 import { isRecord, json } from "../core/util";
 import { BAG, CAROUSEL, widgetHtml } from "../mcp/widgets";
 import { OAuthError } from "../oauth/oauth";
@@ -24,6 +27,7 @@ import {
   type EndReason,
   endSession,
   isRegular,
+  mergeCheckouts,
   resolveSession,
   save,
   sessionCookie,
@@ -37,6 +41,10 @@ import { endCall } from "./voice";
 
 const MAX_BODY_BYTES = 16_000;
 const WIDGET_CALLS_PER_MINUTE = 60;
+const EMAIL_CALLS_PER_MINUTE = 10;
+// The shape the store accepts in buyer.email (commerce/pricing.ts parseBuyer).
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const MAX_EMAIL = 254;
 
 // What a widget in the panel may ask the store for (spec invariant 15).
 export const WIDGET_TOOLS = new Set([
@@ -160,6 +168,8 @@ export function sessionView(h: Here) {
     endsAt: live?.endsAt,
     mode: live ? shownMode(live, h.customer) : undefined,
     signedIn: Boolean(h.customer),
+    // Masked: the receipt block names the address without the page ever holding it whole.
+    accountEmail: h.customer ? maskEmail(h.customer.email) : undefined,
     connected: Boolean(live && houseToken(live.id)),
     voice: { available: voice, unlocked: Boolean(live?.voice.unlocked) },
     messages: live
@@ -423,9 +433,77 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
       prices: call.result
         ? mergePrices(live.prices, pricesIn(call.result.structuredContent))
         : live.prices,
+      checkouts: call.result
+        ? mergeCheckouts(live.checkouts, [call.result.structuredContent])
+        : live.checkouts,
       lastAt: now,
     });
     appendMessage(kept, { role: "note", text: `Widget: ${name}`, via: "widget", at: now });
+    if (!call.result)
+      return problem(409, "store_refused", call.error ?? "The store refused this action.");
+    return json(200, { result: call.result });
+  })
+  // The receipt email (spec invariant 19): typed in the panel's own block, or the account's read
+  // here, it reaches the store without passing a model, the transcript or the widget's data.
+  .post("/checkout-email", async ({ request }) => {
+    if (foreign(request)) return forbidden();
+    const body = await bodyOf(request);
+    const checkoutId = typeof body?.checkoutId === "string" ? body.checkoutId : undefined;
+    if (!body || !checkoutId)
+      return problem(400, "invalid_request", "Send JSON with a checkout id and an email.");
+    const h = here(request);
+    const live = liveSession(h);
+    if (!live)
+      return problem(409, "session_ended", "This conversation has ended.", { reason: h.ended });
+    const retry = rateLimited(`ask-email:${clientIp(request)}`, EMAIL_CALLS_PER_MINUTE);
+    if (retry)
+      return problem(
+        429,
+        "rate_limited",
+        "Please slow down a little.",
+        {},
+        { "retry-after": String(retry) },
+      );
+    const unknown = () =>
+      problem(404, "checkout_unknown", "This checkout is not part of this conversation.");
+    if (!live.checkouts?.includes(checkoutId)) return unknown();
+    let email: string;
+    if (body.account === true) {
+      if (!h.customer) return problem(401, "not_signed_in", "Sign in to use your account's email.");
+      email = h.customer.email;
+    } else {
+      email = typeof body.email === "string" ? body.email.trim() : "";
+      if (email.length > MAX_EMAIL || !EMAIL.test(email))
+        return problem(400, "invalid_email", "Enter a valid email address.");
+    }
+    try {
+      const checkout = commerce.loadCheckout(checkoutId, "browser");
+      if (checkout.customerId && checkout.customerId !== h.customer?.id) return unknown();
+      // Fills a gap only: an email already set, or an account's, never changes.
+      if (checkout.phase !== "open" || commerce.buyerOf(checkout)?.email)
+        return problem(409, "store_refused", "This checkout already has an email.");
+      const updated = commerce.updateCheckout(checkout, { buyer: { ...checkout.buyer, email } });
+      trace({
+        channel: commerce.channelOf(updated),
+        actor: "shopper",
+        method: "POST",
+        path: "/api/ask/checkout-email",
+        status: 200,
+        ref: updated.id,
+        detail: { email: "set" },
+      });
+    } catch (error) {
+      if (!(error instanceof commerce.CommerceError)) throw error;
+      if (error.status === 404) return unknown();
+      return problem(409, "store_refused", "The store could not take this email.");
+    }
+    const now = Date.now();
+    appendMessage(save({ ...live, lastAt: now }), {
+      role: "note",
+      text: "Receipt email set",
+      at: now,
+    });
+    const call = await callStoreTool(live.id, "get_checkout", { id: checkoutId });
     if (!call.result)
       return problem(409, "store_refused", call.error ?? "The store refused this action.");
     return json(200, { result: call.result });

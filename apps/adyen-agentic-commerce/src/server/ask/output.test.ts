@@ -8,6 +8,7 @@ import {
   MAX_ANSWER_CHARS,
   MAX_PRICES,
   mergePrices,
+  PHONE_PLACEHOLDER,
   PRICE_PLACEHOLDER,
   pricesIn,
 } from "./output";
@@ -117,5 +118,17 @@ describe("prices a tool returned", () => {
     const merged = mergePrices(old, [999999]);
     expect(merged).toHaveLength(MAX_PRICES);
     expect(merged[0]).toBe(999999);
+  });
+
+  test("an email address or a phone number is masked", () => {
+    const out = filterOutput({
+      text: "Your receipt goes to bob.martin@example.com; call +33 6 12 34 56 78 or 06 12 34 56 78.",
+      canary: "avcanaryvalue12345",
+      storeOrigin: "http://127.0.0.1:8003",
+      prices: [],
+    });
+    expect(out.ok && out.text).toBe(
+      `Your receipt goes to b•••@example.com; call ${PHONE_PLACEHOLDER} or ${PHONE_PLACEHOLDER}.`,
+    );
   });
 });

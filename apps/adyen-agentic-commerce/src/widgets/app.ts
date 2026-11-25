@@ -23,14 +23,12 @@ import {
   contextFor,
   inlineImage,
   isOpen,
-  type Mode,
   money,
   type PayAttempt,
   offered,
   payCall,
   quantityCall,
   refreshCheckoutCall,
-  say,
   searchCall,
   sizesOf,
   type UcpProduct,
@@ -38,7 +36,6 @@ import {
 } from "./logic";
 
 type State = {
-  mode: Mode;
   view: "catalog" | "bag";
   query: string;
   catalog?: CatalogView;
@@ -79,7 +76,6 @@ function h(tag: string, attrs: Attrs = {}, ...children: Child[]): HTMLElement {
 
 const root = document.getElementById("app")!;
 const state: State = {
-  mode: "hand",
   view: document.body.dataset.view === "bag" ? "bag" : "catalog",
   query: "",
   choices: {},
@@ -119,7 +115,7 @@ function refusal(data: unknown) {
   return typeof first === "string" ? first : "The store could not do that.";
 }
 
-// "By hand": the widget calls the tool and shows the answer itself.
+// A button: the widget calls the tool and shows the answer itself.
 async function run(label: string, call: Call | undefined) {
   if (!call || state.busy) return;
   state.busy = label;
@@ -145,23 +141,6 @@ async function run(label: string, call: Call | undefined) {
 
 function act(action: Action) {
   if (action.kind === "call") void run(action.label, action.call);
-  else if (action.kind === "say") void ask(action.text);
-}
-
-// "With the assistant": the widget only writes to the assistant, which calls the tools.
-async function ask(text: string) {
-  if (state.busy) return;
-  state.busy = "Asking the assistant";
-  render();
-  try {
-    await host.say(text);
-    state.note = { tone: "info", text: `Sent to the assistant: “${text}”` };
-  } catch (error) {
-    state.note = { tone: "bad", text: error instanceof Error ? error.message : String(error) };
-  } finally {
-    state.busy = undefined;
-    render();
-  }
 }
 
 async function open(url: string | undefined) {
@@ -178,22 +157,6 @@ async function open(url: string | undefined) {
 
 function header() {
   const count = state.bag?.lines.reduce((n, l) => n + l.quantity, 0) ?? 0;
-  const modeButton = (mode: Mode, label: string) =>
-    h(
-      "button",
-      {
-        type: "button",
-        class: "seg",
-        "aria-pressed": state.mode === mode ? "true" : "false",
-        onclick: () => {
-          state.mode = mode;
-          state.note = undefined;
-          host.remember({ mode });
-          render();
-        },
-      },
-      label,
-    );
   const tab = (view: State["view"], label: string) =>
     h(
       "button",
@@ -219,12 +182,6 @@ function header() {
       h("span", { class: "badge" }, "TEST"),
     ),
     h(
-      "div",
-      { class: "modes", role: "group", "aria-label": "Who shops" },
-      modeButton("hand", "By hand"),
-      modeButton("assistant", "With the assistant"),
-    ),
-    h(
       "nav",
       { class: "tabs", "aria-label": "Store" },
       tab("catalog", "Collection"),
@@ -248,14 +205,7 @@ function search() {
   // submit event, so the button and Enter start the search themselves.
   const submit = () => {
     state.query = input.value;
-    act(
-      choose(
-        state.mode,
-        "Searching",
-        () => searchCall(input.value),
-        () => say.search(input.value),
-      ),
-    );
+    act(choose("Searching", () => searchCall(input.value)));
   };
   input.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" || event.isComposing) return;
@@ -309,7 +259,7 @@ function card(p: UcpProduct) {
   const image = variant?.media?.[0]?.url ?? p.media?.[0]?.url;
   const available = variant !== undefined && variant.availability?.available !== false;
   const price = variant?.price ?? p.price_range?.min;
-  const label = !available ? "Sold out" : state.mode === "hand" ? "Add to bag" : "Ask to add";
+  const label = !available ? "Sold out" : "Add to bag";
   return h(
     "li",
     { class: "card" },
@@ -334,14 +284,7 @@ function card(p: UcpProduct) {
         disabled: !available || !!state.busy,
         onclick: () => {
           if (!variant) return;
-          act(
-            choose(
-              state.mode,
-              "Adding to your bag",
-              () => addCall(state.bag, variant.id),
-              () => say.add(p, variant),
-            ),
-          );
+          act(choose("Adding to your bag", () => addCall(state.bag, variant.id)));
         },
       },
       label,
@@ -360,14 +303,7 @@ function catalogScreen() {
         class: "btn ghost",
         disabled: !!state.busy,
         onclick: () => {
-          act(
-            choose(
-              state.mode,
-              "Loading more",
-              () => searchCall(state.query, view.cursor),
-              () => say.more(),
-            ),
-          );
+          act(choose("Loading more", () => searchCall(state.query, view.cursor)));
         },
       },
       "More",
@@ -389,14 +325,7 @@ function catalogScreen() {
               class: "btn ghost",
               disabled: !!state.busy,
               onclick: () => {
-                act(
-                  choose(
-                    state.mode,
-                    "Loading collection",
-                    () => searchCall(""),
-                    () => say.search(""),
-                  ),
-                );
+                act(choose("Loading collection", () => searchCall("")));
               },
             },
             "Show all items",
@@ -423,14 +352,7 @@ function line(bag: BagView, l: BagLine) {
         disabled: !!state.busy || l.quantity + delta < 1 || l.quantity + delta > 10,
         onclick: () => {
           const quantity = l.quantity + delta;
-          act(
-            choose(
-              state.mode,
-              "Updating your bag",
-              () => quantityCall(bag, l.variantId, quantity),
-              () => say.quantity(l, quantity),
-            ),
-          );
+          act(choose("Updating your bag", () => quantityCall(bag, l.variantId, quantity)));
         },
       },
       text,
@@ -462,14 +384,7 @@ function line(bag: BagView, l: BagLine) {
                   class: "link",
                   disabled: !!state.busy,
                   onclick: () => {
-                    act(
-                      choose(
-                        state.mode,
-                        "Updating your bag",
-                        () => quantityCall(bag, l.variantId, 0),
-                        () => say.quantity(l, 0),
-                      ),
-                    );
+                    act(choose("Updating your bag", () => quantityCall(bag, l.variantId, 0)));
                   },
                 },
                 "Remove",
@@ -524,17 +439,10 @@ function payArea(bag: BagView) {
           class: "btn",
           disabled: !!state.busy || !bag.lines.length,
           onclick: () => {
-            act(
-              choose(
-                state.mode,
-                "Starting checkout",
-                () => checkoutCall(bag.id),
-                () => say.checkout(),
-              ),
-            );
+            act(choose("Starting checkout", () => checkoutCall(bag.id)));
           },
         },
-        state.mode === "hand" ? "Checkout" : "Ask to check out",
+        "Checkout",
       ),
     );
   if (!isOpen(bag)) return null;
@@ -585,19 +493,14 @@ function payArea(bag: BagView) {
             disabled: !!state.busy,
             onclick: () => {
               act(
-                choose(
-                  state.mode,
-                  "Paying on Adyen TEST",
-                  () => {
-                    state.attempt = attemptFor(state.attempt, bag.id, chosen.id);
-                    return payCall(bag, chosen.id, state.attempt.key);
-                  },
-                  () => say.pay(chosen, total),
-                ),
+                choose("Paying on Adyen TEST", () => {
+                  state.attempt = attemptFor(state.attempt, bag.id, chosen.id);
+                  return payCall(bag, chosen.id, state.attempt.key);
+                }),
               );
             },
           },
-          state.mode === "hand" ? `Pay ${total}` : `Ask to pay ${total}`,
+          `Pay ${total}`,
         )
       : null,
     over && onStore(bag.manageUrl)
@@ -641,24 +544,12 @@ function payArea(bag: BagView) {
             class: "btn ghost",
             disabled: !!state.busy,
             onclick: () => {
-              act(
-                choose(
-                  state.mode,
-                  "Checking saved cards",
-                  () => refreshCheckoutCall(bag.id),
-                  () => say.refreshCheckout(),
-                ),
-              );
+              act(choose("Checking saved cards", () => refreshCheckoutCall(bag.id)));
             },
           },
           "Refresh cards",
         )
       : null,
-    h(
-      "p",
-      { class: "fine" },
-      "Adyen TEST: no real money moves. Your assistant may ask you to confirm.",
-    ),
   );
 }
 
@@ -676,14 +567,7 @@ function bagScreen() {
           class: "btn ghost",
           disabled: !!state.busy,
           onclick: () => {
-            act(
-              choose(
-                state.mode,
-                "Searching",
-                () => searchCall(""),
-                () => say.search(""),
-              ),
-            );
+            act(choose("Searching", () => searchCall("")));
           },
         },
         "Browse the collection",
@@ -720,6 +604,4 @@ function setTheme(theme: Theme) {
 }
 
 host = connect({ result: show, theme: setTheme });
-const remembered = host.recalled().mode;
-if (remembered === "hand" || remembered === "assistant") state.mode = remembered;
 render();

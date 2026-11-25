@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -14,6 +15,7 @@ import {
 } from "react";
 import { AskConnect } from "./AskConnect";
 import { Icon } from "./AskIcon";
+import { AskReceipt } from "./AskReceipt";
 import { AskText } from "./AskText";
 import { AskVoice } from "./AskVoice";
 import { askCall, sendMessage, setAskOpen, useAskOpen, wasAskOpen } from "./askClient";
@@ -21,11 +23,13 @@ import {
   type AskMessage,
   distinctWidgets,
   endedText,
-  liveWidgets,
+  type Fed,
+  oneWidget,
+  receiptNeeded,
   type SessionView,
   shownMessages,
   stageLabel,
-  widgetName,
+  widgetLine,
 } from "./askLogic";
 import { WidgetFrame } from "./WidgetFrame";
 
@@ -66,17 +70,9 @@ export function AskLauncher() {
   );
 }
 
-function Bubble({
-  message,
-  live,
-  index,
-  onSay,
-}: {
-  message: AskMessage;
-  live: Set<string>;
-  index: number;
-  onSay: (text: string) => Promise<string | undefined>;
-}) {
+// `widget` is the conversation's one widget when this message is its home; any other message that
+// showed one keeps a line saying so.
+function Bubble({ message, widget }: { message: AskMessage; widget?: ReactNode }) {
   if (message.role === "note")
     return <li className="text-center text-xs text-muted">{message.text}</li>;
   if (message.role === "shopper")
@@ -92,15 +88,12 @@ function Bubble({
         <span className="sr-only">Assistant: </span>
         <AskText text={message.text} />
       </div>
-      {distinctWidgets(message.widgets).map((widget) =>
-        live.has(`${index}:${widget.resourceUri}`) ? (
-          <WidgetFrame key={widget.resourceUri} widget={widget} onSay={onSay} />
-        ) : (
-          <p key={widget.resourceUri} className="text-xs text-muted">
-            {widgetName(widget.resourceUri)}, shown again below.
+      {widget ??
+        distinctWidgets(message.widgets).map((w) => (
+          <p key={w.resourceUri} className="text-xs text-muted">
+            {widgetLine(w.resourceUri)}
           </p>
-        ),
-      )}
+        ))}
     </li>
   );
 }
@@ -111,6 +104,8 @@ export function AskPanel() {
   const [wide, setWide] = useState(false);
   const [view, setView] = useState<SessionView>();
   const [messages, setMessages] = useState<AskMessage[]>([]);
+  // The widget's own answers (taps, the receipt email), newest per kind, until a new conversation.
+  const [taps, setTaps] = useState<Fed[]>([]);
   const [status, setStatus] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [draft, setDraft] = useState("");
@@ -136,8 +131,16 @@ export function AskPanel() {
       return;
     }
     setView(answer.data);
-    if (withMessages) setMessages(answer.data.messages);
+    if (!withMessages) return;
+    setMessages(answer.data.messages);
+    // An empty transcript is a new or ended conversation: the old widget's taps go with it.
+    if (answer.data.messages.length === 0) setTaps([]);
   }, []);
+
+  const onResult = useCallback(
+    (fed: Fed) => setTaps((t) => [...t.filter((x) => x.resourceUri !== fed.resourceUri), fed]),
+    [],
+  );
 
   // Opening, and every page change while open: signing in or out changes the session.
   useEffect(() => {
@@ -189,6 +192,7 @@ export function AskPanel() {
     }
     setView(answer.data);
     setMessages([]);
+    setTaps([]);
     setNotice(undefined);
     return undefined;
   }, []);
@@ -270,7 +274,8 @@ export function AskPanel() {
   if (!open || hiddenOn(pathname)) return null;
 
   const shown = shownMessages(messages);
-  const live = liveWidgets(shown);
+  const one = oneWidget(shown, taps);
+  const receipt = one && view?.state === "active" ? receiptNeeded(one.feed) : undefined;
   const unavailable = view !== undefined && !view.available;
   const locked = view?.state === "locked";
   const ended = view?.state === "ended";
@@ -382,9 +387,21 @@ export function AskPanel() {
                 <Bubble
                   key={`${message.role}:${message.at}`}
                   message={message}
-                  live={live}
-                  index={index}
-                  onSay={send}
+                  widget={
+                    one?.home === index ? (
+                      <>
+                        <WidgetFrame uri={one.uri} feed={one.feed} onResult={onResult} />
+                        {receipt && (
+                          <AskReceipt
+                            key={receipt}
+                            checkoutId={receipt}
+                            accountEmail={view?.accountEmail}
+                            onResult={onResult}
+                          />
+                        )}
+                      </>
+                    ) : undefined
+                  }
                 />
               ))}
             </ol>

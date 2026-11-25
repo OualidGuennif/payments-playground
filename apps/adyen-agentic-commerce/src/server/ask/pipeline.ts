@@ -23,6 +23,7 @@ import {
   type AskSession,
   appendMessage,
   endSession,
+  mergeCheckouts,
   save,
   sessionById,
   type StageVerdict,
@@ -48,6 +49,7 @@ export type AgentOutcome =
       text: string;
       widgets: Widget[];
       prices: number[];
+      withheld?: number;
       calls: number;
       costUsd: number;
       usage: { input: number; output: number; cacheRead: number; cacheWrite: number };
@@ -78,6 +80,7 @@ export type Admission =
       mode: Exclude<Mode, "locked">;
       verdicts: StageVerdict[];
       delta: number;
+      signals: string[];
       events: PipelineEvent[];
       shopper: AskMessage;
     };
@@ -106,6 +109,14 @@ function refusal(
   };
 }
 
+// Repeated probing is one attack (the defense skill's HEURISTIC-G): a second injection refusal
+// in a session locks it, whatever its score.
+const ATTACKS = new Set(["gate:injection_signature", "guard:injection"]);
+export const attacksSoFar = (sessionId: string) =>
+  transcript(sessionId).filter((m) =>
+    m.verdicts?.some((v) => ATTACKS.has(`${v.stage}:${v.result}`)),
+  ).length;
+
 // Stages 1 and 2: no model, nothing awaited. The route answers a failure as an HTTP error and
 // everything else as a stream.
 export function admit(input: {
@@ -128,6 +139,7 @@ export function admit(input: {
   const stage1 = gate(input.text, input.storeHost);
   events.push({ type: "stage", stage: "gate", result: stage1.verdict.result });
   if (!stage1.ok) {
+    const repeated = stage1.reason === "injection_signature" && attacksSoFar(session.id) > 0;
     const score = applyScore(session.score, stage1.scoreDelta);
     session = save({ ...session, score, messages: session.messages + 1, lastAt: now });
     // A refused message is kept for the console, but never with card data or a password in it.
@@ -138,6 +150,7 @@ export function admit(input: {
       verdicts: [stage1.verdict],
       at: now,
     });
+    if (repeated) session = endSession(session, "locked", now);
     const mode = shownMode(session, modeFor(session.score, input.regular));
     const final = refusal(session, stage1.reason, lang, mode);
     appendMessage(session, { role: "assistant", text: final.text, at: now });
@@ -181,6 +194,7 @@ export function admit(input: {
     mode: stage2.mode,
     verdicts: [stage1.verdict, stage2.verdict],
     delta: stage1.scoreDelta,
+    signals: stage1.signals,
     events,
     shopper,
   };
@@ -223,6 +237,10 @@ export async function answer(input: {
       score,
       costUsd: current.costUsd + costUsd,
       prices: mergePrices(current.prices, prices),
+      checkouts: mergeCheckouts(
+        current.checkouts,
+        widgets.map((w) => w.structuredContent),
+      ),
       lastAt: clock(),
     });
     const ended = lock ? endSession(settled, "locked", clock()) : settled;
@@ -253,6 +271,7 @@ export async function answer(input: {
       effort: guardChoice.effort,
       text: shopperText,
       lastAnswer: lastAnswer(admitted.session.id),
+      facts: { signals: admitted.signals, refusedBefore: attacksSoFar(admitted.session.id) },
     });
     verdicts.push(guard.verdict);
     costUsd += guard.costUsd;
@@ -266,6 +285,7 @@ export async function answer(input: {
     delta += guard.scoreDelta;
     input.emit({ type: "stage", stage: "guard", result: guard.verdict.result });
     if (!guard.ok) {
+      lock = guard.reason === "injection" && attacksSoFar(admitted.session.id) > 0;
       finish(refusalText(guard.reason ?? "guard_unavailable", lang), [], []);
       return;
     }
@@ -287,7 +307,12 @@ export async function answer(input: {
       finish(refusalText(agent.reason, lang), [], []);
       return;
     }
-    verdicts.push({ stage: "agent", result: "allow", detail: `${agent.calls} model call(s)` });
+    const withheld = agent.withheld ? `; ${agent.withheld} store answer(s) withheld` : "";
+    verdicts.push({
+      stage: "agent",
+      result: "allow",
+      detail: `${agent.calls} model call(s)${withheld}`,
+    });
     input.emit({ type: "stage", stage: "agent", result: "allow" });
     // The shopper's own figures are known amounts too: "under €100" may be said back.
     const prices = mergePrices(mergePrices(session().prices, agent.prices), amountsIn(shopperText));

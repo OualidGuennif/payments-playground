@@ -2,18 +2,23 @@
 // Spec: knowledge/components/ask-agent.md
 // An MCP Apps host for one widget: a sandboxed srcdoc frame (scripts only, opaque origin, no
 // connection) that reaches the store only through this host, which sends its taps to
-// /api/ask/widget as the session's own identity and its messages through the full pipeline.
+// /api/ask/widget as the session's own identity; the widget never writes to the agent.
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { askCall } from "./askClient";
 import {
+  type Fed,
+  fedKey,
   hostReply,
   inlineImages,
   storePath,
   type ToolAnswer,
-  type Widget,
   widgetName,
+  widgetOfTool,
 } from "./askLogic";
+
+const record = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
 
 type Frame = { html: string; storeOrigin: string };
 const frames = new Map<string, Promise<Frame | undefined>>();
@@ -61,39 +66,52 @@ function picture(path: string) {
 const theme = (): "light" | "dark" =>
   window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 
+// The conversation's one widget (spec Panel): each data in `feed` it has not had yet is sent in
+// order, its pictures inlined; a tap's answer is handed back through `onResult` so the panel keeps
+// it when the widget moves under a newer message.
 export function WidgetFrame({
-  widget,
-  onSay,
+  uri,
+  feed,
+  onResult,
 }: {
-  widget: Widget;
-  onSay: (text: string) => Promise<string | undefined>;
+  uri: string;
+  feed: Fed[];
+  onResult: (fed: Fed) => void;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLIFrameElement>(null);
   const [frame, setFrame] = useState<Frame>();
   const [failed, setFailed] = useState(false);
   const [height, setHeight] = useState(320);
-  // The newest data for the frame, its pictures inlined, sent once it finishes its handshake.
-  const data = useRef<Promise<unknown>>(undefined);
   const ready = useRef(false);
-  const sendResult = useCallback(() => {
-    const pending = data.current;
-    void pending?.then((structuredContent) => {
-      if (pending !== data.current || !ready.current) return;
-      ref.current?.contentWindow?.postMessage(
-        { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent } },
-        "*",
-      );
-    });
-  }, []);
-  const say = useRef(onSay);
+  const origin = useRef<string>(undefined);
+  const latest = useRef(feed);
+  const sent = useRef(new Set<string>());
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const handBack = useRef(onResult);
   useEffect(() => {
-    say.current = onSay;
-  }, [onSay]);
+    handBack.current = onResult;
+  }, [onResult]);
+
+  const push = useCallback(() => {
+    const store = origin.current;
+    if (!ready.current || !store) return;
+    for (const item of latest.current) {
+      if (sent.current.has(fedKey(item))) continue;
+      sent.current.add(fedKey(item));
+      queue.current = queue.current.then(async () => {
+        const structuredContent = await inlineImages(item.structuredContent, store, picture);
+        ref.current?.contentWindow?.postMessage(
+          { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent } },
+          "*",
+        );
+      });
+    }
+  }, []);
 
   useEffect(() => {
     let live = true;
-    void frameFor(widget.resourceUri).then((f) => {
+    void frameFor(uri).then((f) => {
       if (!live) return;
       if (f) setFrame(f);
       else setFailed(true);
@@ -101,11 +119,12 @@ export function WidgetFrame({
     return () => {
       live = false;
     };
-  }, [widget.resourceUri]);
+  }, [uri]);
 
   useEffect(() => {
     const target = ref.current;
     if (!frame || !target) return;
+    origin.current = frame.storeOrigin;
     // An opaque-origin frame can only be addressed with "*"; what is posted is the widget's own
     // data and theme, never a secret.
     const post = (message: Record<string, unknown>) =>
@@ -117,9 +136,19 @@ export function WidgetFrame({
         call: async (name, args): Promise<ToolAnswer> => {
           const answer = await askCall<{ result: unknown }>("/widget", { name, arguments: args });
           if (!answer.data) return { error: answer.message };
-          return { result: await inlineImages(answer.data.result, frame.storeOrigin, picture) };
+          const result = answer.data.result;
+          // The frame shows this answer itself; the panel keeps it as the newest of its view.
+          if (record(result) && result.isError !== true && result.structuredContent !== undefined) {
+            const fed: Fed = {
+              resourceUri: widgetOfTool(name),
+              structuredContent: result.structuredContent,
+              at: Date.now(),
+            };
+            sent.current.add(fedKey(fed));
+            handBack.current(fed);
+          }
+          return { result: await inlineImages(result, frame.storeOrigin, picture) };
         },
-        say: (text) => say.current(text),
         open: (url) => {
           const path = storePath(url, origins);
           if (path) router.push(path);
@@ -129,7 +158,7 @@ export function WidgetFrame({
         resize: setHeight,
         initialized: () => {
           ready.current = true;
-          sendResult();
+          push();
         },
       }).then((reply) => {
         if (reply) post(reply);
@@ -148,16 +177,15 @@ export function WidgetFrame({
       window.removeEventListener("message", onMessage);
       scheme.removeEventListener("change", onScheme);
     };
-  }, [frame, router, sendResult]);
+  }, [frame, router, push]);
 
-  // New data for a frame already showing (the same widget answered again) is pushed in place.
+  // Newer data, from the agent or a tap the panel kept, is pushed in place.
   useEffect(() => {
-    if (!frame) return;
-    data.current = inlineImages(widget.structuredContent, frame.storeOrigin, picture);
-    sendResult();
-  }, [frame, widget.structuredContent, sendResult]);
+    latest.current = feed;
+    push();
+  }, [feed, push]);
 
-  const title = widgetName(widget.resourceUri);
+  const title = widgetName(feed.at(-1)?.resourceUri ?? uri);
   if (failed) return <p className="text-xs text-muted">{title} could not be shown here.</p>;
   if (!frame)
     return (

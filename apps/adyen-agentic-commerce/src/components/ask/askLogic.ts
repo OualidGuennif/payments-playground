@@ -20,6 +20,7 @@ export type SessionView = {
   endsAt?: number;
   mode?: Mode;
   signedIn: boolean;
+  accountEmail?: string;
   connected: boolean;
   voice: { available: boolean; unlocked: boolean };
   messages: AskMessage[];
@@ -77,15 +78,6 @@ export const endedText = (reason: string | undefined) =>
 export const shownMessages = (messages: AskMessage[]) =>
   messages.filter((m) => m.role !== "note" || !m.text.startsWith("Widget:"));
 
-// Only the newest carousel and the newest bag stay live: an older bag would offer a stale checkout.
-export function liveWidgets(messages: AskMessage[]): Set<string> {
-  const latest = new Map<string, number>();
-  messages.forEach((m, i) => {
-    for (const w of m.widgets) latest.set(w.resourceUri, i);
-  });
-  return new Set([...latest].map(([uri, i]) => `${i}:${uri}`));
-}
-
 // One widget of a kind per message: a second carousel in the same answer replaces the first.
 export const distinctWidgets = (widgets: Widget[]) => [
   ...new Map(widgets.map((w) => [w.resourceUri, w])).values(),
@@ -93,6 +85,55 @@ export const distinctWidgets = (widgets: Widget[]) => [
 
 export const widgetName = (uri: string) =>
   uri.includes("cart-checkout") ? "Your bag" : "The collection";
+export const widgetLine = (uri: string) =>
+  uri.includes("cart-checkout") ? "Bag shown" : "Collection shown";
+
+export const CAROUSEL_URI = "ui://widget/product-carousel-v2.html";
+export const BAG_URI = "ui://widget/cart-checkout-v2.html";
+const CATALOG_TOOLS = new Set(["search_catalog", "get_product", "lookup_catalog"]);
+// Which view a tool's answer belongs to, for the widget's own taps.
+export const widgetOfTool = (name: string) => (CATALOG_TOOLS.has(name) ? CAROUSEL_URI : BAG_URI);
+
+export type Fed = Widget & { at: number };
+
+// The conversation's one widget: it sits under the newest message that showed one, loads the
+// first resource the conversation showed (both run the same script), and is fed the newest
+// collection and the newest bag, whether the agent or a tap brought them, oldest first, so it
+// ends on the newest view. `at` stays on each item: with the kind it names the item across
+// reloads of the transcript, which give new objects for the same data.
+export function oneWidget(
+  messages: AskMessage[],
+  taps: Fed[],
+): { home: number; uri: string; feed: Fed[] } | undefined {
+  let home = -1;
+  let uri: string | undefined;
+  const fed: Fed[] = [];
+  messages.forEach((m, i) => {
+    for (const w of distinctWidgets(m.widgets)) {
+      home = i;
+      uri ??= w.resourceUri;
+      fed.push({ ...w, at: m.at });
+    }
+  });
+  if (home < 0 || !uri) return undefined;
+  const newest = new Map<string, Fed>();
+  for (const w of [...fed, ...taps]) {
+    const known = newest.get(w.resourceUri);
+    if (!known || w.at >= known.at) newest.set(w.resourceUri, w);
+  }
+  const feed = [...newest.values()].sort((a, b) => a.at - b.at);
+  return { home, uri, feed };
+}
+export const fedKey = (item: Fed) => `${item.resourceUri}@${item.at}`;
+
+// The checkout the newest bag shows, when the store still needs a receipt email for it.
+export function receiptNeeded(feed: Widget[]): string | undefined {
+  const bag = feed.filter((w) => w.resourceUri === BAG_URI).at(-1)?.structuredContent;
+  if (!record(bag) || typeof bag.id !== "string" || !bag.id.startsWith("chk_")) return undefined;
+  if (bag.status === "completed" || bag.status === "canceled") return undefined;
+  const messages = Array.isArray(bag.messages) ? bag.messages : [];
+  return messages.some((m) => record(m) && m.code === "missing_buyer_email") ? bag.id : undefined;
+}
 
 // The sizes a widget may ask for: never a zero-height frame, never one taller than the panel.
 export const clampHeight = (height: unknown) =>
@@ -242,7 +283,6 @@ export const HOST_PROTOCOL = "2026-01-26";
 export type ToolAnswer = { result?: unknown; error?: string };
 export type HostDeps = {
   call(name: string, args: Json): Promise<ToolAnswer>;
-  say(text: string): Promise<string | undefined>;
   open(url: unknown): boolean;
   theme(): "light" | "dark";
   resize(height: number): void;
@@ -290,17 +330,7 @@ export async function hostReply(message: unknown, deps: HostDeps): Promise<Json 
       if (record(answer.result)) return ok(answer.result);
       return failure(id, -32000, answer.error ?? "The store could not do that.");
     }
-    case "ui/message": {
-      const content = Array.isArray(params.content) ? params.content : [];
-      const text = content
-        .filter((c): c is { type: "text"; text: string } => record(c) && typeof c.text === "string")
-        .map((c) => c.text)
-        .join("\n")
-        .trim();
-      if (!text) return failure(id, -32602, "A message needs text.");
-      const refused = await deps.say(text);
-      return refused ? failure(id, -32000, refused) : ok({});
-    }
+    // ui/message is not offered: a widget never writes to the agent (spec invariant 17).
     case "ui/open-link":
       return deps.open(params.url) ? ok({}) : failure(id, -32000, "Only the store's pages open.");
     case "ui/update-model-context":

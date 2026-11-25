@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, setSystemTime, test 
 import { fauxAssistantMessage, fauxText, fauxToolCall } from "@earendil-works/pi-ai/providers/faux";
 import { CAROUSEL } from "../mcp/widgets";
 import { handle } from "../api";
-import { freshStore, ORIGIN, randomIp } from "../testing/agent";
+import { freshStore, ORIGIN, randomIp, signUpCustomer } from "../testing/agent";
 import {
   ANSWER_MODEL,
   Browser,
@@ -20,6 +20,7 @@ import { useAskModels } from "./runtime";
 import { recentSessions, save } from "./sessions";
 
 const NO_KEYS = { openai: false, anthropic: false, mistral: false, deepseek: false };
+const SOCKS = "velune-rib-socks-oat-one-size";
 const enable = () =>
   resetAskConfig({
     ...readAskConfig({}),
@@ -303,5 +304,84 @@ describe("widget actions", () => {
       arguments: {},
     });
     expect(response.status).toBe(409);
+  });
+});
+
+describe("receipt email", () => {
+  type Shown = { result: { structuredContent: Record<string, any> } };
+  // A guest checkout shown by a widget tap, as the agent's hand-off leaves it: no email yet.
+  const shownCheckout = async (browser: Browser) => {
+    const created = await browser.call("POST", "/api/ask/widget", {
+      name: "create_checkout",
+      arguments: { checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] } },
+    });
+    expect(created.status).toBe(200);
+    const checkout = ((await created.json()) as Shown).result.structuredContent;
+    expect(JSON.stringify(checkout.messages)).toContain("missing_buyer_email");
+    return String(checkout.id);
+  };
+  const setEmail = (browser: Browser, body: Record<string, unknown>) =>
+    browser.call("POST", "/api/ask/checkout-email", body);
+
+  test("a guest's typed email is set once, masked back, and never kept in the conversation", async () => {
+    const browser = new Browser();
+    await browser.call("POST", "/api/ask/session");
+    const checkoutId = await shownCheckout(browser);
+    for (const [body, status, error] of [
+      [{ checkoutId, email: "not an email" }, 400, "invalid_email"],
+      [{ checkoutId, email: `${"a".repeat(250)}@example.com` }, 400, "invalid_email"],
+      [{ checkoutId: "chk_not_shown", email: "anna.guest@example.com" }, 404, "checkout_unknown"],
+      [{ checkoutId, account: true }, 401, "not_signed_in"],
+      [{ email: "anna.guest@example.com" }, 400, "invalid_request"],
+    ] as const) {
+      const refused = await setEmail(browser, body);
+      expect(refused.status).toBe(status);
+      expect(((await refused.json()) as { error: string }).error).toBe(error);
+    }
+    const set = await setEmail(browser, { checkoutId, email: " anna.guest@example.com " });
+    expect(set.status).toBe(200);
+    const shown = ((await set.json()) as Shown).result.structuredContent;
+    expect(JSON.stringify(shown.messages ?? [])).not.toContain("missing_buyer_email");
+    expect(JSON.stringify(shown)).not.toContain("anna.guest");
+    expect(shown.buyer?.email).toBe("a•••@example.com");
+    const again = await setEmail(browser, { checkoutId, email: "other@example.com" });
+    expect(again.status).toBe(409);
+    expect(((await again.json()) as { error: string }).error).toBe("store_refused");
+    const view = await browser.view();
+    expect(view.messages.map((m: { text: string }) => m.text)).toContain("Receipt email set");
+    expect(JSON.stringify(view)).not.toContain("anna.guest");
+  });
+
+  test("a signed-in shopper sees their email masked and may use it", async () => {
+    const browser = new Browser();
+    const { cookie } = await signUpCustomer("claire.signed@example.com", browser.ip);
+    browser.keep(cookie);
+    await browser.call("POST", "/api/ask/session");
+    const view = await browser.view();
+    expect(view.accountEmail).toBe("c•••@example.com");
+    expect(JSON.stringify(view)).not.toContain("claire.signed");
+    const checkoutId = await shownCheckout(browser);
+    const set = await setEmail(browser, { checkoutId, account: true });
+    expect(set.status).toBe(200);
+    expect(((await set.json()) as Shown).result.structuredContent.buyer?.email).toBe(
+      "c•••@example.com",
+    );
+  });
+
+  test("another session cannot reach a checkout it did not show", async () => {
+    const owner = new Browser();
+    await owner.call("POST", "/api/ask/session");
+    const checkoutId = await shownCheckout(owner);
+    const stranger = new Browser();
+    await stranger.call("POST", "/api/ask/session");
+    const refused = await setEmail(stranger, { checkoutId, email: "eve@example.com" });
+    expect(refused.status).toBe(404);
+    const foreign = await owner.call(
+      "POST",
+      "/api/ask/checkout-email",
+      { checkoutId, email: "anna.guest@example.com" },
+      { "sec-fetch-site": "cross-site" },
+    );
+    expect(foreign.status).toBe(403);
   });
 });

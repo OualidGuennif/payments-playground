@@ -199,6 +199,23 @@ describe("paying is decided at the call", () => {
     expect(((await allowed.json()) as { result?: unknown }).result).toBeDefined();
     closeCollector(session.id);
   });
+  test("tool results are screened: the whole catalogue reaches the agent, none withheld", async () => {
+    const { session } = askSession();
+    openCollector(session.id, "normal");
+    const response = await houseFetch(session.id)("http://127.0.0.1:8003/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: { name: "search_catalog", arguments: { catalog: { query: "" } } },
+      }),
+    });
+    const body = (await response.json()) as { result?: { isError?: boolean } };
+    expect(body.result?.isError).not.toBe(true);
+    expect(closeCollector(session.id)?.withheld ?? 0).toBe(0);
+  });
 });
 
 describe("the prompt", () => {

@@ -1,7 +1,8 @@
 // Spec: knowledge/components/ask-agent.md
 // Stage 1, deterministic security (spec invariant 4). Runs before any model sees a message: it
 // normalizes the text, removes what hides instructions, takes out card numbers, IBANs and
-// passwords, and refuses the injection phrasings and characters no shopper needs.
+// passwords, and refuses the injection phrasings and characters no shopper needs. The families
+// follow the prompt-injection-defense skill's taxonomy (ATTACK-01 to ATTACK-12).
 import type { StageVerdict } from "./sessions";
 
 export const MAX_CHARS = 1_000;
@@ -20,7 +21,14 @@ export type RefusalReason =
   | "output_blocked";
 
 export type GateResult =
-  | { ok: true; text: string; verdict: StageVerdict; scoreDelta: number; redacted: boolean }
+  | {
+      ok: true;
+      text: string;
+      verdict: StageVerdict;
+      scoreDelta: number;
+      redacted: boolean;
+      signals: string[];
+    }
   | { ok: false; reason: RefusalReason; verdict: StageVerdict; scoreDelta: number };
 
 // Unicode tag characters spell invisible ASCII: a known way to smuggle instructions to a model.
@@ -42,10 +50,7 @@ const isControl = (cp: number) =>
 const without = (text: string, drop: (cp: number) => boolean) =>
   [...text].filter((ch) => !drop(ch.codePointAt(0) ?? 0)).join("");
 
-// The delimiters the agent prompt wraps facts and shopper text in, and other role markers a
-// shopper might type to fake a boundary; removed from the text whatever the case.
-const DELIMITERS =
-  /<\s*\/?\s*(?:shop_context|shopper_message|system|assistant|developer|tool|instructions?)\b[^>]*>/gi;
+export const STRONG_DELTA = -35;
 
 // Strong signatures refuse the message: phrasings that only make sense as an attack on the agent.
 // Each one names what is attacked right after the verb, so "forget the previous order, what are
@@ -60,21 +65,103 @@ const STRONG: RegExp[] = [
   /\bjailbreak|\bdo anything now\b/,
   /<\|[a-z_]{2,20}\|>|\[\/?inst\]|<<\/?sys>>|<\/?s>/,
   /^\s*(?:new|updated)\s+(?:system\s+)?instructions?\s*:/m,
+  // ATTACK-12, a faked boundary: our own delimiters, role tags and system headers.
+  /<\s*\/?\s*(?:shop_context|shopper_message|last_answer|tool_data|system|assistant|developer|tool|instructions?|user_input)\b[^>]*>/,
+  /^\s*#{1,6}\s*(?:system|assistant|developer|admin)\b|\[\s*(?:system|admin|developer)(?:\s+(?:message|prompt|note|override))?\s*\]/m,
+  // ATTACK-03, claimed authority.
+  /\b(?:i am|i'm|im|this is)\s+your\s+(?:developer|creator|admin(?:istrator)?|owner|operator|programmer|maker)\b/,
+  /\b(?:i am|i'm|im|this is)\s+the\s+(?:developer|creator|admin(?:istrator)?|programmer)\s+of\s+(?:this|the|your)\s+(?:site|store|shop|assistant|bot|ai|model|chat)\b/,
+  /\bthis is\s+(?:openai|anthropic|google|mistral|deepseek)\s+(?:speaking|support|staff|security|here|calling)\b/,
+  /\b(?:system administrator|sysadmin|root user)\s+(?:here|speaking)\b|\b(?:maintenance|root|sudo|admin)\s+(?:override|access granted)\b|\binternal test(?:ing)? mode\b/,
+  // ATTACK-02, a role without rules.
+  /\b(?:act as|acting as|pretend|play (?:a|the) (?:character|role|game)|roleplay|role-play|you are now|from now on you are)\b[^.!?\n]{0,60}\b(?:no|without(?: any)?)\s+(?:rules?|restrictions?|limits?|filters?|guidelines?|censorship)\b/,
   // French.
   /\b(?:ignore|ignorez|oublie|oubliez|contourne|contournez)\s+(?:(?:toutes?|tous|les|tes|vos|ces|mes)\s+){0,3}(?:(?:precedentes?|anterieures?)\s+)?(?:instructions?|consignes?|directives?)\b/,
   /\b(?:ignore|ignorez|oublie|oubliez)\s+(?:(?:toutes?|les|tes|vos)\s+){0,2}(?:regles?|messages?)\s+(?:precedente?s?|du systeme|systeme)\b/,
   /\b(?:montre|affiche|revele|repete|donne|ecris)(?:[- ]moi)?\s+(?:(?:ton|tes|le|les|vos|votre|tout)\s+){0,2}(?:prompt(?:\s+systeme)?|(?:instructions?|consignes?)\s+(?:systeme|cachee?s?|initiale?s?|secrete?s?))\b/,
   /\b(?:tu es|vous etes)\s+(?:maintenant|desormais)\s+(?:en\s+)?(?:mode\s+)?(?:dan|sans limites?|sans restrictions?|debride)\b/,
   /^\s*nouvelles?\s+(?:instructions?|consignes?)\s*:/m,
+  /\b(?:je suis|c'est|ici)\s+(?:ton|votre)\s+(?:developpeur|createur|administrateur|admin|concepteur|proprietaire)\b/,
+  /\b(?:je suis|c'est|ici)\s+(?:le|l')\s*(?:developpeur|createur|administrateur|concepteur)\s+(?:du|de (?:ce|cet|cette|la|l'))\s*(?:site|magasin|boutique|assistant|bot|ia|chat)\b/,
+  /\b(?:personnage|role|ia|assistant|joues?|incarnes?)\b[^.!?\n]{0,60}\bsans\s+(?:aucune?s?\s+)?(?:regles?|limites?|restrictions?|filtres?|censure)\b/,
 ];
 
-// Weak signatures only lower the score: they also appear in honest questions.
-const WEAK: RegExp[] = [
-  /\bsystem\s+prompt\b|\bprompt\s+systeme\b/,
-  /\b(?:pretend (?:to be|you are)|roleplay|role-play|fais comme si|joue le role)\b/,
-  /\bact as (?:a|an|my|if)\s+(?:different|new|unrestricted|evil|hacker|developer|system|admin)/,
-  /\b(?:base64|rot13|hex(?:adecimal)? encod)/,
+// Weak signatures only lower the score and are named to the guard: they also appear in honest
+// questions.
+const WEAK: [signal: string, pattern: RegExp][] = [
+  ["mentions the system prompt", /\bsystem\s+prompt\b|\bprompt\s+systeme\b/],
+  [
+    "role-play",
+    /\b(?:pretend (?:to be|you are)|roleplay|role-play|fais comme si|joue le role)\b|\bact as (?:a|an|my|if)\s+(?:different|new|unrestricted|evil|hacker|developer|system|admin)/,
+  ],
+  ["mentions an encoding", /\b(?:base64|rot13|hex(?:adecimal)? encod)/],
+  [
+    "pressure or urgency",
+    /\b(?:emergency|someone will die|you have \d+ seconds|i(?:'ll| will) report you|shut you down|urgence|quelqu'un va mourir|je vais te signaler)\b/,
+  ],
+  [
+    "claims an earlier agreement or a right",
+    /\b(?:as we (?:discussed|agreed)|you (?:already|previously) (?:agreed|said|promised|helped)|i have (?:admin|root|special) (?:rights|privileges|access)|comme convenu|tu (?:m'as|avais|as) deja (?:dit|promis|accepte))\b/,
+  ],
+  ["minimizes a request", /\b(?:just this once|juste cette fois)\b/],
 ];
+
+// ATTACK-09: look-alike letters (Cyrillic, Greek) and digit spellings read as the Latin letters
+// they imitate, so "іgnоrе" and "1gn0re" meet the same signatures as "ignore".
+const LOOKALIKE: Record<string, string> = {
+  а: "a",
+  в: "b",
+  е: "e",
+  ё: "e",
+  к: "k",
+  м: "m",
+  н: "h",
+  о: "o",
+  р: "p",
+  с: "c",
+  т: "t",
+  у: "y",
+  х: "x",
+  і: "i",
+  ј: "j",
+  ѕ: "s",
+  ԁ: "d",
+  ӏ: "l",
+  α: "a",
+  β: "b",
+  ε: "e",
+  η: "n",
+  ι: "i",
+  κ: "k",
+  ν: "v",
+  ο: "o",
+  ρ: "p",
+  τ: "t",
+  υ: "u",
+  χ: "x",
+};
+const DIGIT_LETTER: Record<string, string> = {
+  "0": "o",
+  "1": "i",
+  "3": "e",
+  "4": "a",
+  "5": "s",
+  "7": "t",
+  "@": "a",
+  $: "s",
+};
+const latin = (text: string) => [...text].map((ch) => LOOKALIKE[ch] ?? ch).join("");
+const undigited = (text: string) => text.replace(/[013457@$]/g, (ch) => DIGIT_LETTER[ch] ?? ch);
+
+// Base64 runs long enough to carry a sentence, decoded when they read as text.
+function decodedRuns(text: string): string[] {
+  const runs = text.match(/[A-Za-z0-9+/]{16,}={0,2}/g) ?? [];
+  return runs.flatMap((run) => {
+    const decoded = Buffer.from(run, "base64").toString("utf8");
+    const printable = decoded.replace(/[^\x20-\x7e\u00a0-\u024f\s]/g, "");
+    return printable.length >= decoded.length * 0.9 && /[a-z]{3}/i.test(decoded) ? [decoded] : [];
+  });
+}
 
 // Lowercase, accents removed, runs of spaces collapsed: one copy the signatures are matched on.
 const folded = (text: string) =>
@@ -154,6 +241,19 @@ const verdict = (result: string, scoreDelta: number, detail?: string): StageVerd
   ...(detail ? { detail } : {}),
 });
 
+// The first strong signature in a text, as it reads, with look-alikes and digit spellings read as
+// letters, or inside a base64 run; matched after hidden characters are gone, so a zero-width space
+// inside "ignore" cannot split it. Also screens the store's answers before the agent reads them.
+export function strongSignature(text: string): string | undefined {
+  const probes = [folded(text), folded(latin(text)), undigited(folded(latin(text)))];
+  for (const decoded of decodedRuns(text)) probes.push(folded(latin(decoded)));
+  for (const probe of probes) {
+    const found = STRONG.find((re) => re.test(probe));
+    if (found) return found.source.slice(0, 60);
+  }
+  return undefined;
+}
+
 export function gate(input: unknown, storeHost: string): GateResult {
   if (typeof input !== "string")
     return { ok: false, reason: "empty", scoreDelta: 0, verdict: verdict("empty", 0) };
@@ -174,11 +274,6 @@ export function gate(input: unknown, storeHost: string): GateResult {
     delta -= 10;
     text = withoutHidden;
   }
-  const withoutDelimiters = text.replace(DELIMITERS, "");
-  if (withoutDelimiters !== text) {
-    notes.push("delimiters removed");
-    text = withoutDelimiters;
-  }
   text = text
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
@@ -192,18 +287,18 @@ export function gate(input: unknown, storeHost: string): GateResult {
       scoreDelta: delta,
       verdict: verdict("too_long", delta),
     };
-  // Matched after hidden characters are gone, so a zero-width space inside "ignore" cannot split a signature.
-  const probe = folded(withoutHidden);
-  const strong = STRONG.find((re) => re.test(probe));
+  const strong = strongSignature(withoutHidden);
   if (strong)
     return {
       ok: false,
       reason: "injection_signature",
-      scoreDelta: delta - 30,
-      verdict: verdict("injection_signature", delta - 30, strong.source.slice(0, 60)),
+      scoreDelta: delta + STRONG_DELTA,
+      verdict: verdict("injection_signature", delta + STRONG_DELTA, strong),
     };
-  if (WEAK.some((re) => re.test(probe))) {
-    notes.push("weak signature");
+  const probe = folded(latin(withoutHidden));
+  const signals = WEAK.filter(([, re]) => re.test(probe)).map(([signal]) => signal);
+  if (signals.length) {
+    notes.push(...signals);
     delta -= 10;
   }
   const secrets = redactSecrets(text);
@@ -219,6 +314,7 @@ export function gate(input: unknown, storeHost: string): GateResult {
   return {
     ok: true,
     text,
+    signals,
     redacted: secrets.redacted,
     scoreDelta: delta,
     verdict: verdict("allow", delta, notes.join(", ") || undefined),

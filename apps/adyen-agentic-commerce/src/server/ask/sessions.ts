@@ -44,6 +44,9 @@ export type AskSession = {
   // Prices (minor units) the store's tools returned in this session: the output filter keeps only
   // these amounts in the agent's text.
   prices: number[];
+  // Checkout ids this conversation's widgets showed, newest first: the only checkouts the receipt
+  // email route accepts (spec invariant 19).
+  checkouts?: string[];
   connected?: { grantId?: string; at: number };
   voice: { unlocked: boolean; seconds: number };
   test?: boolean;
@@ -187,6 +190,21 @@ export function appendMessage(
   const seq = findBy<AskMessage>("ask_messages", "sessionId", session.id).length + 1;
   const id = `${session.id}:${String(seq).padStart(4, "0")}`;
   return put<AskMessage>("ask_messages", id, { ...message, id, sessionId: session.id, seq });
+}
+
+export const MAX_CHECKOUTS = 20;
+
+// The checkout ids widget data names (a bag's data is one checkout), added newest first.
+export function mergeCheckouts(known: string[] | undefined, data: unknown[]): string[] | undefined {
+  const ids = data.flatMap((d) =>
+    typeof d === "object" && d !== null && "id" in d && typeof d.id === "string"
+      ? d.id.startsWith("chk_")
+        ? [d.id]
+        : []
+      : [],
+  );
+  if (!ids.length) return known;
+  return [...new Set([...ids.reverse(), ...(known ?? [])])].slice(0, MAX_CHECKOUTS);
 }
 
 export const transcript = (sessionId: string) =>

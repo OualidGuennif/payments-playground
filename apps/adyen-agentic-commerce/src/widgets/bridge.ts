@@ -8,7 +8,6 @@ export type CallResult = { structuredContent?: unknown; isError?: boolean };
 export type Theme = "light" | "dark";
 export type Host = {
   call(name: string, args: Json): Promise<CallResult>;
-  say(text: string): Promise<void>;
   open(url: string): Promise<void>;
   tellModel(text: string, data?: Json): void;
   remember(state: Json): void;
@@ -20,7 +19,6 @@ type OpenAi = {
   theme?: string;
   widgetState?: unknown;
   callTool?: (name: string, args: Json) => Promise<unknown>;
-  sendFollowUpMessage?: (args: { prompt: string }) => Promise<void>;
   openExternal?: (args: { href: string; redirectUrl?: boolean }) => void | Promise<void>;
   setWidgetState?: (state: Json) => void | Promise<void>;
   notifyIntrinsicHeight?: (height: number) => void;
@@ -184,11 +182,6 @@ export function connect(on: { result(data: unknown): void; theme(theme: Theme): 
         }
       }
       return result as CallResult;
-    },
-    async say(text) {
-      if (standard)
-        await request("ui/message", { role: "user", content: [{ type: "text", text }] }, 10_000);
-      else await (openai()?.sendFollowUpMessage?.({ prompt: text }) ?? unavailable());
     },
     async open(url) {
       if (standard) {

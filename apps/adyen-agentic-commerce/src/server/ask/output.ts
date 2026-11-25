@@ -3,6 +3,7 @@
 // whatever a model wrote passes here before a shopper reads it, so a leaked prompt, a link that
 // carries data off the store, a card number or an invented price stops at this point.
 import { redactSecrets } from "./gate";
+import { maskEmails } from "../../lib/mask";
 import type { StageVerdict } from "./sessions";
 
 export const MAX_ANSWER_CHARS = 2_000;
@@ -96,6 +97,10 @@ export function pricesIn(value: unknown, found: number[] = [], depth = 0): numbe
   return found;
 }
 
+// International numbers, and French ones written 0X XX XX XX XX: an answer never carries a phone.
+const PHONE = /\+\d[\d .-]{7,16}\d|\b0[1-9](?:[ .-]?\d{2}){4}\b/g;
+export const PHONE_PLACEHOLDER = "[phone removed]";
+
 // Newest first, so the bounded list keeps what the conversation is about now.
 export const mergePrices = (known: number[], added: number[]) =>
   [...new Set([...added, ...known])].slice(0, MAX_PRICES);
@@ -144,7 +149,10 @@ export function filterOutput(input: {
   }
   const secrets = redactSecrets(links.text);
   if (secrets.redacted) notes.push("secret removed");
-  const amounts = withoutUnknownAmounts(secrets.text, input.prices);
+  // Personal data stays out of answers: the agent never sees it unmasked, and never writes it.
+  const personal = maskEmails(secrets.text).replace(PHONE, PHONE_PLACEHOLDER);
+  if (personal !== secrets.text) notes.push("personal data masked");
+  const amounts = withoutUnknownAmounts(personal, input.prices);
   if (amounts.replaced) notes.push(`${amounts.replaced} amount(s) replaced`);
   const final = capped(amounts.text.trim());
   if (final.cut) notes.push("cut");

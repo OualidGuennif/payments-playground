@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: antigravity/gemini
-  at: 2026-11-25T15:00:00Z
+  at: 2026-11-25T16:00:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -205,14 +205,13 @@ before, every deploy or restart emptied orders, agents and grants.
   where the shopper pays in Drop-in. This is separate from `/mcp`, which is unchanged.
 - **Shopper in an agent host's UI (MCP Apps, [ADR-017](../decisions/ADR-017-mcp-apps-ui-on-the-ucp-server.md)):**
   a host that renders MCP Apps (ChatGPT, Claude) shows the product carousel or the bag inside the
-  conversation. The shopper picks a mode in it: "By hand", where its buttons call the UCP tools
-  through the host (search, next page, add to bag, quantities, checkout, pay with a listed saved
-  card), or "With the assistant", where the same buttons only send the assistant a sentence and the
-  assistant calls the tools. Either way every call is the host's `tools/call` on the shopper's
-  grant; the widget holds no token and no card data, and from the host's first message on it posts to
+  conversation. Its buttons call the UCP tools through the host themselves (search, next page,
+  add to bag, quantities, checkout, pay with a listed saved card); it never writes to the
+  assistant. Every call is the host's `tools/call` on the shopper's grant; the widget holds no token and no card data, and from the host's first message on it posts to
   the host's origin only (keeping `"*"` for the handshake and for an opaque `"null"` host origin).
-  It shows the store's refusals in its own plain words for the codes it knows, and the store's
-  text for any other.
+  It shows the store's refusals in its own plain words for the codes it knows ("The store needs an
+  email for the receipt." for `missing_buyer_email`, which the store's checkout page or the Ask
+  panel asks for), and the store's text for any other.
 - **Catalogue:** UCP's `filters.categories` (any of the listed ones) and `filters.price` (`min`,
   `max`, minor units) on search, lookup and product; the singular `category` this store read
   before stays accepted. Search pages with `pagination.limit` (10 by default, at most 50) and the
@@ -556,8 +555,8 @@ before, every deploy or restart emptied orders, agents and grants.
 28. The UI resources (v2 URIs and v1 aliases) answer where `tools/list` does, load nothing outside
     `PUBLIC_ORIGIN`, match their sources' hash, and serve `prompts/list`/`prompts/get`
     (`src/server/mcp/widgets.test.ts`).
-29. A widget has no authority: "By hand" calls UCP tools (named `saved_card`, single-attempt
-    idempotency keys, extending the open bag), "With the assistant" sends a sentence, and the bridge
+29. A widget has no authority: its buttons call UCP tools (named `saved_card`, single-attempt
+    idempotency keys, extending the open bag) and never send the assistant a message, and the bridge
     pins parent origin and suppresses stale host `toolOutput` / composer text
     (`src/widgets/logic.test.ts`, `src/server/mcp/widgets.test.ts`, `src/widgets/bridge.test.ts`).
 30. The plugin ZIP holds its listed files, `$schema`, `${PUBLIC_ORIGIN}/mcp`, OpenAI OAuth CIMD

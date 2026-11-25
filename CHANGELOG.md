@@ -5,6 +5,21 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Ask the receipt email in the Ask panel itself: when the bag's checkout lacks one, a block under
+  the widget offers the account's address (shown masked) or takes a typed one, and posts it to
+  `POST /api/ask/checkout-email`, never through the assistant; the route takes only a checkout
+  this conversation showed, sets the email once and keeps it out of the transcript.
+- Keep one widget in the Ask panel: the carousel and the bag share one frame under the newest
+  message that showed one, fed every view the agent or a tap brought, while earlier messages keep
+  a line. The widget loses its "By hand" / "With the assistant" switch and its TEST note: its
+  buttons call the store's tools and never write to the assistant, in the panel and in ChatGPT.
+- Tighten the Ask agent against prompt injection, after the prompt-injection-defense skill, OWASP
+  LLM01:2025 and Microsoft's indirect-injection guidance: stage 1 also refuses claimed authority,
+  faked boundaries, a role without rules, look-alike letters, digit spellings and base64 payloads,
+  and names its weak signals to the guard; the guard knows the twelve attack families and the
+  session's earlier refusals; a second injection locks the session; the agent's prompt carries the
+  standing rules; store answers carrying an injection are withheld from the agent and buyer data
+  is masked in them; answers mask emails and phone numbers; the red team grows to 16 attacks.
 - Show the product pictures in the Ask panel's carousel and bag: the panel hands the store's own
   images to the widget inline, because Chromium refuses its sandboxed frame's requests to a
   loopback store; the widget draws a base64 `data:image/` picture besides the store's own.

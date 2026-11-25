@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add the Ask agent's browser sessions: one per browser behind an `av_ask` cookie of 128 random
+  bits stored only as a hash; a guest who signs in keeps the conversation, sign-out or another
+  customer ends it; time and idle limits; per-address limits for new sessions, messages and
+  password tries; the regular-shopper test (paid order, 7-day account, no lock in 30 days).
 - Add the Ask agent's configuration: `src/server/ask/config.ts` reads which provider keys are set
   (never their values), the answer and guard models and efforts, the limits within fixed ranges
   and the console password (16 characters or the console is off); `settings.ts` lets the console

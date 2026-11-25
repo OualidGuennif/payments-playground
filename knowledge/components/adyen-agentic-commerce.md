@@ -291,7 +291,10 @@ before, every deploy or restart emptied orders, agents and grants.
   keeps what was spent and needs no new sign-in; a payment the shopper makes at `continue_url`
   never counts against the agent's limit. An agent that completes with no instrument hands the checkout over: from then on
   agents see it `requires_escalation` (`shopper_pays`) and the shopper pays at `continue_url` in
-  Drop-in.
+  Drop-in. A checkout whose only missing detail is the receipt's email (an agent shopping as a
+  guest) asks for it there: `POST /api/checkouts/:id/email` `{ email }` fills that gap once, never
+  replaces an email already set or an account's, and answers 404 for another account's checkout
+  (`src/server/accounts/customers.test.ts`, "takes one at its link, once").
 - **Checkout status for an agent:** with lines, a buyer email and payments configured, a guest's
   checkout is `ready_for_complete` (it may pay with a network token) and a signed-in agent's is
   too while the total fits its remaining limit, unless it was handed to the shopper; `payment.instruments` lists the account's saved

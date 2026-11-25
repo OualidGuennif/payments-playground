@@ -27,6 +27,7 @@ export { cardAlias, forgetCardCache, savedCards } from "./saved-cards";
 export { cancelCart, createCart, loadCart, updateCart } from "./carts";
 export {
   assess,
+  buyerOf,
   type Assessment,
   budgetUrl,
   cancelCheckout,

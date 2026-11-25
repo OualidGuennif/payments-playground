@@ -194,6 +194,38 @@ const browserApi = new Elysia({ prefix: "/api" })
       return status(502, { error: "The payment session could not be created" });
     }
   })
+  // A checkout handed over without an email (an agent shopping as a guest) gets it from the person
+  // paying at its link. It fills a gap only: an email already set, or an account's, never changes.
+  .post("/checkouts/:id/email", ({ request, params, body }) => {
+    const limited = sessionLimit(request, "payment");
+    if (limited) return limited;
+    const input = isRecord(body) ? body : {};
+    const customer = customerOf(request);
+    try {
+      const checkout = commerce.loadCheckout(params.id, "browser");
+      if (checkout.customerId && checkout.customerId !== customer?.id)
+        return status(404, { error: "Checkout not found" });
+      if (commerce.buyerOf(checkout)?.email)
+        return status(409, { error: "This checkout already has an email" });
+      const email = typeof input.email === "string" ? input.email.trim() : "";
+      if (!email) return status(400, { error: "Enter an email address" });
+      const updated = commerce.updateCheckout(checkout, { buyer: { ...checkout.buyer, email } });
+      trace({
+        channel: commerce.channelOf(updated),
+        actor: "shopper",
+        method: "POST",
+        path: "/api/checkouts/:id/email",
+        status: 200,
+        ref: updated.id,
+        detail: { email: "set" },
+      });
+      return checkoutView(updated, customer);
+    } catch (error) {
+      if (error instanceof commerce.CommerceError)
+        return status(error.status, { error: error.msg.content });
+      throw error;
+    }
+  })
   .post("/checkouts/:id/session-result", async ({ request, params, body }) => {
     const input = isRecord(body) ? body : {};
     try {

@@ -477,6 +477,42 @@ describe("web channel", () => {
     expect(fake.sessions.at(-1)!.shopperReference).toBeUndefined();
   });
 
+  test("a checkout handed over without an email takes one at its link, once", async () => {
+    const { body } = await call("POST", "/api/checkouts", {
+      body: { lines: checkoutBody.lines },
+    });
+    const path = `/api/checkouts/${body.id}`;
+    const before = await call("GET", path);
+    expect(before.body.status).toBe("incomplete");
+    expect(before.body.messages.map((m: { code: string }) => m.code)).toEqual([
+      "missing_buyer_email",
+    ]);
+    for (const email of ["", "   ", "not-an-email", 42])
+      expect((await call("POST", `${path}/email`, { body: { email } })).status).toBe(400);
+    const saved = await call("POST", `${path}/email`, { body: { email: " guest@example.com " } });
+    expect(saved.status).toBe(200);
+    expect(saved.body.status).not.toBe("incomplete");
+    expect(saved.body.buyer.email).toBe("guest@example.com");
+    const again = await call("POST", `${path}/email`, { body: { email: "other@example.com" } });
+    expect(again.status).toBe(409);
+    expect((await call("GET", path)).body.buyer.email).toBe("guest@example.com");
+  });
+
+  test("another account's checkout, or one with an email, cannot take one", async () => {
+    const ada = await signUpCustomer();
+    const bob = await signUpCustomer();
+    const { body } = await call("POST", "/api/checkouts", {
+      cookie: ada.cookie,
+      body: { lines: checkoutBody.lines },
+    });
+    const path = `/api/checkouts/${body.id}/email`;
+    const email = { email: "mallory@example.com" };
+    expect((await call("POST", path, { cookie: bob.cookie, body: email })).status).toBe(404);
+    expect((await call("POST", path, { body: email })).status).toBe(404);
+    // Ada's own checkout has her account's email already.
+    expect((await call("POST", path, { cookie: ada.cookie, body: email })).status).toBe(409);
+  });
+
   test(`at most ${SESSIONS_PER_MINUTE} Drop-in or card-save sessions a minute per address`, async () => {
     const ip = randomIp();
     const { body } = await call("POST", "/api/checkouts", { body: checkoutBody });

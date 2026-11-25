@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Let the agentic store's checkout page ask for a missing receipt email: a checkout an agent
+  handed over as a guest no longer stops at "missing details"; the email fills that gap once and
+  never replaces one already set.
 - Declare the Ask agent's secrets on the agentic store's Render service: the four model keys and
   the console password, each set by hand in the dashboard; the deploy runbook says what each one
   turns on.

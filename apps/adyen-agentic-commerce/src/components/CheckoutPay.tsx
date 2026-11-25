@@ -1,7 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 "use client";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { type FormEvent, useCallback, useState } from "react";
 import type { checkoutView } from "@/server/api";
 import { DropinPanel, type SessionInfo } from "@/components/DropinPanel";
 import { StatusPill } from "@/components/StatusPill";
@@ -44,6 +44,29 @@ export function CheckoutPay({
     },
     [view.id],
   );
+
+  const [email, setEmail] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  // A checkout an agent handed over as a guest may lack only the receipt's email: ask for it here.
+  const needsEmailOnly =
+    view.phase === "open" &&
+    view.status === "incomplete" &&
+    view.messages.length > 0 &&
+    view.messages.every((m) => m.code === "missing_buyer_email");
+
+  const saveEmail = async (event: FormEvent) => {
+    event.preventDefault();
+    setSavingEmail(true);
+    const { data, error } = await api().checkouts({ id: view.id }).email.post({ email });
+    setSavingEmail(false);
+    if (error || !data || "error" in data) {
+      const value = error?.value as { error?: unknown } | undefined;
+      setError(typeof value?.error === "string" ? value.error : "The email could not be saved.");
+      return;
+    }
+    setError(undefined);
+    setView(data);
+  };
 
   const payable =
     view.phase === "open" &&
@@ -125,6 +148,26 @@ export function CheckoutPay({
             onFinished={onFinished}
             redirect={pendingRedirect}
           />
+        ) : needsEmailOnly && view.paymentsReady ? (
+          <form onSubmit={saveEmail} className="space-y-3">
+            <h2 className="text-xl">Where should we send the receipt?</h2>
+            <label htmlFor="checkout-email" className="block text-sm text-muted">
+              Email
+            </label>
+            <input
+              id="checkout-email"
+              type="email"
+              required
+              autoComplete="email"
+              maxLength={254}
+              className="field w-full"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <button type="submit" className="btn w-full" disabled={!email.trim() || savingEmail}>
+              {savingEmail ? "Saving…" : "Continue to payment"}
+            </button>
+          </form>
         ) : (
           <p className="text-sm text-muted">
             {!view.paymentsReady

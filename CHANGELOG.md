@@ -12,6 +12,7 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   A widget call no longer reactivates a session locked while it ran. Capital Cyrillic and Greek
   look-alikes now meet the injection signatures. A second tab can no longer open a payment form while
   another tab's payment holds the checkout, which kept that payment's refusal from reopening it.
+  A signed-in shopper paying a guest bag now also holds their account's other payments.
 - Add a ten-minute demo to the agentic `/docs` overview: eight stops, each saying what to do and
   what to point out. The local PAP agent script ends an over-budget run by printing the shopper's
   link instead of a stack trace.

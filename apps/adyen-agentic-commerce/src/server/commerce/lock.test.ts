@@ -250,6 +250,25 @@ describe("one payment at a time per account", () => {
     expect(fake.payments).toHaveLength(0);
   });
 
+  test("a guest bag the signed-in shopper is paying stops the account's other payments", async () => {
+    agent.ip = randomIp();
+    await agent.signIn();
+    const auth = authenticate(`Bearer ${agent.accessToken}`, "/mcp") as Auth;
+    const customer = customerById(grants()[0]!.customerId)!;
+    const theirs = commerce.createCheckout({ line_items: items(SOCKS) }, auth);
+    // A bag opened as a guest, then paid from a tab where the shopper has signed in since.
+    const { checkout: guest, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(guest.id, session.id, Date.now(), customer.id);
+    expect(commerce.accountPaying(customer.id, theirs.id)).toBe(true);
+    expect(
+      commerce.completeCheckout(commerce.loadCheckout(theirs.id, auth), savedCard, auth),
+    ).rejects.toThrow("already in progress");
+    expect(fake.payments).toHaveLength(0);
+    // The hold ends with its payment: released, it stops nothing.
+    commerce.releasePayment(guest.id, `${guest.id}-s1`);
+    expect(commerce.accountPaying(customer.id, theirs.id)).toBe(false);
+  });
+
   test("an agent paying for the account stops a Drop-in claim on another checkout", async () => {
     agent.ip = randomIp();
     await agent.signIn();

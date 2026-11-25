@@ -28,11 +28,16 @@ const sameLines = (a: Line[] | undefined, b: Line[]) =>
  */
 export function accountPaying(customerId: string | undefined, exceptId: string, at = Date.now()) {
   if (!customerId) return false;
-  return findBy<Checkout>("checkouts", "customerId", customerId).some(
-    (c) =>
-      c.id !== exceptId &&
-      (payingNow(c, at) !== undefined ||
-        (c.phase === "complete_in_progress" && Date.parse(c.updatedAt) + PAYING_MS > at)),
+  const busy = (c: Checkout) =>
+    c.id !== exceptId &&
+    (payingNow(c, at) !== undefined ||
+      (c.phase === "complete_in_progress" && Date.parse(c.updatedAt) + PAYING_MS > at));
+  // The account's own checkouts, and any checkout its browser holds while signed in.
+  return (
+    findBy<Checkout>("checkouts", "customerId", customerId).some(busy) ||
+    findBy<Checkout>("checkouts", "payerId", customerId).some(
+      (c) => payingNow(c, at) !== undefined && busy(c),
+    )
   );
 }
 
@@ -91,6 +96,7 @@ export function claimWebPayment(
   return saveCheckout({
     ...checkout,
     paying: { channel: "web", reference: record.reference, until },
+    payerId: viewerId && viewerId !== checkout.customerId ? viewerId : undefined,
   });
 }
 

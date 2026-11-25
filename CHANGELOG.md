@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Specify the agentic store's Ask agent before its code: the component doc with its five-stage
+  gate, session score, limits, console and voice invariants, ADR-018 (Flue in-process on Bun,
+  Pi's OpenAI, Anthropic, Mistral and DeepSeek providers, the store's own MCP as the only tools,
+  GPT-Live voice), and its threat table in SECURITY.md.
 - Record the v0.7.2 deploy check: PR #19 merged on `main` (`2daf80e`, CI `45572176026` green),
   tag `v0.7.2` published, and Render's deployments of landing, digital, styling and agentic
   succeeded by 07:59:33 UTC. Health, public pages and read-only routes answer on the three apps,

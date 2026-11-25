@@ -5,13 +5,14 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Reorganize the three apps' code layout — ACTIVE
+## Ask agent on the agentic store, a PAP agent — ACTIVE
 
-- Owner decision: 2026-11-25, in chat: plan approved; digital, then styling, then agentic;
-  moves and splits only, no stack, URL or behaviour change.
-- State: digital, styling and agentic reorganized and committed on `develop`, unpushed.
-- Next: `pr-review` receipt (who: agent), then the owner's yes to push (who: owner).
-- Blocker: none.
+- Owner decision: 2026-11-25, in chat: guest-or-signed-in chat sidebar, Flue agent, server-only
+  keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
+- State: build approved 2026-11-25 (Flue 2.3.1 install included); spike done (in-process on
+  Bun); spec `knowledge/components/ask-agent.md` and ADR-018 written.
+- Next: slices 3-10 from the handover (who: agent).
+- Blocker: none to build; an independent review before any push.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 
 ## v0.7.1: ChatGPT widget fixes, card-save return, MCP stylist & ZIP — WAITING-OWNER

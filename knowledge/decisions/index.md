@@ -32,3 +32,4 @@ Each ADR states its context, the decision and its consequences. Supersede an ADR
 | [ADR-015: Customer accounts and agent network tokens](ADR-015-customer-accounts-and-agent-network-tokens.md)  | stable | 2026-11-17               |
 | [ADR-016: A client assertion's aud may be the token endpoint](ADR-016-client-assertion-audience-for-mcp-clients.md) | stable | 2026-11-18               |
 | [ADR-017: MCP Apps UI on the UCP MCP server](ADR-017-mcp-apps-ui-on-the-ucp-server.md) | stable | 2026-11-18               |
+| [ADR-018: Ask agent, Flue in-process on the store's own MCP](ADR-018-ask-agent-flue-in-process.md) | stable | 2026-11-25               |

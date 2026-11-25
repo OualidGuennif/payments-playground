@@ -78,6 +78,29 @@ stored or logged. That is a backstop for a mistake, not a licence to send card d
 - recursive redaction of sensitive keys, with payload truncation
 - explicit rejection of raw card data
 
+## The agentic store's Ask agent
+
+A chat on the agentic store runs a language model for anyone who visits
+([spec](../knowledge/components/ask-agent.md),
+[ADR-018](../knowledge/decisions/ADR-018-ask-agent-flue-in-process.md)). The threats and their
+controls:
+
+| Threat                                                   | Control                                                                                    |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| A model key leaks                                        | Keys only in server variables; no key, model or effort in any browser answer               |
+| Prompt injection takes over the agent                    | It holds no privilege: only the store's MCP tools, with no token or the shopper's own grant |
+| Injection hidden in text (tag, bidi, zero-width characters) | Stage 1 removes or refuses them before any model sees the text                           |
+| Off-topic use or abuse of a paid model                   | LLM guard, score per session, call cap per message, budgets per session and per day       |
+| A shopper pastes a card number, IBAN or password         | Stage 1 replaces it before any model, log or transcript                                    |
+| The agent is talked into a payment                       | Payment tools exist only for a connected, signed-in shopper in normal mode; the grant's budget and step-up apply |
+| The answer leaks the prompt or sends shoppers elsewhere  | Canary check, off-site links removed, unknown amounts masked                               |
+| Someone reads another shopper's conversation             | Random session id in an httpOnly cookie, stored hashed; sign-out ends the session          |
+| Guessing the console or voice password                   | 5 tries per 15 minutes per address; the console needs a 16-character password              |
+| A voice call runs up costs                               | Minutes cap per session and per day; the password `adyentic` is a demo gate, not protection |
+
+Not covered: a provider's own retention of prompts, and a determined attacker spreading requests
+over many addresses (the daily budget bounds the cost).
+
 ## Profiles and secrets
 
 Profiles added through the UI are posted straight to the backend, encrypted, and never returned in

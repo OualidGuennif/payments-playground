@@ -101,11 +101,10 @@ async function until(check: () => boolean, what: string) {
   throw new Error(`timed out waiting for ${what}`);
 }
 
-const liveEvent = (type: string, body: Record<string, unknown> = {}) => ({
-  type,
-  event_id: `evt_${(eventSeq += 1)}`,
-  ...body,
-});
+function liveEvent(type: string, body: Record<string, unknown> = {}) {
+  eventSeq += 1;
+  return { type, event_id: `evt_${eventSeq}`, ...body };
+}
 
 // A browser with an active, unlocked session.
 async function unlocked() {
@@ -236,7 +235,9 @@ describe("starting a call", () => {
     expect(JSON.stringify(body)).not.toContain(KEY);
     const [request] = requests;
     expect(request?.url).toBe(LIVE_SESSIONS);
-    expect((request?.init.headers as Record<string, string>).authorization).toBe(`Bearer ${KEY}`);
+    expect((request?.init.headers as Record<string, string> | undefined)?.authorization).toBe(
+      `Bearer ${KEY}`,
+    );
     const sent = JSON.parse(String(request?.init.body));
     expect(sent.transport).toEqual({ type: "webrtc", sdp: OFFER });
     expect(sent.session).toMatchObject({

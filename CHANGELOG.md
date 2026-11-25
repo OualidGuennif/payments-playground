@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-25
+
 - Fix the agentic account page's agent budget: the limit is labelled as a total including what
   was spent, a live line says what a typed limit leaves the agent, + 50/100/300 EUR buttons add
   to it, the phone keyboard's OK saves any total to the cent (the form skips the browser's step

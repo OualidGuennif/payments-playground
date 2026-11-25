@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Declare the Ask agent's secrets on the agentic store's Render service: the four model keys and
+  the console password, each set by hand in the dashboard; the deploy runbook says what each one
+  turns on.
 - Add the Ask agent's GPT-Live voice mode on OpenAI conversations: unlocked with its password,
   checked on the server; the server creates each call with OpenAI's key and keeps its sideband,
   so the browser holds no key and can send no command; every spoken request runs the same five

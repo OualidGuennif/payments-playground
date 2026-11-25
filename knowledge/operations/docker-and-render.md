@@ -7,7 +7,7 @@ status: stable
 scope: docker-and-render
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T15:00:00Z
+  at: 2026-11-25T13:20:00Z
 sources:
   - id: dockerfile
     resource: ../../apps/adyen-digital/Dockerfile
@@ -80,7 +80,12 @@ Per service, set the Adyen TEST values as secret env vars (`sync: false`), let R
 URL (it anchors the webhook URL and the CSRF fallback). Add that origin to the client key's allowed
 origins and point a TEST webhook at `${PUBLIC_ORIGIN}/webhook`. The agentic store needs no generated
 secret; it takes `ADYEN_HMAC_KEY` and the optional basic auth pair, and its webhook path is
-`${PUBLIC_ORIGIN}/api/webhooks/adyen`.
+`${PUBLIC_ORIGIN}/api/webhooks/adyen`. Its Ask agent reads the model keys `OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY`, `MISTRAL_API_KEY` and `DEEPSEEK_API_KEY` and the console's
+`CONSOLE_PASSWORD` (16 characters or more), all `sync: false`; without the answer model's key the
+chat stays off, without the password `/console` does not exist. Models, efforts and limits keep the
+code's defaults unless an `ASK_*` variable from `.env.example` is set; the console overrides them
+and stores its choice in the SQLite file. Flue keeps its own `flue.sqlite` beside it on the disk.
 
 After a push to `main`, confirm what is live with `GET /api/health`: it reports the Adyen Web,
 Checkout API and library versions.

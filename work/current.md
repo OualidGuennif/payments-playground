@@ -9,9 +9,9 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-25, in chat: guest-or-signed-in chat sidebar, Flue agent, server-only
   keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
-- State: committed locally from `2f371ab`: spec, config, sessions, all five stages, the Flue
-  2.3.1 house agent, its runtime meter and the message pipeline (125 Ask tests pass).
-- Next: `/api/ask/*` routes, then console, panel, voice (who: agent).
+- State: committed locally from `2f371ab`: five stages, Flue house agent, `/api/ask` and
+  `/api/console` routes, the `/console` page.
+- Next: shopper panel with widgets, then voice, env and deploy docs (who: agent).
 - Blocker: none to build; an independent review before any push.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 

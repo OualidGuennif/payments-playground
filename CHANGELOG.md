@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add the Atelier Velune console page at `/console` (not found without a console password, never
+  indexed): an overview of today's sessions, cost against the daily budget, cache reads and
+  refusals; the sessions with each transcript and its verdicts; model, effort and limit settings
+  offering only providers with a key, sending only what changed; the playground and red team.
 - Add the Atelier Velune console's server side under `/api/console`: a password sign-in that
   exists only with a `CONSOLE_PASSWORD` of 16 characters or more, five tries per 15 minutes, a
   strict cookie; today's sessions, cost, cache reads and refusals; every session's transcript with

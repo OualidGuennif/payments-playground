@@ -216,3 +216,17 @@ describe("testing the agents", () => {
     }
   });
 });
+
+describe("keys stay server-side", () => {
+  test("no browser module imports the Ask server code", async () => {
+    const offenders: string[] = [];
+    for await (const path of new Bun.Glob("src/**/*.{ts,tsx}").scan(".")) {
+      const text = await Bun.file(path).text();
+      const browser =
+        /^\s*["']use client["']/.test(text) || path.startsWith("src/components/console/");
+      if (browser && /from\s+["'](@\/server\/ask|[./]+\/server\/ask|[./]+\/ask\/)/.test(text))
+        offenders.push(path);
+    }
+    expect(offenders).toEqual([]);
+  });
+});

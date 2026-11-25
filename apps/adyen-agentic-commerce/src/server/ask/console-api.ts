@@ -6,7 +6,7 @@ import { Elysia } from "elysia";
 import { config } from "../core/config";
 import { isRecord, json } from "../core/util";
 import { clientIp } from "../protocol";
-import { askConfig } from "./config";
+import { askConfig, EFFORTS } from "./config";
 import {
   closeConsoleSession,
   closeSession,
@@ -60,6 +60,14 @@ async function bodyOf(request: Request): Promise<Record<string, unknown> | undef
     return undefined;
   }
 }
+
+// The settings form: providers with a key, the catalogue, the efforts and the audit log.
+const settingsView = (ask: ReturnType<typeof askConfig>) => ({
+  ...describeSettings(ask),
+  efforts: EFFORTS,
+  models: modelCatalog(),
+  audit: auditLines(50),
+});
 
 const invalid = () => reply(400, { error: "invalid_request", message: "Send a JSON object." });
 
@@ -126,7 +134,7 @@ export const consoleApi = new Elysia({ prefix: "/api/console" })
     const stop = refused(request, { post: false, signedIn: true });
     if (stop) return stop;
     const ask = askConfig();
-    return reply(200, { ...describeSettings(ask), models: modelCatalog(), audit: auditLines(50) });
+    return reply(200, settingsView(ask));
   })
   .post("/settings", async ({ request }) => {
     const stop = refused(request, { post: true, signedIn: true });
@@ -140,7 +148,7 @@ export const consoleApi = new Elysia({ prefix: "/api/console" })
       return reply(400, { error: "invalid_setting", field: error.field, message: error.message });
     }
     const ask = askConfig();
-    return reply(200, { ...describeSettings(ask), models: modelCatalog(), audit: auditLines(50) });
+    return reply(200, settingsView(ask));
   })
   .post("/playground", async ({ request }) => {
     const stop = refused(request, { post: true, signedIn: true });

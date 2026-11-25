@@ -130,7 +130,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
 
 1. **Keys stay server-side.** No key, model id or effort reaches a browser; no `"use client"`
    module imports `src/server/ask`. The console shows whether a key is set, never its value.
-   Test: `ask/config.test.ts` "keys never serialized"; `ask/api.test.ts` "session view fields".
+   Test: `ask/config.test.ts` "keys never serialized"; `ask/api.test.ts` "session view fields";
+   `ask/console.test.ts` "no browser module imports the Ask server code".
 2. **No privilege.** The agent's only store tools are the store's 13 MCP tools, called in-process
    (`handleHouseMcp`) as a signed-out PAP guest or with the token of the shopper's own grant
    (connected). A payment uses that grant's scopes, budget and step-up exactly as for an outside

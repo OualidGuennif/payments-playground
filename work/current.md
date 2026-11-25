@@ -9,11 +9,11 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-25, in chat: guest-or-signed-in chat sidebar, Flue agent, server-only
   keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
-- State: committed locally from `2f371ab` (unpushed): lock `60e9d0f`, one bag `cacddb3`, plain
-  words `17a9c08`, Code Mode `550d271` (687 tests); plain-words docs uncommitted, tests green.
-- Next: finish plain docs, demo pass and walkthrough (who: agent, in progress); voice,
-  375/1440 (owner); review, push (owner); Pi exemption 11-27.
-- Blocker: none to build; an independent review before any push.
+- State: committed locally from `2f371ab` (unpushed): lock, one bag, plain words, Code Mode,
+  plain docs `1181913`, ten-minute demo `c88046d`; `bun run check` green (690 agentic tests).
+- Next: owner tries the demo (voice, signed-out "Welcome back", a real assistant); independent
+  review and security scan of Code Mode, then push (who: owner); Pi exemption 11-27.
+- Blocker: an independent review before any push.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 
 ## v0.7.1: ChatGPT widget fixes, card-save return, MCP stylist & ZIP — WAITING-OWNER

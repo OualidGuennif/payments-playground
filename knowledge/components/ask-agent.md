@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T23:00:00Z
+  at: 2026-11-25T13:05:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -74,7 +74,10 @@ voice mode (GPT-Live) talks to the same agent through the same gate.
   as JSON, never `text/html`, with a Content-Security-Policy meta (no connection, images from
   `PUBLIC_ORIGIN` only); anything else is `invalid_request`.
 - **Voice** `POST /api/ask/voice/unlock` `{ password }`; `POST /api/ask/voice/call` `{ sdp }` (an
-  SDP offer, ≤ 20 KB); `POST /api/ask/voice/hangup`.
+  SDP offer starting `v=0`, ≤ 20,000 characters), answered `{ sdp, maxSeconds }`; `POST
+  /api/ask/voice/hangup`. From OpenAI's sideband the server reads `session.started`, the input
+  transcript, `session.delegation.created`, `session.usage.updated`, `session.updated` and
+  `session.closed`; it sends only `session.commentary.append` and `session.close`.
 - **Console** `POST /api/console/login` `{ password }`, `POST /api/console/logout`, `GET
   /api/console/overview`, `GET /api/console/sessions?state=`, `GET /api/console/sessions/:id`,
   `POST /api/console/sessions/:id/end|lock`, `GET|POST /api/console/settings`, `POST
@@ -117,13 +120,20 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   with the page's theme, `tools/call` sent to `POST /api/ask/widget`, `ui/message` sent through
   the five stages, `ui/open-link` for the store's pages only, size changes clamped to 120 to
   900 px. Only the newest carousel and the newest bag stay live; an older one becomes a line.
+  When voice is offered, a "Voice" button asks for the password, then "Talk instead" starts a call
+  (microphone, WebRTC to OpenAI with the server's answer, a data channel that only listens): a bar
+  shows the countdown, the last caption and End; the composer waits and the conversation refreshes
+  every 3 s while the call runs. A call's end is a note "Voice call ended".
 - **Errors** (JSON `{ error, message }`): `ask_disabled` 503 (no answer model with a key, or the
   switch off), `budget_exhausted` 503 (daily budget spent, until 00:00 UTC), `rate_limited` 429
   with `retry-after`, `session_ended` 409 with `reason` (`time`, `idle`, `messages`, `budget`,
   `signed_out`, `other_customer`, `ended_by_shopper`, `ended_by_console`), `session_locked` 423,
   `invalid_request` 400, `session_busy` 409 (a message of this session is still being answered),
   `not_signed_in` 401 (connect), `strict_mode` 403 (connect in strict
-  mode), `voice_unavailable` 404, `invalid_password` 401, `voice_limit` 429, `voice_failed` 502,
+  mode), `voice_unavailable` 404 (switch off, no OpenAI key, another provider, strict mode),
+  `voice_locked` 403 (not unlocked), `invalid_password` 401, `voice_limit` 429 (fewer than 30 s
+  left), `voice_failed` 502 (OpenAI refused or the sideband did not attach), `session_busy` 409
+  (a call is already running),
   `widget_tool_refused` 403, `store_refused` 409 (the store refused a widget's call), `forbidden`
   403 (no `X-Ask: 1`, or another site). Console: `404` when `CONSOLE_PASSWORD` is missing or under 16
   characters, `invalid_password` 401, `rate_limited` 429, `forbidden` 403 (origin, header or
@@ -214,12 +224,19 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     stages on a test session; the red-team list runs stages 1 to 3 on fixed attacks, each passing
     when refused no later than the stage it names, and its guard costs count in the day's total.
     Test: `ask/console.test.ts`.
-14. **Voice:** offered only when the session's model is OpenAI's and voice is on; unlocked by
-    `adyentic` checked on the server (5 tries per 15 minutes per address), per session. The browser
-    holds no key: the server creates the GPT-Live session and keeps its sideband. Each delegation
-    runs stages 1 to 5 on the transcript and answers with what stage 5 let through; an unexpected
-    `session.updated` or the minutes cap ends the call. Test: `ask/voice.test.ts` with a stubbed
-    OpenAI.
+14. **Voice:** offered only when the session's model is OpenAI's, its mode normal, voice on and
+    OpenAI's key set; unlocked by `adyentic` checked on the server as two digests (5 wrong tries
+    per 15 minutes per address), per session. The browser holds no key and steers nothing: the
+    server creates the GPT-Live session with client delegation and
+    `allowed_client_events: []`, attaches its sideband before answering the SDP, and keeps one
+    call per session. Each delegation runs stages 1 to 5 on the last 1,000 characters heard and
+    the voice gets only what stage 5 let through, without Markdown or links (at most 1,200
+    characters); sideband events replayed on attach count once. A call lasts at most the least of
+    the session's and the day's voice minutes (running calls reserve theirs), both budgets at
+    0.05 USD a minute, and the session's time left; the cap, an unexpected `session.updated`, an
+    ended session or the switch turned off closes it. Its seconds and cost land on the session and
+    on a note the day's totals count, even when the sideband is lost. Test: `ask/voice.test.ts`
+    with a stubbed OpenAI.
 15. **Widget actions** go to `/mcp` only for `search_catalog`, `get_product`, `lookup_catalog`,
     `create_cart`, `update_cart`, `get_cart`, `create_checkout`, `update_checkout`,
     `get_checkout`, and `complete_checkout` only when connected and normal; anything else is

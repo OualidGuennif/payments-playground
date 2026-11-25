@@ -5,17 +5,20 @@ import {
   type AskMessage,
   blocks,
   clampHeight,
+  clockText,
   distinctWidgets,
   endedText,
   type HostDeps,
   hostReply,
   inlines,
   liveWidgets,
+  nextCaption,
   parseEvents,
   safeHref,
   shownMessages,
   stageLabel,
   storePath,
+  voiceEvent,
 } from "./askLogic";
 
 const CAROUSEL = "ui://widget/product-carousel-v2.html";
@@ -230,5 +233,35 @@ describe("the MCP Apps host", () => {
     expect(d.resize).toHaveBeenCalledWith(900);
     expect(await hostReply({ method: "ui/initialize", id: 1 }, d)).toBeUndefined();
     expect(await hostReply("ui/initialize", d)).toBeUndefined();
+  });
+});
+
+describe("the voice call's captions", () => {
+  test("reads only captions and the call's start and end", () => {
+    expect(voiceEvent('{"type":"session.started"}')).toEqual({ kind: "started" });
+    expect(
+      voiceEvent('{"type":"session.input_transcript.delta","delta":"A dress","start_ms":0}'),
+    ).toEqual({ kind: "caption", who: "you", delta: "A dress" });
+    expect(voiceEvent('{"type":"session.output_transcript.delta","delta":"Here"}')).toEqual({
+      kind: "caption",
+      who: "assistant",
+      delta: "Here",
+    });
+    expect(voiceEvent('{"type":"session.closed","reason":"expired"}')).toEqual({
+      kind: "closed",
+      reason: "expired",
+    });
+    for (const raw of ["not json", "[]", '{"type":"session.delegation.created"}', "{}"])
+      expect(voiceEvent(raw)).toBeUndefined();
+  });
+
+  test("one line per speaker turn, kept short; a countdown never goes negative", () => {
+    const first = nextCaption(undefined, "you", " A summer");
+    const second = nextCaption(first, "you", " dress");
+    expect(second).toEqual({ who: "you", text: "A summer dress" });
+    expect(nextCaption(second, "assistant", "Here")).toEqual({ who: "assistant", text: "Here" });
+    expect(nextCaption(undefined, "you", "x".repeat(400)).text.length).toBeLessThanOrEqual(181);
+    expect(clockText(272.4)).toBe("4:32");
+    expect(clockText(-3)).toBe("0:00");
   });
 });

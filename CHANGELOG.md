@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add the Ask agent's GPT-Live voice mode on OpenAI conversations: unlocked with its password,
+  checked on the server; the server creates each call with OpenAI's key and keeps its sideband,
+  so the browser holds no key and can send no command; every spoken request runs the same five
+  stages and the voice says only what they let through; calls stop at the session's and the day's
+  voice minutes and budgets, and their seconds count in the day's cost. The panel gets a voice
+  button, live captions and a countdown; the store's pages may now ask for the microphone.
 - Add the Ask agent's panel on the agentic store: an Ask button in the header opens a right
   sidebar (the page makes room on wide screens), a sheet on phones, or full screen; answers stream
   their progress, then light Markdown drawn without HTML; the store's carousel and bag run inside

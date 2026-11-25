@@ -10,14 +10,13 @@ import { isRecord, json } from "../core/util";
 import { BAG, CAROUSEL, widgetHtml } from "../mcp/widgets";
 import { OAuthError } from "../oauth/oauth";
 import { clientIp, rateLimited } from "../protocol";
-import { AGENT_VERSION, agentCanary, callStoreTool, houseAgentRunner, payRefusal } from "./agent";
+import { AGENT_VERSION, callStoreTool, payRefusal } from "./agent";
 import { askConfig } from "./config";
 import { type ContextFailure, costToday, modeFor } from "./context";
 import { disconnect, houseToken, pollConnect, startConnect } from "./house";
 import { newSessions } from "./limits";
 import { mergePrices, pricesIn } from "./output";
-import { admit, answer, type PipelineEvent } from "./pipeline";
-import { askModels } from "./runtime";
+import type { PipelineEvent } from "./pipeline";
 import {
   type AskSession,
   appendMessage,
@@ -33,6 +32,8 @@ import {
   transcript,
 } from "./sessions";
 import { effectiveSettings, type Settings } from "./settings";
+import { admitTurn, answerTurn } from "./turn";
+import { endCall } from "./voice";
 
 const MAX_BODY_BYTES = 16_000;
 const WIDGET_CALLS_PER_MINUTE = 60;
@@ -71,7 +72,7 @@ export function panelWidgetHtml(uri: string): string | undefined {
   );
 }
 
-const problem = (
+export const problem = (
   status: number,
   error: string,
   message: string,
@@ -79,18 +80,19 @@ const problem = (
   headers: Record<string, string> = {},
 ) => json(status, { error, message, ...extra }, headers);
 
-const forbidden = () => problem(403, "forbidden", "This request must come from the store's page.");
+export const forbidden = () =>
+  problem(403, "forbidden", "This request must come from the store's page.");
 const disabled = () => problem(503, "ask_disabled", "The assistant is not available right now.");
 
 // A state-changing call must come from the store's own page: the custom header forces a CORS
 // preflight no other site passes, and a browser's Sec-Fetch-Site must say same-origin.
-function foreign(request: Request): boolean {
+export function foreign(request: Request): boolean {
   if (request.headers.get("x-ask") !== "1") return true;
   const site = request.headers.get("sec-fetch-site");
   return site !== null && site !== "same-origin";
 }
 
-async function bodyOf(request: Request): Promise<Record<string, unknown> | undefined> {
+export async function bodyOf(request: Request): Promise<Record<string, unknown> | undefined> {
   const text = await request.text().catch(() => "");
   if (!text || text.length > MAX_BODY_BYTES) return undefined;
   try {
@@ -101,7 +103,7 @@ async function bodyOf(request: Request): Promise<Record<string, unknown> | undef
   }
 }
 
-type Here = {
+export type Here = {
   settings: Settings;
   available: boolean;
   customer?: Customer;
@@ -111,7 +113,7 @@ type Here = {
 };
 
 // The browser's session after the identity and clock rules, with what the server knows now.
-function here(request: Request): Here {
+export function here(request: Request): Here {
   const ask = askConfig();
   const settings = effectiveSettings(ask);
   const customer = customerOf(request);
@@ -132,16 +134,25 @@ function here(request: Request): Here {
   };
 }
 
-const liveSession = (h: Here) =>
+export const liveSession = (h: Here) =>
   h.session && h.session.state === "active" && !h.ended ? h.session : undefined;
 
-const shownMode = (session: AskSession, customer: Customer | undefined) =>
+export const shownMode = (session: AskSession, customer: Customer | undefined) =>
   modeFor(session.score, isRegular(customer)) === "normal" ? "normal" : "strict";
+
+// Voice is offered on an OpenAI conversation in normal mode, with the switch on and OpenAI's key
+// set (spec invariant 14).
+export const voiceOffered = (h: Here, live: AskSession) =>
+  h.available &&
+  h.settings.voiceEnabled &&
+  askConfig().keys.openai &&
+  live.answer.model.startsWith("openai/") &&
+  shownMode(live, h.customer) === "normal";
 
 // What the panel shows (spec Outputs): never a score, a verdict, a model, a cost or a key.
 export function sessionView(h: Here) {
   const live = liveSession(h);
-  const voice = Boolean(h.settings.voiceEnabled && live?.answer.model.startsWith("openai/"));
+  const voice = Boolean(live && voiceOffered(h, live));
   return {
     available: h.available,
     state: h.session?.state ?? "none",
@@ -184,7 +195,10 @@ function begin(request: Request, h: Here): { session: AskSession; cookie: string
         "retry-after": String(retry),
       },
     );
-  if (h.session) void disconnect(h.session.id);
+  if (h.session) {
+    void disconnect(h.session.id);
+    endCall(h.session.id, "new_session");
+  }
   const { token, session } = startSession({
     customer: h.customer,
     address,
@@ -298,6 +312,7 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
     if (live) {
       endSession(live, "ended_by_shopper");
       void disconnect(live.id);
+      endCall(live.id, "ended_by_shopper");
     }
     return json(200, { state: "ended" }, { "set-cookie": clearedSessionCookie() });
   })
@@ -319,33 +334,20 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
     if (h.ended || session.state !== "active")
       return endedAnswer(session, h.ended ?? session.endReason ?? "time");
     if (!h.available) return disabled();
-    const regular = isRegular(h.customer);
-    const admission = admit({
+    const turn = {
       session,
-      text: body.text,
-      page: body.page,
-      via: "text",
-      limits: h.settings.limits,
-      regular,
+      settings: h.settings,
+      regular: isRegular(h.customer),
       address: clientIp(request),
-      storeHost: new URL(config().publicOrigin).host,
-    });
+    };
+    const admission = admitTurn(turn, body.text, body.page, "text");
     if (admission.kind === "busy")
       return problem(409, "session_busy", "The assistant is still answering your last message.");
     if (admission.kind === "failed") return contextFailure(session, admission.failure);
-    const maxCalls = h.settings.limits.maxModelCalls;
     const stream = eventStream(async (emit) => {
       for (const event of admission.events) emit(event);
       if (admission.kind !== "admitted") return;
-      await answer({
-        admitted: admission,
-        models: askModels(),
-        runAgent: houseAgentRunner(maxCalls),
-        canary: agentCanary(),
-        storeOrigin: config().publicOrigin,
-        regular,
-        emit,
-      });
+      await answerTurn(admission, turn, emit);
     });
     return new Response(stream, {
       headers: cookie ? { ...STREAM_HEADERS, "set-cookie": cookie } : STREAM_HEADERS,

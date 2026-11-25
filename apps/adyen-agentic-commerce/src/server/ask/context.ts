@@ -49,6 +49,17 @@ export function costToday(now = Date.now()): number {
   return row?.total ?? 0;
 }
 
+// Voice seconds recorded today, across every session (the day's voice cap, spec invariant 14).
+export function voiceSecondsToday(now = Date.now()): number {
+  const row = database()
+    .query<{ total: number | null }, { from: string }>(
+      `select sum(json_extract(data, '$.voiceSeconds')) as total from docs
+       where collection = 'ask_messages' and created_at >= $from`,
+    )
+    .get({ from: new Date(startOfDayUtc(now)).toISOString() });
+  return row?.total ?? 0;
+}
+
 const fail = (failure: ContextFailure, result: string): ContextResult => ({
   ok: false,
   failure,

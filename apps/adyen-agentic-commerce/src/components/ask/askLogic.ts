@@ -274,3 +274,42 @@ export async function hostReply(message: unknown, deps: HostDeps): Promise<Json 
       return failure(id, -32601, "Not offered by this host.");
   }
 }
+
+// The voice call's data channel: captions and the call's start and end, nothing else is read.
+export type VoiceEvent =
+  | { kind: "started" }
+  | { kind: "caption"; who: "you" | "assistant"; delta: string }
+  | { kind: "closed"; reason?: string };
+
+export function voiceEvent(raw: unknown): VoiceEvent | undefined {
+  let event: unknown;
+  try {
+    event = JSON.parse(String(raw));
+  } catch {
+    return undefined;
+  }
+  if (!record(event) || typeof event.type !== "string") return undefined;
+  if (event.type === "session.started") return { kind: "started" };
+  if (event.type === "session.closed")
+    return { kind: "closed", reason: typeof event.reason === "string" ? event.reason : undefined };
+  if (typeof event.delta !== "string") return undefined;
+  if (event.type === "session.input_transcript.delta")
+    return { kind: "caption", who: "you", delta: event.delta };
+  if (event.type === "session.output_transcript.delta")
+    return { kind: "caption", who: "assistant", delta: event.delta };
+  return undefined;
+}
+
+export type Caption = { who: "you" | "assistant"; text: string };
+const CAPTION_MAX = 180;
+
+// One line per speaker turn: a delta from the same speaker extends it, the other speaker starts anew.
+export function nextCaption(previous: Caption | undefined, who: Caption["who"], delta: string) {
+  const text = previous?.who === who ? previous.text + delta : delta.trimStart();
+  return { who, text: text.length > CAPTION_MAX ? `…${text.slice(-CAPTION_MAX)}` : text };
+}
+
+export const clockText = (seconds: number) => {
+  const s = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};

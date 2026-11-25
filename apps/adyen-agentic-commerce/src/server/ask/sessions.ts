@@ -64,6 +64,8 @@ export type AskMessage = {
   verdicts?: StageVerdict[];
   usage?: { input: number; output: number; cacheRead: number; cacheWrite: number; calls: number };
   costUsd?: number;
+  // A voice call's billed seconds, on the note that closes it.
+  voiceSeconds?: number;
   at: number;
 };
 

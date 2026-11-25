@@ -13,7 +13,9 @@ import {
   useState,
 } from "react";
 import { AskConnect } from "./AskConnect";
+import { Icon } from "./AskIcon";
 import { AskText } from "./AskText";
+import { AskVoice } from "./AskVoice";
 import { askCall, sendMessage, setAskOpen, useAskOpen, wasAskOpen } from "./askClient";
 import {
   type AskMessage,
@@ -37,22 +39,6 @@ const SUGGESTIONS = [
   "Find me a gift for a weekend away",
 ];
 
-const Icon = ({ d, label }: { d: string; label?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    className="size-5"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.75"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden={label ? undefined : true}
-    role={label ? "img" : undefined}
-    aria-label={label}
-  >
-    <path d={d} />
-  </svg>
-);
 const SPARK =
   "M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z";
 const EXPAND = "M14 4h6v6 M10 20H4v-6 M20 4l-7 7 M4 20l7-7";
@@ -128,6 +114,7 @@ export function AskPanel() {
   const [status, setStatus] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [draft, setDraft] = useState("");
+  const [calling, setCalling] = useState(false);
   const busy = useRef(false);
   const viewNow = useRef<SessionView>(undefined);
   const panel = useRef<HTMLElement>(null);
@@ -156,6 +143,16 @@ export function AskPanel() {
   useEffect(() => {
     if (open && pathname && !busy.current) void load(true);
   }, [open, pathname, load]);
+
+  // During a voice call the conversation fills from the server: each voiced turn is a message.
+  useEffect(() => {
+    if (!calling) return;
+    const timer = setInterval(() => void load(true), 3_000);
+    return () => {
+      clearInterval(timer);
+      void load(true);
+    };
+  }, [calling, load]);
 
   // The page makes room for the docked panel on wide screens (globals.css).
   useEffect(() => {
@@ -429,6 +426,9 @@ export function AskPanel() {
               </p>
             )}
             {canConnect && <AskConnect onConnected={() => void load(false)} />}
+            {view?.state === "active" && (
+              <AskVoice view={view} onUnlocked={() => void load(false)} onCalling={setCalling} />
+            )}
             <form onSubmit={submit} className="flex items-end gap-2">
               <label className="sr-only" htmlFor="ask-input">
                 Message the assistant
@@ -441,14 +441,14 @@ export function AskPanel() {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onKeys}
-                disabled={unavailable || locked}
-                placeholder="Ask about a piece, a size, your bag…"
+                disabled={unavailable || locked || calling}
+                placeholder={calling ? "On a voice call…" : "Ask about a piece, a size, your bag…"}
                 className="field max-h-40 min-h-11 flex-1 resize-none py-2.5 [field-sizing:content]"
               />
               <button
                 type="submit"
                 className="btn size-11 shrink-0 px-0"
-                disabled={!draft.trim() || status !== undefined || unavailable || locked}
+                disabled={!draft.trim() || status !== undefined || unavailable || locked || calling}
               >
                 <Icon d={SEND} label="Send" />
               </button>

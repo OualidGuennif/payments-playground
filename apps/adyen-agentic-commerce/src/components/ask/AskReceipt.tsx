@@ -3,6 +3,7 @@
 // The receipt email for the bag's checkout, asked by the panel itself: the address goes to its own
 // route and never through the assistant, so no model, transcript or prompt ever holds it.
 import { type FormEvent, useState } from "react";
+import { signInHere, useKnownAccount } from "@/lib/known";
 import { askCall } from "./askClient";
 import { BAG_URI, type Fed } from "./askLogic";
 
@@ -23,6 +24,7 @@ export function AskReceipt({
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string>();
+  const known = useKnownAccount();
 
   const save = async (body: { email: string } | { account: true }) => {
     setBusy(true);
@@ -52,6 +54,15 @@ export function AskReceipt({
           <label className="block text-xs text-muted" htmlFor="ask-receipt-email">
             The store sends the receipt there. The assistant never sees it.
           </label>
+          {known && !accountEmail ? (
+            <p className="text-xs">
+              Welcome back.{" "}
+              <a href={signInHere()} className="font-medium underline">
+                Sign in
+              </a>{" "}
+              to use your account&apos;s email.
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <input
               id="ask-receipt-email"

@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T18:00:00Z
+  at: 2026-11-25T20:00:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -294,7 +294,11 @@ before, every deploy or restart emptied orders, agents and grants.
   409 `payment_in_progress` or `checkout_changed` (the page reloads) stops the payment. The page
   follows the shopper's one bag (Ask spec): it refreshes when its checkout changes, and a `web`
   checkout takes the bag's lines through `POST /api/checkouts/:id/lines` `{ lines }` (open, not
-  held, the viewer's or no account's; else 409 or 404).
+  held, the viewer's or no account's; else 409 or 404). A person reads every refusal in plain
+  words: these routes answer `{ error: <sentence>, code }` and the view's messages carry the same
+  sentence (`src/lib/shopper-words.ts`), never the agents' text, which names fields. The view adds
+  `signedIn` and, on a guest's checkout or the viewer's own, `accountEmail`, which fills the
+  receipt field in advance.
 - **Checkout status for an agent:** with lines, a buyer email and payments configured, a guest's
   checkout is `ready_for_complete` (it may pay with a network token) and a signed-in agent's is
   too while the total fits its remaining limit, unless it was handed to the shopper; `payment.instruments` lists the account's saved
@@ -328,7 +332,10 @@ before, every deploy or restart emptied orders, agents and grants.
   one client tested end to end), other MCP hosts, the device code and WebMCP, linking to the Docs.
 - **MCP Apps UI and plugin package:** the carousel and bag UI resources, the `personal-stylist`
   prompt and the plugin ZIP: [MCP Apps widgets](mcp-apps-widgets.md#outputs).
-- **Account:** the header shows "Sign in" or the initial menu (desktop and mobile). `/account`
+- **Account:** the header shows "Sign in" or the initial menu (desktop and mobile). A browser
+  seen signed in keeps the cookie `velune_known=1` (no personal data, 400 days, kept after
+  sign-out and an ended session): sign-in then reads "Welcome back", sign-up offers "Sign in
+  instead", and the receipt fields offer sign-in. It decides nothing. `/account`
   shows overview tiles, agents (state from `agent-status.ts`, UTC dates, `#agent-<grant>`), orders
   (pages of 10), saved cards and security (passkeys, sign-out). Card saves and `/checkout/[id]`
   Drop-in return through `/api/return` (`GET`/`POST`, validated `/account` or `/checkout/chk_*`
@@ -545,6 +552,9 @@ before, every deploy or restart emptied orders, agents and grants.
     this origin's `/mcp` (`src/components/docs/docs.test.tsx`).
 28. to 30. The MCP Apps widgets and the plugin ZIP: invariants 1 to 3 of
     [MCP Apps widgets](mcp-apps-widgets.md).
+31. A shopper never reads a text written for agents: every code the commerce code raises has a
+    plain sentence that names no field, code or state, and an unknown code reads as a general
+    sentence (`src/lib/shopper-words.test.ts`; `src/server/browser-words.test.ts`).
 
 ## Determinism
 

@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Speak to shoppers in plain words: every refusal on the store's browser routes and every
+  checkout message reads as one sentence from a single table (never an agent text such as a field
+  name), and a browser that was once signed in greets the shopper back: "Welcome back" on
+  sign-in, "Sign in instead" on sign-up, a sign-in link beside the receipt fields, and the
+  account's own email filled in when signed in.
 - Keep one bag per browser: the Ask panel's bag becomes the site's bag (header count, `/cart`), a
   paid one empties it, and the open checkout page follows it at once (a site checkout takes the
   bag's lines through `POST /api/checkouts/:id/lines`, an agent's checkout refreshes, every 4 s

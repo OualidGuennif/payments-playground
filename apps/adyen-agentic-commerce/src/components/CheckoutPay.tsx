@@ -6,7 +6,9 @@ import type { checkoutView } from "@/server/api";
 import { DropinPanel, type SessionInfo } from "@/components/DropinPanel";
 import { StatusPill } from "@/components/StatusPill";
 import { api, BAG_EVENT, type BagChange } from "@/lib/client";
+import { signInHere, useKnownAccount } from "@/lib/known";
 import { money } from "@/lib/money";
+import { shopperWords } from "@/lib/shopper-words";
 
 type View = ReturnType<typeof checkoutView>;
 
@@ -129,11 +131,9 @@ export function CheckoutPay({
         reloadWith(why);
         return why;
       }
-      if (code === "payment_in_progress")
-        return "A payment for this bag is already in progress, here or in the chat. This page updates when it ends.";
-      return "The payment could not start. Try again in a moment.";
+      return shopperWords(code === "payment_in_progress" ? code : "payment_unavailable");
     },
-    [view.id, refresh],
+    [view.id],
   );
 
   const onFinished = useCallback(
@@ -153,7 +153,8 @@ export function CheckoutPay({
     [view.id, show],
   );
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initial.accountEmail ?? "");
+  const known = useKnownAccount();
   const [savingEmail, setSavingEmail] = useState(false);
   // A checkout an agent handed over as a guest may lack only the receipt's email: ask for it here.
   const needsEmailOnly =
@@ -169,7 +170,7 @@ export function CheckoutPay({
     setSavingEmail(false);
     if (error || !data || "error" in data) {
       const value = error?.value as { error?: unknown } | undefined;
-      setError(typeof value?.error === "string" ? value.error : "The email could not be saved.");
+      setError(typeof value?.error === "string" ? value.error : shopperWords("invalid_email"));
       return;
     }
     setError(undefined);
@@ -265,6 +266,15 @@ export function CheckoutPay({
         ) : needsEmailOnly && view.paymentsReady ? (
           <form onSubmit={saveEmail} className="space-y-3">
             <h2 className="text-xl">Where should we send the receipt?</h2>
+            {known && !view.signedIn ? (
+              <p className="text-sm">
+                Welcome back.{" "}
+                <a href={signInHere()} className="font-medium underline">
+                  Sign in
+                </a>{" "}
+                to use your account&apos;s email, or type one below.
+              </p>
+            ) : null}
             <label htmlFor="checkout-email" className="block text-sm text-muted">
               Email
             </label>
@@ -287,10 +297,10 @@ export function CheckoutPay({
             {!view.paymentsReady
               ? "Payments are switched off on this server."
               : view.status === "complete_in_progress"
-                ? "A payment for this bag is already in progress, in another tab or in the chat. This page updates when it ends."
+                ? shopperWords("payment_in_progress")
                 : view.status === "canceled"
-                  ? "This checkout was canceled."
-                  : "This checkout is missing details, so it can't be paid yet."}
+                  ? shopperWords("checkout_canceled")
+                  : shopperWords("checkout_not_payable")}
           </p>
         )}
         {notice ? (

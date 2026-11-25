@@ -39,6 +39,9 @@ import { effectiveSettings, type Settings } from "./settings";
 import { admitTurn, answerTurn } from "./turn";
 import { endCall } from "./voice";
 
+// The panel shows this to a person: the protocol's own error text (a JSON-RPC message, a field
+// name) never reaches the page.
+const STORE_REFUSED = "The store could not do this just now. Please try again.";
 const MAX_BODY_BYTES = 16_000;
 const WIDGET_CALLS_PER_MINUTE = 60;
 const EMAIL_CALLS_PER_MINUTE = 10;
@@ -439,8 +442,7 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
       lastAt: now,
     });
     appendMessage(kept, { role: "note", text: `Widget: ${name}`, via: "widget", at: now });
-    if (!call.result)
-      return problem(409, "store_refused", call.error ?? "The store refused this action.");
+    if (!call.result) return problem(409, "store_refused", STORE_REFUSED);
     return json(200, { result: call.result });
   })
   // The receipt email (spec invariant 19): typed in the panel's own block, or the account's read
@@ -504,7 +506,6 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
       at: now,
     });
     const call = await callStoreTool(live.id, "get_checkout", { id: checkoutId });
-    if (!call.result)
-      return problem(409, "store_refused", call.error ?? "The store refused this action.");
+    if (!call.result) return problem(409, "store_refused", STORE_REFUSED);
     return json(200, { result: call.result });
   });

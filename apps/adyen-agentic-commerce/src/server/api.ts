@@ -23,7 +23,14 @@ import { handlerSchema, networkTokenSchema, profile } from "./ucp/ucp";
 import { openApi } from "./ucp/openapi";
 import { isRecord, json, published, safeEqual } from "./core/util";
 import { maskEmails } from "../lib/mask";
+import { shopperWords } from "../lib/shopper-words";
 import { PLUGIN_ZIP_PATH, pluginZip } from "./mcp/widgets";
+
+// A browser route's refusal: the shopper's sentence and the code the page acts on, never the
+// store's text for agents, which names fields and states.
+const refused = (httpStatus: number, code: string) =>
+  status(httpStatus, { error: shopperWords(code), code });
+const refusedBy = (error: commerce.CommerceError) => refused(error.status, error.msg.code);
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -168,8 +175,7 @@ const browserApi = new Elysia({ prefix: "/api" })
       });
       return { id: checkout.id };
     } catch (error) {
-      if (error instanceof commerce.CommerceError)
-        return status(error.status, { error: error.msg.content });
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
       throw error;
     }
   })
@@ -177,7 +183,7 @@ const browserApi = new Elysia({ prefix: "/api" })
     try {
       return checkoutView(commerce.loadCheckout(params.id, "browser"), customerOf(request));
     } catch {
-      return status(404, { error: "Checkout not found" });
+      return refused(404, "not_found");
     }
   })
   .post("/checkouts/:id/session", async ({ request, params }) => {
@@ -189,9 +195,8 @@ const browserApi = new Elysia({ prefix: "/api" })
         customerOf(request),
       );
     } catch (error) {
-      if (error instanceof commerce.CommerceError)
-        return status(error.status, { error: error.msg.content });
-      return status(502, { error: "The payment session could not be created" });
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
+      return refused(502, "session_failed");
     }
   })
   // A checkout handed over without an email (an agent shopping as a guest) gets it from the person
@@ -204,11 +209,10 @@ const browserApi = new Elysia({ prefix: "/api" })
     try {
       const checkout = commerce.loadCheckout(params.id, "browser");
       if (checkout.customerId && checkout.customerId !== customer?.id)
-        return status(404, { error: "Checkout not found" });
-      if (commerce.buyerOf(checkout)?.email)
-        return status(409, { error: "This checkout already has an email" });
+        return refused(404, "not_found");
+      if (commerce.buyerOf(checkout)?.email) return refused(409, "email_set");
       const email = typeof input.email === "string" ? input.email.trim() : "";
-      if (!email) return status(400, { error: "Enter an email address" });
+      if (!email) return refused(400, "invalid_email");
       const updated = commerce.updateCheckout(checkout, { buyer: { ...checkout.buyer, email } });
       trace({
         channel: commerce.channelOf(updated),
@@ -221,8 +225,7 @@ const browserApi = new Elysia({ prefix: "/api" })
       });
       return checkoutView(updated, customer);
     } catch (error) {
-      if (error instanceof commerce.CommerceError)
-        return status(error.status, { error: error.msg.content });
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
       throw error;
     }
   })
@@ -238,15 +241,14 @@ const browserApi = new Elysia({ prefix: "/api" })
         commerce.channelOf(checkout) !== "web" ||
         (checkout.customerId && checkout.customerId !== customer?.id)
       )
-        return status(404, { error: "Checkout not found", code: "not_found" });
+        return refused(404, "not_found");
       const lines = Array.isArray(input.lines)
         ? input.lines.map((l) => ({
             item: { id: isRecord(l) ? l.variantId : undefined },
             quantity: isRecord(l) ? l.quantity : undefined,
           }))
         : undefined;
-      if (!lines?.length)
-        return status(400, { error: "Send the bag's lines", code: "invalid_request" });
+      if (!lines?.length) return refused(400, "invalid_line_items");
       const updated = commerce.updateCheckout(checkout, { line_items: lines });
       trace({
         channel: "web",
@@ -259,8 +261,7 @@ const browserApi = new Elysia({ prefix: "/api" })
       });
       return checkoutView(updated, customer);
     } catch (error) {
-      if (error instanceof commerce.CommerceError)
-        return status(error.status, { error: error.msg.content, code: error.msg.code });
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
       throw error;
     }
   })
@@ -279,8 +280,7 @@ const browserApi = new Elysia({ prefix: "/api" })
       );
       return { held: true, until: held.paying?.until };
     } catch (error) {
-      if (error instanceof commerce.CommerceError)
-        return status(error.status, { error: error.msg.content, code: error.msg.code });
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
       throw error;
     }
   })
@@ -294,9 +294,8 @@ const browserApi = new Elysia({ prefix: "/api" })
       );
       return checkoutView(checkout, customerOf(request));
     } catch (error) {
-      if (error instanceof commerce.CommerceError)
-        return status(error.status, { error: error.msg.content });
-      return status(502, { error: "Adyen could not confirm the session" });
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
+      return refused(502, "result_unconfirmed");
     }
   })
   .get("/back-office", ({ request, query }) => {
@@ -354,9 +353,10 @@ export function checkoutView(checkout: commerce.Checkout, viewer?: Customer) {
     id: checkout.id,
     phase: checkout.phase,
     status: assessment.status,
-    messages: assessment.messages.filter(
-      (m) => m.code !== "payments_unavailable" && m.code !== "sign_in_required",
-    ),
+    // A person reads the store's refusals in plain words, never the text written for agents.
+    messages: assessment.messages
+      .filter((m) => m.code !== "payments_unavailable" && m.code !== "sign_in_required")
+      .map((m) => ({ ...m, content: shopperWords(m.code) })),
     agentName: checkout.agentName,
     lines: priced.items.map(({ line, variant, amount }) => ({
       id: line.id,
@@ -370,6 +370,10 @@ export function checkoutView(checkout: commerce.Checkout, viewer?: Customer) {
     fulfillment: priced.fulfillment,
     total: priced.total,
     buyer: ownsIt ? checkout.buyer : undefined,
+    // The page offers the signed-in shopper their own address for a receipt instead of a blank
+    // field, and offers sign-in instead when the session has ended.
+    signedIn: Boolean(viewer),
+    accountEmail: viewer && ownsIt ? viewer.email : undefined,
     channel: commerce.channelOf(checkout),
     order: order
       ? {

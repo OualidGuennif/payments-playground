@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add the Ask agent's deterministic stages: stage 1 normalizes a message, refuses tag characters,
+  over-long text and strong injection phrasings in English and French, removes hidden and bidi
+  characters and the prompt's delimiters, and replaces card numbers, IBANs and passwords before
+  any model; stage 2 checks the session's message, cost and daily limits and the per-address
+  rate, and sets the mode from the session score (normal, strict, locked; 10 points of relief for
+  regular shoppers). Refusals answer one fixed sentence in French or English.
 - Add the Ask agent's browser sessions: one per browser behind an `av_ask` cookie of 128 random
   bits stored only as a hash; a guest who signs in keeps the conversation, sign-out or another
   customer ends it; time and idle limits; per-address limits for new sessions, messages and

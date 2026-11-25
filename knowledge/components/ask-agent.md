@@ -59,7 +59,9 @@ voice mode (GPT-Live) talks to the same agent through the same gate.
 - **Shopper message** `POST /api/ask/messages` `{ text: string ≤ 1,000 chars after NFKC, page?:
   store path }`, with the `av_ask` cookie (httpOnly, `SameSite=Lax`, `Secure` on https, path
   `/api/ask`) naming the session. The customer comes from the store's own session cookie, never
-  from the body.
+  from the body. A browser's first message starts its session, with the same checks as `POST
+  /api/ask/session`. Every Ask POST needs `X-Ask: 1` (a header no other site can send without a
+  CORS preflight the store refuses) and, when the browser sends `Sec-Fetch-Site`, `same-origin`.
 - **Session** `GET /api/ask/session` (read, creates nothing); `POST /api/ask/session` (start a new
   one, ending the current); `POST /api/ask/session/end`.
 - **Connect** `POST /api/ask/connect` (signed in only) starts a device sign-in for the house
@@ -93,12 +95,14 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
 
 ## Outputs
 
-- **Message answer:** `text/event-stream` of `stage` (`gate`, `context`, `guard`, `agent`,
-  `output` with `allow` or the refusal reason), `tool` (name, start or end), then one `final`
-  `{ text, widgets: [{ resourceUri, structuredContent }], mode, score, endsAt }` or one `error`.
-  A refused message is a normal `final` answer with a fixed polite text, never the model's.
-- **Session view:** `{ state: active | ended | locked | none, endsAt, mode: normal | strict,
-  signedIn, connected, voice: { available, unlocked }, messages: [{ role, text, widgets, at }] }`.
+- **Message answer:** `text/event-stream` of `stage` `{ stage }` (`gate`, `context`, `guard`,
+  `agent`, `output`: progress only, never the verdict), `tool` (name, start or end, label), then
+  one `final` `{ text, widgets: [{ resourceUri, structuredContent }], mode, endsAt }` or one
+  `error` `{ error }`. A refused message is a normal `final` answer with a fixed polite text,
+  never the model's. Verdicts and score changes go to the transcript the console reads.
+- **Session view:** `{ available, state: active | ended | locked | none, reason, endsAt, mode:
+  normal | strict, signedIn, connected, voice: { available, unlocked }, messages: [{ role, text,
+  widgets, at }] }`; an ended session shows no messages.
   A shopper never sees scores, verdicts, models, costs or other sessions.
 - **Errors** (JSON `{ error, message }`): `ask_disabled` 503 (no answer model with a key, or the
   switch off), `budget_exhausted` 503 (daily budget spent, until 00:00 UTC), `rate_limited` 429
@@ -107,7 +111,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   `invalid_request` 400, `session_busy` 409 (a message of this session is still being answered),
   `not_signed_in` 401 (connect), `strict_mode` 403 (connect in strict
   mode), `voice_unavailable` 404, `invalid_password` 401, `voice_limit` 429, `voice_failed` 502,
-  `widget_tool_refused` 403. Console: `404` when `CONSOLE_PASSWORD` is missing or under 16
+  `widget_tool_refused` 403, `store_refused` 409 (the store refused a widget's call), `forbidden`
+  403 (no `X-Ask: 1`, or another site). Console: `404` when `CONSOLE_PASSWORD` is missing or under 16
   characters, `invalid_password` 401, `rate_limited` 429, `forbidden` 403 (origin, header or
   cookie), `invalid_setting` 400.
 - **Refusal texts** (stage, reason): `too_long`, `empty`, `injection_signature`,

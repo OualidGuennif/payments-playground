@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add the Ask agent's shopper routes under `/api/ask`: the session (read, start, end), a message
+  answered as a stream of stage progress, tool steps and one final answer, connecting the account
+  through the store's own device sign-in, and widget taps limited to shopping tools. They refuse
+  calls from other sites and never show a score, a verdict, a model or a cost.
 - Add the Ask agent's house agent and message pipeline: a Flue 2.3.1 agent shops through the
   store's own MCP handler in-process, as a signed-out guest or with the shopper's own device-grant
   token, never with card data; the five stages run in order with one message at a time per

@@ -3,7 +3,7 @@
 // (ADR-018). It counts every model call a message makes and stops the message at the cap (spec
 // invariants 7 and 11), and it registers only the providers whose key is set.
 import { dirname, join } from "node:path";
-import type { Provider as PiProvider } from "@earendil-works/pi-ai";
+import { createModels, type Models, type Provider as PiProvider } from "@earendil-works/pi-ai";
 import { anthropicProvider } from "@earendil-works/pi-ai/providers/anthropic";
 import { deepseekProvider } from "@earendil-works/pi-ai/providers/deepseek";
 import { mistralProvider } from "@earendil-works/pi-ai/providers/mistral";
@@ -133,11 +133,27 @@ export function withoutClientRetries(provider: PiProvider): PiProvider {
 }
 
 type Runtime = Awaited<ReturnType<typeof start>>;
-type Holder = { runtime?: Promise<Runtime>; instrumented?: boolean };
+type Holder = { runtime?: Promise<Runtime>; instrumented?: boolean; models?: Models };
 // On globalThis: Next's dev server reloads modules, and two runtimes must never share one file.
 const scope = globalThis as { __veluneAsk?: Holder };
 scope.__veluneAsk ??= {};
 const holder: Holder = scope.__veluneAsk;
+
+// The guard's model registry: the same keyed providers, SDK retries off.
+export function askModels(): Models {
+  if (!holder.models) {
+    cleanKeys();
+    const models = createModels();
+    for (const provider of keyedProviders()) models.setProvider(withoutClientRetries(provider));
+    holder.models = models;
+  }
+  return holder.models;
+}
+
+// Tests register Pi's faux provider instead of keyed ones.
+export function useAskModels(models: Models | undefined): void {
+  holder.models = models;
+}
 
 export function startAskRuntime(options: {
   agents: Parameters<typeof start>[0]["agents"];

@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: antigravity/gemini
-  at: 2026-11-25T14:00:00Z
+  at: 2026-11-25T23:30:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -27,7 +27,7 @@ sources:
     title: "Standalone output; no rewrites: route files re-export the Elysia handler at the public paths"
   - id: src
     resource: ../../apps/adyen-agentic-commerce/src
-    title: "Pages (app/), API (app/api), server modules (server/: api.ts and protocol.ts at the top, one folder per domain: core, payments, catalog, commerce, accounts, oauth, ucp, mcp, pap, back-office; oauth.ts and commerce.ts re-export their folder's files, one per responsibility)"
+    title: "Pages (app/), API (app/api), server modules (server/: api.ts and protocol.ts at the top, one folder per domain: core, payments, catalog, commerce, accounts, oauth, ucp, mcp, pap, back-office, ask; oauth.ts and commerce.ts re-export their folder's files, one per responsibility)"
   - id: widgets
     resource: ../../apps/adyen-agentic-commerce/src/widgets
     title: "MCP Apps widgets (carousel, bag), their bridge and logic"

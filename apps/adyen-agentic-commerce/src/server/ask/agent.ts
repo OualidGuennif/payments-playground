@@ -129,6 +129,14 @@ export function payRefusal(
   return undefined;
 }
 
+// The session as a signed-out PAP agent: what the store sees when no grant token is sent.
+const houseGuest = (sessionId: string) => ({
+  clientId: houseClientId(),
+  clientName: HOUSE_CLIENT_NAME,
+  sid: sessionId,
+  sub: `ask-${sessionId}`,
+});
+
 const rpcError = (id: unknown, message: string) =>
   Response.json({ jsonrpc: "2.0", id: id ?? null, error: { code: -32000, message } });
 
@@ -167,12 +175,7 @@ export function houseFetch(sessionId: string): typeof fetch {
     if (token) headers.set("authorization", `Bearer ${token}`);
     const response = await handleHouseMcp(
       new Request(request.url, { method: request.method, headers, body }),
-      {
-        clientId: houseClientId(),
-        clientName: HOUSE_CLIENT_NAME,
-        sid: sessionId,
-        sub: `ask-${sessionId}`,
-      },
+      houseGuest(sessionId),
     );
     const text = await response.text();
     if (tool !== undefined && collector) {
@@ -207,6 +210,35 @@ export function houseFetch(sessionId: string): typeof fetch {
 }
 
 export const storeMcpUrl = () => `${config().publicOrigin}/mcp`;
+
+export type StoreCall = { ok: boolean; result?: Record<string, unknown>; error?: string };
+
+// One store tool call outside a message, for a tap in a widget of the panel, as the session's
+// identity. The route has checked the allowlist and the paying rules before.
+export async function callStoreTool(
+  sessionId: string,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<StoreCall> {
+  const headers = new Headers({ "content-type": "application/json" });
+  const token = houseToken(sessionId);
+  if (token) headers.set("authorization", `Bearer ${token}`);
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: { name, arguments: args },
+  });
+  const response = await handleHouseMcp(
+    new Request(storeMcpUrl(), { method: "POST", headers, body }),
+    houseGuest(sessionId),
+  );
+  const parsed: unknown = await response.json().catch(() => undefined);
+  if (isRecord(parsed) && isRecord(parsed.result))
+    return { ok: parsed.result.isError !== true, result: parsed.result };
+  const error = isRecord(parsed) && isRecord(parsed.error) ? parsed.error.message : undefined;
+  return { ok: false, error: typeof error === "string" ? error : "The store refused this action." };
+}
 
 type AgentData = { sessionId: string };
 

@@ -617,7 +617,8 @@ is whatever LLM the shopper points at it.
   browser attaches that basic auth to a cross-site form POST, the proxy also refuses a state-changing
   request on those paths whose `Sec-Fetch-Site`, or else `Origin`, names another site; the consent
   decision cannot be forged from another page. Every response carries the platform's security
-  headers (`X-Frame-Options: DENY` among them), so the consent page cannot be framed.
+  headers (`X-Frame-Options: DENY` among them), so the consent page cannot be framed; only the
+  microphone is allowed to the store's own pages, for the Ask agent's voice.
 - Conversations, browser sign-in and the Operations extension of PAP; `skill_index`, and feedback
   answered with an alternative (every report gets 202).
 - A host whose DNS answer changes between the address check and the fetch's own lookup (DNS

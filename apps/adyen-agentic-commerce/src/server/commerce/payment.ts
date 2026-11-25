@@ -56,7 +56,13 @@ function placeOrder(
     createdAt: now(),
   };
   put("orders", order.id, order);
-  saveCheckout({ ...checkout, phase: "completed", orderId: order.id, lastMessage: undefined });
+  saveCheckout({
+    ...checkout,
+    phase: "completed",
+    orderId: order.id,
+    lastMessage: undefined,
+    paying: undefined,
+  });
   return order;
 }
 
@@ -121,6 +127,7 @@ export function holdMismatch(checkout: Checkout, reason: string): void {
   saveCheckout({
     ...checkout,
     phase: "complete_in_progress",
+    paying: undefined,
     lastMessage: {
       type: "error",
       code: "amount_mismatch",

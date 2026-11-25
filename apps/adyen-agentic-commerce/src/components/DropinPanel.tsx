@@ -23,6 +23,9 @@ type Props = {
   label?: string;
   // A card save offers only a new card; a purchase may reuse a saved one.
   storedMethods?: boolean;
+  // Asked before Drop-in sends the payment: a sentence stops it (another payment holds the
+  // checkout, or the bag changed since the form opened), nothing lets it go.
+  beforePay?: (sessionId: string) => Promise<string | undefined>;
 };
 
 export function DropinPanel({
@@ -32,6 +35,7 @@ export function DropinPanel({
   redirect,
   label,
   storedMethods = true,
+  beforePay,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"loading" | "ready" | "done" | "error">("loading");
@@ -96,6 +100,17 @@ export function DropinPanel({
           amount: { value: session.amount, currency: session.currency },
           countryCode: "FR",
           locale: "en-US",
+          // Only resolves or rejects: the payment data goes to Adyen as Drop-in built it, never here.
+          beforeSubmit: async (state, _component, actions) => {
+            const refusal = beforePay ? await beforePay(session.id) : undefined;
+            if (!active) return actions.reject();
+            if (refusal) {
+              setError(refusal);
+              return actions.reject();
+            }
+            setError(undefined);
+            actions.resolve(state);
+          },
           onPaymentCompleted: (data) =>
             finish(session.id, data as { sessionResult?: string; resultCode?: string }),
           onPaymentFailed: (data) =>
@@ -129,7 +144,7 @@ export function DropinPanel({
       active = false;
       unmount?.();
     };
-  }, [clientKey, createSession, onFinished, redirect, storedMethods]);
+  }, [beforePay, clientKey, createSession, onFinished, redirect, storedMethods]);
 
   return (
     <div className="space-y-3">

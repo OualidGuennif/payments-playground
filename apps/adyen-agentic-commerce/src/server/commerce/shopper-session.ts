@@ -10,6 +10,7 @@ import * as adyen from "../payments/adyen";
 import { type Checkout, err, now, type PaymentRecord } from "./model";
 import { forgetCardCache } from "./saved-cards";
 import { assess, buyerOf, loadCheckout, saveCheckout } from "./checkouts";
+import { releasePayment } from "./lock";
 import { holdMismatch, placePaidOrder } from "./payment";
 
 // Saved cards show in Drop-in only for the checkout's own signed-in account; anyone else, guest or
@@ -107,7 +108,10 @@ export async function finishShopperSession(
     const placed = placePaidOrder(checkout, record, authorised.pspReference, authorised.amount);
     if (typeof placed === "string") holdMismatch(checkout, placed);
   } else if (result.status === "paymentPending") {
-    saveCheckout({ ...checkout, phase: "complete_in_progress" });
+    saveCheckout({ ...checkout, phase: "complete_in_progress", paying: undefined });
+  } else {
+    // Refused, canceled or expired: this payment no longer holds the checkout.
+    releasePayment(checkout.id, record.reference);
   }
   return loadCheckout(checkout.id, "browser");
 }

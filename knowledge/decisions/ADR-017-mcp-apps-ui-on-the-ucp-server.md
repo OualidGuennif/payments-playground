@@ -10,7 +10,7 @@ generated:
 sources:
   - id: spec
     resource: ../components/adyen-agentic-commerce.md
-    title: The store's spec (Inputs, Outputs, invariants 28 to 30)
+    title: The store's spec and its MCP Apps widgets (invariants 28 to 30)
   - id: mcp-apps-chatgpt
     resource: https://developers.openai.com/apps-sdk/mcp-apps-in-chatgpt
     title: "OpenAI: Add UI to your MCP server (MCP Apps in ChatGPT, commerce rules)"

@@ -6,8 +6,8 @@ tags: [component, agentic, pap, ucp, mcp, checkout, bun]
 status: draft
 scope: component-adyen-agentic-commerce
 generated:
-  by: antigravity/gemini
-  at: 2026-11-25T16:00:00Z
+  by: claude-code/opus-5.5
+  at: 2026-11-25T18:00:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -34,6 +34,9 @@ sources:
   - id: plugin
     resource: ../../apps/adyen-agentic-commerce/plugin/atelier-velune
     title: "The plugin package served as a ZIP"
+  - id: widgets-spec
+    resource: ./mcp-apps-widgets.md
+    title: "MCP Apps widgets: carousel, bag, bridge, plugin ZIP (invariants 28 to 30)"
 ---
 
 # adyen-agentic-commerce
@@ -203,15 +206,8 @@ before, every deploy or restart emptied orders, agents and grants.
   describing what it returns. They read the read-only `GET /api/catalog` and write the
   same cart and `POST /api/checkouts` as the buttons; `start_checkout` opens the checkout page,
   where the shopper pays in Drop-in. This is separate from `/mcp`, which is unchanged.
-- **Shopper in an agent host's UI (MCP Apps, [ADR-017](../decisions/ADR-017-mcp-apps-ui-on-the-ucp-server.md)):**
-  a host that renders MCP Apps (ChatGPT, Claude) shows the product carousel or the bag inside the
-  conversation. Its buttons call the UCP tools through the host themselves (search, next page,
-  add to bag, quantities, checkout, pay with a listed saved card); it never writes to the
-  assistant. Every call is the host's `tools/call` on the shopper's grant; the widget holds no token and no card data, and from the host's first message on it posts to
-  the host's origin only (keeping `"*"` for the handshake and for an opaque `"null"` host origin).
-  It shows the store's refusals in its own plain words for the codes it knows ("The store needs an
-  email for the receipt." for `missing_buyer_email`, which the store's checkout page or the Ask
-  panel asks for), and the store's text for any other.
+- **Shopper in an agent host's UI (MCP Apps):** taps in the carousel or the bag call the UCP
+  tools through the host on the shopper's grant: [MCP Apps widgets](mcp-apps-widgets.md#inputs).
 - **Catalogue:** UCP's `filters.categories` (any of the listed ones) and `filters.price` (`min`,
   `max`, minor units) on search, lookup and product; the singular `category` this store read
   before stays accepted. Search pages with `pagination.limit` (10 by default, at most 50) and the
@@ -294,6 +290,8 @@ before, every deploy or restart emptied orders, agents and grants.
   guest) asks for it there: `POST /api/checkouts/:id/email` `{ email }` fills that gap once, never
   replaces an email already set or an account's, and answers 404 for another account's checkout
   (`src/server/accounts/customers.test.ts`, "takes one at its link, once").
+  Drop-in's `beforeSubmit` first claims it (`POST /api/checkouts/:id/pay-intent` `{ sessionId }`);
+  409 `payment_in_progress` or `checkout_changed` (the page reloads) stops the payment.
 - **Checkout status for an agent:** with lines, a buyer email and payments configured, a guest's
   checkout is `ready_for_complete` (it may pay with a network token) and a signed-in agent's is
   too while the total fits its remaining limit, unless it was handed to the shopper; `payment.instruments` lists the account's saved
@@ -325,26 +323,8 @@ before, every deploy or restart emptied orders, agents and grants.
   at `/docs/ucp#saved-card-handler` and `#network-token-handler`. `/agents` is a short "Connect
   your AI agent" page for shoppers: the MCP address with a copy button, three steps, ChatGPT (the
   one client tested end to end), other MCP hosts, the device code and WebMCP, linking to the Docs.
-- **MCP Apps UI:** `initialize` announces `resources`, `prompts` and boutique stylist instructions;
-  `prompts/list` and `prompts/get` serve `personal-stylist`. `resources/list` serves
-  `ui://widget/product-carousel-v2.html` and `ui://widget/cart-checkout-v2.html`
-  (`text/html;profile=mcp-app`, inline script and style; `resources/read` keeps v1 aliases; unknown
-  URI `-32002`), with `_meta.ui.csp` images from `PUBLIC_ORIGIN` only and `openai/widgetCSP` adding
-  that origin to `redirect_domains`. A widget links only to `PUBLIC_ORIGIN` and draws an image
-  only from it or from a `data:image/` URL (PNG, JPEG, WebP, GIF or SVG), the form in which the
-  Ask panel hands it the store's own images. `search_catalog` and `get_product` name the carousel; cart
-  and checkout tools (`complete_checkout` included) name the bag (`_meta.ui.resourceUri`, alias
-  `openai/outputTemplate`, `ui.visibility` `["model","app"]`, `openai/widgetAccessible`,
-  `openai/toolInvocation`). `bridge.ts` deduplicates host payloads, ignores stale
-  `openai:set_globals` after `ui/initialize`, keeps updates silent via `setWidgetState` in ChatGPT
-  and structured `ui/update-model-context` elsewhere, and falls back on `openExternal`. The bag
-  offers "Save a test card" and "Refresh cards" when no saved card is present. `complete_checkout`
-  is destructive and open-world, cancel tools destructive. `src/widgets/` builds into
-  `src/server/mcp/widgets.gen.ts` with a source hash check.
-- **Plugin package:** `GET /downloads/atelier-velune-plugin.zip` packages `plugin/atelier-velune/`
-  (`plugin.json` meeting OpenAI listing limits, `mcp.json` with Agent Plugins `$schema`,
-  `${PUBLIC_ORIGIN}/mcp` and `extensions["com.openai"].auth` CIMD, `personal-stylist` skill,
-  icons), without hooks or app references; `/docs/chatgpt` explains direct MCP vs ZIP import.
+- **MCP Apps UI and plugin package:** the carousel and bag UI resources, the `personal-stylist`
+  prompt and the plugin ZIP: [MCP Apps widgets](mcp-apps-widgets.md#outputs).
 - **Account:** the header shows "Sign in" or the initial menu (desktop and mobile). `/account`
   shows overview tiles, agents (state from `agent-status.ts`, UTC dates, `#agent-<grant>`), orders
   (pages of 10), saved cards and security (passkeys, sign-out). Card saves and `/checkout/[id]`
@@ -440,6 +420,11 @@ before, every deploy or restart emptied orders, agents and grants.
    payment; the idempotency key is `agent-pay-<checkout id>-a<attempt>`; a refusal opens a new
    attempt, a network error retries the same key; a completed checkout is immutable. A Drop-in
    result is likewise re-read after Adyen answers, so a repeated result places one order.
+   One payment at a time across channels: a pay-intent holds the checkout 15 min; meanwhile an
+   agent's complete sends nothing (`payment_in_progress`), edits and cancels refuse, and an agent's
+   claim refuses pay-intents; a session priced before an edit gets `checkout_changed`; the result
+   or refusal webhook ends it (`commerce/lock.test.ts`; a browser skipping `beforeSubmit`:
+   `docs/KNOWN_LIMITS.md`).
 5. Every PAP MUST that applies to the merchant side maps to a test (matrix in the app's
    `src/server/pap/conformance.test.ts`).
 6. No secret, token, client assertion or stored payment method id appears in the trace, logs or
@@ -552,15 +537,8 @@ before, every deploy or restart emptied orders, agents and grants.
 27. The Docs pages render on the server with every diagram's steps as text, and their Try it
     panels send only a `GET` of this origin's public documents or a `POST` of MCP `tools/list` to
     this origin's `/mcp` (`src/components/docs/docs.test.tsx`).
-28. The UI resources (v2 URIs and v1 aliases) answer where `tools/list` does, load nothing outside
-    `PUBLIC_ORIGIN`, match their sources' hash, and serve `prompts/list`/`prompts/get`
-    (`src/server/mcp/widgets.test.ts`).
-29. A widget has no authority: its buttons call UCP tools (named `saved_card`, single-attempt
-    idempotency keys, extending the open bag) and never send the assistant a message, and the bridge
-    pins parent origin and suppresses stale host `toolOutput` / composer text
-    (`src/widgets/logic.test.ts`, `src/server/mcp/widgets.test.ts`, `src/widgets/bridge.test.ts`).
-30. The plugin ZIP holds its listed files, `$schema`, `${PUBLIC_ORIGIN}/mcp`, OpenAI OAuth CIMD
-    and valid listing fields, with no app reference or hook (`src/server/mcp/plugin.test.ts`).
+28. to 30. The MCP Apps widgets and the plugin ZIP: invariants 1 to 3 of
+    [MCP Apps widgets](mcp-apps-widgets.md).
 
 ## Determinism
 
@@ -590,9 +568,7 @@ is whatever LLM the shopper points at it.
   registration, none on the shopper's own pages, and the cart and checkout calls against the API.
   In a browser, a stand-in `document.modelContext` sees the five tools register on `/shop` and
   leave on `/account`.
-- MCP Apps: both widgets in a browser inside a stand-in host (both bridges, both modes, 375 and
-  1440 px, light and dark); in ChatGPT, the owner's own account: the carousel renders, a by-hand
-  "Add to bag", and a saved-card payment after the host's confirmation.
+- MCP Apps widgets: [their own checks](mcp-apps-widgets.md#acceptance-checks).
 - On TEST: a human Drop-in payment Authorised; a zero-value card save; an agent `complete_checkout`
   Authorised with ContAuth; the matching `AUTHORISATION` webhook accepted.
 - Accounts: sign-up, sign-in, sign-out and a passkey registered then used to sign in, in a

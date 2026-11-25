@@ -146,6 +146,13 @@ describe("views of UCP answers", () => {
       "A message the widget has no words for",
     ]);
   });
+
+  test("a payment already running reads in words, though UCP sends it as info", () => {
+    const bag = checkout("complete_in_progress", {
+      messages: [{ type: "info", code: "payment_in_progress", content: "raw store text" }],
+    });
+    expect(bag.problems).toEqual(["A payment for this bag is already in progress."]);
+  });
 });
 
 describe("inline images", () => {

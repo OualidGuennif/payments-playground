@@ -226,6 +226,21 @@ const browserApi = new Elysia({ prefix: "/api" })
       throw error;
     }
   })
+  // Drop-in's beforeSubmit: the checkout is held for this session's payment, or the form stops.
+  .post("/checkouts/:id/pay-intent", ({ request, params, body }) => {
+    const limited = sessionLimit(request, "payment");
+    if (limited) return limited;
+    const input = isRecord(body) ? body : {};
+    const sessionId = typeof input.sessionId === "string" ? input.sessionId : "";
+    try {
+      const held = commerce.claimWebPayment(params.id, sessionId);
+      return { held: true, until: held.paying?.until };
+    } catch (error) {
+      if (error instanceof commerce.CommerceError)
+        return status(error.status, { error: error.msg.content, code: error.msg.code });
+      throw error;
+    }
+  })
   .post("/checkouts/:id/session-result", async ({ request, params, body }) => {
     const input = isRecord(body) ? body : {};
     try {

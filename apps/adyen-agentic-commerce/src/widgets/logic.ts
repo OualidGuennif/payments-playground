@@ -45,6 +45,7 @@ const SHOPPER_TEXT: Record<string, string | null> = {
   no_saved_card: "Your account has no saved card. Save one on the store, or approve there.",
   payment_refused: "The card was refused. Try again, or choose another card.",
   payment_unavailable: "The payment could not start. Try again in a moment.",
+  payment_in_progress: "A payment for this bag is already in progress.",
   amount_mismatch:
     "No order was placed: the payment did not match your bag. The store will check it.",
 };
@@ -191,7 +192,12 @@ export function bagView(data: unknown): BagView | undefined {
     problems: [
       ...new Set(
         messages
-          .filter((m: UcpMessage) => m.type === "error" && typeof m.content === "string")
+          // A payment already running is news to the shopper, though UCP reads it as info.
+          .filter(
+            (m: UcpMessage) =>
+              (m.type === "error" || m.code === "payment_in_progress") &&
+              typeof m.content === "string",
+          )
           .map((m: UcpMessage) =>
             m.code && Object.hasOwn(SHOPPER_TEXT, m.code) ? SHOPPER_TEXT[m.code] : m.content,
           )

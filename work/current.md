@@ -11,8 +11,8 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
   keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
 - State: committed locally from `2f371ab` (unpushed), check green; injection hardening, one
   widget, receipt email block live with the owner's key; red team 16/16.
-- Next: plan for cart/checkout sync, payment lock, Code Mode, docs (who: agent, owner's yes);
-  voice and 375/1440 checks (owner); review, push (owner); Pi exemption off 2026-11-27.
+- Next: approved plan: payment lock, one bag, known account, Code Mode, plain docs, demo pass
+  (who: agent, in progress); voice, 375/1440 (owner); review, push (owner); Pi exemption 11-27.
 - Blocker: none to build; an independent review before any push.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 

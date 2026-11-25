@@ -58,6 +58,12 @@ order pages stay public, so a shopper handed a `continue_url` can pay without th
 basic auth, any client that reaches the store, an agent included, can open an account and approve
 its own sign-in to it, an account with no saved card.
 
+The payment lock (one payment at a time per checkout) is complete on the agent side, which pays
+from the server. On the website, Drop-in's Sessions flow sends the payment from the browser to
+Adyen, and the store's hold is asked in `beforeSubmit`: a modified browser that skips it can still
+get a second authorisation. The store then places no second order (the checkout is already
+completed), and the extra authorisation is cancelled by hand in the Customer Area.
+
 Adyen cannot reach `localhost`, so a local run never receives the `AUTHORISATION` webhook; an order
 is still placed from the synchronous `/payments` answer. The Render Blueprint has put the SQLite
 file on a 1 GB disk since v0.3.2, but the service used the disk only from 2026-11-18, once

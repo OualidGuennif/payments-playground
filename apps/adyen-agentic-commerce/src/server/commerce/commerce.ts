@@ -18,6 +18,8 @@ export {
   type Order,
   type OrderLine,
   type PaymentRecord,
+  PAYING_MS,
+  payingNow,
   type Phase,
   type Severity,
   SHIPPING,
@@ -43,4 +45,5 @@ export {
   startCardSave,
   startShopperSession,
 } from "./shopper-session";
+export { claimWebPayment, releasePayment } from "./lock";
 export { applyNotification } from "./webhooks";

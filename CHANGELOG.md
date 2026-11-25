@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Pay one way at a time: the checkout page's Drop-in holds the checkout for its payment before it
+  sends it (`POST /api/checkouts/:id/pay-intent`, 15 minutes), so an agent's or the Ask panel's
+  `complete_checkout` sends nothing meanwhile, edits and cancels wait, a second tab is refused, and
+  a bag changed since the form opened reloads the form instead of paying the old total; a result
+  or a refusal webhook frees it. The store spec's MCP Apps parts move to their own spec.
 - Ask the receipt email in the Ask panel itself: when the bag's checkout lacks one, a block under
   the widget offers the account's address (shown masked) or takes a typed one, and posts it to
   `POST /api/ask/checkout-email`, never through the assistant; the route takes only a checkout

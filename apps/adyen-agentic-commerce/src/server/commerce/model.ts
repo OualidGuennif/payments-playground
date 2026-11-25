@@ -51,6 +51,8 @@ export type Checkout = {
   orderId?: string;
   // When an agent completed with no instrument: from then on the shopper pays at continue_url.
   handedOverAt?: string;
+  // The shopper's Drop-in payment that holds this checkout until `until` (lock.ts).
+  paying?: { channel: Channel; reference: string; until: string };
   createdAt: string;
   updatedAt: string;
   expiresAt: string;
@@ -149,3 +151,19 @@ export const err = (
 ) => new CommerceError(status, { type: "error", code, content, severity, path });
 
 export const now = () => new Date().toISOString();
+
+// Long enough for a 3-D Secure challenge; a shopper who walks away frees the checkout after it.
+export const PAYING_MS = 15 * 60_000;
+
+/** The Drop-in payment holding this checkout now, if any: an expired hold holds nothing. */
+export const payingNow = (checkout: Checkout, at = Date.now()) =>
+  checkout.paying && Date.parse(checkout.paying.until) > at ? checkout.paying : undefined;
+
+export const paymentInProgress = () =>
+  err(
+    409,
+    "payment_in_progress",
+    "A payment for this checkout is already in progress",
+    undefined,
+    "requires_buyer_review",
+  );

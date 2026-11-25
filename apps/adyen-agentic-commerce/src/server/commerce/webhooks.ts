@@ -42,11 +42,14 @@ export function applyNotification(item: adyen.NotificationItem): string {
   // Only a refusal of the attempt in progress reopens the checkout: a late refusal of an earlier
   // attempt must not reopen it while a newer one is pending, nor give back budget never reserved.
   const current = [`${checkout.id}-a${checkout.attempts}`, `${checkout.id}-s${checkout.attempts}`];
+  // A refused Drop-in payment no longer holds the checkout; another payment's hold stays.
+  const paying = checkout.paying?.reference === record.reference ? undefined : checkout.paying;
   if (checkout.phase === "complete_in_progress" && current.includes(record.reference)) {
     // The agent's budget was reserved when the payment was sent; a refusal gives it back once.
     if (record.purpose === "agent") releaseReservation(record, checkout.grantId);
     saveCheckout({
       ...checkout,
+      paying,
       phase: "open",
       lastMessage: {
         type: "error",
@@ -55,6 +58,6 @@ export function applyNotification(item: adyen.NotificationItem): string {
         severity: "requires_buyer_review",
       },
     });
-  }
+  } else if (paying !== checkout.paying) saveCheckout({ ...checkout, paying });
   return "refusal recorded";
 }

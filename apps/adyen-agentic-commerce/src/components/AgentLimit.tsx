@@ -102,7 +102,14 @@ export function AgentLimit({
         <rect width={used} height="4" className={used >= 90 ? "fill-warn" : "fill-accent"} />
       </svg>
       {agent.revoked ? null : (
-        <form className="space-y-2" onSubmit={save} aria-label={`Budget for ${agent.name}`}>
+        // noValidate: step={10} only paces the arrows; the browser's step check would refuse a
+        // total like 598.90 before save() runs, and limitFromInput already clamps any number.
+        <form
+          className="space-y-2"
+          onSubmit={save}
+          noValidate
+          aria-label={`Budget for ${agent.name}`}
+        >
           <div className="flex flex-wrap gap-2">
             {TOP_UPS.map((amount) => (
               <button

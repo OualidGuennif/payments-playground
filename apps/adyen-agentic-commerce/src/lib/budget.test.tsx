@@ -72,7 +72,8 @@ describe("agent budget", () => {
         onChange={() => undefined}
       />,
     );
-    expect(html).toContain("<form");
+    // The browser's step check would block a total like 598.90 before save() reads it.
+    expect(html).toMatch(/<form[^>]*novalidate=""/i);
     expect(html).toContain("Total limit (EUR, up to 1,000)");
     expect(html).toContain("That is the limit it has now: ChatGPT has €1.10 left.");
     expect(html).toContain("The total includes the €298.90 already spent.");

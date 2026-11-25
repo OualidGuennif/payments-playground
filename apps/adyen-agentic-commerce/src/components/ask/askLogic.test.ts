@@ -10,8 +10,10 @@ import {
   endedText,
   type HostDeps,
   hostReply,
+  inlineImages,
   inlines,
   liveWidgets,
+  MAX_INLINE_IMAGES,
   nextCaption,
   parseEvents,
   safeHref,
@@ -233,6 +235,64 @@ describe("the MCP Apps host", () => {
     expect(d.resize).toHaveBeenCalledWith(900);
     expect(await hostReply({ method: "ui/initialize", id: 1 }, d)).toBeUndefined();
     expect(await hostReply("ui/initialize", d)).toBeUndefined();
+  });
+});
+
+describe("the store's pictures, inlined for the frame", () => {
+  const art = (id: string) => `${STORE}/api/art/${id}.svg`;
+  const inline = (path: string) => `data:image/svg+xml;base64,${btoa(path)}`;
+
+  test("every store picture is loaded once by its path and swapped in place", async () => {
+    const load = mock(async (path: string) => inline(path));
+    const data = {
+      products: [
+        {
+          media: [{ url: art("trench-sand-m") }],
+          variants: [{ media: [{ url: art("trench-sand-m") }] }],
+        },
+      ],
+      lines: [{ image: art("socks-navy"), title: "Socks" }],
+      continue_url: `${STORE}/checkout/chk_1`,
+    };
+    const out = (await inlineImages(data, STORE, load)) as typeof data;
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(load).toHaveBeenCalledWith("/api/art/trench-sand-m.svg");
+    expect(out.products[0]?.media[0]?.url).toBe(inline("/api/art/trench-sand-m.svg"));
+    expect(out.products[0]?.variants[0]?.media[0]?.url).toBe(inline("/api/art/trench-sand-m.svg"));
+    expect(out.lines[0]?.image).toBe(inline("/api/art/socks-navy.svg"));
+    expect(out.lines[0]?.title).toBe("Socks");
+    expect(out.continue_url).toBe(`${STORE}/checkout/chk_1`);
+    expect(data.lines[0]?.image).toBe(art("socks-navy"));
+  });
+
+  test("another origin, another path or a failed load keeps its address", async () => {
+    const load = mock(async (path: string) => (path.includes("broken") ? undefined : inline(path)));
+    const data = [
+      "https://elsewhere.example/api/art/a.svg",
+      `${STORE}/api/art/../secret.svg`,
+      `${STORE}/api/orders/1`,
+      `${STORE}.evil.example/api/art/a.svg`,
+      art("broken"),
+    ];
+    expect(await inlineImages(data, STORE, load)).toEqual(data);
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  test("a rejected load keeps its address; data without pictures is returned as is", async () => {
+    const failing = async (): Promise<string | undefined> => {
+      throw new Error("offline");
+    };
+    expect(await inlineImages({ image: art("a") }, STORE, failing)).toEqual({ image: art("a") });
+    const plain = { text: "hello" };
+    expect(await inlineImages(plain, STORE, failing)).toBe(plain);
+  });
+
+  test("at most a capped number of pictures are loaded per data", async () => {
+    const load = mock(async (path: string) => inline(path));
+    const many = Array.from({ length: MAX_INLINE_IMAGES + 5 }, (_, i) => art(`p${i}`));
+    const out = (await inlineImages(many, STORE, load)) as string[];
+    expect(load).toHaveBeenCalledTimes(MAX_INLINE_IMAGES);
+    expect(out.at(-1)).toBe(art(`p${MAX_INLINE_IMAGES + 4}`));
   });
 });
 

@@ -112,6 +112,42 @@ export function storePath(url: unknown, origins: string[]): string | undefined {
   }
 }
 
+// Chromium refuses an opaque-origin frame's requests to a loopback store, so the host hands the
+// widget the store's own pictures as data URLs. `load` gets a path on this page's origin; a picture
+// it cannot load, or one past the cap, keeps its address.
+const ART = /^\/api\/art\/[\w-]+\.svg$/;
+export const MAX_INLINE_IMAGES = 64;
+export async function inlineImages(
+  data: unknown,
+  storeOrigin: string,
+  load: (path: string) => Promise<string | undefined>,
+): Promise<unknown> {
+  const found = new Map<string, string>();
+  const visit = (v: unknown) => {
+    if (typeof v === "string") {
+      const path = v.startsWith(`${storeOrigin}/`) ? v.slice(storeOrigin.length) : "";
+      if (ART.test(path) && found.size < MAX_INLINE_IMAGES) found.set(v, path);
+    } else if (Array.isArray(v)) v.forEach(visit);
+    else if (record(v)) Object.values(v).forEach(visit);
+  };
+  visit(data);
+  if (!found.size) return data;
+  const loaded = new Map<string, string>();
+  await Promise.all(
+    [...found].map(async ([url, path]) => {
+      const inline = await load(path).catch(() => undefined);
+      if (inline) loaded.set(url, inline);
+    }),
+  );
+  const swap = (v: unknown): unknown => {
+    if (typeof v === "string") return loaded.get(v) ?? v;
+    if (Array.isArray(v)) return v.map(swap);
+    if (record(v)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, swap(x)]));
+    return v;
+  };
+  return swap(data);
+}
+
 // Light Markdown (the agent's prompt asks for it) as data, drawn by React: no HTML is ever parsed.
 // `at` is where a piece starts in the text (or its line), a stable key for React.
 export type Inline =

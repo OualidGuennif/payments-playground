@@ -4,9 +4,16 @@
 // connection) that reaches the store only through this host, which sends its taps to
 // /api/ask/widget as the session's own identity and its messages through the full pipeline.
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { askCall } from "./askClient";
-import { hostReply, storePath, type ToolAnswer, type Widget, widgetName } from "./askLogic";
+import {
+  hostReply,
+  inlineImages,
+  storePath,
+  type ToolAnswer,
+  type Widget,
+  widgetName,
+} from "./askLogic";
 
 type Frame = { html: string; storeOrigin: string };
 const frames = new Map<string, Promise<Frame | undefined>>();
@@ -20,6 +27,33 @@ function frameFor(uri: string) {
       return a.data;
     });
     frames.set(uri, pending);
+  }
+  return pending;
+}
+
+// One fetch per picture and page load, from this page's own origin; a failure is tried again later.
+const pictures = new Map<string, Promise<string | undefined>>();
+function picture(path: string) {
+  let pending = pictures.get(path);
+  if (!pending) {
+    pending = fetch(path)
+      .then(async (response) => {
+        const blob = await response.blob();
+        if (!response.ok || !blob.type.startsWith("image/")) return undefined;
+        return await new Promise<string | undefined>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () =>
+            resolve(typeof reader.result === "string" ? reader.result : undefined);
+          reader.onerror = () => resolve(undefined);
+          reader.readAsDataURL(blob);
+        });
+      })
+      .catch(() => undefined)
+      .then((inline) => {
+        if (!inline) pictures.delete(path);
+        return inline;
+      });
+    pictures.set(path, pending);
   }
   return pending;
 }
@@ -39,9 +73,19 @@ export function WidgetFrame({
   const [frame, setFrame] = useState<Frame>();
   const [failed, setFailed] = useState(false);
   const [height, setHeight] = useState(320);
-  // The newest data for the frame, read when it finishes its handshake.
-  const data = useRef(widget.structuredContent);
+  // The newest data for the frame, its pictures inlined, sent once it finishes its handshake.
+  const data = useRef<Promise<unknown>>(undefined);
   const ready = useRef(false);
+  const sendResult = useCallback(() => {
+    const pending = data.current;
+    void pending?.then((structuredContent) => {
+      if (pending !== data.current || !ready.current) return;
+      ref.current?.contentWindow?.postMessage(
+        { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent } },
+        "*",
+      );
+    });
+  }, []);
   const say = useRef(onSay);
   useEffect(() => {
     say.current = onSay;
@@ -66,19 +110,14 @@ export function WidgetFrame({
     // data and theme, never a secret.
     const post = (message: Record<string, unknown>) =>
       target.contentWindow?.postMessage(message, "*");
-    const sendResult = () =>
-      post({
-        jsonrpc: "2.0",
-        method: "ui/notifications/tool-result",
-        params: { structuredContent: data.current },
-      });
     const origins = [window.location.origin, frame.storeOrigin];
     const onMessage = (event: MessageEvent) => {
       if (event.source !== target.contentWindow) return;
       void hostReply(event.data, {
         call: async (name, args): Promise<ToolAnswer> => {
           const answer = await askCall<{ result: unknown }>("/widget", { name, arguments: args });
-          return answer.data ? { result: answer.data.result } : { error: answer.message };
+          if (!answer.data) return { error: answer.message };
+          return { result: await inlineImages(answer.data.result, frame.storeOrigin, picture) };
         },
         say: (text) => say.current(text),
         open: (url) => {
@@ -109,21 +148,14 @@ export function WidgetFrame({
       window.removeEventListener("message", onMessage);
       scheme.removeEventListener("change", onScheme);
     };
-  }, [frame, router]);
+  }, [frame, router, sendResult]);
 
   // New data for a frame already showing (the same widget answered again) is pushed in place.
   useEffect(() => {
-    data.current = widget.structuredContent;
-    if (ready.current)
-      ref.current?.contentWindow?.postMessage(
-        {
-          jsonrpc: "2.0",
-          method: "ui/notifications/tool-result",
-          params: { structuredContent: widget.structuredContent },
-        },
-        "*",
-      );
-  }, [widget.structuredContent]);
+    if (!frame) return;
+    data.current = inlineImages(widget.structuredContent, frame.storeOrigin, picture);
+    sendResult();
+  }, [frame, widget.structuredContent, sendResult]);
 
   const title = widgetName(widget.resourceUri);
   if (failed) return <p className="text-xs text-muted">{title} could not be shown here.</p>;

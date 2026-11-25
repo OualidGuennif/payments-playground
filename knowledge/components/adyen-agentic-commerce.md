@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: antigravity/gemini
-  at: 2026-11-25T23:30:00Z
+  at: 2026-11-25T15:00:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -331,7 +331,9 @@ before, every deploy or restart emptied orders, agents and grants.
   `ui://widget/product-carousel-v2.html` and `ui://widget/cart-checkout-v2.html`
   (`text/html;profile=mcp-app`, inline script and style; `resources/read` keeps v1 aliases; unknown
   URI `-32002`), with `_meta.ui.csp` images from `PUBLIC_ORIGIN` only and `openai/widgetCSP` adding
-  that origin to `redirect_domains`. `search_catalog` and `get_product` name the carousel; cart
+  that origin to `redirect_domains`. A widget links only to `PUBLIC_ORIGIN` and draws an image
+  only from it or from a `data:image/` URL (PNG, JPEG, WebP, GIF or SVG), the form in which the
+  Ask panel hands it the store's own images. `search_catalog` and `get_product` name the carousel; cart
   and checkout tools (`complete_checkout` included) name the bag (`_meta.ui.resourceUri`, alias
   `openai/outputTemplate`, `ui.visibility` `["model","app"]`, `openai/widgetAccessible`,
   `openai/toolInvocation`). `bridge.ts` deduplicates host payloads, ignores stale

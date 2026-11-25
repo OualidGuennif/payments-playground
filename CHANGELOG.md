@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Show the product pictures in the Ask panel's carousel and bag: the panel hands the store's own
+  images to the widget inline, because Chromium refuses its sandboxed frame's requests to a
+  loopback store; the widget draws a base64 `data:image/` picture besides the store's own.
 - Let the agentic store's checkout page ask for a missing receipt email: a checkout an agent
   handed over as a guest no longer stops at "missing details"; the email fills that gap once and
   never replaces one already set.

@@ -1,7 +1,8 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // The widget inside an agent host: the collection as a carousel and the bag, in one script that
 // both UI resources load (the body's data-view picks the first screen). Every text from the store
-// goes in through textContent, every link and image must be on the store's own origin.
+// goes in through textContent, every link and image must be on the store's own origin (an image
+// may also come inline).
 import { connect, type Host, type Theme } from "./bridge";
 import {
   type Action,
@@ -20,6 +21,7 @@ import {
   coloursOf,
   contextDataFor,
   contextFor,
+  inlineImage,
   isOpen,
   type Mode,
   money,
@@ -57,6 +59,7 @@ function onStore(url: string | undefined): url is string {
     return false;
   }
 }
+const pictured = (url: string | undefined): url is string => onStore(url) || inlineImage(url);
 
 type Child = Node | string | false | null | undefined;
 type Attrs = Record<string, string | boolean | undefined | ((event: Event) => void)>;
@@ -310,7 +313,7 @@ function card(p: UcpProduct) {
   return h(
     "li",
     { class: "card" },
-    onStore(image)
+    pictured(image)
       ? h("img", {
           src: image,
           alt: variant?.title ?? p.title,
@@ -435,7 +438,7 @@ function line(bag: BagView, l: BagLine) {
   return h(
     "li",
     { class: "line" },
-    onStore(l.image)
+    pictured(l.image)
       ? h("img", { src: l.image, alt: "", width: "56", height: "56" })
       : h("div", { class: "noimg small", "aria-hidden": "true" }),
     h(

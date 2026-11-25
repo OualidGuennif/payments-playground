@@ -92,6 +92,12 @@ const record = (v: unknown): v is Record<string, unknown> =>
 const text = (v: unknown) => (typeof v === "string" ? v : undefined);
 const whole = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
 
+// The Ask panel hands the store's own pictures over inline, because Chromium refuses its opaque
+// frame's requests to a loopback store. In an <img> such a URL draws and runs nothing.
+const INLINE_IMAGE = /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,[A-Za-z0-9+/]+={0,2}$/;
+export const inlineImage = (url: unknown): url is string =>
+  typeof url === "string" && INLINE_IMAGE.test(url);
+
 // The UCP envelope names one capability per answer; it says which view the answer belongs to.
 export function capabilityOf(data: unknown): string | undefined {
   if (!record(data) || !record(data.ucp) || !record(data.ucp.capabilities)) return undefined;

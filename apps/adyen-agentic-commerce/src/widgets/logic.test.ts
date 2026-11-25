@@ -11,6 +11,7 @@ import {
   choose,
   contextDataFor,
   contextFor,
+  inlineImage,
   offered,
   payCall,
   quantityCall,
@@ -145,6 +146,18 @@ describe("views of UCP answers", () => {
       "Something in your bag has just sold out. Remove it to go on.",
       "A message the widget has no words for",
     ]);
+  });
+});
+
+describe("inline images", () => {
+  test("only a base64 picture is drawn inline", () => {
+    expect(inlineImage("data:image/svg+xml;base64,PHN2Zy8+")).toBe(true);
+    expect(inlineImage("data:image/png;base64,iVBORw0KGgo=")).toBe(true);
+    expect(inlineImage("data:text/html;base64,PHNjcmlwdD4=")).toBe(false);
+    expect(inlineImage("data:image/svg+xml,<svg onload=alert(1)>")).toBe(false);
+    expect(inlineImage('data:image/svg+xml;base64,PHN2Zy8+"><script>')).toBe(false);
+    expect(inlineImage("https://elsewhere.example/a.svg")).toBe(false);
+    expect(inlineImage(undefined)).toBe(false);
   });
 });
 

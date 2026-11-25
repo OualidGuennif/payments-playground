@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T13:05:00Z
+  at: 2026-11-25T15:00:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -119,7 +119,11 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   `srcdoc` frame (`allow-scripts` only, so an opaque origin) as an MCP Apps host: `ui/initialize`
   with the page's theme, `tools/call` sent to `POST /api/ask/widget`, `ui/message` sent through
   the five stages, `ui/open-link` for the store's pages only, size changes clamped to 120 to
-  900 px. Only the newest carousel and the newest bag stay live; an older one becomes a line.
+  900 px. Chromium refuses an opaque-origin frame's requests to a loopback address, so the host
+  fetches the store's own images (`PUBLIC_ORIGIN/api/art/*.svg`, at most 64 per data) from the page
+  and hands them to the widget as `data:` URLs, in its data and in its tool answers; one it cannot
+  fetch keeps its address. Only the newest carousel and the newest bag stay live; an older one
+  becomes a line.
   When voice is offered, a "Voice" button asks for the password, then "Talk instead" starts a call
   (microphone, WebRTC to OpenAI with the server's answer, a data channel that only listens): a bar
   shows the countdown, the last caption and End; the composer waits and the conversation refreshes
@@ -247,7 +251,7 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     as unavailable and no route calls a model. Test: `ask/config.test.ts`.
 17. **A widget reaches nothing by itself:** its frame has an opaque origin and a policy with no
     connection; the host answers only the requests listed under Panel, posts it only its own data
-    and theme, and accepts messages only from that frame. An answer's text never becomes HTML.
+    (the store's images inlined) and theme, and accepts messages only from that frame. An answer's text never becomes HTML.
     Test: `ask/api.test.ts` "the panel's widget frame"; `components/ask/askLogic.test.ts`.
 
 ## Determinism
@@ -266,8 +270,8 @@ store's tools and Adyen, and links and amounts pass stage 5.
   conversation; connects through `/device` with a budget; the agent pays with a saved card within
   it; signs out and the panel starts empty. At 375 and 1440 px, light and dark, Firefox, Safari and
   Chrome.
-- Locally, Chromium refuses an opaque-origin frame's requests to a loopback address, so widget
-  images stay blank in the panel on `localhost`; on the public origin they load.
+- The carousel's and the bag's images show in the panel on `127.0.0.1:8003` as on the public
+  origin (the host inlines them).
 - Red-team list in the console: every case refused at the stage it names.
 - `/console`: wrong password five times then 429; model change audited; a session's transcript with
   verdicts and costs.

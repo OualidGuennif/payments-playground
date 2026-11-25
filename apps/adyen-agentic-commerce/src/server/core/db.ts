@@ -26,7 +26,8 @@ export type Collection =
   | "ask_settings"
   | "ask_audit"
   | "ask_sessions"
-  | "ask_messages";
+  | "ask_messages"
+  | "console_sessions";
 
 const SCHEMA = `
 create table if not exists docs (

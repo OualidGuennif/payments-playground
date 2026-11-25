@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add the Atelier Velune console's server side under `/api/console`: a password sign-in that
+  exists only with a `CONSOLE_PASSWORD` of 16 characters or more, five tries per 15 minutes, a
+  strict cookie; today's sessions, cost, cache reads and refusals; every session's transcript with
+  its verdicts, and ending or locking one; audited model and limit settings; a playground and a
+  red-team list that run the gate on demand.
 - Add the Ask agent's shopper routes under `/api/ask`: the session (read, start, end), a message
   answered as a stream of stage progress, tool steps and one final answer, connecting the account
   through the store's own device sign-in, and widget taps limited to shopping tools. They refuse

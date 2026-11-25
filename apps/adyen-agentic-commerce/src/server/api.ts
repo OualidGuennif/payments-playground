@@ -4,6 +4,7 @@
 import { Elysia, status } from "elysia";
 import { accountApi, customerOf, sessionLimit } from "./accounts/account-api";
 import { askApi } from "./ask/api";
+import { consoleApi } from "./ask/console-api";
 import { productSvg } from "./catalog/art";
 import * as adyen from "./payments/adyen";
 import * as backOffice from "./back-office/back-office";
@@ -534,7 +535,8 @@ const app = new Elysia()
   .post("/poppy/feedback", ({ request }) => handleFeedback(request))
   .use(browserApi)
   .use(accountApi)
-  .use(askApi);
+  .use(askApi)
+  .use(consoleApi);
 
 export type App = typeof app;
 

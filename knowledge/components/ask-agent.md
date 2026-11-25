@@ -194,9 +194,12 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     provider receives, through Pi's faux provider).
 13. **Console:** `CONSOLE_PASSWORD` under 16 characters disables it (404); constant-time compare;
     5 failures per 15 minutes per address; session cookie `av_console` (random, stored hashed, 8 h,
-    httpOnly, `SameSite=Strict`, `Secure` on https); POSTs also need the store's origin and
-    `X-Console: 1`; pages `noindex`. A settings change writes an audit line. Test:
-    `ask/console.test.ts`.
+    httpOnly, `SameSite=Strict`, `Secure` on https, path `/api/console`); POSTs also need the
+    store's origin and `X-Console: 1`; pages and answers `noindex`. A settings change writes an
+    audit line; a new model applies to sessions started after it. The playground runs the five
+    stages on a test session; the red-team list runs stages 1 to 3 on fixed attacks, each passing
+    when refused no later than the stage it names, and its guard costs count in the day's total.
+    Test: `ask/console.test.ts`.
 14. **Voice:** offered only when the session's model is OpenAI's and voice is on; unlocked by
     `adyentic` checked on the server (5 tries per 15 minutes per address), per session. The browser
     holds no key: the server creates the GPT-Live session and keeps its sideband. Each delegation

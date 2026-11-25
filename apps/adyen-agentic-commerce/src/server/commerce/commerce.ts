@@ -45,5 +45,5 @@ export {
   startCardSave,
   startShopperSession,
 } from "./shopper-session";
-export { claimWebPayment, releasePayment } from "./lock";
+export { accountPaying, claimWebPayment, releasePayment } from "./lock";
 export { applyNotification } from "./webhooks";

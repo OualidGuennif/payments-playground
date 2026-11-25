@@ -18,6 +18,7 @@ import { Icon } from "./AskIcon";
 import { AskReceipt } from "./AskReceipt";
 import { AskText } from "./AskText";
 import { AskVoice } from "./AskVoice";
+import { followBag, readCart } from "@/lib/client";
 import { askCall, sendMessage, setAskOpen, useAskOpen, wasAskOpen } from "./askClient";
 import {
   type AskMessage,
@@ -28,6 +29,7 @@ import {
   receiptNeeded,
   type SessionView,
   shownMessages,
+  siteBagOf,
   stageLabel,
   widgetLine,
 } from "./askLogic";
@@ -216,21 +218,27 @@ export function AskPanel() {
       setMessages((m) => [...m, { role: "shopper", text, widgets: [], at }]);
       setStatus(stageLabel("gate"));
       let settled = false;
-      const answer = await sendMessage(text, pathname, (event) => {
-        if (event.type === "stage") setStatus(stageLabel(event.stage));
-        else if (event.type === "tool" && event.phase === "start")
-          setStatus(event.label ?? "Asking the store…");
-        else if (event.type === "final") {
-          settled = true;
-          setMessages((m) => [
-            ...m,
-            { role: "assistant", text: event.text, widgets: event.widgets, at: Date.now() },
-          ]);
-        } else if (event.type === "error") {
-          settled = true;
-          setNotice("The assistant could not answer this time. Please try again.");
-        }
-      });
+      const answer = await sendMessage(
+        text,
+        pathname,
+        (event) => {
+          if (event.type === "stage") setStatus(stageLabel(event.stage));
+          else if (event.type === "tool" && event.phase === "start")
+            setStatus(event.label ?? "Asking the store…");
+          else if (event.type === "final") {
+            settled = true;
+            setMessages((m) => [
+              ...m,
+              { role: "assistant", text: event.text, widgets: event.widgets, at: Date.now() },
+            ]);
+          } else if (event.type === "error") {
+            settled = true;
+            setNotice("The assistant could not answer this time. Please try again.");
+          }
+        },
+        // The site's bag rides along; the server checks each line against the catalogue.
+        readCart(),
+      );
       busy.current = false;
       setStatus(undefined);
       if (answer.error) {
@@ -270,6 +278,22 @@ export function AskPanel() {
       void submit();
     }
   };
+
+  // The site's bag follows the widget's, once per new bag: the tab remembers the last one followed,
+  // so a transcript reloaded on another page never undoes a change the shopper made on the site.
+  const followed = siteBagOf(oneWidget(shownMessages(messages), taps)?.feed ?? []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the key names the bag's content.
+  useEffect(() => {
+    if (!followed) return;
+    const KEY = "velune-bag-followed";
+    try {
+      if (sessionStorage.getItem(KEY) === followed.key) return;
+      sessionStorage.setItem(KEY, followed.key);
+    } catch {
+      /* private mode: follow every time */
+    }
+    followBag(followed);
+  }, [followed?.key]);
 
   if (!open || hiddenOn(pathname)) return null;
 

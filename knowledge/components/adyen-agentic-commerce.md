@@ -291,7 +291,10 @@ before, every deploy or restart emptied orders, agents and grants.
   replaces an email already set or an account's, and answers 404 for another account's checkout
   (`src/server/accounts/customers.test.ts`, "takes one at its link, once").
   Drop-in's `beforeSubmit` first claims it (`POST /api/checkouts/:id/pay-intent` `{ sessionId }`);
-  409 `payment_in_progress` or `checkout_changed` (the page reloads) stops the payment.
+  409 `payment_in_progress` or `checkout_changed` (the page reloads) stops the payment. The page
+  follows the shopper's one bag (Ask spec): it refreshes when its checkout changes, and a `web`
+  checkout takes the bag's lines through `POST /api/checkouts/:id/lines` `{ lines }` (open, not
+  held, the viewer's or no account's; else 409 or 404).
 - **Checkout status for an agent:** with lines, a buyer email and payments configured, a guest's
   checkout is `ready_for_complete` (it may pay with a network token) and a signed-in agent's is
   too while the total fits its remaining limit, unless it was handed to the shopper; `payment.instruments` lists the account's saved
@@ -422,7 +425,10 @@ before, every deploy or restart emptied orders, agents and grants.
    result is likewise re-read after Adyen answers, so a repeated result places one order.
    One payment at a time across channels: a pay-intent holds the checkout 15 min; meanwhile an
    agent's complete sends nothing (`payment_in_progress`), edits and cancels refuse, and an agent's
-   claim refuses pay-intents; a session priced before an edit gets `checkout_changed`; the result
+   claim refuses pay-intents; one account pays one checkout at a time (an agent's complete or a
+   pay-intent on another checkout of the account refuses with `payment_in_progress` while one is
+   held or in progress, for 15 min at most); a session priced before an edit gets
+   `checkout_changed`; the result
    or refusal webhook ends it (`commerce/lock.test.ts`; a browser skipping `beforeSubmit`:
    `docs/KNOWN_LIMITS.md`).
 5. Every PAP MUST that applies to the merchant side maps to a test (matrix in the app's

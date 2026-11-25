@@ -66,7 +66,8 @@ voice mode (GPT-Live) talks to the same agent through the same gate.
 ## Inputs
 
 - **Shopper message** `POST /api/ask/messages` `{ text: string ≤ 1,000 chars after NFKC, page?:
-  store path }`, with the `av_ask` cookie (httpOnly, `SameSite=Lax`, `Secure` on https, path
+  store path, bag?: [{ variantId, quantity }] }` (the site's bag: at most 20 lines, catalogue ids,
+  1 to 10 each; anything else is dropped), with the `av_ask` cookie (httpOnly, `SameSite=Lax`, `Secure` on https, path
   `/api/ask`) naming the session. The customer comes from the store's own session cookie, never
   from the body. A browser's first message starts its session, with the same checks as `POST
   /api/ask/session`. Every Ask POST needs `X-Ask: 1` (a header no other site can send without a
@@ -142,6 +143,11 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   message keeps a line ("Collection shown", "Bag shown"). When the bag's checkout lacks a receipt
   email, a block under the widget asks for it, drawn by the panel itself: signed in, "Send the
   receipt to b•••@example.com?" with "Use this email" and "Another email"; a guest types one.
+  **One bag per browser:** when the widget shows an open bag, the site's bag (header count,
+  `/cart`) takes its lines and the open checkout page hears of it at once; a completed bag empties
+  the site's bag. The agent hears the site's bag in `<shop_context>` as `bag:` with catalogue titles
+  and ids; on a `/checkout/chk_…` page, that checkout's lines instead (open, and the session's
+  account's or no account's).
   When voice is offered, a "Voice" button asks for the password, then "Talk instead" starts a call
   (microphone, WebRTC to OpenAI with the server's answer, a data channel that only listens): a bar
   shows the countdown, the last caption and End; the composer waits and the conversation refreshes
@@ -300,6 +306,10 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     only a checkout id a widget of this conversation showed, sets the email once (never over one
     already set, never on a paid checkout), and writes the note "Receipt email set" without it.
     Test: `ask/api.test.ts` "receipt email".
+20. **The bag fact is the store's own words:** `bag:` in `<shop_context>` names only catalogue
+    titles, ids and quantities, from lines the server checked (or read from the checkout), never
+    the shopper's text; a checkout of another account adds nothing. Test: `ask/context.test.ts`
+    "bag fact". The site's bag follows the widget's (`ask/askLogic.test.ts` "site bag").
 
 ## Determinism
 

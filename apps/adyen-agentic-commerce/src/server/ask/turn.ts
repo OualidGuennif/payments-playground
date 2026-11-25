@@ -11,11 +11,18 @@ import type { Settings } from "./settings";
 export type Turn = { session: AskSession; settings: Settings; regular: boolean; address: string };
 
 // Stages 1 and 2: no model, nothing awaited.
-export const admitTurn = (turn: Turn, text: unknown, page: unknown, via: "text" | "voice") =>
+export const admitTurn = (
+  turn: Turn,
+  text: unknown,
+  page: unknown,
+  via: "text" | "voice",
+  bag?: unknown,
+) =>
   admit({
     session: turn.session,
     text,
     page,
+    bag,
     via,
     limits: turn.settings.limits,
     regular: turn.regular,

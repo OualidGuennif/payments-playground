@@ -20,6 +20,7 @@ import {
   parseEvents,
   safeHref,
   shownMessages,
+  siteBagOf,
   stageLabel,
   storePath,
   voiceEvent,
@@ -344,5 +345,47 @@ describe("the voice call's captions", () => {
     expect(nextCaption(undefined, "you", "x".repeat(400)).text.length).toBeLessThanOrEqual(181);
     expect(clockText(272.4)).toBe("4:32");
     expect(clockText(-3)).toBe("0:00");
+  });
+});
+
+describe("site bag", () => {
+  const line = (id: string, quantity: number) => ({ item: { id, title: "x" }, quantity });
+  const fed = (data: unknown) => [{ resourceUri: BAG, structuredContent: data }];
+
+  test("an open bag gives its lines; a paid one empties; a canceled one changes nothing", () => {
+    const open = siteBagOf(fed({ id: "chk_1", status: "incomplete", line_items: [line("a", 2)] }));
+    expect(open).toMatchObject({
+      checkoutId: "chk_1",
+      paid: false,
+      lines: [{ variantId: "a", quantity: 2 }],
+    });
+    const cart = siteBagOf(fed({ id: "cart_1", status: "active", line_items: [line("a", 1)] }));
+    expect(cart?.checkoutId).toBeUndefined();
+    const paid = siteBagOf(fed({ id: "chk_1", status: "completed", line_items: [line("a", 2)] }));
+    expect(paid).toMatchObject({ paid: true, lines: [] });
+    expect(siteBagOf(fed({ id: "chk_1", status: "canceled" }))).toBeUndefined();
+    expect(siteBagOf([{ resourceUri: CAROUSEL, structuredContent: { id: "chk_1" } }])).toBe(
+      undefined,
+    );
+  });
+
+  test("the newest bag wins and a change of content is a new key", () => {
+    const one = fed({ id: "chk_1", status: "incomplete", line_items: [line("a", 1)] });
+    const two = fed({
+      id: "chk_1",
+      status: "incomplete",
+      line_items: [line("a", 1), line("b", 1)],
+    });
+    const first = siteBagOf(one);
+    const more = siteBagOf([...one, ...two]);
+    expect(more?.lines).toHaveLength(2);
+    expect(JSON.stringify(more)).not.toBe(JSON.stringify(first));
+  });
+
+  test("a malformed line is dropped, never guessed", () => {
+    const bag = siteBagOf(
+      fed({ id: "cart_1", line_items: [line("a", 0), { item: {} }, line("b", 1)] }),
+    );
+    expect(bag?.lines).toEqual([{ variantId: "b", quantity: 1 }]);
   });
 });

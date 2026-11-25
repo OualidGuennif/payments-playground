@@ -350,7 +350,7 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
       regular: isRegular(h.customer),
       address: clientIp(request),
     };
-    const admission = admitTurn(turn, body.text, body.page, "text");
+    const admission = admitTurn(turn, body.text, body.page, "text", body.bag);
     if (admission.kind === "busy")
       return problem(409, "session_busy", "The assistant is still answering your last message.");
     if (admission.kind === "failed") return contextFailure(session, admission.failure);

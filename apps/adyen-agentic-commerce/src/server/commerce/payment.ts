@@ -17,7 +17,9 @@ import {
   type Order,
   type OrderLine,
   type PaymentRecord,
+  paymentInProgress,
 } from "./model";
+import { accountPaying } from "./lock";
 import { price } from "./pricing";
 import { savedCards } from "./saved-cards";
 import { assess, buyerOf, loadCheckout, saveCheckout } from "./checkouts";
@@ -278,6 +280,8 @@ export async function completeCheckout(
   // reserved part of the budget during the await above, or the shopper may have revoked it.
   const live = liveAuth(auth);
   if (auth && !live) return checkout;
+  // The shopper is paying another checkout of the account (in Drop-in, or through another agent).
+  if (live && accountPaying(live.grant.customerId, checkout.id)) throw paymentInProgress();
   const assessment = assess(checkout, live, cards);
   if (assessment.status !== "ready_for_complete") return checkout;
   // No instrument is the agent's third choice: the shopper pays at continue_url, in Drop-in.

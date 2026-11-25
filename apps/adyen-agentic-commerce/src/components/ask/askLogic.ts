@@ -135,6 +135,34 @@ export function receiptNeeded(feed: Widget[]): string | undefined {
   return messages.some((m) => record(m) && m.code === "missing_buyer_email") ? bag.id : undefined;
 }
 
+export type BagLine = { variantId: string; quantity: number };
+export type SiteBag = { lines: BagLine[]; checkoutId?: string; paid: boolean; key: string };
+
+// What the site's bag becomes when the widget's newest bag changes: its lines while open, nothing
+// once paid; a canceled bag changes nothing. `key` tells a new bag from one already followed.
+export function siteBagOf(feed: Widget[]): SiteBag | undefined {
+  const bag = feed.filter((w) => w.resourceUri === BAG_URI).at(-1)?.structuredContent;
+  if (!record(bag) || typeof bag.id !== "string" || bag.status === "canceled") return undefined;
+  const checkoutId = bag.id.startsWith("chk_") ? bag.id : undefined;
+  const paid = bag.status === "completed";
+  const lines = paid
+    ? []
+    : (Array.isArray(bag.line_items) ? bag.line_items : []).flatMap((l) =>
+        record(l) &&
+        record(l.item) &&
+        typeof l.item.id === "string" &&
+        Number.isInteger(l.quantity) &&
+        (l.quantity as number) > 0
+          ? [{ variantId: l.item.id, quantity: l.quantity as number }]
+          : [],
+      );
+  return { lines, checkoutId, paid, key: JSON.stringify([bag.id, paid, lines]) };
+}
+
+export const sameLines = (a: BagLine[], b: BagLine[]) =>
+  a.length === b.length &&
+  a.every((l, i) => l.variantId === b[i]?.variantId && l.quantity === b[i]?.quantity);
+
 // The sizes a widget may ask for: never a zero-height frame, never one taller than the panel.
 export const clampHeight = (height: unknown) =>
   typeof height === "number" && Number.isFinite(height)

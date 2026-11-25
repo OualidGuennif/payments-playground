@@ -23,11 +23,30 @@ const sameLines = (a: Line[] | undefined, b: Line[]) =>
   a.every((l, i) => l.variantId === b[i]?.variantId && l.quantity === b[i]?.quantity);
 
 /**
+ * Whether the account is paying another checkout now: a Drop-in hold, or an agent's payment sent
+ * within the hold's time. One account pays one checkout at a time, whichever channel and bag.
+ */
+export function accountPaying(customerId: string | undefined, exceptId: string, at = Date.now()) {
+  if (!customerId) return false;
+  return findBy<Checkout>("checkouts", "customerId", customerId).some(
+    (c) =>
+      c.id !== exceptId &&
+      (payingNow(c, at) !== undefined ||
+        (c.phase === "complete_in_progress" && Date.parse(c.updatedAt) + PAYING_MS > at)),
+  );
+}
+
+/**
  * The shopper's Drop-in asks to pay with the session it was given. It may only when the checkout is
  * open, no other payment holds it, and the session was priced from the checkout as it stands: an
  * edit since then (in the Ask panel, by an agent) means the form shows an old bag.
  */
-export function claimWebPayment(id: string, sessionId: string, at = Date.now()): Checkout {
+export function claimWebPayment(
+  id: string,
+  sessionId: string,
+  at = Date.now(),
+  viewerId?: string,
+): Checkout {
   const checkout = get<Checkout>("checkouts", id);
   if (!checkout) throw err(404, "not_found", "Checkout not found");
   const record = findBy<PaymentRecord>("payments", "sessionId", sessionId).find(
@@ -35,7 +54,12 @@ export function claimWebPayment(id: string, sessionId: string, at = Date.now()):
   );
   if (!record) throw err(404, "not_found", "Unknown payment session");
   const held = payingNow(checkout, at);
-  if (checkout.phase !== "open" || (held && held.reference !== record.reference)) {
+  if (
+    checkout.phase !== "open" ||
+    (held && held.reference !== record.reference) ||
+    accountPaying(checkout.customerId, id, at) ||
+    (viewerId !== checkout.customerId && accountPaying(viewerId, id, at))
+  ) {
     trace({
       channel: "web",
       actor: "shopper",

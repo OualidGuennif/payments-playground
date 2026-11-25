@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Keep one bag per browser: the Ask panel's bag becomes the site's bag (header count, `/cart`), a
+  paid one empties it, and the open checkout page follows it at once (a site checkout takes the
+  bag's lines through `POST /api/checkouts/:id/lines`, an agent's checkout refreshes, every 4 s
+  as well) and reloads Drop-in for the new total. The agent hears the site's bag, or the open
+  checkout's, as catalogue titles and ids. One account now pays one checkout at a time, across
+  the website and every agent.
 - Pay one way at a time: the checkout page's Drop-in holds the checkout for its payment before it
   sends it (`POST /api/checkouts/:id/pay-intent`, 15 minutes), so an agent's or the Ask panel's
   `complete_checkout` sends nothing meanwhile, edits and cancels wait, a second tab is refused, and

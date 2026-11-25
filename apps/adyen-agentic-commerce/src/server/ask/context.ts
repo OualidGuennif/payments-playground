@@ -1,7 +1,9 @@
 // Spec: knowledge/components/ask-agent.md
 // Stage 2, deterministic context (spec invariant 5), and the session score (invariant 9). Nothing
 // here calls a model: limits, budgets and the mode come from the session's record and the clock.
-import { database } from "../core/db";
+import { variantById } from "../catalog/catalog";
+import type { Checkout } from "../commerce/commerce";
+import { database, get } from "../core/db";
 import type { AskLimits } from "./config";
 import { messagesPerMinute } from "./limits";
 import { type AskSession, type EndReason, START_SCORE, type StageVerdict } from "./sessions";
@@ -93,4 +95,40 @@ export function checkContext(input: {
 export function pageFact(page: unknown): string | undefined {
   if (typeof page !== "string") return undefined;
   return /^\/[a-z0-9/_-]{0,80}$/i.test(page) && !page.includes("//") ? page : undefined;
+}
+
+const MAX_BAG_LINES = 20;
+const CHECKOUT_PAGE = /^\/checkout\/(chk_[A-Za-z0-9_-]{1,64})$/;
+
+/**
+ * The shopper's bag as the store names it: catalogue titles, ids and quantities only. On a checkout
+ * page it is that checkout's lines (open, and this account's or no account's); elsewhere the site's
+ * bag the browser sent, each line checked against the catalogue. Anything else adds nothing.
+ */
+export function bagFact(
+  page: string | undefined,
+  bag: unknown,
+  customerId: string | undefined,
+): string | undefined {
+  const onCheckout = page ? CHECKOUT_PAGE.exec(page)?.[1] : undefined;
+  let lines: { variantId: string; quantity: number }[] = [];
+  if (onCheckout) {
+    const checkout = get<Checkout>("checkouts", onCheckout);
+    if (checkout?.phase === "open" && (!checkout.customerId || checkout.customerId === customerId))
+      lines = checkout.lines;
+  } else if (Array.isArray(bag) && bag.length <= MAX_BAG_LINES) {
+    lines = bag.filter(
+      (l): l is { variantId: string; quantity: number } =>
+        typeof l?.variantId === "string" &&
+        Number.isInteger(l?.quantity) &&
+        l.quantity >= 1 &&
+        l.quantity <= 10,
+    );
+  }
+  const named = lines.flatMap((l) => {
+    const variant = variantById(l.variantId);
+    return variant ? [`${l.quantity} × ${variant.title} (${variant.id})`] : [];
+  });
+  if (!named.length) return undefined;
+  return `${onCheckout ? `checkout ${onCheckout} holds ` : ""}${named.join(", ")}`;
 }

@@ -226,6 +226,44 @@ const browserApi = new Elysia({ prefix: "/api" })
       throw error;
     }
   })
+  // The shopper's one bag reached a web checkout page: its lines follow, unless a payment holds it.
+  .post("/checkouts/:id/lines", ({ request, params, body }) => {
+    const limited = sessionLimit(request, "payment");
+    if (limited) return limited;
+    const input = isRecord(body) ? body : {};
+    const customer = customerOf(request);
+    try {
+      const checkout = commerce.loadCheckout(params.id, "browser");
+      if (
+        commerce.channelOf(checkout) !== "web" ||
+        (checkout.customerId && checkout.customerId !== customer?.id)
+      )
+        return status(404, { error: "Checkout not found", code: "not_found" });
+      const lines = Array.isArray(input.lines)
+        ? input.lines.map((l) => ({
+            item: { id: isRecord(l) ? l.variantId : undefined },
+            quantity: isRecord(l) ? l.quantity : undefined,
+          }))
+        : undefined;
+      if (!lines?.length)
+        return status(400, { error: "Send the bag's lines", code: "invalid_request" });
+      const updated = commerce.updateCheckout(checkout, { line_items: lines });
+      trace({
+        channel: "web",
+        actor: "shopper",
+        method: "POST",
+        path: "/api/checkouts/:id/lines",
+        status: 200,
+        ref: updated.id,
+        detail: { lines: updated.lines.length },
+      });
+      return checkoutView(updated, customer);
+    } catch (error) {
+      if (error instanceof commerce.CommerceError)
+        return status(error.status, { error: error.msg.content, code: error.msg.code });
+      throw error;
+    }
+  })
   // Drop-in's beforeSubmit: the checkout is held for this session's payment, or the form stops.
   .post("/checkouts/:id/pay-intent", ({ request, params, body }) => {
     const limited = sessionLimit(request, "payment");
@@ -233,7 +271,12 @@ const browserApi = new Elysia({ prefix: "/api" })
     const input = isRecord(body) ? body : {};
     const sessionId = typeof input.sessionId === "string" ? input.sessionId : "";
     try {
-      const held = commerce.claimWebPayment(params.id, sessionId);
+      const held = commerce.claimWebPayment(
+        params.id,
+        sessionId,
+        Date.now(),
+        customerOf(request)?.id,
+      );
       return { held: true, until: held.paying?.until };
     } catch (error) {
       if (error instanceof commerce.CommerceError)

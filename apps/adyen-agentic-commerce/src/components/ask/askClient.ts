@@ -47,13 +47,14 @@ export async function sendMessage(
   text: string,
   page: string,
   onEvent: (event: StreamEvent) => void,
+  bag?: { variantId: string; quantity: number }[],
 ): Promise<Answer<undefined>> {
   let response: Response;
   try {
     response = await fetch("/api/ask/messages", {
       method: "POST",
       headers: POST_HEADERS,
-      body: JSON.stringify({ text, page }),
+      body: JSON.stringify({ text, page, bag }),
     });
   } catch {
     return { status: 0, error: "network", message: NETWORK };

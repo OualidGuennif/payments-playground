@@ -12,6 +12,7 @@ import {
   checkContext,
   type Mode,
   modeFor,
+  bagFact,
   pageFact,
 } from "./context";
 import { gate, type RefusalReason, redactSecrets } from "./gate";
@@ -123,6 +124,7 @@ export function admit(input: {
   session: AskSession;
   text: unknown;
   page?: unknown;
+  bag?: unknown;
   via: "text" | "voice" | "widget";
   limits: AskLimits;
   regular: boolean;
@@ -180,8 +182,10 @@ export function admit(input: {
     at: now,
   });
   const page = pageFact(input.page);
+  const bag = bagFact(page, input.bag, session.customerId);
   const context = [
     page ? `page: ${page}` : undefined,
+    bag ? `bag: ${bag}` : undefined,
     `signed in: ${session.customerId ? "yes" : "no"}`,
     `account connected: ${session.connected ? "yes" : "no"}`,
   ]

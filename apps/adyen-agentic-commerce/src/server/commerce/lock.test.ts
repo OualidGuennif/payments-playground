@@ -1,11 +1,13 @@
 // One payment at a time per checkout across the shopper's Drop-in and an agent's complete: claims
 // race, edits and cancels wait, a changed bag reloads the form, and a result or refusal frees it.
 // Spec: knowledge/components/adyen-agentic-commerce.md
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as commerce from "./commerce";
+import { customerById } from "../accounts/customers";
 import { handle } from "../api";
 import { list } from "../core/db";
-import { freshStore, ORIGIN, randomIp } from "../testing/agent";
+import { type Auth, authenticate, grants } from "../oauth/oauth";
+import { freshStore, ORIGIN, randomIp, signUpCustomer, TestAgent } from "../testing/agent";
 import { fake } from "../testing/fake-adyen";
 
 const SOCKS = "velune-rib-socks-oat-one-size"; // 1200 + 495 shipping
@@ -210,5 +212,112 @@ describe("POST /api/checkouts/:id/pay-intent", () => {
     expect((await payIntent(checkout.id, {})).status).toBe(404);
     expect((await payIntent(checkout.id, { sessionId: 42 })).status).toBe(404);
     expect(reload(checkout.id).paying).toBeUndefined();
+  });
+});
+
+describe("one payment at a time per account", () => {
+  let agent: TestAgent;
+  beforeAll(async () => {
+    agent = await TestAgent.start("Lock agent");
+  });
+  afterAll(() => agent.stop());
+
+  const savedCard = {
+    payment: { instruments: [{ id: commerce.cardAlias("TEST_STORED_VISA_1111") }] },
+  };
+
+  test("a Drop-in hold on one checkout stops the account's agent paying another", async () => {
+    agent.ip = randomIp();
+    await agent.signIn();
+    const auth = authenticate(`Bearer ${agent.accessToken}`, "/mcp") as Auth;
+    const customer = customerById(grants()[0]!.customerId)!;
+    const theirs = commerce.createCheckout({ line_items: items(SOCKS) }, auth);
+    const web = commerce.createCheckout({ line_items: items(OXFORD) }, undefined, { customer });
+    const session = await commerce.startShopperSession(web, customer);
+    commerce.claimWebPayment(web.id, session.id);
+    expect(
+      commerce.completeCheckout(commerce.loadCheckout(theirs.id, auth), savedCard, auth),
+    ).rejects.toThrow("already in progress");
+    expect(fake.payments).toHaveLength(0);
+  });
+
+  test("an agent paying for the account stops a Drop-in claim on another checkout", async () => {
+    agent.ip = randomIp();
+    await agent.signIn();
+    const auth = authenticate(`Bearer ${agent.accessToken}`, "/mcp") as Auth;
+    const customer = customerById(grants()[0]!.customerId)!;
+    const web = commerce.createCheckout({ line_items: items(OXFORD) }, undefined, { customer });
+    const session = await commerce.startShopperSession(web, customer);
+    const theirs = commerce.createCheckout({ line_items: items(SOCKS) }, auth);
+    // Adyen keeps the agent's payment pending, so it stays in progress.
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPPENDING" });
+    await commerce.completeCheckout(commerce.loadCheckout(theirs.id, auth), savedCard, auth);
+    expect(codeOf(() => commerce.claimWebPayment(web.id, session.id))).toBe("payment_in_progress");
+    expect(commerce.accountPaying(customer.id, web.id)).toBe(true);
+    expect(commerce.accountPaying(customer.id, web.id, Date.now() + commerce.PAYING_MS + 1)).toBe(
+      false,
+    );
+  });
+});
+
+describe("POST /api/checkouts/:id/lines", () => {
+  const post = async (id: string, body: unknown, cookie?: string) => {
+    const response = await handle(
+      new Request(`${ORIGIN}/api/checkouts/${id}/lines`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-forwarded-for": randomIp(),
+          ...(cookie ? { cookie } : {}),
+        },
+        body: JSON.stringify(body),
+      }),
+    );
+    return { status: response.status, body: (await response.json()) as Record<string, unknown> };
+  };
+  const bag = [
+    { variantId: SOCKS, quantity: 1 },
+    { variantId: OXFORD, quantity: 1 },
+  ];
+
+  test("a site checkout takes the bag's lines until a payment holds it", async () => {
+    const web = commerce.createCheckout(
+      { line_items: items(SOCKS), buyer: { email: "a@example.com" } },
+      undefined,
+      {},
+    );
+    const taken = await post(web.id, { lines: bag });
+    expect(taken.status).toBe(200);
+    expect((taken.body.lines as unknown[]).length).toBe(2);
+    const session = await commerce.startShopperSession(reload(web.id));
+    commerce.claimWebPayment(web.id, session.id);
+    const held = await post(web.id, { lines: [{ variantId: SOCKS, quantity: 2 }] });
+    expect(held.status).toBe(409);
+    expect(held.body.code).toBe("payment_in_progress");
+  });
+
+  test("an agent's checkout, another account's or a bad bag changes nothing", async () => {
+    const { checkout } = await openedOnTheWeb();
+    expect((await post(checkout.id, { lines: bag })).status).toBe(404);
+    const owner = await signUpCustomer();
+    const someone = await signUpCustomer();
+    const created = await handle(
+      new Request(`${ORIGIN}/api/checkouts`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-forwarded-for": randomIp(),
+          cookie: owner.cookie,
+        },
+        body: JSON.stringify({ lines: [{ variantId: SOCKS, quantity: 1 }], email: owner.email }),
+      }),
+    );
+    const id = ((await created.json()) as { id: string }).id;
+    expect((await post(id, { lines: bag }, someone.cookie)).status).toBe(404);
+    expect((await post(id, { lines: [] }, owner.cookie)).status).toBe(400);
+    expect(
+      (await post(id, { lines: [{ variantId: "nope", quantity: 1 }] }, owner.cookie)).status,
+    ).toBe(400);
+    expect((await post(id, { lines: bag }, owner.cookie)).status).toBe(200);
   });
 });

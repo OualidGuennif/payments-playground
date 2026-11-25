@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T22:30:00Z
+  at: 2026-11-25T23:10:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -439,8 +439,9 @@ before, every deploy or restart emptied orders, agents and grants.
    attempt, a network error retries the same key; a completed checkout is immutable. A Drop-in
    result is likewise re-read after Adyen answers, so a repeated result places one order.
    One payment at a time across channels: a pay-intent holds the checkout 15 min; meanwhile an
-   agent's complete sends nothing (`payment_in_progress`), edits and cancels refuse, and an agent's
-   claim refuses pay-intents; one account pays one checkout at a time (an agent's complete or a
+   agent's complete sends nothing (`payment_in_progress`), edits and cancels refuse, a new Drop-in
+   session (another tab) refuses so the held attempt stays current, and an agent's claim refuses
+   pay-intents; one account pays one checkout at a time (an agent's complete or a
    pay-intent on another checkout of the account refuses with `payment_in_progress` while one is
    held or in progress, for 15 min at most); a session priced before an edit gets
    `checkout_changed`; the result

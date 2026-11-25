@@ -2,12 +2,12 @@
 // The shopper's browser: a Sessions payment for a checkout, and saving a card from the account
 // page.
 import { config, CURRENCY } from "../core/config";
-import { type Customer } from "../accounts/customers";
+import type { Customer } from "../accounts/customers";
 import { findBy, get, put } from "../core/db";
 import { trace } from "../core/trace";
 import { newId } from "../core/util";
 import * as adyen from "../payments/adyen";
-import { type Checkout, err, now, type PaymentRecord } from "./model";
+import { type Checkout, err, now, type PaymentRecord, paymentInProgress } from "./model";
 import { forgetCardCache } from "./saved-cards";
 import { assess, buyerOf, loadCheckout, saveCheckout } from "./checkouts";
 import { releasePayment } from "./lock";
@@ -32,6 +32,9 @@ export async function startShopperSession(loaded: Checkout, customer?: Customer)
       "requires_buyer_input",
     );
   }
+  // Another tab's Drop-in holds the checkout: a new session would start a new attempt, so that
+  // payment's refusal would read as stale and its retry as a changed bag.
+  if (assessment.status === "complete_in_progress") throw paymentInProgress();
   const attempt = checkout.attempts + 1;
   saveCheckout({ ...checkout, attempts: attempt });
   const reference = `${checkout.id}-s${attempt}`;

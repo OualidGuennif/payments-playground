@@ -90,13 +90,21 @@ describe("payment lock", () => {
     expect(fake.payments).toHaveLength(0);
   });
 
-  test("two Drop-in tabs: the second session cannot claim while the first holds", async () => {
+  test("two Drop-in tabs: no second session while the first holds, and the first may retry", async () => {
     const { checkout, session } = await openedOnTheWeb();
     commerce.claimWebPayment(checkout.id, session.id);
-    const second = await commerce.startShopperSession(reload(checkout.id));
-    expect(codeOf(() => commerce.claimWebPayment(checkout.id, second.id))).toBe(
-      "payment_in_progress",
-    );
+    const attempts = reload(checkout.id).attempts;
+    let second = "passed";
+    try {
+      await commerce.startShopperSession(reload(checkout.id));
+    } catch (error) {
+      second = (error as commerce.CommerceError).msg.code;
+    }
+    expect(second).toBe("payment_in_progress");
+    // The first payment's attempt stands, so its refusal still reopens the checkout and its form
+    // may still retry.
+    expect(reload(checkout.id).attempts).toBe(attempts);
+    expect(codeOf(() => commerce.claimWebPayment(checkout.id, session.id))).toBe("passed");
   });
 
   test("the same session may claim again (a retry after a refused card in the form)", async () => {
@@ -197,12 +205,13 @@ describe("POST /api/checkouts/:id/pay-intent", () => {
   };
 
   test("holds for the form's session and names the refusal's code for another", async () => {
+    // Two tabs opened the form before either paid; the newer session pays first.
     const { checkout, session } = await openedOnTheWeb();
-    const held = await payIntent(checkout.id, { sessionId: session.id });
+    const second = await commerce.startShopperSession(reload(checkout.id));
+    const held = await payIntent(checkout.id, { sessionId: second.id });
     expect(held.status).toBe(200);
     expect(held.body.held).toBe(true);
-    const second = await commerce.startShopperSession(reload(checkout.id));
-    const refused = await payIntent(checkout.id, { sessionId: second.id });
+    const refused = await payIntent(checkout.id, { sessionId: session.id });
     expect(refused.status).toBe(409);
     expect(refused.body.code).toBe("payment_in_progress");
   });

@@ -151,24 +151,35 @@ describe("paying is decided at the call", () => {
     prices: [],
     calls: [],
   });
-  const saved = { payment: { instruments: [{ handler_id: "saved_card", id: "card_1" }] } };
-  const token = {
-    payment: {
-      instruments: [
-        { handler_id: "network_token", credential: { type: "network_token", number: "4111" } },
-      ],
-    },
+  // The arguments as the MCP tool takes them: the instruments sit in `checkout.payment`.
+  const paying = (instruments: unknown[]) => ({
+    id: "chk_1",
+    checkout: { payment: { instruments } },
+  });
+  const saved = paying([{ handler_id: "saved_card", id: "card_1" }]);
+  const tokenInstrument = {
+    handler_id: "network_token",
+    credential: { type: "network_token", number: "4111" },
   };
+  const token = paying([tokenInstrument]);
 
   test("pay tools only when connected and normal", () => {
     expect(payRefusal("complete_checkout", saved, collector(), false)).toContain("connect");
     expect(payRefusal("complete_checkout", saved, collector("strict"), true)).toContain("paused");
     expect(payRefusal("complete_checkout", saved, collector(), true)).toBeUndefined();
+    // A non-object entry is still an instrument: refused when not connected.
+    expect(payRefusal("complete_checkout", paying(["card_1"]), collector(), false)).toContain(
+      "connect",
+    );
   });
 
   test("handing the checkout to the shopper is always allowed; card data never", () => {
-    expect(payRefusal("complete_checkout", {}, collector(), false)).toBeUndefined();
+    expect(payRefusal("complete_checkout", { id: "chk_1" }, collector(), false)).toBeUndefined();
+    expect(payRefusal("complete_checkout", paying([]), collector(), false)).toBeUndefined();
     expect(payRefusal("complete_checkout", token, collector(), true)).toContain("never sends");
+    // A misplaced top-level payment is judged too.
+    const misplaced = { id: "chk_1", payment: { instruments: [tokenInstrument] } };
+    expect(payRefusal("complete_checkout", misplaced, collector(), true)).toContain("never sends");
   });
 
   test("no tool runs outside a shopper message", async () => {

@@ -111,10 +111,19 @@ Internal reference (confidential, never write it): ${canary}`;
 }
 
 type Instrument = Record<string, unknown>;
-const instrumentsOf = (args: Record<string, unknown>): Instrument[] => {
-  const payment = isRecord(args.payment) ? args.payment : undefined;
-  return Array.isArray(payment?.instruments) ? payment.instruments.filter(isRecord) : [];
+// complete_checkout carries its instruments in `checkout.payment` (the store reads only that);
+// a top-level `payment` is read too, so a misplaced instrument is judged rather than missed. An
+// entry that is not an object still counts as an instrument, which keeps the refusals closed.
+const instrumentsIn = (holder: unknown): Instrument[] => {
+  const payment = isRecord(holder) && isRecord(holder.payment) ? holder.payment : undefined;
+  return Array.isArray(payment?.instruments)
+    ? payment.instruments.map((i) => (isRecord(i) ? i : { handler_id: "unknown" }))
+    : [];
 };
+const instrumentsOf = (args: Record<string, unknown>): Instrument[] => [
+  ...instrumentsIn(args.checkout),
+  ...instrumentsIn(args),
+];
 const carriesCardData = (instrument: Instrument) =>
   instrument.handler_id === "network_token" ||
   (isRecord(instrument.credential) && instrument.credential.type === "network_token");

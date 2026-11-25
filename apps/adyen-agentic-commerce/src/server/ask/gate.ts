@@ -150,7 +150,13 @@ const DIGIT_LETTER: Record<string, string> = {
   "@": "a",
   $: "s",
 };
-const latin = (text: string) => [...text].map((ch) => LOOKALIKE[ch] ?? ch).join("");
+// Capitals read through their small form, which the table above lists, except those that imitate
+// a different Latin letter than their small form does (Greek Η is an H, η an n).
+const LOOKALIKE_CAPITAL: Record<string, string> = { Η: "h", Ν: "n", Υ: "y", Μ: "m", Ζ: "z" };
+const latin = (text: string) =>
+  [...text]
+    .map((ch) => LOOKALIKE_CAPITAL[ch] ?? LOOKALIKE[ch] ?? LOOKALIKE[ch.toLowerCase()] ?? ch)
+    .join("");
 const undigited = (text: string) => text.replace(/[013457@$]/g, (ch) => DIGIT_LETTER[ch] ?? ch);
 
 // Base64 runs long enough to carry a sentence, decoded when they read as text.

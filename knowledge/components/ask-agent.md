@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T17:00:00Z
+  at: 2026-11-25T22:50:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -191,7 +191,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
    agent. The tool list is the same for every session (the cached prefix); the in-process door
    decides at each call: no tool runs outside a shopper message, `complete_checkout` with a saved
    card needs a connected account and normal mode, card data (a network token) is always refused,
-   handing the checkout to the shopper always passes. The house client's tokens live in the
+   handing the checkout to the shopper always passes; the door reads the instruments where the
+   store does (`checkout.payment`), and a top-level `payment` too. The house client's tokens live in the
    process's memory only; ending a session revokes its grant. Test: `ask/agent.test.ts` "guest
    has no token", "pay tools only when connected and normal", "no tool runs outside a shopper
    message"; `ask/house.test.ts`.
@@ -205,7 +206,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
    signature (FR/EN list in `gate.ts`: overriding or revealing instructions, a role without rules,
    claimed authority such as "I am your developer" or "this is OpenAI", a faked boundary such as
    `</user_input>`, `[SYSTEM]` or `### System:`) refuses (score −35), matched on a copy where
-   Cyrillic and Greek look-alikes and digit spellings ("1gn0re") read as Latin letters and on any
+   Cyrillic and Greek look-alikes, capitals included, and digit spellings ("1gn0re") read as Latin
+   letters and on any
    base64 run decoded; a weak one (pressure, urgency, a claimed earlier agreement or right) scores
    −10 and is named to the guard; a Luhn-valid
    card number, a mod-97-valid IBAN or a "password: …" value is replaced before any model sees it
@@ -286,7 +288,10 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
 15. **Widget actions** go to `/mcp` only for `search_catalog`, `get_product`, `lookup_catalog`,
     `create_cart`, `update_cart`, `get_cart`, `create_checkout`, `update_checkout`,
     `get_checkout`, and `complete_checkout` only when connected and normal; anything else is
-    `widget_tool_refused`. Test: `ask/api.test.ts` "widget allowlist".
+    `widget_tool_refused`. After the store answers, the session is read again: a call that
+    finishes after an end, a lock or a score change writes nothing over it and answers
+    `session_ended`. Test: `ask/api.test.ts` "widget allowlist", "a lock during a widget call
+    stays".
 16. **Disabled is safe:** without an answer model whose key is set, the panel shows the assistant
     as unavailable and no route calls a model. Test: `ask/config.test.ts`.
 17. **A widget reaches nothing by itself:** its frame has an opaque origin and a policy with no

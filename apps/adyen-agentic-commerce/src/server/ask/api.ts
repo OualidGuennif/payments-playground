@@ -29,6 +29,7 @@ import {
   isRegular,
   mergeCheckouts,
   resolveSession,
+  sessionById,
   save,
   sessionCookie,
   startSession,
@@ -389,9 +390,11 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
     if (!live)
       return problem(409, "session_ended", "This conversation has ended.", { reason: h.ended });
     const state = await pollConnect(live.id, h.customer.id);
-    if (state === "connected" && !live.connected) {
+    // Written on the record as it is now: an end, a lock or a score change made during the poll stays.
+    const current = sessionById(live.id);
+    if (state === "connected" && current?.state === "active" && !current.connected) {
       const now = Date.now();
-      appendMessage(save({ ...live, connected: { at: now } }), {
+      appendMessage(save({ ...current, connected: { at: now } }), {
         role: "note",
         text: "Account connected",
         at: now,
@@ -430,15 +433,22 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
         },
       );
     const call = await callStoreTool(live.id, name, args);
+    // Re-read after the call: an end, a lock or a score change made meanwhile is never overwritten,
+    // and an ended conversation records nothing more.
+    const current = sessionById(live.id);
+    if (current?.state !== "active")
+      return problem(409, "session_ended", "This conversation has ended.", {
+        reason: current?.endReason,
+      });
     const now = Date.now();
     const kept = save({
-      ...live,
+      ...current,
       prices: call.result
-        ? mergePrices(live.prices, pricesIn(call.result.structuredContent))
-        : live.prices,
+        ? mergePrices(current.prices, pricesIn(call.result.structuredContent))
+        : current.prices,
       checkouts: call.result
-        ? mergeCheckouts(live.checkouts, [call.result.structuredContent])
-        : live.checkouts,
+        ? mergeCheckouts(current.checkouts, [call.result.structuredContent])
+        : current.checkouts,
       lastAt: now,
     });
     appendMessage(kept, { role: "note", text: `Widget: ${name}`, via: "widget", at: now });

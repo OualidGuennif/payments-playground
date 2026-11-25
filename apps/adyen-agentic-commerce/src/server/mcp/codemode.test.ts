@@ -130,6 +130,35 @@ describe("Code Mode sandbox", () => {
     );
     expect(run).toMatchObject({ ok: false, code: "too_many_calls" });
     expect(asked).toHaveLength(LIMITS.calls);
+    // Calls started together count as they start, not as they settle.
+    asked.length = 0;
+    const together = await runCode(
+      "execute",
+      `async () => Promise.all(Array.from({ length: 60 }, (_, i) => codemode.get_cart({ id: "c" + i })))`,
+      echo,
+    );
+    expect(together).toMatchObject({ ok: false, code: "too_many_calls" });
+    expect(asked).toHaveLength(LIMITS.calls);
+  });
+
+  test("a host-side failure answering the code ends the run at once", async () => {
+    // A value the host cannot encode for QuickJS: the error is raised while answering the code.
+    const unencodable: CallTool = async () => ({
+      ok: true,
+      value: {
+        toJSON() {
+          throw new Error("cannot encode");
+        },
+      },
+    });
+    const started = Date.now();
+    const run = await runCode(
+      "execute",
+      `async () => (await codemode.get_cart({ id: "c" })).length`,
+      unencodable,
+    );
+    expect(run).toMatchObject({ ok: false, code: "code_error", message: "cannot encode" });
+    expect(Date.now() - started).toBeLessThan(LIMITS.wallMs);
   });
 
   test("truncated", async () => {

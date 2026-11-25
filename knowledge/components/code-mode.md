@@ -7,7 +7,7 @@ status: draft
 scope: component-code-mode
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T20:30:00Z
+  at: 2026-11-25T22:50:00Z
 sources:
   - id: store
     resource: ./adyen-agentic-commerce.md
@@ -97,11 +97,14 @@ refusals are exactly those of `/mcp`. The model proposes code; deterministic cod
    the shopper about. Test: "complete_checkout refused".
 3. **The sandbox has nothing else.** No network, file system, timers, `eval` of host code, `require`
    or `import`; the interpreter gets 32 MB, a 512 KB stack, 0.5 s of its own time and 10 s in
-   all, and at most 20 store calls. A run that breaks a limit stops and is disposed. QuickJS runs
+   all, and at most 20 store calls, counted as each one starts so calls started together
+   (`Promise.all`) meet the same cap. A run that breaks a limit stops and is disposed; an error
+   on the host side while answering the code ends the run at once. QuickJS runs
    on the server's main thread, so one address gets 10 runs a minute (429 `rate_limited`) and all
    runs together 10 s of interpreter time a minute (`busy`): a hostile loop can hold the store
    for half a second, never longer. Test: "token never in the sandbox", "infinite loop stops",
-   "memory bomb stops", "call cap", "runs per address".
+   "memory bomb stops", "call cap", "a host-side failure answering the code ends the run at
+   once", "runs per address".
 4. **Bounded answer.** The answer never exceeds 24,000 characters of result plus the call list and
    50 log lines. Test: "truncated".
 

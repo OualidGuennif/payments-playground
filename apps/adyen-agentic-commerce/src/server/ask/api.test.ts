@@ -1,5 +1,14 @@
 // Spec: knowledge/components/ask-agent.md
-import { afterAll, beforeAll, beforeEach, describe, expect, setSystemTime, test } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  setSystemTime,
+  spyOn,
+  test,
+} from "bun:test";
 import { fauxAssistantMessage, fauxText, fauxToolCall } from "@earendil-works/pi-ai/providers/faux";
 import { CAROUSEL } from "../mcp/widgets";
 import { handle } from "../api";
@@ -17,7 +26,8 @@ import { readAskConfig, resetAskConfig } from "./config";
 import { forgetHouseConnections } from "./house";
 import { forgetAskLimits } from "./limits";
 import { useAskModels } from "./runtime";
-import { recentSessions, save } from "./sessions";
+import * as agent from "./agent";
+import { endSession, recentSessions, save, sessionById } from "./sessions";
 
 const NO_KEYS = { openai: false, anthropic: false, mistral: false, deepseek: false };
 const SOCKS = "velune-rib-socks-oat-one-size";
@@ -295,6 +305,32 @@ describe("widget actions", () => {
     expect(body.html.indexOf("Content-Security-Policy")).toBeLessThan(body.html.indexOf("<script"));
     const unknown = await browser.call("GET", "/api/ask/widget-frame?uri=ui://widget/other.html");
     expect(unknown.status).toBe(400);
+  });
+
+  test("a lock during a widget call stays: the call's answer never reactivates the session", async () => {
+    const browser = new Browser();
+    await browser.call("POST", "/api/ask/session");
+    const real = agent.callStoreTool;
+    const spy = spyOn(agent, "callStoreTool").mockImplementation(async (id, name, args) => {
+      const answer = await real(id, name, args);
+      const session = sessionById(id);
+      if (session) endSession(session, "locked");
+      return answer;
+    });
+    try {
+      const response = await browser.call("POST", "/api/ask/widget", {
+        name: "search_catalog",
+        arguments: { catalog: { query: "dress" } },
+      });
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(response.status).toBe(409);
+      const view = (await (await browser.call("GET", "/api/ask/session")).json()) as {
+        state: string;
+      };
+      expect(view.state).toBe("locked");
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   test("a widget needs a live session", async () => {

@@ -198,6 +198,15 @@ export async function runCode(
   let dead = false;
   let refusedPayment = false;
   let overCalls = false;
+  // Store calls started, counted before the await: `calls` only grows when one settles, so code
+  // that starts many at once (Promise.all) would otherwise pass the cap all together.
+  let started = 0;
+  // A host-side failure while handing an answer back to QuickJS (out of memory building the
+  // string) ends the run at once instead of leaving it to the wall clock.
+  let failHost: (message: string) => void = () => {};
+  const hostFailed = new Promise<{ hostError: string }>((resolve) => {
+    failHost = (message) => resolve({ hostError: message });
+  });
   const pending = new Set<QuickJSDeferredPromise>();
   const inGuest = <T>(fn: () => T): T => {
     enteredAt = Date.now();
@@ -230,7 +239,7 @@ export async function runCode(
         message: `${name} is refused in Code Mode: call it on /mcp, where the host can ask the shopper.`,
       };
     }
-    if (calls.length >= LIMITS.calls) {
+    if (started >= LIMITS.calls) {
       overCalls = true;
       return {
         ok: false,
@@ -238,6 +247,7 @@ export async function runCode(
         message: `At most ${LIMITS.calls} store calls per run.`,
       };
     }
+    started += 1;
     let args: unknown;
     try {
       args = JSON.parse(argsJson);
@@ -262,24 +272,31 @@ export async function runCode(
       const argsJson = vm.getString(argsHandle);
       const deferred = vm.newPromise();
       pending.add(deferred);
-      void answer(name, argsJson).then((result) => {
-        if (dead) return;
-        pending.delete(deferred);
-        if (result.ok) {
-          const value = vm.newString(JSON.stringify(result.value ?? null));
-          deferred.resolve(value);
-          value.dispose();
-        } else {
-          const error = vm.newError({
-            name: "StoreError",
-            message: `${result.code}: ${result.message}`,
-          });
-          deferred.reject(error);
-          error.dispose();
-        }
-        deferred.dispose();
-        pump();
-      });
+      void answer(name, argsJson)
+        .then((result) => {
+          if (dead) return;
+          pending.delete(deferred);
+          try {
+            if (result.ok) {
+              const value = vm.newString(JSON.stringify(result.value ?? null));
+              deferred.resolve(value);
+              value.dispose();
+            } else {
+              const error = vm.newError({
+                name: "StoreError",
+                message: `${result.code}: ${result.message}`,
+              });
+              deferred.reject(error);
+              error.dispose();
+            }
+            deferred.dispose();
+            pump();
+          } catch (error) {
+            if (deferred.alive) deferred.dispose();
+            failHost((error as Error)?.message ?? String(error));
+          }
+        })
+        .catch((error: unknown) => failHost((error as Error)?.message ?? String(error)));
       return deferred.handle;
     }).consume((fn) => vm.setProp(vm.global, "__host", fn));
     vm.newFunction("__log", (lineHandle) => {
@@ -308,11 +325,18 @@ export async function runCode(
     });
     const settled = vm.resolvePromise(promise);
     pump();
-    const outcome = await Promise.race([settled, late]);
+    const outcome = await Promise.race([settled, late, hostFailed]);
     clearTimeout(timer);
     promise.dispose();
     if (outcome === "timeout")
       return fail("timeout", `The run took over ${LIMITS.wallMs / 1000} s.`, calls, logs);
+    if ("hostError" in outcome)
+      return fail(
+        /out of memory/i.test(outcome.hostError) ? "memory_limit" : "code_error",
+        outcome.hostError.slice(0, 1_000),
+        calls,
+        logs,
+      );
     if (outcome.error) {
       const message = errorText(vm, outcome.error);
       outcome.error.dispose();

@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Fix four findings of the independent review of the agentic store. The Ask agent's payment check
+  now reads the instruments where the store does (`checkout.payment`), so strict mode, an
+  unconnected account and card data are refused again. Code Mode counts store calls as they
+  start, so `Promise.all` cannot pass the 20-call cap, and a host-side error ends a run at once.
+  A widget call no longer reactivates a session locked while it ran. Capital Cyrillic and Greek
+  look-alikes now meet the injection signatures.
 - Add a ten-minute demo to the agentic `/docs` overview: eight stops, each saying what to do and
   what to point out. The local PAP agent script ends an over-budget run by printing the shopper's
   link instead of a stack trace.

@@ -5,6 +5,13 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add the Ask agent's configuration: `src/server/ask/config.ts` reads which provider keys are set
+  (never their values), the answer and guard models and efforts, the limits within fixed ranges
+  and the console password (16 characters or the console is off); `settings.ts` lets the console
+  override them, refuses a model whose provider has no key, ignores a stored one whose key went
+  away and audits each change. `.env.example` lists every new variable. Adds `@flue/runtime`
+  2.3.1's companions `@earendil-works/pi-ai` 1.6.0 and `valibot` 1.5.0; on the owner's choice
+  `bunfig.toml` exempts Pi 1.6.0's four packages from the 7-day release age until 27 Nov.
 - Specify the agentic store's Ask agent before its code: the component doc with its five-stage
   gate, session score, limits, console and voice invariants, ADR-018 (Flue in-process on Bun,
   Pi's OpenAI, Anthropic, Mistral and DeepSeek providers, the store's own MCP as the only tools,

@@ -61,7 +61,8 @@ a guest, or hand the checkout to the shopper, who pays at `continue_url`.
 | `src/server/catalog/catalog.ts`                   | Products, variants (colour, size), prices in EUR minor units   | Repo  | Shipped with build  |
 | SQLite (`DATABASE_PATH`, `bun:sqlite`)    | Carts, checkouts, orders, OAuth clients/codes/tokens, grants,  | App   | Per request         |
 |                                           | seen JWT ids, idempotency records, protocol trace, webhooks,   |       |                     |
-|                                           | customers, customer sessions, passkeys, WebAuthn challenges    |       |                     |
+|                                           | customers, customer sessions, passkeys, WebAuthn challenges,   |       |                     |
+|                                           | the Ask agent's records ([ask-agent](ask-agent.md))            |       |                     |
 | Adyen Checkout API v72 TEST               | `/sessions`, `/payments` (stored card or network token), the   | Adyen | Per call            |
 |                                           | stored payment methods of each account's `shopperReference`,   |       |                     |
 |                                           | a network token's brand (`/cardDetails`)                       |       |                     |

@@ -14,6 +14,7 @@
   "dependencies": {
     "@adyen/adyen-web": "6.48.1",
     "@adyen/api-library": "32.3.0",
+    "@earendil-works/pi-ai": "1.6.0",
     "@elysiajs/eden": "1.4.9",
     "@simplewebauthn/browser": "14.0.0",
     "@simplewebauthn/server": "14.1.0",
@@ -21,7 +22,8 @@
     "jose": "6.2.14",
     "next": "16.4.6",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "valibot": "1.5.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",

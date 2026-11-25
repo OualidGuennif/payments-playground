@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add the Ask agent's LLM guard and output filter: stage 3 asks a small model for exactly one
+  `verdict` call (allow, off topic, injection, abuse) and refuses on anything else, an error or
+  8 s of silence; stage 5 blocks an answer that leaks the prompt's canary, drops links off the
+  store, removes card numbers, replaces EUR amounts no tool returned and caps answers at 2,000
+  characters. ADR-012 names the store's new pins.
 - Add the Ask agent's deterministic stages: stage 1 normalizes a message, refuses tag characters,
   over-long text and strong injection phrasings in English and French, removes hidden and bidi
   characters and the prompt's delimiters, and replaces card numbers, IBANs and passwords before

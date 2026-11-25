@@ -9,9 +9,9 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-25, in chat: guest-or-signed-in chat sidebar, Flue agent, server-only
   keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
-- State: build approved 2026-11-25 (Flue 2.3.1 install included); spike done (in-process on
-  Bun); spec `knowledge/components/ask-agent.md` and ADR-018 written.
-- Next: slices 3-10 from the handover (who: agent).
+- State: slices 1-5 committed locally (`2f371ab`..`e5099fe`): spec, ADR-018, config, sessions,
+  gate, score; Pi 1.6.0 exempt from the 7-day rule until 2026-11-27 (owner's choice).
+- Next: slice 6 (Flue 2.3.1 install, guard, agent, output filter), then 7-10 (who: agent).
 - Blocker: none to build; an independent review before any push.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 

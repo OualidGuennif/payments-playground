@@ -1,6 +1,6 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { CartView } from "@/components/CartView";
-import { PRODUCTS, variantsOf } from "@/server/catalog";
+import { PRODUCTS, variantsOf } from "@/server/catalog/catalog";
 
 export const metadata = { title: "Cart" };
 

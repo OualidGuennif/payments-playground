@@ -5,15 +5,24 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## v0.7.1: ChatGPT widget fixes, card-save return, MCP stylist & ZIP — ACTIVE
+## Reorganize the three apps' code layout — ACTIVE
+
+- Owner decision: 2026-11-25, in chat: plan approved; digital, then styling, then agentic;
+  moves and splits only, no stack, URL or behaviour change.
+- State: digital, styling and agentic reorganized and committed on `develop`, unpushed.
+- Next: `pr-review` receipt (who: agent), then the owner's yes to push (who: owner).
+- Blocker: none.
+- Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
+
+## v0.7.1: ChatGPT widget fixes, card-save return, MCP stylist & ZIP — WAITING-OWNER
 
 - Owner decision: 2026-11-19, in chat: fix widget checkout revert and composer leak, fix `/account`
   card-save 3DS return, expose stylist instructions/prompt on `/mcp`, fix plugin ZIP, ship to `main`.
-- State: code and docs verified on develop (v2 URIs, silent setWidgetState, /api/return, error.tsx,
-  MCP prompts, CIMD/OpenAI plugin ZIP); ready for review and PR to main.
-- Next: Hydrogen review, push develop, merge PR to main, verify Render live (who: agent).
-- Blocker: none.
-- Evidence: bun run check exit 0 (413 agentic + 107 workspace tests, 3 builds + SSR, template-tests).
+- State: v0.7.1 merged via PR #18 (`10b59cb`), CI `44434136862` green, tag `v0.7.1`, Render live
+  (`dep-dbv4mejm8hqs73almun0`, 01:06:53 UTC); live `/healthz`, `/docs/chatgpt`, ZIP, `/api/return`, `/mcp` 401 verified.
+- Next: Refresh ChatGPT MCP connector, test card save on `/account#cards` and live widget checkout (who: owner).
+- Blocker: needs the owner's ChatGPT and browser.
+- Evidence: knowledge/current/digital-status.md (v0.7.1 deploy row); GitHub release v0.7.1.
 
 ## ChatGPT pays with a saved card through the v0.6.0 consent — WAITING-OWNER
 

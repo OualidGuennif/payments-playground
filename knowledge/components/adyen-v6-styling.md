@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-v6-styling
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-25T13:00:00Z
 sources:
   - id: app
     resource: ../../apps/adyen-v6-styling
@@ -21,11 +21,17 @@ sources:
   - id: island
     resource: ../../apps/adyen-v6-styling/src/components/StylingPlayground.tsx
     title: The panel, the Drop-in mounts and localStorage persistence
+  - id: panels
+    resource: ../../apps/adyen-v6-styling/src/components/panels
+    title: "The three tabs (Field styles, Components, Theme), their option groups and the raw output block"
+  - id: styles
+    resource: ../../apps/adyen-v6-styling/src/styles
+    title: The app's stylesheets by area, imported from src/app/layout.tsx in cascade order
   - id: options
-    resource: ../../apps/adyen-v6-styling/src/components/adyenOptions.ts
-    title: Option catalogue, presets, exports and Drop-in props
+    resource: ../../apps/adyen-v6-styling/src/options
+    title: "Option catalogue by area (controls, secured fields, CSS tokens, Drop-in, card, wallets, themes), exports and Drop-in props; split out of components/adyenOptions.ts on 2026-11-25"
   - id: token-test
-    resource: ../../apps/adyen-v6-styling/src/components/adyenOptions.test.ts
+    resource: ../../apps/adyen-v6-styling/src/options/css-tokens.test.ts
     title: The adyen.css token audit
   - id: routes
     resource: ../../apps/adyen-v6-styling/src/app
@@ -36,6 +42,9 @@ sources:
   - id: readme
     resource: ../../apps/adyen-v6-styling/README.md
     title: Environment variables, panel tabs, exports and troubleshooting
+verified:
+  - at: 2026-11-25
+    check: "After the reorganization (dev :8004, TEST): three tabs, their groups and exports (Theme header 6.48.1), a Card fields toggle updates the JSON, Brazil market group, light and dark, 375 and 1440 px, no errors. No payment."
 ---
 
 # adyen-v6-styling
@@ -61,7 +70,7 @@ order, `payment_sessions` and `api_calls` rows it needs to mint and record that 
 | `POST /api/styling/payment-methods` in `api.ts`                 | The merchant's available methods for one market, only for the "pre-select method" dropdown               | App        | On country change after bootstrap  |
 | Adyen Checkout TEST `/paymentMethods` and `/sessions`           | Method eligibility and session token                                                                     | Adyen      | Live, per request                  |
 | Browser `localStorage`, key `adyen-v6-styling.panel.v1`         | Country, locale, tab, secured styles, tokens, class rules, native/card/wallet options and `showDonation` | Browser    | Written on every change            |
-| `src/components/adyenOptions.ts`                                    | Defaults, property/token catalogues, theme presets, `dropinProps`, config and CSS renderers              | Repository | Shipped with the build             |
+| `src/options/*.ts`                                              | Defaults, property/token catalogues, theme presets, `dropinProps`, config and CSS renderers              | Repository | Shipped with the build             |
 | `https://checkoutshopper-live.cdn.adyen.com/.../adyen.css`      | Token names and default fallbacks for the pinned Adyen Web version; test only                            | Adyen      | `bun test` (needs network)         |
 | Adyen Web callbacks (`onPaymentCompleted`, `onError`, donation) | Whether the preview is spent and what Adyen Giving reported                                              | Adyen Web  | In the browser                     |
 
@@ -116,8 +125,9 @@ platform also serves `GET /api/health` and `GET /healthz`.
 
 ### Panel
 
-The exact types are exported by
-[`src/components/adyenOptions.ts`](../../apps/adyen-v6-styling/src/components/adyenOptions.ts):
+The exact types are exported by the modules in
+[`src/options/`](../../apps/adyen-v6-styling/src/options) (`SecureStyles` in `secured-fields.ts`,
+`CssTokens` in `css-tokens.ts`):
 
 - `SecureStyles = Record<SecureState, Partial<Record<SecureProperty, string>>>` for the four states
   `base`, `placeholder`, `error`, `validated`, with the properties in `SECURE_PROPERTY_SPECS`.
@@ -181,15 +191,15 @@ incomplete. `onPaymentFailed` is deliberately empty: Adyen Web owns the failure 
 | #  | Invariant                                                                                                                                                                                           | Test / file                                                                                              |
 | -- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | 1  | TEST only: a LIVE host or client key is refused before any call.                                                                                                                                    | `packages/platform/test-only.ts`; `AdyenTestClient` in `packages/platform/adyen.ts`                      |
-| 2  | Every custom property the panel offers is read by the pinned `adyen.css`, no token it reads is missing, and each shown default matches the stylesheet.                                              | `src/components/adyenOptions.test.ts`, the three `adyen.css 6.48.1` tests                                    |
-| 3  | The secured-field styles reach `card`, `storedCard`, `giftcard` and `bcmc` in the preview and the Field styles export.                                                                              | `securedFieldMethodConfigObjects` and `dropinProps` in `src/components/adyenOptions.ts`                      |
-| 4  | A theme preset changes only secured styles, tokens, wallet options and donation, and clears class-name rules; it never changes Drop-in behaviour or card fields, and never ships a class-name rule. | `applyTheme` in `src/components/StylingPlayground.tsx`; `THEME_PRESETS` in `src/components/adyenOptions.ts`         |
+| 2  | Every custom property the panel offers is read by the pinned `adyen.css`, no token it reads is missing, and each shown default matches the stylesheet.                                              | `src/options/css-tokens.test.ts`, the three `adyen.css 6.48.1` tests                                    |
+| 3  | The secured-field styles reach `card`, `storedCard`, `giftcard` and `bcmc` in the preview and the Field styles export.                                                                              | `securedFieldMethodConfigObjects` in `src/options/card.ts`, `dropinProps` in `src/options/dropin-props.ts`|
+| 4  | A theme preset changes only secured styles, tokens, wallet options and donation, and clears class-name rules; it never changes Drop-in behaviour or card fields, and never ships a class-name rule. | `applyTheme` in `src/components/StylingPlayground.tsx`; `THEME_PRESETS` in `src/options/themes.ts`         |
 | 5  | The selected theme is derived from the values: any hand edit makes the picker read `Custom`, with no separate flag.                                                                                 | `themeSignature`, `activeTheme` in `src/components/StylingPlayground.tsx`                                       |
 | 6  | Country and locale are session-bound: changing either fetches a new `/sessions`; style-only changes remount the Drop-in against the same Core.                                                      | `refreshSession`, `remountDropinOnly`, the two 400 ms debounces in `src/components/StylingPlayground.tsx`       |
 | 7  | A superseded mount cannot install itself over a newer one.                                                                                                                                          | `mountToken` in `src/components/StylingPlayground.tsx`                                                          |
 | 8  | A spent session is never mounted again: New payment, Reset and a remount after completion fetch a fresh session.                                                                                    | `sessionSpent`, `remountDropinOnly`, `reset` in `src/components/StylingPlayground.tsx`                          |
 | 9  | Panel state survives a reload, restores over defaults, and Reset is the only way to clear it (after confirmation).                                                                                  | `STORAGE_KEY`, `stored`, `clearStored`, `reset` in `src/components/StylingPlayground.tsx`                       |
-| 10 | The preview keeps the configured look in dark mode: only the surrounding tool follows the theme.                                                                                                    | `.keep-light` in `src/app/app.css`; [ADR-010](../decisions/ADR-010-one-theme-attribute-and-token-sets.md) |
+| 10 | The preview keeps the configured look in dark mode: only the surrounding tool follows the theme.                                                                                                    | `.keep-light` in `packages/ui/styles.css`; [ADR-010](../decisions/ADR-010-one-theme-attribute-and-token-sets.md) |
 | 11 | No order is settled in this app: there is no `/webhook` route, and the result is only Adyen Web's callback.                                                                                         | `src/app` (no webhook route); `mountDropin` in `src/components/StylingPlayground.tsx`                                              |
 | 12 | Every mutation carries the CSRF token; a cross-origin POST is refused even with a valid token.                                                                                                      | `packages/platform/security.test.ts`; `apiClient` in `packages/ui/client.ts`                              |
 

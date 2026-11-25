@@ -7,7 +7,7 @@ status: stable
 scope: system-overview
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-16T03:00:00Z
+  at: 2026-11-25T10:00:00Z
 sources:
   - id: architecture-doc
     resource: git-history:docs/ARCHITECTURE.md
@@ -55,7 +55,7 @@ is the one lockfile.
 | File / folder                      | What it does                                                                                     |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `src/proxy.ts`                     | Next's proxy: optional Basic Auth, then the CSRF cookie on page responses. Reads no config.      |
-| `src/server/api.ts`                | One Elysia chain with every API route; talks to Adyen and SQLite; exports `App` and `handle`.    |
+| `src/server/api.ts`                | The Elysia app; exports `App` and `handle`. Digital composes it from one plugin per flow in `src/server/routes/`, with request bodies, order recording and webhook reading in `src/server/*.ts`. |
 | `src/app/api/[[...slugs]]/route.ts` | Hands `/api/*` to `handle` (`serveSecurely`: Basic Auth, rate limit, CSRF, session, headers).   |
 | `src/app/healthz`, `src/app/webhook` | Route handlers for the paths outside `/api`.                                                   |
 | `src/app/**/page.tsx`              | Pages, server-rendered; `layout.tsx` is the shell with the theme script and stylesheets.         |
@@ -67,7 +67,7 @@ process: no second runtime and no proxy hop. A page that needs API data calls th
 in-process (`bootstrapFor` in digital's `[flow]` page, forwarding the request's headers).
 
 **Client components are the boundary that matters.** Anything a `"use client"` module imports ships
-to the browser. Server secrets live behind `src/server/api.ts`. `packages/platform` is server-only,
+to the browser. Server secrets live behind `src/server/`. `packages/platform` is server-only,
 with one deliberate exception: `markets.ts` is pure data and is imported by the digital workbench,
 so it must never import anything server-side.
 

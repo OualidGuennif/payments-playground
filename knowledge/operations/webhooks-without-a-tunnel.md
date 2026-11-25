@@ -7,14 +7,14 @@ status: stable
 scope: webhooks-locally
 generated:
   by: claude-code/opus-5.5
-  at: 2026-10-09T19:30:00Z
+  at: 2026-11-25T10:00:00Z
 sources:
   - id: hmac
     resource: ../../packages/platform/hmac.ts
     title: calculateStandardHmac and verifyStandardHmac
   - id: handler
-    resource: ../../apps/adyen-digital/src/server/api.ts
-    title: POST /webhook
+    resource: ../../apps/adyen-digital/src/server/routes/webhooks.ts
+    title: POST /webhook (moved out of server/api.ts on 2026-11-25)
 verified:
   - at: 2026-10-09
     check: "Adyen's real CAPTURE ZC55WDCR763KPPT5, read from webhook.site and replayed unchanged to a dev server holding the webhook.site HMAC key, answered 202 with hmac_valid = 1 and settled order 5aa671e7 paid. Notifications captured before that key existed carried no hmacSignature."

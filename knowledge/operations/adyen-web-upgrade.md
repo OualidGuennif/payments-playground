@@ -7,17 +7,17 @@ status: stable
 scope: adyen-web-upgrade
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-16T03:00:00Z
+  at: 2026-11-25T13:00:00Z
 sources:
   - id: root
     resource: ../../package.json
     title: Workspace members whose package.json pins Adyen Web
   - id: audit
-    resource: ../../apps/adyen-v6-styling/src/components/adyenOptions.test.ts
+    resource: ../../apps/adyen-v6-styling/src/options/css-tokens.test.ts
     title: Token audit against the real adyen.css
   - id: options
-    resource: ../../apps/adyen-v6-styling/src/components/adyenOptions.ts
-    title: ADYEN_WEB_VERSION and the token catalogue
+    resource: ../../apps/adyen-v6-styling/src/options/controls.ts
+    title: ADYEN_WEB_VERSION (the token catalogue is src/options/css-tokens.ts)
 verified:
   - at: 2026-10-16
     check: "6.46.0 to 6.47.0: hand-edited lockfile, deno install --frozen green, token audit added animation-duration-slow, deno task check green, styling computed styles and export hash unchanged, digital-checkout:6.47.0 built, Drop-in authorised on TEST."
@@ -39,10 +39,10 @@ verified:
    touch only the SDK and its own dependencies. Then `bun install --frozen-lockfile` must succeed.
    Adyen Web vendors its runtime Preact under `dist/es/external/`, so there is no Preact pin to
    follow any more.
-4. **Run the token audit**: `bun test apps/adyen-v6-styling/src/components/adyenOptions.test.ts`.
+4. **Run the token audit**: `bun test apps/adyen-v6-styling/src/options/css-tokens.test.ts`.
    Add tokens Adyen now reads, remove those it dropped, fix changed defaults, using the values in
    the new `styles/adyen.css`.
-5. **Update the version strings**: `ADYEN_WEB_VERSION` in `adyenOptions.ts`, `adyenWeb` in
+5. **Update the version strings**: `ADYEN_WEB_VERSION` in `src/options/controls.ts`, `adyenWeb` in
    `packages/platform/base-api.ts`, the footer in `packages/ui/components.tsx`, the README version
    table, the wikis. `git grep -n "<old version>"` must come back empty, bar historical notes.
 6. **Prove it**: `bun run check`; restart `bun run dev:digital`; load Drop-in and pay once on TEST;

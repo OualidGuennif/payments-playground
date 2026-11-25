@@ -6,7 +6,7 @@ tags: [decision, bun, nextjs, elysia, eden, workspace]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-16T03:00:00Z
+  at: 2026-11-25T10:00:00Z
 sources:
   - id: workspace
     resource: ../../package.json
@@ -19,7 +19,7 @@ sources:
     title: The one lockfile
   - id: digital-api
     resource: ../../apps/adyen-digital/src/server/api.ts
-    title: One Elysia chain exporting its App type
+    title: One Elysia app exporting its App type, composed since 2026-11-25 from one plugin per flow in src/server/routes
   - id: config
     resource: ../../packages/platform/config.ts
     title: "Paths built from the working directory, marked turbopackIgnore"

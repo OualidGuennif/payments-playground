@@ -1,0 +1,485 @@
+/* ---------- Timeline (inspector and Back Office) ---------- */
+
+.timeline-view {
+  display: grid;
+  gap: 8px;
+}
+
+/* Stays on top of its scroller, so filters and search are always at hand. */
+.tl-toolbar {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: grid;
+  gap: 8px;
+  padding: 2px 0 8px;
+  background: var(--color-surface);
+}
+
+.tl-filters {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--color-surface-strong);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tl-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tl-filter[aria-selected="true"] {
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  color: var(--color-ink);
+}
+
+.tl-filter__count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-surface-strong);
+  color: var(--color-ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-align: center;
+}
+
+.tl-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tl-search {
+  min-width: 0;
+  min-height: 38px;
+  flex: 1 1 180px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-muted);
+  font-size: 0.78rem;
+}
+
+.tl-search:focus {
+  border-color: var(--color-blue);
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.tl-tool {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tl-tool:hover:not(:disabled) {
+  border-color: var(--color-border-control-hover);
+}
+
+.tl-tool:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.tl-note,
+.tl-empty {
+  margin: 4px 2px;
+  color: var(--color-ink-muted);
+  font-size: 0.76rem;
+}
+
+.tl-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* One event: source tag, name, status and time on the first line, what it
+   carried on the second. Tight like a console, readable like a list. */
+.ev {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.ev:hover,
+.ev.is-open {
+  border-color: var(--color-border);
+  background: var(--color-surface-raised);
+}
+
+.ev__row {
+  display: grid;
+  width: 100%;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 4px;
+  padding: 8px 10px;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "src name status time"
+    ". summary summary summary";
+  border: 0;
+  background: none;
+  color: var(--color-ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.ev__src {
+  grid-area: src;
+  min-width: 34px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.ev__src--sdk {
+  background: var(--color-surface-strong);
+  color: var(--color-ink-muted);
+}
+
+.ev__src--api {
+  background: var(--color-blue-soft);
+  color: var(--color-blue);
+}
+
+.ev__src--webhook {
+  background: var(--color-green-soft);
+  color: var(--color-green-dark);
+}
+
+.ev__name {
+  grid-area: name;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ev__status {
+  grid-area: status;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.ev__status--ok {
+  background: var(--color-green-soft);
+  color: var(--color-green-dark);
+}
+
+.ev__status--error {
+  background: var(--color-red-soft);
+  color: var(--color-red);
+}
+
+.ev__status--neutral {
+  background: var(--color-surface-strong);
+  color: var(--color-ink-muted);
+}
+
+.ev__time {
+  grid-area: time;
+  color: var(--color-ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ev__summary {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  grid-area: summary;
+  gap: 4px;
+}
+
+.ev__chip {
+  max-width: 100%;
+  padding: 1px 7px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ev--error .ev__chip {
+  border-color: var(--color-red-border);
+  color: var(--color-red);
+}
+
+.ev--error .ev__name {
+  color: var(--color-red);
+}
+
+.ev__chip--more {
+  border-style: dashed;
+}
+
+.ev__detail {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  padding: 2px 10px 12px;
+}
+
+.ev__endpoint {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.ev__verb {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+.ev__hint {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.ev__rank {
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--color-surface-strong);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ev__rank--required {
+  background: var(--color-amber-soft);
+  color: var(--color-amber);
+}
+
+.ev__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ev__actions {
+  display: inline-flex;
+  gap: 12px;
+}
+
+.ev__extra {
+  display: grid;
+  gap: 8px;
+}
+
+.mini-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--color-surface-strong);
+}
+
+.mini-tabs button {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.mini-tabs button[aria-selected="true"] {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+/* Request and response share one JSON view; colour says which is open. */
+.mini-tabs button.mini-tabs__tab--request[aria-selected="true"] {
+  background: var(--color-blue-soft);
+  color: var(--color-blue);
+}
+
+.mini-tabs button.mini-tabs__tab--response[aria-selected="true"] {
+  background: var(--color-green-soft);
+  color: var(--color-green-dark);
+}
+
+.mini-tabs button.mini-tabs__tab--error[aria-selected="true"] {
+  background: var(--color-red-soft);
+  color: var(--color-red);
+}
+
+.ev__payload {
+  --payload-tone: var(--color-blue);
+  --payload-soft: var(--color-blue-soft);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--payload-tone) 32%, var(--color-border));
+  border-radius: 10px;
+}
+
+.ev__payload--response {
+  --payload-tone: var(--color-green-dark);
+  --payload-soft: var(--color-green-soft);
+}
+
+.ev__payload--error {
+  --payload-tone: var(--color-red);
+  --payload-soft: var(--color-red-soft);
+}
+
+.ev__payload .json {
+  border-radius: 0;
+}
+
+.ev__direction {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 12px;
+  background: var(--payload-soft);
+  color: var(--color-ink-muted);
+  font-size: 0.6875rem;
+}
+
+.ev__direction strong {
+  color: var(--payload-tone);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* What one onChange moved: path, before, after. */
+.changes {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+}
+
+.changes th,
+.changes td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.changes th {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.changes__before {
+  color: var(--color-red);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--color-red) 45%, transparent);
+}
+
+.changes__after {
+  color: var(--color-green-dark);
+}
+
+.json {
+  max-height: 380px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border-radius: 10px;
+  background: var(--color-code);
+  color: var(--color-ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.json__key {
+  color: var(--color-blue);
+}
+
+.json__string {
+  color: var(--color-green-dark);
+}
+
+.json__number,
+.json__bool {
+  color: var(--color-amber);
+}
+
+.json__null {
+  color: var(--color-ink-subtle);
+  font-style: italic;
+}
+
+.json__fold {
+  padding: 0 6px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 5px;
+  background: var(--color-surface);
+  color: var(--color-blue);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.6875rem;
+}

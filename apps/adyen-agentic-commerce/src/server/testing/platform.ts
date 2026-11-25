@@ -1,7 +1,7 @@
 // A UCP platform for tests: it serves platform profiles on a loopback port, the good one every
 // test sends in UCP-Agent and the broken ones the negotiation tests probe. It counts fetches.
 // Spec: knowledge/components/adyen-agentic-commerce.md
-import { UCP_VERSION } from "../config";
+import { UCP_VERSION } from "../core/config";
 
 const SHOPPING = [
   "dev.ucp.shopping.catalog.search",

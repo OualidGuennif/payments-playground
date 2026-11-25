@@ -7,7 +7,7 @@ scope: component-ui
 tags: [component, ui, adyen-web]
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-25T13:00:00Z
 sources:
   - resource: ../../packages/ui
     title: "The package: modules and stylesheet"
@@ -27,9 +27,9 @@ sources:
     title: "One Adyen Web and one React across the Bun workspace"
   - resource: ../decisions/ADR-010-one-theme-attribute-and-token-sets.md
     title: "Dark mode is one data-theme attribute over two token sets"
-  - resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
+  - resource: ../../apps/adyen-digital/src/components/workbench/FlowWorkbench.tsx
     title: "The focus app's Drop-in and Components usage"
-  - resource: ../../apps/adyen-v6-styling/src/components/adyenOptions.test.ts
+  - resource: ../../apps/adyen-v6-styling/src/options/css-tokens.test.ts
     title: "The only automated check of an Adyen Web surface"
 ---
 
@@ -159,7 +159,7 @@ says when only one half is covered.
    CSRF token". The client half is not unit-tested.
 4. The Adyen Web token surface the styling workbench offers on top of these tokens matches the real
    `adyen.css` of the pinned SDK, so a version bump cannot silently drop or rename a token —
-   `apps/adyen-v6-styling/components/adyenOptions.test.ts`, the only automated check of an Adyen Web
+   `apps/adyen-v6-styling/src/options/css-tokens.test.ts`, the only automated check of an Adyen Web
    surface.
 5. The zero-decimal set that `formatMinorAmount` branches on is exactly the currencies without a
    minor unit — `packages/platform/markets.test.ts` "zero-decimal currencies are never given

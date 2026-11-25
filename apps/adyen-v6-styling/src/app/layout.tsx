@@ -4,7 +4,14 @@ import type { ReactNode } from "react";
 import { ThemeScript } from "@suite/ui/ThemeScript.tsx";
 import "@suite/ui/styles.css";
 import "@adyen/adyen-web/styles/adyen.css";
-import "./app.css";
+// One file per area; the order below is the cascade, so a later file wins a tie.
+import "../styles/page.css";
+import "../styles/test-cards.css";
+import "../styles/preview.css";
+import "../styles/confirm.css";
+import "../styles/panel.css";
+import "../styles/responsive.css";
+import "../styles/footer.css";
 
 export const metadata: Metadata = {
   title: "Drop-in Styling · TEST Playground",

@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { originTrialToken } from "../proxy";
 import { handle } from "../server/api";
-import { loadCheckout } from "../server/commerce";
+import { loadCheckout } from "../server/commerce/commerce";
 import { freshStore, ORIGIN } from "../server/testing/agent";
 import { addToCart, clearCart, readCart, setCartQuantity } from "./client";
 import {

@@ -7,7 +7,7 @@ status: stable
 scope: payment-lifecycle
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-25T10:00:00Z
 sources:
   - id: state-machine
     resource: ../../packages/platform/state-machine.ts
@@ -19,8 +19,11 @@ sources:
     resource: ../../packages/platform/modifications.ts
     title: reconcile and ledgerOf
   - id: digital-api
-    resource: ../../apps/adyen-digital/src/server/api.ts
-    title: settleAttempt, resolveAndStore, the session-result route, the webhook handler
+    resource: ../../apps/adyen-digital/src/server/orders.ts
+    title: settleAttempt and resolveAndStore (moved out of server/api.ts on 2026-11-25)
+  - id: digital-routes
+    resource: ../../apps/adyen-digital/src/server/routes
+    title: The flow routes, one file each, and the webhook handler in routes/webhooks.ts
 verified:
   - at: 2026-10-10
     check: "On Adyen TEST, order 2b5a2f81: captures 40.00 + 20.00 and refund 10.00 EUR answered received; replayed signed CAPTURE/REFUND webhooks left 60.00 captured and 10.00 refunded; a replayed Idempotency-Key returned the stored request, a new key while pending got 409."

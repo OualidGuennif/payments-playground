@@ -1,0 +1,71 @@
+/* ---------- Drop-in in dark mode ---------- */
+
+:root[data-theme="dark"] .checkout-pay {
+  --adyen-sdk-color-background-primary: #16191f;
+  --adyen-sdk-color-background-primary-hover: #1d2128;
+  --adyen-sdk-color-background-secondary: #1b1f26;
+  --adyen-sdk-color-background-secondary-hover: #242932;
+  --adyen-sdk-color-background-secondary-active: #2b313b;
+  --adyen-sdk-color-background-tertiary: #242932;
+  --adyen-sdk-color-background-quaternary: #39404c;
+  --adyen-sdk-color-background-disabled: #1b1f26;
+  --adyen-sdk-color-background-inverse-primary: #eef1f6;
+  --adyen-sdk-color-background-inverse-primary-hover: #ffffff;
+  /* The pay button: light on dark, with dark text (label-on-color). */
+  --adyen-sdk-color-background-always-dark: #eef1f6;
+  --adyen-sdk-color-background-always-dark-active: #ffffff;
+  --adyen-sdk-color-background-highlight-weak: rgba(110, 168, 255, 0.13);
+  --adyen-sdk-color-background-success-weak: rgba(18, 196, 92, 0.14);
+  --adyen-sdk-color-label-primary: #eef1f6;
+  --adyen-sdk-color-label-secondary: #a3acba;
+  --adyen-sdk-color-label-tertiary: #7b8493;
+  --adyen-sdk-color-label-disabled: #59616f;
+  --adyen-sdk-color-label-highlight: #6ea8ff;
+  --adyen-sdk-color-label-critical: #ff7b88;
+  --adyen-sdk-color-label-success: #4ade80;
+  --adyen-sdk-color-label-on-color: #0b0d11;
+  --adyen-sdk-color-label-on-background-highlight-weak: #9cc4ff;
+  --adyen-sdk-color-label-on-background-success-weak: #4ade80;
+  --adyen-sdk-color-outline-primary: #39404c;
+  --adyen-sdk-color-outline-primary-hover: #59616f;
+  --adyen-sdk-color-outline-primary-active: #eef1f6;
+  --adyen-sdk-color-outline-secondary: #39404c;
+  --adyen-sdk-color-outline-tertiary: #59616f;
+  --adyen-sdk-color-outline-tertiary-hover: #eef1f6;
+  --adyen-sdk-color-outline-tertiary-active: #eef1f6;
+  --adyen-sdk-color-outline-critical: #ff7b88;
+  --adyen-sdk-color-outline-disabled: #272c35;
+  --adyen-sdk-color-separator-primary: #272c35;
+  --adyen-sdk-color-separator-secondary: #39404c;
+  --adyen-sdk-focus-ring-color: rgba(110, 168, 255, 0.6);
+  --adyen-sdk-alert-critical-background-color: rgba(255, 123, 136, 0.13);
+  --adyen-sdk-alert-warning-background-color: rgba(246, 181, 82, 0.13);
+  --adyen-sdk-alert-success-background-color: rgba(18, 196, 92, 0.14);
+  --adyen-sdk-alert-highlight-background-color: rgba(110, 168, 255, 0.13);
+  --adyen-sdk-button-tertiary-color: #eef1f6;
+  --adyen-sdk-toggle-track-background-color: #1b1f26;
+  --adyen-sdk-toggle-track-border: 1px solid #59616f;
+  --adyen-sdk-toggle-track-hover-background-color: #242932;
+  --adyen-sdk-toggle-track-active-background-color: #2b313b;
+  --adyen-sdk-toggle-track-active-border-color: #eef1f6;
+}
+
+/* Click to Pay paints its panel and OTP box in fixed light colours rather than
+   SDK tokens (adyen.css 6.46.0), which left a white block in dark mode. */
+:root[data-theme="dark"] .checkout-pay .adyen-checkout-ctp__section {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface-raised);
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .checkout-pay .adyen-checkout-ctp__otp-checkbox-container {
+  background-color: var(--color-surface-strong);
+}
+
+:root[data-theme="dark"] .checkout-pay .adyen-checkout-ctp__otp-checkbox-container--checked {
+  background-color: var(--color-blue-soft);
+}
+
+:root[data-theme="dark"] .checkout-pay .adyen-checkout-ctp__otp-checkbox-info {
+  color: var(--color-ink-muted);
+}

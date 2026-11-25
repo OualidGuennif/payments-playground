@@ -1,0 +1,31 @@
+/* ---------- Footer and the disclaimer page ---------- */
+
+.styling-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px clamp(16px, 3vw, 34px) 24px;
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+}
+
+.styling-footer__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.styling-footer a {
+  color: var(--color-ink-muted);
+  text-decoration: none;
+}
+
+.styling-footer a:hover {
+  color: var(--color-ink);
+}
+
+.legal-shell {
+  padding: 0 clamp(20px, 5vw, 68px) 48px;
+}

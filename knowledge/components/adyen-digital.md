@@ -7,24 +7,30 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-16T22:30:00Z
+  at: 2026-11-25T10:00:00Z
 sources:
   - resource: ../../apps/adyen-digital
     title: "The Next.js app: pages, Elysia API, client components"
   - resource: ../../apps/adyen-digital/src/proxy.ts
     title: "Proxy: optional Basic Auth and the CSRF cookie on page responses"
   - resource: ../../apps/adyen-digital/src/server/api.ts
-    title: "Every digital API route, on Elysia, and the Eden App type"
+    title: "The Elysia app composed from one plugin per flow, and the Eden App type"
+  - resource: ../../apps/adyen-digital/src/server/routes
+    title: "One Elysia plugin per flow: sessions, advanced, partial payments, pay by link, MIT, API only, back office, webhooks"
+  - resource: ../../apps/adyen-digital/src/server
+    title: "Server helpers: request bodies, order recording, payments, webhook items, input parsing"
   - resource: ../../apps/adyen-digital/src/app/layout.tsx
-    title: "Root layout: theme script and stylesheets"
+    title: "Root layout: theme script and the stylesheets of src/styles in cascade order"
   - resource: ../../apps/adyen-digital/next.config.ts
     title: "Next.js configuration: standalone build, security headers, tracing excludes"
-  - resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
-    title: "Checkout and inspector client component"
+  - resource: ../../apps/adyen-digital/src/components/workbench/FlowWorkbench.tsx
+    title: "Checkout and inspector client component: state, AdyenCheckout mount, retry, layout"
   - resource: ../../apps/adyen-digital/src/app
     title: "Pages and the route handlers for /api, /healthz and /webhook"
   - resource: ../../apps/adyen-digital/src/components
-    title: "Flow list, status wording, sheet, timeline, result card"
+    title: "Client components by area: workbench, inspector, back-office, settings"
+  - resource: ../../apps/adyen-digital/src/checkout
+    title: "One module per flow (sessions, advanced with partial payments, api-only, pay-by-link, mit), method configuration, Sessions reload restore"
   - resource: ../../apps/adyen-digital/README.md
     title: "Environment variables and quick start"
 ---
@@ -58,7 +64,7 @@ in the [README](../../README.md) since 2026-10-10 (commit `8678cc9`); what is ve
 
 | Route                                                         | Accepts                                                                                                                         |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                                                           | nothing; flow tiles grouped as checkout and beyond checkout (`components/flows.ts`)                                             |
+| `/`                                                           | nothing; flow tiles grouped as checkout and beyond checkout (`checkout/flows.ts`)                                             |
 | `/sessions`, `/advanced`, `/api-only`, `/mit`, `/pay-by-link` | the flow id in the path; `?integration=dropin` (default) or `component` on the two flows that offer both; any other flow is 404 |
 | `/back-office`                                                | `?orderId=<order id>`, which selects that order in the list                                                                     |
 | `/settings`, `/wiki`, `/disclaimer`                           | nothing                                                                                                                         |
@@ -156,8 +162,11 @@ browser's same-host `Origin`
 
 `FlowWorkbench` is one row on top: the flow as a rounded badge (the page's `h1`) and a scenario chip
 (flag, market, amount, integration) that opens the configuration sheet; then the checkout, with the
-inspector beside it (under it on a phone). Switching flow goes through Home. It mounts Drop-in, a
-single Component or the API-only Custom Card; Sessions, Advanced and API only start on load, and
+inspector beside it (under it on a phone). Switching flow goes through Home. It holds the state and
+mounts Drop-in, a single Component or the API-only Custom Card; what each flow sends lives in one
+module per flow in `src/checkout` (`sessions.ts`, `advanced.ts` with the partial-payment callbacks,
+`api-only.ts`, `pay-by-link.ts`, `mit.ts`), and the Pay by Link and MIT forms are their own
+components. Sessions, Advanced and API only start on load, and
 every scenario or theme change restarts the checkout 500 ms later. A run counter stops a slow
 superseded start from mounting a second checkout, and callbacks are reported under the current run's
 correlation id (a ref, not render state). The result card replaces the checkout once a payment ends,
@@ -165,11 +174,24 @@ and test cards open in a sheet. Partial payments (a gift card, then a card): `on
 recorded and, with Components, shows a "Partial payment … paid · … left to pay" banner and mounts
 the card for the rest (Drop-in shows its own); Advanced also implements `onBalanceCheck`,
 `onOrderRequest`, `onOrderCancel` and `onPaymentMethodsRequest`, and sends each payment's share
-(`components/partial.ts`: a gift card pays what its balance covers, the next method the rest). After
+(`checkout/partial.ts`: a gift card pays what its balance covers, the next method the rest). After
 a refused, cancelled or failed payment the result card offers "Try again": it remounts on the same
 AdyenCheckout instance, so the session (with its latest `sessionData`) and any gift card order
 survive; "New payment" starts a new session, and so does a retry after the fifth refusal in a
-session, a `14_0422`/`14_0423` answer, or once the session expired (the card says so). The inspector
+session, a `14_0422`/`14_0423` answer, or once the session expired (the card says so). A Sessions
+checkout that is part paid survives a reload (`checkout/session-restore.ts`): `onOrderUpdated`
+(Adyen Web 6.48+) hands over the latest `sessionData`, which is kept in the tab's `sessionStorage`
+with the session id, its expiry, the correlation id, what is paid and left, and the settings the
+session was made with; a later refusal's `sessionData` replaces it, and so does, on `pagehide`,
+what the live checkout holds (`checkout.session.data` and its order): Drop-in's "Supprimer" cancels
+the order through the session and calls no merchant callback, so without that a reload showed the
+removed gift card as paid again. The next start, a reload included, takes those settings back and
+mounts Adyen Web on `session: { id, sessionData }` instead of creating a session. Its setup answer
+carries the order, but Adyen Web 6.48.1 prices the checkout before reading it (Pay showed the full
+amount), so the workbench applies that order again with `checkout.update({ order })` and the
+shopper pays only what is left. The entry is dropped once the payment completes, the session
+closes or expires, nothing is left part paid when the page is left, the settings change, "New
+payment" is chosen, or the restore fails (a new session then starts). The inspector
 is open from the start (owner, 2026-10-10), polls the timeline every 2.5 s ("Live") and follows new
 events unless the reader scrolled up.
 
@@ -257,27 +279,30 @@ the set. Markets are 36 countries with their own currency, locale and default am
    redacted before persistence.
 3. **An order's state comes from Adyen's answers and HMAC-valid webhooks, never from the browser.**
    `packages/platform/state-machine.test.ts` ("a successful CAPTURE webhook settles the order as
-   paid", "a later webhook never reopens a settled order"); `api.ts` writes an order's state only
-   through `settleAttempt` and `resolveAndStore`, and `/webhook`'s AUTHORISATION branch writes the
-   attempt before the same derivation.
+   paid", "a later webhook never reopens a settled order"); the server writes an order's state only
+   through `settleAttempt` and `resolveAndStore` (`apps/adyen-digital/src/server/orders.ts`), and
+   `/webhook`'s AUTHORISATION branch (`src/server/routes/webhooks.ts`) writes the attempt before the
+   same derivation.
 4. **A refusal ends an attempt, not an order.** `packages/platform/state-machine.test.ts` ("a
    refused attempt never closes a still-valid order"); the workbench's retry keeps the session and its
-   gift card order (`src/components/FlowWorkbench.tsx`).
+   gift card order (`src/components/workbench/FlowWorkbench.tsx`), and a reload resumes a part-paid Sessions
+   order only under the settings it was made with and before it expires
+   (`apps/adyen-digital/src/checkout/session-restore.test.ts`).
 5. **Request bodies are built per endpoint; `state.data` is never forwarded wholesale.**
-   `apps/adyen-digital/src/server/api.ts` (`requestBase`, `FORWARDED_STATE_DATA`) and
+   `apps/adyen-digital/src/server/requests.ts` (`requestBase`, `FORWARDED_STATE_DATA`) and
    `packages/platform/adyen.ts`; `packages/platform/adyen.test.ts` pins the session endpoint, the
    balance endpoint and upstream error handling.
-6. **Money is integer minor units.** `amountFrom` in `apps/adyen-digital/src/server/api.ts` accepts 1 to
+6. **Money is integer minor units.** `amountFrom` in `apps/adyen-digital/src/server/input.ts` accepts 1 to
    100000000; `packages/platform/markets.test.ts` ("zero-decimal currencies are never given
-   fractional minor units") and `apps/adyen-digital/src/components/partial.test.ts` pin the rest.
+   fractional minor units") and `apps/adyen-digital/src/checkout/partial.test.ts` pin the rest.
 7. **Only HMAC-valid webhook items are processed; one invalid item refuses the delivery.**
    `packages/platform/hmac.test.ts` ("standard webhook HMAC accepts the signed item and rejects
-   mutation"); `apps/adyen-digital/src/server/api.ts` returns 401 and records the verdict.
+   mutation"); `apps/adyen-digital/src/server/routes/webhooks.ts` returns 401 and records the verdict.
 8. **A capture, cancel or refund is idempotent per key, and a request awaiting its webhook blocks
    another of its kind.** `packages/platform/lifecycle.test.ts` ("a received capture blocks the next
-   one until its webhook arrives"); `apps/adyen-digital/src/server/api.ts` returns 409 or the stored request.
-9. **A partial payment never exceeds its order.** `apps/adyen-digital/src/server/api.ts` refuses it with 400;
-   `apps/adyen-digital/src/components/partial.test.ts` ("a gift card pays what its balance covers,
+   one until its webhook arrives"); `apps/adyen-digital/src/server/routes/back-office.ts` returns 409 or the stored request.
+9. **A partial payment never exceeds its order.** `createPayment` in `apps/adyen-digital/src/server/payments.ts` refuses it with 400;
+   `apps/adyen-digital/src/checkout/partial.test.ts` ("a gift card pays what its balance covers,
    anything else pays the rest") and `packages/platform/state-machine.test.ts` ("partial tender
    remains open for the balance").
 10. **Raw card data is refused; only Adyen-encrypted values or tokens pass.** `rejectRawCardData` in
@@ -286,13 +311,13 @@ the set. Markets are 36 countries with their own currency, locale and default am
     proxying.
 11. **Digital `/sessions`, Advanced `/payments` and `/api-only` send fixed two-key `metadata` and
     omit recipient names from `deliveryAddress`.** `buildSessionRequest` and `buildPaymentRequest`
-    in `apps/adyen-digital/src/server/api.ts`, pinned by `apps/adyen-digital/src/server/api.test.ts`.
+    in `apps/adyen-digital/src/server/requests.ts`, pinned by `apps/adyen-digital/src/server/api.test.ts`.
 
 ## Determinism
 
 `deterministic`. Every page, JSON body, stored row and order state is produced by code from the
 request and the recorded Adyen answers; there is no model and no free text. The pure parts
-(`resolveOrder`, `partial.ts`, `onChangeDiff.ts`, `curl.ts`, `read.ts`) are pinned by tests, and the
+(`resolveOrder`, `partial.ts`, `session-restore.ts`, `onChangeDiff.ts`, `curl.ts`, `read.ts`) are pinned by tests, and the
 same recorded attempts and webhooks always derive the same state. Adyen's own answer and the moment
 a webhook arrives are external input: a payment whose webhook never arrives stays `open` or
 `payment_pending` until the event does.

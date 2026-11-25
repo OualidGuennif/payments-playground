@@ -11,12 +11,12 @@ import {
   SignJWT,
 } from "jose";
 import { handle } from "../api";
-import { forgetCardCache } from "../commerce";
-import { customerFromCookies, forgetFailures } from "../customers";
-import { openDatabase, useDatabase } from "../db";
-import { forgetClientKeys, forgetCodeMisses } from "../oauth";
-import { forgetProfiles } from "../profile";
-import { sha256b64url } from "../util";
+import { forgetCardCache } from "../commerce/commerce";
+import { customerFromCookies, forgetFailures } from "../accounts/customers";
+import { openDatabase, useDatabase } from "../core/db";
+import { forgetClientKeys, forgetCodeMisses } from "../oauth/oauth";
+import { forgetProfiles } from "../ucp/profile";
+import { sha256b64url } from "../core/util";
 import { fake } from "./fake-adyen";
 
 export const ORIGIN = "http://127.0.0.1:8003";

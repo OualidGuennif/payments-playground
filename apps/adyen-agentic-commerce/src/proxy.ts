@@ -3,7 +3,7 @@
 // basic auth when it is configured; the agent-facing protocol paths never do, or no agent could
 // reach them. Pages also carry the WebMCP origin-trial header when the owner set a token.
 import { type NextRequest, NextResponse } from "next/server";
-import { cleanEnvValue } from "./server/config";
+import { cleanEnvValue } from "./server/core/config";
 
 const PROTECTED = [
   "/account",

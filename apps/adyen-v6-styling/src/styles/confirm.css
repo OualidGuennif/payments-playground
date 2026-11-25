@@ -1,0 +1,59 @@
+/* ---------- Reset confirmation dialog ---------- */
+
+/* Reset throws away work that took a while to build, so it asks. Rendered
+   over the page rather than inside the panel: the panel scrolls, and a
+   confirmation you can scroll away from is not one. */
+.confirm-backdrop {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--backdrop);
+  backdrop-filter: blur(2px);
+}
+
+.confirm-card {
+  display: flex;
+  width: 100%;
+  max-width: 380px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 22px;
+  border-radius: var(--radius-l);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+}
+
+.confirm-card strong {
+  font-size: 0.95rem;
+}
+
+.confirm-card p {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.confirm-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Phones: stacked and full width, so the destructive one is never a mis-tap
+   away from Cancel. */
+@media (max-width: 420px) {
+  .confirm-card__actions {
+    flex-direction: column-reverse;
+  }
+
+  .confirm-card__actions .button {
+    width: 100%;
+    justify-content: center;
+  }
+}

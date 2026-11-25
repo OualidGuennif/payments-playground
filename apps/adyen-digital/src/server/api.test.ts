@@ -1,7 +1,7 @@
 import { test } from "bun:test";
 import { assert, assertEquals } from "../../../../testing/assert.ts";
 import type { OrderAggregate, ProfileSecrets } from "@suite/platform/types.ts";
-import { buildPaymentRequest, buildSessionRequest } from "./api.ts";
+import { buildPaymentRequest, buildSessionRequest } from "./requests.ts";
 
 const ORDER: OrderAggregate = {
   id: "order-test-1",

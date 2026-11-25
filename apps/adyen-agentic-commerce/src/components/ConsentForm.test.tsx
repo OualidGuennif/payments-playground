@@ -4,7 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CHANGE_PILL, asksToPay, consentRows } from "@/lib/consent";
-import { type Scope, SCOPES } from "@/server/oauth";
+import { type Scope, SCOPES } from "@/server/oauth/oauth";
 import { ConsentForm, type ConsentProps } from "./ConsentForm";
 
 const EMAIL = "shopper@example.com";

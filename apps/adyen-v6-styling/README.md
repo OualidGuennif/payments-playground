@@ -87,7 +87,7 @@ Both are copy-or-download, at the bottom of the relevant tab:
 
 ## About the token audit test
 
-`components/adyenOptions.test.ts` fetches the real `adyen.css` for the pinned SDK version and fails
+`src/options/css-tokens.test.ts` fetches the real `adyen.css` for the pinned SDK version and fails
 if the panel offers a custom property Adyen no longer reads, or misses one it added. That is
 deliberate: merchants paste this output into production stylesheets, so an SDK bump should not pass
 quietly. **It needs network access**: offline it fails on the fetch, not on a real regression.

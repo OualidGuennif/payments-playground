@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { DOCS, OVERVIEW } from "@/components/docs/content";
 import { SequenceDiagram } from "@/components/docs/SequenceDiagram";
-import { config } from "@/server/config";
+import { config } from "@/server/core/config";
 
 // PUBLIC_ORIGIN is read per request so one image serves any origin.
 export const dynamic = "force-dynamic";

@@ -3,8 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StatusPill } from "@/components/StatusPill";
 import { money } from "@/lib/money";
-import type { Order } from "@/server/commerce";
-import { get } from "@/server/db";
+import type { Order } from "@/server/commerce/commerce";
+import { get } from "@/server/core/db";
 
 export const metadata = { title: "Order" };
 export const dynamic = "force-dynamic";

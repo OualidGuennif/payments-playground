@@ -1,7 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // The consent page's permission rows: the shopper's words and PAP 1.0 §4.7's two hints, never the
 // scope name an agent asked with.
-import { allows, type Scope, SCOPES } from "@/server/oauth";
+import { allows, type Scope, SCOPES } from "@/server/oauth/oauth";
 
 export type Change = "none" | "reversible" | "irreversible";
 

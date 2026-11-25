@@ -2,8 +2,8 @@
 import { AccountView } from "@/components/AccountView";
 import { requireCustomer } from "@/lib/session";
 import { accountView } from "@/server/api";
-import { sessionIdForReference } from "@/server/commerce";
-import { config } from "@/server/config";
+import { sessionIdForReference } from "@/server/commerce/commerce";
+import { config } from "@/server/core/config";
 
 export const metadata = { title: "Account" };
 export const dynamic = "force-dynamic";

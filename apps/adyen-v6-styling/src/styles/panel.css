@@ -1,0 +1,513 @@
+/* ---------- Styling panel: tabs, option groups and raw output ---------- */
+
+/* Frosted, so the page's glows reach this column too instead of a flat white
+   one; dense enough that the options read as on a solid panel. */
+.styling-panel {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  border-left: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  overflow: auto;
+}
+
+/* Red, not green: green is already the active tab's colour right beside it,
+   and this is the one control that throws work away. Being the only red thing
+   in the panel is what makes it findable. */
+.styling-reset {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-red);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 750;
+  white-space: nowrap;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.styling-reset:hover {
+  border-color: var(--color-red);
+  background: var(--color-red-soft);
+}
+
+.styling-reset:focus-visible {
+  border-color: var(--color-red);
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+
+.styling-reset:active {
+  transform: translateY(1px);
+}
+
+/* Confirms the click landed, the panel snapping back to defaults is otherwise
+   the only feedback, and on an untouched panel there is nothing to see at all.
+   Green here because it reports success, not because it offers an action. */
+.styling-reset--success {
+  border-color: var(--color-green);
+  background: var(--color-green-soft);
+  color: var(--color-green-dark);
+}
+
+.styling-reset svg {
+  flex: 0 0 auto;
+}
+
+/* The panel's only chrome: three tabs and the one control that undoes them. */
+.styling-tabs {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  align-items: stretch;
+  padding-right: 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  gap: 8px;
+}
+
+.styling-tabs__list {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.styling-tabs__list button {
+  position: relative;
+  min-height: 52px;
+  padding: 10px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.styling-tabs__list button[aria-selected="true"] {
+  color: var(--color-ink);
+}
+
+.styling-tabs__list button[aria-selected="true"]::after {
+  position: absolute;
+  right: 14px;
+  bottom: 0;
+  left: 14px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--color-green);
+  content: "";
+}
+
+.styling-controls {
+  padding: 20px;
+}
+
+.styling-controls--shape {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
+}
+
+.styling-controls input[type="color"] {
+  min-height: 44px;
+  padding: 5px;
+}
+
+.styling-controls .switch-row {
+  min-width: 0;
+  border-color: transparent;
+  background: var(--color-surface-muted);
+}
+
+.styling-controls .switch-row span {
+  overflow-wrap: anywhere;
+}
+
+/* The API name (or a one-line caveat) under a toggle: the label stays the
+   plain-language one, the hint says what it maps to in the SDK. */
+.switch-row span small {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-ink-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* There are far too many native options to show flat, so each family is a
+   collapsible section carrying a count of what has been changed inside it. */
+.option-group {
+  margin-bottom: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-s);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.option-group__summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-left: 3px solid transparent;
+  background: var(--color-surface-muted);
+  cursor: pointer;
+  font-size: 0.73rem;
+  font-weight: 800;
+  list-style: none;
+}
+
+/* Nine collapsed sections look identical; this is the only thing that says
+   which ones you have changed without opening them one by one. */
+.option-group[data-changed="true"] .option-group__summary {
+  border-left-color: var(--color-green);
+}
+
+.option-group__summary::-webkit-details-marker {
+  display: none;
+}
+
+.option-group__summary::after {
+  color: var(--color-ink-muted);
+  content: "▾";
+  font-size: 0.7rem;
+  transition: transform 140ms ease;
+}
+
+.option-group[open] .option-group__summary::after {
+  transform: rotate(180deg);
+}
+
+.option-group__summary:focus-visible {
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+
+.option-group__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.option-group__count {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--color-green-soft);
+  color: var(--color-green-dark);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.option-group__hint {
+  margin: 0;
+  padding: 10px 12px 0;
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+/* Reads as a warning, not a footnote: these rules target private class names
+   and are the one thing in this panel that can break a live checkout. */
+.option-group__hint--danger {
+  margin: 10px 12px 0;
+  padding: 9px 11px;
+  border: 1px solid var(--color-red);
+  border-radius: var(--radius-xs);
+  background: var(--color-red-soft);
+  color: var(--color-red);
+  font-weight: 600;
+}
+
+.option-group__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 12px;
+}
+
+.option-group__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.option-note {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.option-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.option-row__clear {
+  padding: 1px 5px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.option-row__clear:hover {
+  background: var(--color-green-soft);
+  color: var(--color-green-dark);
+}
+
+.option-row--set > .option-row__head label {
+  color: var(--color-green-dark);
+}
+
+.range-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.range-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.range-field small {
+  flex: 0 0 auto;
+  min-width: 66px;
+  color: var(--color-ink-muted);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Long option lists (address fields, 36 countries) fold behind a summary so
+   they never swamp the panel, and expand in the flow, a floating menu gets
+   clipped by .option-group's overflow and vanishes under the next section. */
+.checkbox-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkbox-dropdown__toggle {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+  font-size: 0.76rem;
+  text-align: left;
+}
+
+.checkbox-dropdown__toggle:hover {
+  border-color: var(--color-border-hover);
+}
+
+.checkbox-dropdown[data-open="true"] .checkbox-dropdown__toggle {
+  border-color: var(--color-green);
+}
+
+.checkbox-dropdown__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checkbox-dropdown__chevron {
+  flex: 0 0 auto;
+  color: var(--color-ink-muted);
+  font-size: 0.7rem;
+}
+
+/* One option per row, tight enough that the whole list reads as a single
+   control rather than a second page inside the panel. */
+.checkbox-dropdown__list {
+  max-height: 196px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  overflow: hidden auto;
+}
+
+/* Banded rows: with no gaps and no per-row border, the alternating fill is
+   what separates one option from the next while you scan down. */
+.checkbox-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+  font-size: 0.71rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.checkbox-dropdown__item:nth-child(odd) {
+  background: var(--color-surface-muted);
+}
+
+.checkbox-dropdown__item:first-child {
+  font-weight: 700;
+}
+
+.checkbox-dropdown__item:hover {
+  background: var(--color-green-soft);
+  color: var(--color-green-dark);
+}
+
+/* These live inside a .field, which sizes inputs as full-width 42px-tall text
+   boxes, right for a text field, four times too tall for a checkbox. */
+.checkbox-dropdown__item input {
+  width: 14px;
+  height: 14px;
+  min-height: 0;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  accent-color: var(--color-green);
+}
+
+.styling-segmented {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  margin-bottom: 8px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+}
+
+.styling-segmented button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.styling-segmented button[aria-selected="true"] {
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgba(0, 17, 44, 0.14);
+  color: var(--color-ink);
+}
+
+.styling-segmented__count {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--color-green-soft);
+  color: var(--color-green-dark);
+  font-size: 0.6875rem;
+}
+
+.styling-filter {
+  width: 100%;
+  min-height: 38px;
+  margin-bottom: 10px;
+  padding: 8px 11px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  font-size: 0.74rem;
+}
+
+.styling-filter:focus {
+  border-color: var(--color-blue);
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+
+.styling-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.styling-filter-row .styling-filter {
+  margin-bottom: 0;
+}
+
+.css-note {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  color: var(--color-ink-muted);
+}
+
+.css-cdn-link {
+  margin: 0 0 16px;
+  font-size: 0.72rem;
+  color: var(--color-ink-muted);
+}
+
+.raw-output {
+  margin-top: 16px;
+}
+
+.raw-output__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.raw-output__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.raw-output__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+
+.raw-output__pre {
+  max-height: 220px;
+}

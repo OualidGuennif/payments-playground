@@ -1,7 +1,12 @@
 // The Adyen double for bun test: scripted stored cards, card brands and payment answers, and a
 // record of every payment request so tests can assert what would have been sent.
 // Spec: knowledge/components/adyen-agentic-commerce.md
-import type { AgentPayment, NetworkTokenPayment, SessionRequest, StoredCard } from "../adyen";
+import type {
+  AgentPayment,
+  NetworkTokenPayment,
+  SessionRequest,
+  StoredCard,
+} from "../payments/adyen";
 
 type PaymentAnswer = { resultCode: string; pspReference?: string; refusalReason?: string } | Error;
 type SessionAnswer = {

@@ -6,11 +6,14 @@ tags: [reference, adyen-web, drop-in]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-25T12:00:00Z
 sources:
   - id: workbench
-    resource: ../../apps/adyen-digital/src/components/FlowWorkbench.tsx
-    title: Callbacks and configuration in use
+    resource: ../../apps/adyen-digital/src/components/workbench/FlowWorkbench.tsx
+    title: The AdyenCheckout configuration and the callbacks shared by every flow
+  - id: flows
+    resource: ../../apps/adyen-digital/src/checkout
+    title: The per-flow callbacks (Sessions beforeSubmit, Advanced onSubmit and partial payments)
   - id: methods
     resource: ../../packages/ui/paymentMethods.ts
     title: Per-method configuration and non-fatal errors
@@ -46,6 +49,14 @@ sources:
   component mounted from `onOrderUpdated` charges only what is left; a lone Giftcard component just
   empties. Without a session and without `onBalanceCheck`, Giftcard skips the balance check and
   submits the full amount. `onOrderCancel(data, { resolve, reject })` expects `resolve({ amount })`.
+- Sessions, part-paid order after a reload (6.48.1): mounting on `session: { id, sessionData }` with
+  the `sessionData` from `onOrderUpdated` resumes the order, and `/sessions/{id}/setup` answers it
+  (`orderData`, `remainingAmount`), but `initializeCore` prices the checkout from the
+  configuration's `order` before reading the answer's, so Pay shows the full amount until
+  `checkout.update({ order: checkout.options.order })`. Drop-in's "Supprimer" in Sessions calls
+  `session.cancelOrder` then `core.update({ order: null })` and no merchant callback; the latest
+  blob stays readable as `checkout.session.data`. With `sessionData`, Adyen Web uses it and stores
+  it in its own `localStorage`; with only an `id`, it falls back to that stored copy.
 - `onError` also receives non-failures: `SCRIPT_ERROR` and `SDK_ERROR` (a wallet SDK that cannot
   load here) and `CANCEL` (the shopper closed a wallet sheet).
 

@@ -1,0 +1,247 @@
+/* ---------- Page intro (Back Office, Settings) ---------- */
+
+.page-intro {
+  max-width: 1180px;
+  margin: 0 auto 22px;
+}
+
+.page-intro h1 {
+  margin-bottom: 4px;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.page-intro p {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+/* ---------- Back Office ---------- */
+
+.bo {
+  display: grid;
+  max-width: 1180px;
+  gap: 16px;
+  margin: 0 auto;
+}
+
+.bo-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.bo-metric {
+  display: grid;
+  gap: 2px;
+  padding: 16px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-surface);
+}
+
+.bo-metric span {
+  color: var(--color-ink-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.bo-metric strong {
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+}
+
+.bo-metric small {
+  color: var(--color-ink-muted);
+  font-size: 0.75rem;
+}
+
+.bo-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.bo-search {
+  min-width: 0;
+  min-height: 40px;
+  flex: 1 1 260px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: 0.84rem;
+}
+
+.bo-search:focus {
+  border-color: var(--color-blue);
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+
+/* The Back Office's order filters. */
+.chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chip[aria-selected="true"] {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+}
+
+.bo-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.bo-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-ink);
+}
+
+.bo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.bo-layout.has-selection {
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+}
+
+.bo-list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-surface);
+}
+
+.bo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: none;
+  color: var(--color-ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.bo-row:last-of-type {
+  border-bottom: 0;
+}
+
+.bo-row:hover {
+  background: var(--color-surface-raised);
+}
+
+.bo-row[aria-current="true"] {
+  background: var(--color-surface-strong);
+}
+
+.bo-row__main {
+  display: grid;
+  min-width: 0;
+}
+
+.bo-row__main strong {
+  font-size: 0.92rem;
+}
+
+.bo-row__main span {
+  overflow: hidden;
+  color: var(--color-ink-muted);
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bo-row__side {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: end;
+  gap: 4px;
+}
+
+.bo-row__side time {
+  color: var(--color-ink-subtle);
+  font-size: 0.7rem;
+}
+
+.bo-empty {
+  margin: 0;
+  padding: 18px;
+}
+
+.bo-more {
+  padding: 14px;
+}
+
+.bo-detail {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  max-height: calc(100vh - 32px);
+  align-content: start;
+  gap: 18px;
+  padding: 22px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.bo-back {
+  display: none;
+  justify-self: start;
+}
+
+.bo-detail__head > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.bo-detail__amount {
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.bo-detail__head p {
+  margin: 6px 0 0;
+  font-size: 0.84rem;
+}

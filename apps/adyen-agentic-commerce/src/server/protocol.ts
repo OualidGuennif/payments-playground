@@ -3,13 +3,13 @@
 // the trace, in front of the UCP operation table (REST under /ucp/v1, JSON-RPC at /mcp).
 import { createHmac, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
-import { CommerceError } from "./commerce";
-import { config, UCP_VERSION } from "./config";
-import { database } from "./db";
-import { type Auth, authenticate, issuer } from "./oauth";
-import { PapError, type PapSession, verifyPoppy } from "./pap";
-import { negotiate, ProfileError, profileFromHeader } from "./profile";
-import { trace } from "./trace";
+import { CommerceError } from "./commerce/commerce";
+import { config, UCP_VERSION } from "./core/config";
+import { database } from "./core/db";
+import { type Auth, authenticate, issuer } from "./oauth/oauth";
+import { PapError, type PapSession, verifyPoppy } from "./pap/pap";
+import { negotiate, ProfileError, profileFromHeader } from "./ucp/profile";
+import { trace } from "./core/trace";
 import {
   capabilitiesIncompatible,
   continueUrl,
@@ -24,10 +24,10 @@ import {
   routeRest,
   ScopeError,
   STORE_CAPABILITIES,
-} from "./ucp";
-import { canonicalJson, isRecord, isUuid, json, readJson, sha256 } from "./util";
-import { MCP_TOOLS } from "./mcp-tools";
-import { listResources, readResource, stylistPromptText } from "./widgets";
+} from "./ucp/ucp";
+import { canonicalJson, isRecord, isUuid, json, readJson, sha256 } from "./core/util";
+import { MCP_TOOLS } from "./mcp/mcp-tools";
+import { listResources, readResource, stylistPromptText } from "./mcp/widgets";
 
 const WINDOW_MS = 60_000;
 const LIMIT = 240;

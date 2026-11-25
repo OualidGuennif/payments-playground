@@ -1,5 +1,5 @@
 import { DigitalLayout } from "@/components/Layout.tsx";
-import ProfileManager from "@/components/ProfileManager.tsx";
+import ProfileManager from "@/components/settings/ProfileManager.tsx";
 
 export default function SettingsPage() {
   return (

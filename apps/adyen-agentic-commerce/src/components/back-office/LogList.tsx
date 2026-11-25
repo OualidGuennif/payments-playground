@@ -1,5 +1,5 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
-import type { TraceEntry } from "@/server/trace";
+import type { TraceEntry } from "@/server/core/trace";
 import { CopyButton } from "./CopyButton";
 
 const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");

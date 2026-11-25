@@ -5,6 +5,59 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-25
+
+- Fix the agentic account page's agent budget: the limit is labelled as a total including what
+  was spent, a live line says what a typed limit leaves the agent, + 50/100/300 EUR buttons add
+  to it, the phone keyboard's OK saves any total to the cent (the form skips the browser's step
+  check, which refused 598.90), Save stays off on an unchanged limit, and a save says what the
+  agent can now spend. Before, typing the current limit saved silently and raised nothing.
+- Split the agentic store's two largest server modules by responsibility, without changing
+  behaviour: `oauth.ts` (1,171 lines) into scopes, shared records, discovery metadata, clients,
+  authorize, device and tokens; `commerce.ts` (1,169) into model, pricing, saved cards, carts,
+  checkouts, payment, the shopper's browser sessions and webhooks. Each original file now only
+  re-exports the same names, so no importer changed. 413 tests pass.
+- Group `adyen-agentic-commerce`'s 40 flat server files into domain folders without changing
+  behaviour: `core` (config, db, util, trace, outbound, zip), `payments`, `catalog`, `commerce`,
+  `accounts`, `oauth`, `ucp`, `mcp` (tools, widgets, plugin), `pap` and `back-office`, each test
+  beside its module; `api.ts` and `protocol.ts` stay at the top. The widget bundle is rebuilt
+  only for its source hash. 413 tests pass; pages and public endpoints checked on :8003.
+- Split `adyen-v6-styling` by area without changing behaviour: the 1,490-line option catalogue
+  becomes `src/options` (controls, secured fields, CSS tokens, Drop-in, card, wallets, themes,
+  Drop-in props) with the token audit beside it as `css-tokens.test.ts`; the three panel tabs move
+  to `src/components/panels`, the Components tab's option groups to their own files; `app.css`
+  becomes seven stylesheets in `src/styles`, imported in cascade order. Browser-checked on TEST:
+  each tab and its export, the Brazil-only group, light and dark, 375 and 1440 px.
+- Split `adyen-digital`'s `FlowWorkbench` (1,485 to 998 lines) without changing behaviour: what
+  each flow sends moves to one module per flow in `src/checkout` (`sessions.ts`, `advanced.ts`
+  with the partial-payment callbacks, `api-only.ts`, `pay-by-link.ts`, `mit.ts`), the method
+  configuration to `methods.ts`, the Eden client and callback shapes to `client.ts`; the Pay by
+  Link and MIT forms become `PayByLinkPanel` and `MitPanel`; inspector polling becomes a hook.
+  Browser-checked on TEST: Sessions gift card, reload, card Authorised; Advanced gift card and card;
+  API only; Pay by Link create and refresh; MIT on a stored card.
+- Reorganize `adyen-digital` into readable modules, with no change to routes, URLs, behaviour or
+  UI: client components in `components/workbench`, `inspector`, `back-office` and `settings`;
+  flow list and checkout helpers in `src/checkout`; shared readers in `src/lib`; `app.css` split
+  into 14 stylesheets in `src/styles`, imported in the old cascade order; the 1,139-line
+  `server/api.ts` split into one Elysia plugin per flow in `server/routes` and helpers for request
+  bodies, order recording, payments and webhook items. Browser-checked on TEST: every page renders,
+  a Sessions and an Advanced card payment were Authorised, the Back Office renders in both themes.
+- Resume a part-paid Sessions checkout after a reload in `adyen-digital`: `onOrderUpdated`'s
+  `sessionData` (Adyen Web 6.48+) is kept in the tab's `sessionStorage` with the session and the
+  settings it was made with, and the next start mounts Adyen Web on that session instead of
+  creating one. The order from the setup answer is applied again so Pay shows what is left (6.48.1
+  showed the full amount), a refusal's `sessionData` replaces the kept one, and leaving the page
+  re-reads `checkout.session.data` so Drop-in's "Supprimer" is not undone by a reload. The entry is
+  dropped on completion, a closed or expired session, changed settings or "New payment".
+  Browser-verified on TEST with Components and Drop-in.
+- Record the v0.7.1 deploy check: after PR #18 merged cleanly on `main` (`10b59cb`, CI
+  `44434136862` green) and tag `v0.7.1` published, Render's `agentic-commerce` deploy succeeded at
+  01:06:53 UTC (`dep-dbv4mejm8hqs73almun0`). `/healthz` (agentic, digital, styling),
+  `/docs/chatgpt`, `atelier-velune-plugin.zip` (5 clean files with `$schema` and OpenAI CIMD
+  metadata), `POST /api/return` (cross-site 303 to `/account`, 400 on external origin) and
+  signed-out `POST /mcp` (401) passed live checks; ChatGPT Refresh and live card-save/checkout
+  await the owner's test.
+
 ## [0.7.1] - 2026-11-19
 
 - Fix the ChatGPT widget checkout and composer state: once `ui/initialize` finishes, `bridge.ts`

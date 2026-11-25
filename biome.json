@@ -27,7 +27,7 @@
       "!tools/repo-health",
       "!tools/skills",
       "!opencode.json",
-      "!apps/adyen-agentic-commerce/src/server/widgets.gen.ts"
+      "!apps/adyen-agentic-commerce/src/server/mcp/widgets.gen.ts"
     ]
   },
   "formatter": {

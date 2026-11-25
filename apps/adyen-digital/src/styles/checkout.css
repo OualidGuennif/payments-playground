@@ -1,0 +1,230 @@
+/* ---------- Checkout page ---------- */
+
+.checkout-page {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+/* With the inspector beside the checkout, the page takes the header's width
+   and the inspector gets everything the checkout does not need. */
+.checkout-page.is-inspecting {
+  max-width: 1416px;
+}
+
+.scenario-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.scenario-bar__start {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The page's title: which flow this is, as one rounded block. */
+.flow-badge {
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 7px 18px 7px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.flow-badge__icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+}
+
+.scenario-chip {
+  display: flex;
+  min-width: 0;
+  min-height: 52px;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 8px 7px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.scenario-chip:hover {
+  border-color: var(--color-border-control-hover);
+}
+
+.scenario-chip__flag {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.scenario-chip__text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.scenario-chip__text strong {
+  font-size: 0.84rem;
+}
+
+.scenario-chip__text span {
+  overflow: hidden;
+  color: var(--color-ink-muted);
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scenario-chip__edit {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--color-surface-strong);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.scenario-bar__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.checkout-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.checkout-workspace.has-inspector {
+  grid-template-columns: minmax(0, 620px) minmax(360px, 1fr);
+}
+
+.checkout-card {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 22px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.checkout-pay {
+  min-width: 0;
+  padding: 28px clamp(18px, 3vw, 36px) 32px;
+}
+
+.checkout-pay__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.checkout-pay__head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.compact-select {
+  max-width: 60%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  background: var(--color-surface);
+  font-size: 0.78rem;
+}
+
+/* Adyen's iframes stay transparent only when their colour scheme matches
+   the element that embeds them; the dark palette below does the rest. */
+.dropin-host {
+  width: 100%;
+  min-height: 280px;
+  color-scheme: light;
+}
+
+.dropin-host.is-hidden {
+  display: none;
+}
+
+.partial-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-green-border);
+  border-radius: var(--radius-s);
+  background: var(--color-green-soft);
+  color: var(--color-ink);
+  font-size: 0.8rem;
+}
+
+.partial-banner strong {
+  color: var(--color-green-dark);
+}
+
+.pay-skeleton {
+  display: grid;
+  gap: 12px;
+}
+
+.pay-skeleton span {
+  height: 58px;
+  border-radius: 14px;
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-strong),
+    var(--color-surface-raised),
+    var(--color-surface-strong)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.pay-note {
+  margin: 14px 0 0;
+  color: var(--color-ink-muted);
+  font-size: 0.76rem;
+}
+
+.custom-card-form {
+  max-width: 460px;
+}
+
+.custom-card-submit {
+  margin-top: 4px;
+}

@@ -7,7 +7,7 @@ scope: component-platform
 tags: [component, platform, server]
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-17T12:00:00Z
+  at: 2026-11-25T10:00:00Z
 sources:
   - resource: ../../packages/platform
     title: "The package, its tests next to each module, and its migrations"
@@ -36,7 +36,7 @@ sources:
   - resource: ../architecture/data-model.md
     title: "The tables storage.ts reads and writes"
   - resource: ../../apps/adyen-digital/src/server/api.ts
-    title: "How the focus app builds its API on the package"
+    title: "How the focus app builds its API on the package: createPlatformApi, then one plugin per flow from src/server/routes"
   - resource: ../../apps/adyen-digital/src/proxy.ts
     title: "Basic Auth and the CSRF cookie applied before the Next.js pages"
 ---

@@ -1,6 +1,6 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // The files the built widgets and the plugin package come from, and their hash: the build records
-// it, and a test fails when a source changed after the last build (src/server/widgets.test.ts).
+// it, and a test fails when a source changed after the last build (src/server/mcp/widgets.test.ts).
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";

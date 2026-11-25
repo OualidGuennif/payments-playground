@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ConsentForm } from "@/components/ConsentForm";
 import { asksToPay, consentRows } from "@/lib/consent";
 import { requireCustomer } from "@/lib/session";
-import { pendingRequest } from "@/server/oauth";
+import { pendingRequest } from "@/server/oauth/oauth";
 
 export const metadata = { title: "Connect an agent" };
 export const dynamic = "force-dynamic";

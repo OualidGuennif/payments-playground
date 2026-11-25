@@ -1,7 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import Link from "next/link";
 import { CopyButton } from "@/components/back-office/CopyButton";
-import { config } from "@/server/config";
+import { config } from "@/server/core/config";
 
 // PUBLIC_ORIGIN is read per request so one image serves any origin.
 export const dynamic = "force-dynamic";

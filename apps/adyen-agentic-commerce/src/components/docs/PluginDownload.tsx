@@ -2,7 +2,7 @@
 // The plugin package's download on the ChatGPT Docs page; relative links, because the Docs topic
 // pages are built once and served on any origin.
 import Link from "next/link";
-import { PLUGIN_ZIP_PATH } from "@/server/widgets";
+import { PLUGIN_ZIP_PATH } from "@/server/mcp/widgets";
 
 export function PluginDownload() {
   return (

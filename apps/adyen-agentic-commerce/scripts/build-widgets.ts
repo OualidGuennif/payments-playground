@@ -22,7 +22,7 @@ const plugin = Object.fromEntries(
   pluginFiles().map((path) => [relative(PLUGIN_DIR, path), readFileSync(path, "utf8")]),
 );
 
-const out = join(APP, "src/server/widgets.gen.ts");
+const out = join(APP, "src/server/mcp/widgets.gen.ts");
 writeFileSync(
   out,
   [

@@ -3,7 +3,7 @@ import { LogList, stamp, statusTone } from "@/components/back-office/LogList";
 import { Pager } from "@/components/back-office/Pager";
 import { StatusPill } from "@/components/StatusPill";
 import { money } from "@/lib/money";
-import * as bo from "@/server/back-office";
+import * as bo from "@/server/back-office/back-office";
 
 export const metadata = { title: "Back Office" };
 export const dynamic = "force-dynamic";

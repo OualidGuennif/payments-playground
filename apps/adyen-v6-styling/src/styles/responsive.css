@@ -1,0 +1,206 @@
+/* ---------- Screen widths ---------- */
+
+/* On a laptop the panel at its full 480px is what decides whether the checkout
+   and the dataset can share a row, and it wins that argument for space it
+   does not need. Narrower here, the pair fits side by side from ~1375px
+   instead of ~1470px, which is most laptops. */
+@media (min-width: 1180px) and (max-width: 1699px) {
+  .styling-layout {
+    grid-template-columns: minmax(420px, 1fr) minmax(340px, 400px);
+  }
+}
+
+/* Past this width the preview column grows faster than a checkout should, and
+   the pair ends up marooned in the middle of it. Handing the extra to the
+   options panel, which is genuinely cramped, keeps the composition tight
+   instead of banding it with empty space. */
+@media (min-width: 1700px) {
+  .styling-layout {
+    grid-template-columns: minmax(420px, 1fr) minmax(360px, 560px);
+  }
+}
+
+/* The Drop-in and the dataset stand side by side as one centred pair, so the
+   preview column reads as a composition instead of two blocks pushed left
+   with dead space beside them.
+ *
+ * Whether they fit is decided by wrapping, not by a guessed breakpoint. A
+ * fixed threshold has to assume how much of the window the options panel took,
+ * and at the low end of the old one the Drop-in was being crushed to ~190px
+ * while the dataset refused to shrink. With min widths on both and wrap on the
+ * row, they sit together while there is room for both and the dataset drops
+ * below the moment there isn't. */
+@media (min-width: 1180px) {
+  .styling-preview {
+    flex-flow: row wrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 28px;
+  }
+
+  /* Its own row, as wide as the pair below it at most (400 + 28 + 650). */
+  .styling-toolbar {
+    flex: 0 0 100%;
+    max-width: 1078px;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  }
+
+  .styling-preview .dropin-column {
+    flex: 1 1 460px;
+    min-width: 440px;
+    max-width: 650px;
+    margin: 0;
+  }
+
+  /* Never below 372px: two tiles and a 19-digit PAN is what this column is
+     for, and a card number broken across two lines is unreadable. Not sticky
+     either, the tiles belong to the page and stay where they were put.
+   *
+   * Ordered first so the Drop-in ends up against the options panel instead of
+   * with the dataset between them. You change an option on the right and watch
+   * the checkout react immediately beside it; reference material sits on the
+   * outer edge, which is where reference material belongs. */
+  .test-data {
+    order: -1;
+    flex: 0 1 372px;
+    width: auto;
+    min-width: 372px;
+    max-width: 400px;
+  }
+
+  /* The bar earns its place on a phone, where it keeps the checkout above the
+     fold. Beside the checkout there is nothing to save, so the cards are
+     simply there. */
+  .test-cards--primary > .test-cards__toggle {
+    display: none;
+  }
+
+  .test-cards--primary[data-open="false"] > .test-cards__body {
+    display: block;
+    margin-top: 0;
+  }
+}
+
+/* Below 840px of column the pair cannot sit side by side and wraps; every
+   block then takes the single 650px column the narrower layouts use, so the
+   toolbar, the test data and the checkout share both edges. */
+@media (min-width: 1180px) {
+  @container preview (max-width: 839.98px) {
+    .styling-toolbar {
+      max-width: 650px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .test-data {
+      flex: 0 0 100%;
+      min-width: 0;
+      max-width: 650px;
+    }
+
+    .styling-preview .dropin-column {
+      flex: 0 0 100%;
+      min-width: 0;
+      max-width: 650px;
+    }
+  }
+}
+
+@media (max-width: 900px) {
+  /* The checkout is the page on a phone: the tiles go above it, folded. */
+  .test-data {
+    order: -1;
+  }
+
+  /* A 3DS challenge replaces the method list with a shorter iframe; without a
+     floor the host collapses and the page jumps under the reader. */
+  .styling-preview .dropin-host {
+    min-height: 70vh;
+  }
+
+  /* Except once the session is spent: there is no checkout left to hold open,
+     and 70vh of empty card would push the notice off the screen. */
+  .styling-preview .dropin-host--spent {
+    min-height: 0;
+  }
+
+  /* minmax(0, ...): a plain 1fr sized itself to the options panel's widest
+     row, 400px on a 375px phone, and pushed the page past the right edge. */
+  .styling-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .styling-tabs__list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .styling-panel {
+    position: static;
+    height: auto;
+    border-top: 1px solid var(--color-border);
+    border-left: 0;
+  }
+
+  .styling-tabs {
+    position: static;
+  }
+
+  .styling-controls--shape {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .styling-toolbar {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 6px;
+  }
+
+  .toolbar-field__label {
+    left: 12px;
+  }
+
+  .toolbar-field select {
+    padding: 24px 26px 7px 12px;
+    background-position: right 12px center;
+    /* Safari zooms the page in on focus for any control under 16px. */
+    font-size: 16px;
+  }
+
+  .styling-preview {
+    padding: 18px 14px;
+  }
+
+  /* Three tab labels already fill the row here; the reset keeps its icon and
+     drops the word rather than squeezing everything. */
+  .styling-reset__text {
+    display: none;
+  }
+
+  .styling-reset {
+    padding: 8px 10px;
+  }
+
+  .test-card {
+    padding: 10px;
+  }
+
+  .test-card__pan {
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .styling-segmented {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 760px), (pointer: coarse) {
+  .test-cards__toggle,
+  .option-group__summary,
+  .styling-segmented button,
+  .styling-reset {
+    min-height: 44px;
+  }
+}

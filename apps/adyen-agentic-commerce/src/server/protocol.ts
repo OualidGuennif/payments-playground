@@ -449,7 +449,31 @@ const rpcError = (id: unknown, code: number, message: string, data?: unknown) =>
 export async function handleMcp(request: Request): Promise<Response> {
   if (request.method !== "POST")
     return json(405, rpcError(null, -32000, "Use POST"), { allow: "POST" });
-  const e = await edge(request, "/mcp");
+  return serveMcp(request, await edge(request, "/mcp"));
+}
+
+// The store's own Ask agent (knowledge/components/ask-agent.md) reaches the same handler
+// in-process, never through a route. Without a token it is a guest exactly as a signed-out PAP
+// agent is; with its shopper's grant token, that token is checked like any other, so the house
+// agent holds no privilege of its own. Its per-address limits are the Ask agent's.
+export async function handleHouseMcp(request: Request, guest: PapSession): Promise<Response> {
+  if (request.method !== "POST")
+    return json(405, rpcError(null, -32000, "Use POST"), { allow: "POST" });
+  const auth = authenticate(request.headers.get("authorization"), "/mcp");
+  if (auth === "invalid")
+    return serveMcp(request, {
+      actor: guest.clientName,
+      response: json(
+        401,
+        mcpError(null, "identity_required", "The access token is invalid or expired."),
+      ),
+    });
+  return auth
+    ? serveMcp(request, { auth, actor: auth.grant.clientName })
+    : serveMcp(request, { session: guest, actor: guest.clientName });
+}
+
+async function serveMcp(request: Request, e: Edge): Promise<Response> {
   const refused = (response: Response) => {
     trace({
       channel: "mcp",

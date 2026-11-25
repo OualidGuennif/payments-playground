@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add the Ask agent's house agent and message pipeline: a Flue 2.3.1 agent shops through the
+  store's own MCP handler in-process, as a signed-out guest or with the shopper's own device-grant
+  token, never with card data; the five stages run in order with one message at a time per
+  session, refused text is kept redacted, and every model call, Flue's retries included, is
+  counted and stopped at the cap before it reaches a provider.
 - Add the Ask agent's LLM guard and output filter: stage 3 asks a small model for exactly one
   `verdict` call (allow, off topic, injection, abuse) and refuses on anything else, an error or
   8 s of silence; stage 5 blocks an answer that leaks the prompt's canary, drops links off the

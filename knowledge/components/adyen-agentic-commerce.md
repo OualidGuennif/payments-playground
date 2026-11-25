@@ -126,7 +126,10 @@ before, every deploy or restart emptied orders, agents and grants.
   REST catalogue, carts and checkouts work anonymously. `/mcp` answers 401 with the resource
   metadata URL until the agent signs in, unless the request carries a verified `Poppy-Session`:
   a PAP agent signed out gets the same guest access as on REST (PAP's UCP extension §8), and a
-  generic MCP client, which sends no Session, keeps the 401. Client metadata documents must be
+  generic MCP client, which sends no Session, keeps the 401. The store's own Ask agent reaches the
+  same handler in-process (`handleHouseMcp`, on no route): without a token it is a guest like a
+  signed-out PAP agent; with its shopper's grant token, that token is checked like any other
+  ([ask-agent](ask-agent.md)). Client metadata documents must be
   https, except loopback ones while `PUBLIC_ORIGIN` is itself loopback (local runs and
   `scripts/pap-agent.ts`).
 - **Outbound fetches (PAP 1.0 §3):** before fetching a URL an agent gave it (client document,

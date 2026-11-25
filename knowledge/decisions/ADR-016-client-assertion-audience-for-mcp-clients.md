@@ -6,7 +6,7 @@ tags: [decision, agentic, oauth, pap, mcp, chatgpt, security]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T14:52:00Z
+  at: 2026-11-25T14:00:00Z
 sources:
   - id: spec
     resource: ../components/adyen-agentic-commerce.md
@@ -72,7 +72,7 @@ Keeping PAP's rule as it is would leave ChatGPT unable to sign in. The owner cho
 
 ## Decision
 
-`authenticateClient` (`apps/adyen-agentic-commerce/src/server/oauth/oauth.ts`) accepts a client
+`authenticateClient` (`apps/adyen-agentic-commerce/src/server/oauth/clients.ts`) accepts a client
 assertion whose `aud` is exactly one of these strings:
 - the issuer, e.g. `https://agentic.payments-playground.com`;
 - the issuer with one final slash, `https://agentic.payments-playground.com/`;

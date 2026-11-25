@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Split the agentic store's two largest server modules by responsibility, without changing
+  behaviour: `oauth.ts` (1,171 lines) into scopes, shared records, discovery metadata, clients,
+  authorize, device and tokens; `commerce.ts` (1,169) into model, pricing, saved cards, carts,
+  checkouts, payment, the shopper's browser sessions and webhooks. Each original file now only
+  re-exports the same names, so no importer changed. 413 tests pass.
 - Group `adyen-agentic-commerce`'s 40 flat server files into domain folders without changing
   behaviour: `core` (config, db, util, trace, outbound, zip), `payments`, `catalog`, `commerce`,
   `accounts`, `oauth`, `ucp`, `mcp` (tools, widgets, plugin), `pap` and `back-office`, each test

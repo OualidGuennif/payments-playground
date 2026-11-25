@@ -27,7 +27,7 @@ sources:
     title: "Standalone output; no rewrites: route files re-export the Elysia handler at the public paths"
   - id: src
     resource: ../../apps/adyen-agentic-commerce/src
-    title: "Pages (app/), API (app/api), server modules (server/: api.ts and protocol.ts at the top, one folder per domain: core, payments, catalog, commerce, accounts, oauth, ucp, mcp, pap, back-office)"
+    title: "Pages (app/), API (app/api), server modules (server/: api.ts and protocol.ts at the top, one folder per domain: core, payments, catalog, commerce, accounts, oauth, ucp, mcp, pap, back-office; oauth.ts and commerce.ts re-export their folder's files, one per responsibility)"
   - id: widgets
     resource: ../../apps/adyen-agentic-commerce/src/widgets
     title: "MCP Apps widgets (carousel, bag), their bridge and logic"

@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Record the v0.7.2 deploy check: PR #19 merged on `main` (`2daf80e`, CI `45572176026` green),
+  tag `v0.7.2` published, and Render's deployments of landing, digital, styling and agentic
+  succeeded by 07:59:33 UTC. `/healthz` is 200 on all three apps, and the live digital and styling
+  chunks, the Sessions resume chunk and the agent budget form's chunk match the release build.
+
 ## [0.7.2] - 2026-11-25
 
 - Fix the agentic account page's agent budget: the limit is labelled as a total including what

@@ -183,11 +183,14 @@ export async function revokeEndpoint(form: URLSearchParams) {
   });
 }
 
-// `path` is the protected resource the request reached: "" for UCP REST, "/mcp" for MCP. A token
-// bound to the other one is invalid here (RFC 8707 §2, RFC 6750 §3.1).
+// `path` is the protected resource the request reached: "" for UCP REST, "/mcp" for MCP,
+// "/mcp/code" for Code Mode. A token bound to another one is invalid here (RFC 8707 §2, RFC 6750
+// §3.1).
+export type ResourcePath = "" | "/mcp" | "/mcp/code";
+
 export function authenticate(
   header: string | null,
-  path: "" | "/mcp",
+  path: ResourcePath,
 ): Auth | undefined | "invalid" {
   if (!header) return undefined;
   const match = /^Bearer\s+(\S+)$/i.exec(header);

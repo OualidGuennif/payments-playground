@@ -6,8 +6,10 @@
 // PAP_SHOPPER_PASSWORD in the environment it signs in to that account (its saved cards pay);
 // otherwise it creates a throwaway account with no card, so the payment escalates to the shopper.
 // It never sees a card number or an Adyen token.
+// With --code-mode it finds the product and builds the checkout in one `execute` call on /mcp/code
+// (Code Mode: the agent's JavaScript runs in the store's sandbox), then pays on /mcp as before.
 // Usage: bun scripts/pap-agent.ts [--origin http://127.0.0.1:8003] [--auto-consent] [--email a@b.c]
-//        [--query scarf]
+//        [--query scarf] [--code-mode]
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { calculateJwkThumbprint, exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 
@@ -18,6 +20,7 @@ const arg = (name: string) => {
 const origin = (arg("--origin") ?? "http://127.0.0.1:8003").replace(/\/+$/, "");
 const autoConsent = Bun.argv.includes("--auto-consent");
 const query = arg("--query") ?? "scarf";
+const codeMode = Bun.argv.includes("--code-mode");
 const run = crypto.randomUUID().slice(0, 8);
 const b64url = (bytes: ArrayBuffer) => Buffer.from(bytes).toString("base64url");
 const sha256 = async (text: string) =>
@@ -90,6 +93,9 @@ try {
   // PAP 1.0 §3.2: a token is asked for a resource only when its issuer lists it.
   if (!as.protected_resources?.includes(mcpUrl))
     throw new Error(`${issuer} does not list ${mcpUrl} in protected_resources`);
+  const codeUrl = `${mcpUrl}/code`;
+  if (codeMode && !as.protected_resources.includes(codeUrl))
+    throw new Error(`${issuer} does not list ${codeUrl} in protected_resources`);
   console.log("discovered", { issuer, mcpUrl });
 
   // 4. Authorization request with PKCE S256; the store answers with its consent page.
@@ -172,19 +178,19 @@ try {
     .setExpirationTime(now() + 300)
     .setJti(crypto.randomUUID())
     .sign(clientKeys.privateKey);
-  const tokenResponse = await fetch(as.token_endpoint, {
-    method: "POST",
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: redirectUri,
-      code_verifier: verifier,
-      resource: mcpUrl,
-      client_id: clientId,
-      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-      client_assertion: assertion,
-    }),
+  const tokenForm = new URLSearchParams({
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: redirectUri,
+    code_verifier: verifier,
+    resource: mcpUrl,
+    client_id: clientId,
+    client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+    client_assertion: assertion,
   });
+  // One token good at both doors: RFC 8707 lets a token request name several resources.
+  if (codeMode) tokenForm.append("resource", codeUrl);
+  const tokenResponse = await fetch(as.token_endpoint, { method: "POST", body: tokenForm });
   const tokens = (await tokenResponse.json()) as {
     access_token?: string;
     scope?: string;
@@ -207,8 +213,8 @@ try {
   // 8. Every MCP call carries a fresh Poppy-Session bound to the method, URL and token; its
   // delegation rides in the JWT header and its audience is the Company's issuer (PAP 1.0 §5.2).
   let rpcId = 0;
-  async function mcp(method: string, params: Record<string, unknown>) {
-    const session = await new SignJWT({ sid, htm: "POST", htu: mcpUrl, ath })
+  async function mcp(method: string, params: Record<string, unknown>, url = mcpUrl) {
+    const session = await new SignJWT({ sid, htm: "POST", htu: url, ath })
       .setProtectedHeader({
         alg: "ES256",
         typ: "poppy-session+jwt",
@@ -221,7 +227,7 @@ try {
       .setIssuedAt()
       .setJti(crypto.randomUUID())
       .sign(sessionKeys.privateKey);
-    const response = await fetch(mcpUrl, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         authorization: `Bearer ${tokens.access_token}`,
@@ -248,30 +254,7 @@ try {
     capabilities: {},
     clientInfo: { name: "velune-demo-agent", version: "1.0.0" },
   });
-  const search = (
-    await mcp("tools/call", { name: "search_catalog", arguments: { catalog: { query } } })
-  ).structuredContent as {
-    products: {
-      id: string;
-      title: string;
-      variants?: { id: string; availability?: { available?: boolean } }[];
-    }[];
-  };
-  const product = search.products[0];
-  if (!product) throw new Error(`No product for "${query}"`);
-  const variant =
-    product.variants?.find((v) => v.availability?.available !== false)?.id ?? product.id;
-  console.log("chose", { product: product.title, variant });
-
-  const created = (
-    await mcp("tools/call", {
-      name: "create_checkout",
-      arguments: {
-        meta: meta(),
-        checkout: { line_items: [{ item: { id: variant }, quantity: 1 }] },
-      },
-    })
-  ).structuredContent as {
+  type Created = {
     id: string;
     status: string;
     totals: { type: string; amount: number }[];
@@ -279,6 +262,47 @@ try {
     continue_url?: string;
     payment?: { instruments?: { id: string; handler_id: string; display?: unknown }[] };
   };
+  let created: Created;
+  if (codeMode) {
+    // The agent writes the whole lookup as code; only the checkout comes back.
+    const code = `async () => {
+      const { products = [] } = await codemode.search_catalog({ catalog: { query: ${JSON.stringify(query)} } });
+      const product = products[0];
+      if (!product) throw new Error("No product");
+      const variant = product.variants?.find((v) => v.availability?.available !== false)?.id ?? product.id;
+      console.log("chose", product.title, variant);
+      return codemode.create_checkout({ checkout: { line_items: [{ item: { id: variant }, quantity: 1 }] } });
+    }`;
+    const ran = (await mcp("tools/call", { name: "execute", arguments: { code } }, codeUrl))
+      .structuredContent as { result: Created; calls: unknown[]; logs: string[] };
+    console.log("code mode", { calls: ran.calls, logs: ran.logs });
+    created = ran.result;
+  } else {
+    const search = (
+      await mcp("tools/call", { name: "search_catalog", arguments: { catalog: { query } } })
+    ).structuredContent as {
+      products: {
+        id: string;
+        title: string;
+        variants?: { id: string; availability?: { available?: boolean } }[];
+      }[];
+    };
+    const product = search.products[0];
+    if (!product) throw new Error(`No product for "${query}"`);
+    const variant =
+      product.variants?.find((v) => v.availability?.available !== false)?.id ?? product.id;
+    console.log("chose", { product: product.title, variant });
+
+    created = (
+      await mcp("tools/call", {
+        name: "create_checkout",
+        arguments: {
+          meta: meta(),
+          checkout: { line_items: [{ item: { id: variant }, quantity: 1 }] },
+        },
+      })
+    ).structuredContent as Created;
+  }
   const total = created.totals.find((t) => t.type === "total")?.amount;
   console.log("checkout", {
     id: created.id,

@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T20:00:00Z
+  at: 2026-11-25T21:00:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -162,13 +162,14 @@ before, every deploy or restart emptied orders, agents and grants.
   when that capability was kept. The cheap checks (route, headers, body, Idempotency-Key) come
   before the fetch.
 - **Resource indicators (RFC 8707):** `resource` on authorize, device authorization and token
-  requests must be `PUBLIC_ORIGIN` (UCP REST) or `${PUBLIC_ORIGIN}/mcp`, compared after RFC 3986
+  requests must be `PUBLIC_ORIGIN` (UCP REST), `${PUBLIC_ORIGIN}/mcp` or `${PUBLIC_ORIGIN}/mcp/code`
+  ([Code Mode](code-mode.md)), compared after RFC 3986
   normalisation (the origin's trailing slash is the origin; a query, fragment or other path is
   not), and may repeat; at the token endpoint it must also be one the grant was issued for, and it
   is checked before a device code or refresh token is spent. A token issued for one resource is
   accepted only there (401 `invalid_token` elsewhere); a token issued without one is accepted at
-  both. The refresh token always keeps what the grant gave: the resources named at authorization
-  (none means both) and the approved scopes. A token request (code, device code or refresh) may
+  all three. The refresh token always keeps what the grant gave: the resources named at authorization
+  (none means all) and the approved scopes. A token request (code, device code or refresh) may
   narrow the access token to fewer resources and scopes, never the refresh token, so a later
   refresh can ask for the rest (PAP 1.0 §4.5, RFC 6749 §6). `scripts/pap-agent.ts` signs in
   without `resource`, since a PAP sign-in covers every resource, and names the MCP URL at the
@@ -223,7 +224,7 @@ before, every deploy or restart emptied orders, agents and grants.
 ## Outputs
 
 - **Discovery:** `/.well-known/poppy.json`, `/.well-known/oauth-protected-resource` (and
-  `/.well-known/oauth-protected-resource/mcp`), `/.well-known/oauth-authorization-server`,
+  `/.well-known/oauth-protected-resource/mcp` and `…/mcp/code`), `/.well-known/oauth-authorization-server`,
   `/.well-known/ucp`. `poppy.json` gives `auth.scopes` as a map of scope to description and
   `auth.scope_hints` keyed by scope with both `changes` and `personal_data` (PAP 1.0 §3.1, §4.7),
   `tasks.endpoint`, and an MCP description that names the three ways to pay (saved card, the
@@ -319,7 +320,8 @@ before, every deploy or restart emptied orders, agents and grants.
   `•••`, domain). `GET /api/back-office` keeps its fields and takes `page`, `per`, the same filters
   and `channel`; its `trace` is the requested page, with `trace_total` and `trace_pages`.
 - **Docs:** `/docs` explains, with diagrams drawn in SVG from the theme's tokens, how an agent
-  finds and uses the store: PAP 1.0 (`/docs/poppy`), MCP (`/docs/mcp`), WebMCP (`/docs/webmcp`),
+  finds and uses the store: PAP 1.0 (`/docs/poppy`), MCP (`/docs/mcp`), Code Mode
+  (`/docs/code-mode`), WebMCP (`/docs/webmcp`),
   UCP (`/docs/ucp`) and the Adyen calls (`/docs/adyen`). Each sequence diagram steps through its
   messages with Next and Back and has the same steps as text. A "Try it" panel reads, from the
   visitor's browser, only public documents of this origin (`/.well-known/poppy.json`,

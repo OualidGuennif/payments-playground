@@ -5,6 +5,13 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add Code Mode at `/mcp/code` (Cloudflare's pattern): two tools, `search` and `execute`, where
+  an agent sends one short JavaScript function that calls the store's own MCP tools and gets only
+  its result back. The code runs in a fresh QuickJS WebAssembly sandbox (no network, files or
+  timers; 32 MB, half a second of interpreter time, 20 store calls, 10 runs a minute per address);
+  every call carries the agent's own token, and paying stays a direct call on `/mcp`. `/mcp/code`
+  is a third OAuth resource; `/docs/code-mode` explains it and `scripts/pap-agent.ts --code-mode`
+  shows it end to end.
 - Speak to shoppers in plain words: every refusal on the store's browser routes and every
   checkout message reads as one sentence from a single table (never an agent text such as a field
   name), and a browser that was once signed in greets the shopper back: "Welcome back" on

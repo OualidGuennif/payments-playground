@@ -123,7 +123,7 @@ export const devOrigin = () => isLoopback(new URL(issuer()));
 // RFC 8707: the store serves two protected resources, its UCP REST API at the origin and its MCP
 // endpoint. A value names one when it is the same URI after RFC 3986 normalisation, so the
 // origin's trailing slash is the origin, while a query, a fragment or another path is not.
-const servedResources = () => [issuer(), `${issuer()}/mcp`];
+const servedResources = () => [issuer(), `${issuer()}/mcp`, `${issuer()}/mcp/code`];
 
 function servedResource(value: string): string | undefined {
   let href: string;

@@ -314,6 +314,101 @@ export const DOCS: Doc[] = [
     channels: ["mcp", "oauth"],
   },
   {
+    slug: "code-mode",
+    title: "Code Mode",
+    short: "The same tools, used by writing a few lines of code instead of one call at a time.",
+    intro:
+      "Normally an assistant calls one tool, reads the whole answer, then decides on the next call. With Code Mode, an idea from Cloudflare, it writes one short JavaScript function that does all the steps, and only the function's result comes back. The store runs that code in a locked box (QuickJS compiled to WebAssembly) at `/mcp/code`. The code can only reach the store's own tools, with the assistant's own sign-in, so it can do nothing the assistant could not already do one call at a time.",
+    actors: [
+      { id: "host", label: "Assistant" },
+      { id: "store", label: "Atelier Velune" },
+      { id: "box", label: "Sandbox" },
+    ],
+    steps: [
+      {
+        from: "host",
+        to: "store",
+        label: "POST /mcp/code tools/list",
+        text: "Two tools come back instead of thirteen: `search` and `execute`. The description of `execute` includes a short TypeScript outline of every store tool, so the assistant knows what it can call.",
+      },
+      {
+        from: "host",
+        to: "store",
+        label: "tools/call search",
+        text: 'Optional. The assistant sends a tiny function such as `async () => (await codemode.tools()).filter((t) => t.name.includes("checkout"))` to read just the tools it needs. Nothing is bought or changed.',
+      },
+      {
+        from: "host",
+        to: "store",
+        label: "tools/call execute",
+        text: "The assistant sends the whole job as one function: search for a linen shirt, keep the first size in stock, create the checkout, return its id and total.",
+      },
+      {
+        from: "store",
+        to: "box",
+        label: "Run the code",
+        text: "A fresh interpreter starts for this run only. It has no internet, no files, no timers and no secrets: just `codemode` and `console.log`.",
+      },
+      {
+        from: "box",
+        to: "store",
+        label: "codemode.search_catalog(…)",
+        text: "Each `codemode` call leaves the box through one door and becomes an ordinary `tools/call`, sent with the assistant's own token. Same permissions, budget, limits and log lines as on `/mcp`.",
+      },
+      {
+        from: "store",
+        to: "box",
+        label: "Products",
+        text: "The answer goes back into the code, not to the assistant. The code can filter it, compare sizes or loop, at no cost to the assistant's memory.",
+        reply: true,
+      },
+      {
+        from: "box",
+        to: "store",
+        label: "codemode.create_checkout(…)",
+        text: "Up to 20 store calls per run. A refusal (a missing permission, a sold-out size) arrives in the code as an error it can catch.",
+      },
+      {
+        from: "store",
+        to: "host",
+        label: "{ result, calls }",
+        text: "Only the returned value comes back, cut at about 6,000 tokens, with the list of calls made and any log lines.",
+        reply: true,
+      },
+      {
+        from: "host",
+        to: "store",
+        label: "POST /mcp complete_checkout",
+        text: "Paying never happens inside code. The assistant pays with one direct call on `/mcp`, the call assistants mark as one to confirm with you first.",
+      },
+    ],
+    notes: [
+      {
+        title: "Why write code?",
+        body: [
+          "Each tool answer an assistant reads takes room in its memory and a round trip. Searching, picking a size and building a checkout is three calls and three full answers; in Code Mode it is one call and one small answer. The bigger the task, the bigger the saving.",
+          "Assistants are also good at writing code, since they have read a great deal of it, so a short function is often a more natural way for them to plan several steps than a chain of separate calls.",
+        ],
+      },
+      {
+        title: "What the box cannot do",
+        body: [
+          "No network, files, timers or modules. At most half a second of its own computing, 10 seconds in all, 32 MB of memory and 20 store calls, and 10 runs a minute per address. The box runs inside the store's server, so these limits are what keeps one bad loop from slowing the shop for everyone. `complete_checkout` is refused inside it. A run that breaks a limit stops, and the next run starts from a fresh interpreter.",
+          "The token never enters the box: the store adds it on the way out, as Cloudflare's own Code Mode does.",
+        ],
+      },
+      {
+        title: "Connect an assistant",
+        body: [
+          "Add `/mcp/code` on this store's address as a remote MCP server. It signs in like `/mcp`: the first call answers `401` and points to `/.well-known/oauth-protected-resource/mcp/code`. A token asked for both resources works at both doors.",
+          "To watch it run locally: `bun scripts/pap-agent.ts --auto-consent --code-mode` signs in a test PAP agent, builds a checkout in one `execute`, then hands the payment to you on `/mcp`.",
+        ],
+      },
+    ],
+    tries: [AUTH_SERVER],
+    channels: ["mcp", "oauth"],
+  },
+  {
     slug: "webmcp",
     title: "WebMCP",
     short: "Tools this site offers to an agent running inside your browser.",

@@ -64,6 +64,11 @@ Adyen, and the store's hold is asked in `beforeSubmit`: a modified browser that 
 get a second authorisation. The store then places no second order (the checkout is already
 completed), and the extra authorisation is cancelled by hand in the Customer Area.
 
+Code Mode (`/mcp/code`) runs the agent's JavaScript in QuickJS on the server's main thread, not in
+a separate process or worker. One run can hold the store for at most half a second of interpreter
+time; an address gets 10 runs a minute and all runs together 10 seconds a minute. Many addresses
+at once could still slow the store within that budget.
+
 Adyen cannot reach `localhost`, so a local run never receives the `AUTHORISATION` webhook; an order
 is still placed from the synchronous `/payments` answer. The Render Blueprint has put the SQLite
 file on a 1 GB disk since v0.3.2, but the service used the disk only from 2026-11-18, once

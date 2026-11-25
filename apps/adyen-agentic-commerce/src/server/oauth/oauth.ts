@@ -44,6 +44,7 @@ export {
 export {
   authenticate,
   chargeGrant,
+  type ResourcePath,
   grants,
   jwkThumbprint,
   liveAuth,

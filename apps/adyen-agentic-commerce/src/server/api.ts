@@ -16,7 +16,7 @@ import type { Customer } from "./accounts/customers";
 import { get, list } from "./core/db";
 import * as oauth from "./oauth/oauth";
 import { poppyDocument } from "./pap/pap";
-import { clientIp, handleMcp, handleRest, rateLimited } from "./protocol";
+import { clientIp, handleCodeMcp, handleMcp, handleRest, rateLimited } from "./protocol";
 import { handleFeedback, handleTasks } from "./pap/tasks";
 import { trace } from "./core/trace";
 import { handlerSchema, networkTokenSchema, profile } from "./ucp/ucp";
@@ -468,6 +468,9 @@ const app = new Elysia()
   .get("/.well-known/oauth-protected-resource/mcp", () =>
     withCors(json(200, oauth.protectedResourceMetadata(`${config().publicOrigin}/mcp`))),
   )
+  .get("/.well-known/oauth-protected-resource/mcp/code", () =>
+    withCors(json(200, oauth.protectedResourceMetadata(`${config().publicOrigin}/mcp/code`))),
+  )
   .get("/oauth/authorize", async ({ request }) => {
     const outcome = await oauth.startAuthorization(new URL(request.url).searchParams);
     if (outcome.kind === "consent")
@@ -626,6 +629,7 @@ const app = new Elysia()
   )
   .all("/ucp/v1/*", ({ request, params }) => handleRest(request, `/${params["*"]}`))
   .all("/mcp", ({ request }) => handleMcp(request))
+  .all("/mcp/code", ({ request }) => handleCodeMcp(request))
   .get("/poppy/tasks", ({ request }) => handleTasks(request))
   .post("/poppy/feedback", ({ request }) => handleFeedback(request))
   .use(browserApi)

@@ -17,11 +17,13 @@
     "@earendil-works/pi-ai": "1.6.0",
     "@elysiajs/eden": "1.4.9",
     "@flue/runtime": "2.3.1",
+    "@jitl/quickjs-wasmfile-release-sync": "0.32.0",
     "@simplewebauthn/browser": "14.0.0",
     "@simplewebauthn/server": "14.1.0",
     "elysia": "1.4.30",
     "jose": "6.2.14",
     "next": "16.4.6",
+    "quickjs-emscripten-core": "0.32.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "valibot": "1.5.0"

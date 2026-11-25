@@ -327,7 +327,9 @@ before, every deploy or restart emptied orders, agents and grants.
   words" panel says, for a visitor who is not technical, what the page is about and how to read
   the diagram; after it a "What to remember" list keeps the two or three facts that matter
   (`src/components/docs/plain.ts`). The overview adds "Words you will meet", a short glossary
-  (MCP, UCP, Poppy, token, scope, webhook, Adyen TEST). A "Try it" panel reads, from the
+  (MCP, UCP, Poppy, token, scope, webhook, Adyen TEST) and "A ten-minute demo": eight stops for
+  someone presenting the store, each with what to do, what to point out and a link on this origin.
+  A "Try it" panel reads, from the
   visitor's browser, only public documents of this origin (`/.well-known/poppy.json`,
   `/.well-known/ucp`, `/.well-known/oauth-authorization-server`, MCP `tools/list`); nothing it
   sends pays, signs in or changes state (MCP `tools/list` is a `POST`, sent without cookies, so it
@@ -554,7 +556,8 @@ before, every deploy or restart emptied orders, agents and grants.
     when `ucp:pay` is not asked, and has Allow as its first submit button, the one Enter in the
     budget field presses (`src/components/ConsentForm.test.tsx`).
 27. The Docs pages render on the server with every diagram's steps as text, plain words before
-    every diagram and what to remember after it, and no dash a reader would trip on; their Try it
+    every diagram and what to remember after it, a ten-minute demo whose stops add up to ten
+    minutes and link only to this origin, and no dash a reader would trip on; their Try it
     panels send only a `GET` of this origin's public documents or a `POST` of MCP `tools/list` to
     this origin's `/mcp` (`src/components/docs/docs.test.tsx`).
 28. to 30. The MCP Apps widgets and the plugin ZIP: invariants 1 to 3 of
@@ -575,7 +578,9 @@ is whatever LLM the shopper points at it.
   `ssr:assert` boots the standalone server and expects "Agentic Commerce" on the home page.
 - Locally, `bun run scripts/pap-agent.ts` checks that `poppy.json` names the site's own domain and
   that the issuer lists the MCP URL in `protected_resources`, signs in as a PAP client, waits for
-  the shopper's consent (or `--auto-consent`) and buys one item over MCP.
+  the shopper's consent (or `--auto-consent`) and buys one item over MCP (`--code-mode` builds the
+  checkout in one `execute` on `/mcp/code`); over budget it prints the `continue_url` it hands the
+  shopper and exits 0, since that is the designed outcome.
 - `src/server/pap/conformance.test.ts` "task coverage": the tasks document's shape and references,
   feedback 202 with attribution only after a verified Session, and its `invalid_request` cases.
 - `poppy.json` passes the PAP 1.0 §3.1/§4.7 shape test; the UCP profile's scope keys match the

@@ -7,7 +7,7 @@ import DocPage from "../../app/docs/[topic]/page";
 import Docs from "../../app/docs/page";
 import { logFilters } from "../../server/back-office/back-office";
 import { DOCS, OVERVIEW, PUBLIC_DOCUMENTS, type Step } from "./content";
-import { GLOSSARY, OVERVIEW_PLAIN, PLAIN } from "./plain";
+import { DEMO, GLOSSARY, OVERVIEW_PLAIN, PLAIN } from "./plain";
 import { send } from "./TryIt";
 
 // What a reader sees: no tags, entities decoded, backticks gone the way Rich renders them.
@@ -73,10 +73,22 @@ describe("Docs", () => {
     expect(Object.keys(PLAIN).sort()).toEqual(DOCS.map((d) => d.slug).sort());
   });
 
+  test("the ten-minute demo shows every stop, takes ten minutes and links only here", () => {
+    const overview = visible(renderToStaticMarkup(Docs()));
+    expect(DEMO.reduce((sum, stop) => sum + stop.minutes, 0)).toBe(10);
+    for (const stop of DEMO) {
+      expect(overview).toContain(stop.title);
+      expect(overview).toContain(plain(stop.act));
+      expect(overview).toContain(stop.see);
+      expect(stop.href).toMatch(/^\/(?!\/)/);
+    }
+  });
+
   test("the plain words use no dashes as punctuation", () => {
     const all = [
       ...OVERVIEW_PLAIN.plain,
       ...OVERVIEW_PLAIN.remember,
+      ...DEMO.flatMap((stop) => [stop.title, stop.act, stop.see]),
       ...Object.values(PLAIN).flatMap((p) => [...p.plain, ...p.remember]),
     ];
     for (const line of all) expect(line).not.toMatch(/[\u2013\u2014]| -- /);

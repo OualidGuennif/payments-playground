@@ -310,32 +310,37 @@ try {
     total,
     messages: created.messages,
   });
-  if (created.status !== "ready_for_complete")
-    throw new Error(`Not ready: escalate to ${created.continue_url}`);
   // With no saved card on the account, completing with no instrument hands the checkout to the
   // shopper, who pays at continue_url.
-  const instrument = created.payment?.instruments?.[0];
-  const instruments = instrument ? [{ ...instrument, selected: true }] : [];
-
-  const completed = (
-    await mcp("tools/call", {
-      name: "complete_checkout",
-      arguments: { meta: meta(), id: created.id, checkout: { payment: { instruments } } },
-    })
-  ).structuredContent as {
-    status: string;
-    continue_url?: string;
-    order?: { id: string; permalink_url?: string };
-    messages?: unknown[];
-  };
-  console.log("completed", {
-    status: completed.status,
-    order: completed.order,
-    continue_url: completed.continue_url,
-    messages: completed.messages,
-  });
-  const handedOver = !instrument && completed.status === "requires_escalation";
-  if (completed.status !== "completed" && !handedOver) process.exitCode = 1;
+  async function complete(ready: Created) {
+    const instrument = ready.payment?.instruments?.[0];
+    const instruments = instrument ? [{ ...instrument, selected: true }] : [];
+    const completed = (
+      await mcp("tools/call", {
+        name: "complete_checkout",
+        arguments: { meta: meta(), id: ready.id, checkout: { payment: { instruments } } },
+      })
+    ).structuredContent as {
+      status: string;
+      continue_url?: string;
+      order?: { id: string; permalink_url?: string };
+      messages?: unknown[];
+    };
+    console.log("completed", {
+      status: completed.status,
+      order: completed.order,
+      continue_url: completed.continue_url,
+      messages: completed.messages,
+    });
+    const handedOver = !instrument && completed.status === "requires_escalation";
+    if (completed.status !== "completed" && !handedOver) process.exitCode = 1;
+  }
+  // Over budget the store already asks the shopper: the agent stops and passes the link on, which
+  // is the designed outcome, not a failure.
+  if (created.status === "requires_escalation")
+    console.log("handed to the shopper", { continue_url: created.continue_url });
+  else if (created.status !== "ready_for_complete") throw new Error(`Not ready: ${created.status}`);
+  else await complete(created);
 } finally {
   server.stop(true);
 }

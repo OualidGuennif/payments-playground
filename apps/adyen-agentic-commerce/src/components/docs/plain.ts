@@ -110,3 +110,66 @@ export const PLAIN: Record<string, Plain> = {
     ],
   },
 };
+
+// A ten-minute tour for someone presenting the store: each stop says what to do and what the
+// audience should notice. Links stay on this origin.
+export type DemoStop = { minutes: number; title: string; act: string; see: string; href: string };
+
+export const DEMO: DemoStop[] = [
+  {
+    minutes: 1,
+    title: "Put the shop and its log side by side",
+    act: "Open the shop in one window and the Back Office log in another.",
+    see: "Every request from now on appears in the log within a second, with who sent it and what the store answered.",
+    href: "/back-office",
+  },
+  {
+    minutes: 2,
+    title: "Ask the store's own assistant",
+    act: "Press Ask, type `add the printed silk scarf to my bag`, then pick a colour.",
+    see: "The bag in the chat and the Cart count at the top change together: there is one bag per browser, whoever fills it.",
+    href: "/shop",
+  },
+  {
+    minutes: 1,
+    title: "Pay for the bag yourself",
+    act: "Open the cart, go to checkout and pay with an Adyen test card.",
+    see: "While that payment runs, any other attempt on the same checkout, from the chat or from an assistant, is refused until the first one ends.",
+    href: "/cart",
+  },
+  {
+    minutes: 2,
+    title: "Connect an outside assistant",
+    act: "Add this store's MCP address to ChatGPT or Claude, sign in on the store's page, set a budget and press Allow. Then ask it for a linen shirt.",
+    see: "The assistant searches and builds a checkout. It never asks for your password or card.",
+    href: "/agents",
+  },
+  {
+    minutes: 1,
+    title: "Go over the budget",
+    act: "Ask the assistant for something that costs more than the budget you set.",
+    see: "The store stops it and gives a link instead. You approve the purchase or raise the budget from your account page.",
+    href: "/account",
+  },
+  {
+    minutes: 1,
+    title: "Show Code Mode",
+    act: "From a copy of the code, run `bun scripts/pap-agent.ts --auto-consent --code-mode`.",
+    see: "The assistant sends one short program instead of one call per step. The log shows one Code Mode line followed by each store call it made.",
+    href: "/docs/code-mode",
+  },
+  {
+    minutes: 1,
+    title: "Read the order",
+    act: "Open Orders in the Back Office and pick the newest one.",
+    see: "The order comes from Adyen's answer, never from the browser. A declined card would leave it open for another try.",
+    href: "/back-office",
+  },
+  {
+    minutes: 1,
+    title: "End with the browser's own assistant",
+    act: 'In a browser with WebMCP switched on, open the WebMCP page and read "In this browser".',
+    see: "The page lends the browser's assistant the same few actions as its buttons, and nothing more.",
+    href: "/docs/webmcp",
+  },
+];

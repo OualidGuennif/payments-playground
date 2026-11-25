@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Add a ten-minute demo to the agentic `/docs` overview: eight stops, each saying what to do and
+  what to point out. The local PAP agent script ends an over-budget run by printing the shopper's
+  link instead of a stack trace.
 - Explain every agentic `/docs` page in plain words: before each diagram, what it is about and
   how to read it; after it, what to remember; and a short glossary on the overview, written for a
   visitor who is not technical.

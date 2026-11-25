@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Fix the agentic account page's agent budget: the limit is labelled as a total including what
+  was spent, a live line says what a typed limit leaves the agent, + 50/100/300 EUR buttons add
+  to it, the phone keyboard's OK saves, Save stays off on an unchanged limit, and a save says what
+  the agent can now spend. Before, typing the current limit saved silently and raised nothing.
 - Split the agentic store's two largest server modules by responsibility, without changing
   behaviour: `oauth.ts` (1,171 lines) into scopes, shared records, discovery metadata, clients,
   authorize, device and tokens; `commerce.ts` (1,169) into model, pricing, saved cards, carts,

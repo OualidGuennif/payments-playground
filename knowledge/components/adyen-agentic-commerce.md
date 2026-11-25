@@ -277,6 +277,11 @@ before, every deploy or restart emptied orders, agents and grants.
   longer changes (409). A change the account page took for a lowering, on a limit read before
   another tab changed it, gets `confirmation_required` and opens the same password or passkey form.
   Adding a passkey needs the same proof, since a passkey can confirm a raise.
+  The account page names the limit as a total that includes what was spent, shows what a typed
+  limit would leave the agent, adds 50, 100 or 300 EUR to it on a tap, saves on the keyboard's OK,
+  keeps Save off while the limit is unchanged, and says what the agent can spend after a save: a
+  shopper who typed the current limit to "raise" it saw nothing happen (owner, 2026-11-25;
+  `src/lib/budget.test.tsx`).
   The cap applies when a limit is written: a limit set above 1000 EUR before v0.5.3 stays until the
   shopper changes it. The change applies to the agent's next payment attempt on the same grant,
   keeps what was spent and needs no new sign-in; a payment the shopper makes at `continue_url`

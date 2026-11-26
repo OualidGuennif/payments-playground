@@ -1,11 +1,11 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 "use client";
-import { startAuthentication } from "@simplewebauthn/browser";
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
 import { type Answer, messageOf } from "@/lib/answer";
 import { api } from "@/lib/client";
 import { rememberAccount, useKnownAccount } from "@/lib/known";
+import { type SignIn, signInWithPasskey, signInWithPassword } from "@/lib/signIn";
 
 export function SignInForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: string }) {
   const [error, setError] = useState<string>();
@@ -27,37 +27,31 @@ export function SignInForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: 
     const password = String(form.get("password") ?? "");
     setBusy(true);
     setError(undefined);
-    const answer = signUp
-      ? await api().customers.post({ email, password, name: String(form.get("name") ?? "") })
-      : await api().session.post({ email, password });
-    const failed = messageOf(answer as Answer, "Something went wrong. Try again.");
+    if (signUp) {
+      const answer = await api().customers.post({
+        email,
+        password,
+        name: String(form.get("name") ?? ""),
+      });
+      const failed = messageOf(answer as Answer, "Something went wrong. Try again.");
+      setBusy(false);
+      if (failed) setError(failed);
+      else done();
+      return;
+    }
+    finish(await signInWithPassword(email, password));
+  }
+
+  function finish(result: SignIn) {
     setBusy(false);
-    if (failed) setError(failed);
-    else done();
+    if (result.signedIn) done();
+    else if (result.error) setError(result.error);
   }
 
   async function passkey() {
     setBusy(true);
     setError(undefined);
-    try {
-      const options = await api().passkeys.login.options.post();
-      const failed = messageOf(options as Answer, "Passkeys are unavailable right now.");
-      if (failed) throw new Error(failed);
-      const { challengeId, options: optionsJSON } = options.data as {
-        challengeId: string;
-        options: Parameters<typeof startAuthentication>[0]["optionsJSON"];
-      };
-      const response = await startAuthentication({ optionsJSON });
-      const verified = await api().passkeys.login.verify.post({ challengeId, response });
-      const refused = messageOf(verified as Answer, "The passkey could not be verified.");
-      if (refused) throw new Error(refused);
-      done();
-    } catch (e) {
-      // The browser's own cancel is not an error the shopper needs explained.
-      if ((e as Error).name !== "NotAllowedError") setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    finish(await signInWithPasskey());
   }
 
   const query = `?next=${encodeURIComponent(next)}`;

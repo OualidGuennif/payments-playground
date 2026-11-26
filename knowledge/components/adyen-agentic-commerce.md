@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T06:15:00Z
+  at: 2026-11-26T11:48:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -30,7 +30,7 @@ sources:
     title: "Pages (app/), API (app/api), server modules (server/: api.ts and protocol.ts at the top, one folder per domain: core, payments, catalog, commerce, accounts, oauth, ucp, mcp, pap, back-office, ask; oauth.ts and commerce.ts re-export their folder's files, one per responsibility)"
   - id: widgets
     resource: ../../apps/adyen-agentic-commerce/src/widgets
-    title: "MCP Apps widgets (carousel, bag), their bridge and logic"
+    title: "MCP Apps widgets (a compact carousel whose cards open the product page with Show details, the bag), their bridge and logic"
   - id: plugin
     resource: ../../apps/adyen-agentic-commerce/plugin/atelier-velune
     title: "The plugin package served as a ZIP"
@@ -340,15 +340,15 @@ before, every deploy or restart emptied orders, agents and grants.
   one client tested end to end), other MCP hosts, the device code and WebMCP, linking to the Docs.
 - **MCP Apps UI and plugin package:** the carousel and bag UI resources, the `personal-stylist`
   prompt and the plugin ZIP: [MCP Apps widgets](mcp-apps-widgets.md#outputs).
-- **Account:** the header shows "Sign in" or the initial menu (desktop and mobile). A browser
-  seen signed in keeps the cookie `velune_known=1` (no personal data, 400 days, kept after
-  sign-out and an ended session): sign-in then reads "Welcome back", sign-up offers "Sign in
-  instead", and the receipt fields offer sign-in. It decides nothing. `/account`
-  shows overview tiles, agents (state from `agent-status.ts`, UTC dates, `#agent-<grant>`), orders
-  (pages of 10), saved cards and security (passkeys, sign-out). Card saves and `/checkout/[id]`
-  Drop-in return through `/api/return` (`GET`/`POST`, validated `/account` or `/checkout/chk_*`
-  target, session lookup by ref), pass the public `clientKey`, defer unmount off Adyen's callback
-  tick, retry card refresh once in production, and fall back to `app/error.tsx` on UI error.
+- **Account:** the header shows "Sign in" or the initial menu (desktop and mobile). A browser seen signed
+  in keeps the cookie `velune_known=1` (no personal data, 400 days, kept after sign-out and an ended
+  session): sign-in then reads "Welcome back", sign-up offers "Sign in instead", and the receipt fields
+  offer sign-in. It decides nothing. `/sign-in` and the Ask receipt block share `src/lib/signIn.ts`.
+  `/account` shows overview tiles, agents (state from `agent-status.ts`, UTC dates, `#agent-<grant>`),
+  orders (pages of 10), saved cards and security (passkeys, sign-out). Card saves and `/checkout/[id]`
+  Drop-in return through `/api/return` (`GET`/`POST`, validated `/account` or `/checkout/chk_*` target,
+  session lookup by ref), pass the public `clientKey`, defer unmount off Adyen's callback tick, retry
+  card refresh once in production, and fall back to `app/error.tsx` on UI error.
 - **Task coverage (PAP 1.0 §9):** `GET /poppy/tasks` gives every caller the same document, a
   published artifact (`public, max-age=300`, ETag): `excluded_tasks` and `feedback.endpoint`
   (`/poppy/feedback`), no `skill_index`. The excluded tasks: creating an account, saving a card

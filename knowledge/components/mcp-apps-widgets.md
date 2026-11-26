@@ -7,7 +7,7 @@ status: draft
 scope: component-mcp-apps-widgets
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T18:00:00Z
+  at: 2026-11-26T12:00:00Z
 sources:
   - id: store
     resource: ./adyen-agentic-commerce.md
@@ -50,7 +50,10 @@ hold no token, no card data and no authority the agent does not already have.
 - **Shopper in an agent host's UI ([ADR-017](../decisions/ADR-017-mcp-apps-ui-on-the-ucp-server.md)):**
   the host shows the product carousel or the bag inside the conversation. Its buttons call the UCP
   tools through the host themselves (search, next page, add to bag, quantities, checkout, pay with
-  a listed saved card); it never writes to the assistant. Every call is the host's `tools/call` on
+  a listed saved card); it never writes to the assistant. The carousel is compact (about two cards
+  across the Ask panel, 44 px hit areas) and each card's "Show details" opens the product's page,
+  `/products/<id>?variant=<id>` on `PUBLIC_ORIGIN`, through the host's link opening (`ui/open-link`,
+  else `openExternal`); the Ask panel opens it as its own page. Every call is the host's `tools/call` on
   the shopper's grant; the widget holds no token and no card data, and from the host's first
   message on it posts to the host's origin only (keeping `"*"` for the handshake and for an opaque
   `"null"` host origin). It shows the store's refusals in its own plain words for the codes it

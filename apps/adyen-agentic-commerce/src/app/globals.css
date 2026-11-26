@@ -84,6 +84,12 @@
   .field {
     @apply w-full rounded-xl border border-line bg-card text-ink px-3 py-2 text-sm outline-none focus:border-ink;
   }
+  /* iOS Safari zooms the page into a field whose text is under 16 px. */
+  @media (pointer: coarse) {
+    .field {
+      font-size: 16px;
+    }
+  }
   .dropin-surface {
     @apply rounded-2xl border border-line bg-dropin p-3 text-dropin-ink sm:p-4;
   }

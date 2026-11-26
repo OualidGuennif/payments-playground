@@ -80,10 +80,13 @@ export function WidgetFrame({
   uri,
   feed,
   onResult,
+  onOpen,
 }: {
   uri: string;
   feed: Fed[];
   onResult: (fed: Fed) => void;
+  // The panel opens a store page the way it opens an answer's (it steps aside on a phone).
+  onOpen?: (path: string) => void;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLIFrameElement>(null);
@@ -99,6 +102,10 @@ export function WidgetFrame({
   useEffect(() => {
     handBack.current = onResult;
   }, [onResult]);
+  const opener = useRef(onOpen);
+  useEffect(() => {
+    opener.current = onOpen;
+  }, [onOpen]);
 
   const push = useCallback(() => {
     const store = origin.current;
@@ -156,7 +163,7 @@ export function WidgetFrame({
         },
         open: (url) => {
           const path = storePath(url, origins);
-          if (path) router.push(path);
+          if (path) (opener.current ?? router.push)(path);
           return Boolean(path);
         },
         theme,

@@ -12,9 +12,25 @@ export type AskMessage = {
   role: "shopper" | "assistant" | "note";
   text: string;
   widgets: Widget[];
+  // The store page an assistant answer asked to open (spec invariant 21).
+  page?: string;
   at: number;
 };
 export type Mode = "normal" | "strict";
+
+// During a voice call, the page of the newest voiced answer since the call began (`after` is the
+// newest message's time then) that was not opened yet; `seen` marks every such answer, so an
+// older one never opens later and nothing opens twice.
+export function voicePage(
+  messages: AskMessage[],
+  after: number,
+  opened: ReadonlySet<number>,
+): { page?: string; seen: number[] } {
+  const fresh = messages.filter(
+    (m) => m.role === "assistant" && m.page && m.at > after && !opened.has(m.at),
+  );
+  return { page: fresh.at(-1)?.page, seen: fresh.map((m) => m.at) };
+}
 // The voice icon: on a page that has the panel, when the server offers voice, and never on a
 // locked conversation, whose view a refused message marks locked before it is read again.
 export const voiceShown = (shown: boolean, view: SessionView | undefined) =>

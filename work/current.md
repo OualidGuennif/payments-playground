@@ -7,12 +7,12 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 ## Ask agent on the agentic store, a PAP agent — ACTIVE
 
-- Owner decision: 2026-11-25, in chat: guest-or-signed-in chat sidebar, Flue agent, server-only
-  keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
-- State: v0.9.0 on develop (reviewed OK, pushed); release PR #21 open; its first CI run failed
-  doc-links L3 (Pi pin and `render.yaml` without doc updates), fixed by a Docs-Checked commit.
-- Next: fix PR CI, merge (owner's yes 11-26), tag, prod review of the whole site (who: agent);
-  sign in to prod `/console` and unlock voice there (who: owner); Pi exemption ends 12-02.
+- Owner decision: 2026-11-25, Ask agent plan; 2026-11-26, 7-point panel plan approved (voice
+  pages, Show details, mute, side talk, iPhone fields, compact widget, receipt sign-in); same day,
+  in chat, release v0.9.1 approved ("Gooo push").
+- State: v0.9.0 live; v0.9.1 cut on develop, the 7 points reviewed (a254fbe, fd50c24, 024db55).
+- Next: release PR to main, review, green CI, merge, tag, Render deploy and production review
+  (who: agent); Pi exemption ends 12-02.
 - Blocker: none.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 

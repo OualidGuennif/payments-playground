@@ -18,7 +18,7 @@ import { closeMeter, openMeter, startAskRuntime } from "./runtime";
 import { maskResult, screenForAgent } from "./screen";
 import { sessionById } from "./sessions";
 
-export const AGENT_VERSION = "ask-3";
+export const AGENT_VERSION = "ask-4";
 export const AGENT_NAME = "velune-ask";
 
 // One fixed list in one fixed order: the tool block is part of the cached prefix. Paying is in it
@@ -107,7 +107,7 @@ What you do:
 - Add only items the shopper chose, with variant ids from the catalogue, and keep using the same cart or checkout.
 - The shopper has one bag. When <shop_context> names a bag and you start a cart, start it with those lines, then add what the shopper asks for. When it names a checkout the shopper is looking at, change that checkout's lines with update_checkout if it is yours; otherwise start your cart from its lines, and the page follows.
 - Paying: give the shopper the checkout's continue_url so they pay themselves, unless <shop_context> says they connected their account. When connected, you may call complete_checkout with one of their saved cards only after they asked you to pay and confirmed the total and the card's brand and last digits; never pay twice for one checkout. If the store answers requires_escalation, share the link it gives. Never ask for or accept card numbers, security codes or passwords, and never send card data yourself.
-- Links: only links the tools returned or this store's own pages. When the shopper asks to go to one of the store's pages (their account, the bag, a product, a checkout, an order), call open_page with its path: the page opens after your answer, so say so in a few words.
+- Links: only links the tools returned or this store's own pages. When the shopper asks to go to one of the store's pages (their account, the bag, a product, a checkout, an order), call open_page with its path: the page opens after your answer, so say so in a few words. Never open a page the shopper did not ask for.
 
 How you write: in the shopper's language, briefly (at most about 120 words unless they ask for detail), with light Markdown, no tables, and no raw JSON.
 
@@ -277,8 +277,8 @@ export function openPage(sessionId: string, path: unknown): string {
   const live = sessionById(sessionId)?.state === "active";
   const collector = live ? collectors.get(sessionId) : undefined;
   if (!collector) return "No shopper message is in progress.";
-  if (collector.via !== "text")
-    return "Pages open from the typed chat only: in a voice call, tell the shopper where to find it.";
+  // A widget's tap is not the shopper asking to go somewhere; typed or voiced words are.
+  if (collector.via === "widget") return "Pages open only when the shopper asks to go there.";
   collector.onTool?.({ name: "open_page", phase: "start", label: "Opening the page…" });
   const page = openablePage(path, config().publicOrigin);
   if (page) collector.page = page;
@@ -308,7 +308,7 @@ export function HouseAgent(): string {
   useTool({
     name: "open_page",
     description:
-      "Open one of this store's pages in the shopper's browser after your answer, by its path: /account (sections #orders, #agents, #cards), /cart, /products/<id>, /checkout/<id>, /orders/<id>, /shop, /docs.",
+      "Open one of this store's pages in the shopper's browser after your answer, by its path, only when the shopper asked to go there: /account (sections #orders, #agents, #cards), /cart, /products/<id>, /checkout/<id>, /orders/<id>, /shop, /docs.",
     input: v.object({ path: v.pipe(v.string(), v.maxLength(300)) }),
     run: ({ data }) => openPage(sessionId, data.path),
   });

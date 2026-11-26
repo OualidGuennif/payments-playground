@@ -30,7 +30,7 @@ beforeEach(() => {
   faux.setResponses([]);
 });
 
-const run = (cap = 6, via: "text" | "voice" = "text") => {
+const run = (cap = 6, via: "text" | "voice" | "widget" = "text") => {
   const { session } = askSession();
   const tools: ToolEvent[] = [];
   const go = (message = "<shopper_message>\na summer dress\n</shopper_message>") =>
@@ -83,13 +83,21 @@ describe("open_page: the agent names a store page for the panel (spec invariant 
     expect(toolResults.join(" ")).toContain("cannot be opened");
   });
 
-  test("open_page: a voice delegation opens nothing and is told why", async () => {
-    faux.setResponses([openPage("/account"), readResults]);
+  test("open_page: a voiced request opens its page as a typed one does", async () => {
+    faux.setResponses([openPage("/cart"), readResults]);
     const outcome = await run(6, "voice").go();
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
+    expect(outcome.page).toBe("/cart");
+  });
+
+  test("open_page: a widget's tap opens nothing and is told why", async () => {
+    faux.setResponses([openPage("/account"), readResults]);
+    const outcome = await run(6, "widget").go();
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
     expect(outcome.page).toBeUndefined();
-    expect(toolResults.join(" ")).toContain("voice");
+    expect(toolResults.join(" ")).toContain("only when the shopper asks");
   });
 });
 

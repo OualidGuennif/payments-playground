@@ -41,16 +41,28 @@ function whoIs(path: string): Promise<Who> {
   return asked.who;
 }
 
+const SESSION_EVENT = "velune-session";
+
+/** A sign-in without a page change (the Ask panel's receipt block): the header asks again. */
+export function sessionChanged(): void {
+  asked = undefined;
+  window.dispatchEvent(new Event(SESSION_EVENT));
+}
+
 function useWho() {
   const pathname = usePathname() ?? "/";
   const [who, setWho] = useState<Who | undefined>();
   useEffect(() => {
     let live = true;
-    whoIs(pathname).then((w) => {
-      if (live) setWho(w);
-    });
+    const ask = () =>
+      whoIs(pathname).then((w) => {
+        if (live) setWho(w);
+      });
+    void ask();
+    window.addEventListener(SESSION_EVENT, ask);
     return () => {
       live = false;
+      window.removeEventListener(SESSION_EVENT, ask);
     };
   }, [pathname]);
   return { who, pathname };

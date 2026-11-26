@@ -8,7 +8,8 @@ import { type VoiceEvent, voiceEvent } from "./askLogic";
 const ICE_WAIT_MS = 3_000;
 const HANGUP_WAIT_MS = 3_000;
 
-export type VoiceCall = { maxSeconds: number; end: () => void };
+// Muting stops the microphone's track only: the call, its captions and its minutes go on.
+export type VoiceCall = { maxSeconds: number; end: () => void; mute: (muted: boolean) => void };
 
 const gathered = (pc: RTCPeerConnection) =>
   new Promise<void>((resolve) => {
@@ -77,6 +78,9 @@ export async function startVoiceCall(
     return {
       call: {
         maxSeconds: answer.data.maxSeconds,
+        mute: (muted) => {
+          for (const track of stream.getAudioTracks()) track.enabled = !muted;
+        },
         end: () => {
           void askCall("/voice/hangup", {});
           // OpenAI's closed event ends it; without one, the browser lets go anyway.

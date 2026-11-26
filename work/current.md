@@ -5,16 +5,16 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Ask agent on the agentic store, a PAP agent — ACTIVE
+## Ask agent on the agentic store, a PAP agent — WAITING-OWNER
 
-- Owner decision: 2026-11-25, Ask agent plan; 2026-11-26, 7-point panel plan approved (voice
-  pages, Show details, mute, side talk, iPhone fields, compact widget, receipt sign-in); same day,
-  in chat, release v0.9.1 approved ("Gooo push").
-- State: v0.9.0 live; v0.9.1 cut on develop, the 7 points reviewed (a254fbe, fd50c24, 024db55).
-- Next: release PR to main, review, green CI, merge, tag, Render deploy and production review
-  (who: agent); Pi exemption ends 12-02.
+- Owner decision: 2026-11-26, v0.9.1 released; same day "fixe tout": canonical host, account email
+  on the receipt when signed in, delivery standard/express/pickup point with preset places, test live.
+- State: v0.9.1 live; release 0.9.3 on develop (delivery, account receipt, onrender host 308). The
+  voice password's value is in ask-agent.md, config.test.ts and CHANGELOG.md, repository public.
+- Next: ship v0.9.3, live test with the owner's throwaway account (who: agent and owner);
+  rotate `VOICE_MODE_PASSWORD` on Render (who: owner); Pi exemption ends 12-02.
 - Blocker: none.
-- Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
+- Evidence: knowledge/current/digital-status.md (v0.9.1 deploy row); GitHub release v0.9.1.
 
 ## v0.7.1: ChatGPT widget fixes, card-save return, MCP stylist & ZIP — WAITING-OWNER
 

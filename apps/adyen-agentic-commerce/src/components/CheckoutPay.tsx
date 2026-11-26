@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { checkoutView } from "@/server/api";
+import { DeliveryPicker } from "@/components/DeliveryPicker";
 import { DropinPanel, type SessionInfo } from "@/components/DropinPanel";
 import { StatusPill } from "@/components/StatusPill";
 import { api, BAG_EVENT, type BagChange } from "@/lib/client";
+import type { Delivery } from "@/lib/delivery";
 import { signInHere, useKnownAccount } from "@/lib/known";
 import { money } from "@/lib/money";
 import { shopperWords } from "@/lib/shopper-words";
@@ -163,19 +165,58 @@ export function CheckoutPay({
     view.messages.length > 0 &&
     view.messages.every((m) => m.code === "missing_buyer_email");
 
-  const saveEmail = async (event: FormEvent) => {
+  const postEmail = useCallback(
+    async (address: string) => {
+      setSavingEmail(true);
+      const { data, error } = await api().checkouts({ id: view.id }).email.post({ email: address });
+      setSavingEmail(false);
+      if (error || !data || "error" in data) {
+        const value = error?.value as { error?: unknown } | undefined;
+        setError(typeof value?.error === "string" ? value.error : shopperWords("invalid_email"));
+        return;
+      }
+      setError(undefined);
+      show(data);
+    },
+    [view.id, show],
+  );
+  const saveEmail = (event: FormEvent) => {
     event.preventDefault();
-    setSavingEmail(true);
-    const { data, error } = await api().checkouts({ id: view.id }).email.post({ email });
-    setSavingEmail(false);
+    void postEmail(email);
+  };
+  // A signed-in shopper is never asked for an email the store already knows: the account's goes on
+  // the receipt at once, and the field shows only when that fails.
+  const autoEmail = useRef(false);
+  const accountEmail = view.signedIn ? view.accountEmail : undefined;
+  useEffect(() => {
+    if (!needsEmailOnly || !accountEmail || !view.paymentsReady || autoEmail.current) return;
+    autoEmail.current = true;
+    void postEmail(accountEmail);
+  }, [needsEmailOnly, accountEmail, view.paymentsReady, postEmail]);
+  const receiptTo = view.buyer?.email ?? accountEmail;
+
+  const [savingDelivery, setSavingDelivery] = useState(false);
+  const chooseDelivery = async (next: Delivery) => {
+    const before = view.delivery;
+    setView({ ...view, delivery: next });
+    setSavingDelivery(true);
+    const { data, error } = await api().checkouts({ id: view.id }).delivery.post(next);
+    setSavingDelivery(false);
     if (error || !data || "error" in data) {
+      setView((current) => ({ ...current, delivery: before }));
       const value = error?.value as { error?: unknown } | undefined;
-      setError(typeof value?.error === "string" ? value.error : shopperWords("invalid_email"));
+      setError(typeof value?.error === "string" ? value.error : shopperWords("invalid_delivery"));
       return;
     }
     setError(undefined);
-    show(data);
+    show(data, "Delivery updated. Check the new total, then pay.");
   };
+  const deliveryOpen =
+    view.phase === "open" &&
+    !payingHere &&
+    !pendingRedirect &&
+    view.status !== "complete_in_progress" &&
+    view.status !== "canceled";
 
   const payable =
     view.phase === "open" &&
@@ -232,11 +273,28 @@ export function CheckoutPay({
             <dd className="tabular-nums">{money(view.total)}</dd>
           </div>
         </dl>
-        {view.messages.map((m) => (
-          <p key={m.code} className="text-sm text-warn">
-            {m.content}
+        {deliveryOpen ? (
+          <div className="panel">
+            <DeliveryPicker
+              value={view.delivery}
+              subtotal={view.subtotal}
+              disabled={savingDelivery}
+              onChange={(next) => void chooseDelivery(next)}
+            />
+          </div>
+        ) : null}
+        {receiptTo ? (
+          <p className="text-sm text-muted">
+            Receipt to <span className="text-ink">{receiptTo}</span>
           </p>
-        ))}
+        ) : null}
+        {view.messages
+          .filter((m) => !(accountEmail && m.code === "missing_buyer_email"))
+          .map((m) => (
+            <p key={m.code} className="text-sm text-warn">
+              {m.content}
+            </p>
+          ))}
       </section>
       <section className="panel space-y-4">
         {view.order ? (

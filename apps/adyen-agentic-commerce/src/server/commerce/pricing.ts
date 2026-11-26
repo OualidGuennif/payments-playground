@@ -3,34 +3,28 @@
 import { productById, variantById } from "../catalog/catalog";
 import { get } from "../core/db";
 import { isRecord, sha256 } from "../core/util";
-import {
-  type Buyer,
-  err,
-  FREE_SHIPPING_FROM,
-  type Line,
-  MAX_LINES,
-  MAX_QUANTITY,
-  SHIPPING,
-} from "./model";
+import { DEFAULT_DELIVERY, type Delivery, deliveryFee, shippingText } from "../../lib/delivery";
+import { type Buyer, err, type Line, MAX_LINES, MAX_QUANTITY } from "./model";
 
-export function price(lines: Line[]) {
+// Shipping follows the delivery the shopper chose; none chosen is standard, priced as before.
+export function price(lines: Line[], delivery: Delivery = DEFAULT_DELIVERY) {
   const items = lines.map((line) => {
     const variant = variantById(line.variantId);
     if (!variant) throw err(400, "item_not_found", `Unknown item ${line.variantId}`);
     return { line, variant, amount: variant.price * line.quantity };
   });
   const subtotal = items.reduce((sum, i) => sum + i.amount, 0);
-  const fulfillment = subtotal === 0 || subtotal >= FREE_SHIPPING_FROM ? 0 : SHIPPING;
+  const fulfillment = deliveryFee(delivery.method, subtotal);
   return { items, subtotal, fulfillment, total: subtotal + fulfillment };
 }
 
-export function totals(lines: Line[]) {
-  const p = price(lines);
+export function totals(lines: Line[], delivery: Delivery = DEFAULT_DELIVERY) {
+  const p = price(lines, delivery);
   return [
     { type: "subtotal", display_text: "Subtotal", amount: p.subtotal },
     {
       type: "fulfillment",
-      display_text: p.fulfillment ? "Standard shipping" : "Free shipping",
+      display_text: shippingText(delivery.method, p.fulfillment),
       amount: p.fulfillment,
     },
     { type: "total", display_text: "Total (VAT included)", amount: p.total },

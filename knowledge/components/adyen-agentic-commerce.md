@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T11:48:00Z
+  at: 2026-11-26T16:30:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -81,23 +81,23 @@ before, every deploy or restart emptied orders, agents and grants.
 
 ## Inputs
 
-- **Shopper (browser):** catalogue filters, variant choice, cart edits, shipping details, Drop-in
-  (Sessions flow), consent decisions, spend limit, agent revocation, card save (zero-value auth).
-  A guest buys without an account; consent, device approval, the account and card save need one.
-  The consent page, where both sign-in flows end, tells the shopper in one sentence to allow only
-  if they just asked this agent to connect (PAP 1.0 §10.8: a link or code can be sent by someone
-  else). It is a short e-commerce screen: the agent's name, the account (email masked), one line
-  per permission, a budget with presets (50, 150, 300, 1000 EUR) and a free amount, Allow and Deny;
-  the client's host and where the browser returns sit in a folded "Details".
-- **Customer account (browser):** sign-up `POST /api/customers` (email, name, a password of 12 to
-  128 characters), sign-in `POST /api/session` (email and password), sign-out `DELETE
-  /api/session`; passkeys: `POST /api/passkeys/register/options` and `/register/verify` while
-  signed in, `POST /api/passkeys/login/options` and `/login/verify` to sign in, `DELETE
-  /api/passkeys/:id`. The session is a cookie, `__Host-velune_session` on https (`velune_session`
-  on a loopback http origin, where browsers keep no `__Host-` cookie). Passkeys use the public
-  origin's host as RP ID; WebAuthn takes no IP address, so a loopback run uses `localhost` and
-  passkeys work there only when the store is opened at `http://localhost:<port>`. The browser API
-  reads no bearer token: an agent's token there binds nothing to an account.
+- **Shopper (browser):** catalogue filters, variant choice, cart edits, delivery choice, Drop-in (Sessions
+  flow), consent decisions, spend limit, agent revocation, card save (zero-value auth). A guest buys without
+  an account; consent, device approval, the account and card save need one. The consent page, where both
+  sign-in flows end, tells the shopper in one sentence to allow only if they just asked this agent to connect
+  (PAP 1.0 §10.8: a link or code can be sent by someone else). It is a short e-commerce screen: the agent's
+  name, the account (email masked), one line per permission, a budget with presets (50, 150, 300, 1000 EUR)
+  and a free amount, Allow and Deny; the client's host and where the browser returns sit in a folded "Details".
+- **Customer account (browser):** sign-up `POST /api/customers` (email, name, a password of 12 to 128
+  characters), sign-in `POST /api/session` (email and password), sign-out `DELETE /api/session`; passkeys:
+  `POST /api/passkeys/register/options` and `/register/verify` while signed in, `POST
+  /api/passkeys/login/options` and `/login/verify` to sign in, `DELETE /api/passkeys/:id`. The session is a
+  cookie, `__Host-velune_session` on https (`velune_session` on a loopback http origin, where browsers keep no
+  `__Host-` cookie), so it holds only on the host that set it: on https every page asked on another host (the
+  service's `.onrender.com` name) is redirected (308) to the same path on `PUBLIC_ORIGIN` (`src/proxy.ts`).
+  Passkeys use the public origin's host as RP ID; WebAuthn takes no IP address, so a loopback run uses
+  `localhost` and passkeys work there only at `http://localhost:<port>`. The browser API reads no bearer
+  token: an agent's token there binds nothing to an account.
 - **Agent's network token:** `complete_checkout` may carry an instrument with `handler_id`
   `network_token`, `type` `card` and a credential of `type` `network_token`: `number` (13 to 19
   digits), `expiry_month` (1 to 12), `expiry_year` (four digits, not past), optional `name`. No
@@ -267,39 +267,42 @@ before, every deploy or restart emptied orders, agents and grants.
   idempotency key is bound to the checkout attempt and the metadata carries `channel: agent`. A
   signed-in agent over its limit gets `requires_escalation`, and the shopper pays or approves at
   `continue_url`; the `spend_limit_exceeded` message also names `manage_url`. A signed-in agent's
-  checkout carries `agent_budget` {`spend_limit`, `spent`, `remaining`, `manage_url`}, read from
-  the grant when the answer is built; `complete_checkout` judges and renders its status from that
-  same re-read grant, so the status and `agent_budget` agree when the limit changed during the
-  request; `manage_url` is `/account#agent-<grant id>`, which opens the
-  account page on that agent. Only the account's signed-in shopper changes the limit there, from 0
-  to 1000 EUR as at consent (a value that is not a number is stored as 0); raising it needs the account password or one of its passkeys again
-  (owner, 2026-11-18), lowering it or disconnecting does not, and a disconnected agent's limit no
-  longer changes (409). A change the account page took for a lowering, on a limit read before
-  another tab changed it, gets `confirmation_required` and opens the same password or passkey form.
-  Adding a passkey needs the same proof, since a passkey can confirm a raise.
-  The account page names the limit as a total that includes what was spent, shows what a typed
-  limit would leave the agent, adds 50, 100 or 300 EUR to it on a tap, saves on the keyboard's OK
-  any total to the cent (the form skips the browser's step check), keeps Save off while unchanged, and says what the agent can spend after a save: a
-  shopper who typed the current limit to "raise" it saw nothing happen (owner, 2026-11-25;
-  `src/lib/budget.test.tsx`).
-  The cap applies when a limit is written: a limit set above 1000 EUR before v0.5.3 stays until the
-  shopper changes it. The change applies to the agent's next payment attempt on the same grant,
-  keeps what was spent and needs no new sign-in; a payment the shopper makes at `continue_url`
+  checkout carries `agent_budget` {`spend_limit`, `spent`, `remaining`, `manage_url`}, read from the grant when
+  the answer is built; `complete_checkout` judges and renders its status from that same re-read grant, so the
+  status and `agent_budget` agree when the limit changed during the request; `manage_url` is
+  `/account#agent-<grant id>`, which opens the account page on that agent. Only the account's signed-in shopper
+  changes the limit there, from 0 to 1000 EUR as at consent (a value that is not a number is stored as 0);
+  raising it needs the account password or one of its passkeys again (owner, 2026-11-18), lowering it or
+  disconnecting does not, and a disconnected agent's limit no longer changes (409). A change the account page
+  took for a lowering, on a limit read before another tab changed it, gets `confirmation_required` and opens
+  the same password or passkey form. Adding a passkey needs the same proof, since a passkey can confirm a raise.
+  The account page names the limit as a total that includes what was spent, shows what a typed limit would
+  leave the agent, adds 50, 100 or 300 EUR to it on a tap, saves on the keyboard's OK any total to the cent
+  (the form skips the browser's step check), keeps Save off while unchanged, and says what the agent can spend
+  after a save: a shopper who typed the current limit to "raise" it saw nothing happen (owner, 2026-11-25;
+  `src/lib/budget.test.tsx`). The cap applies when a limit is written: a limit set above 1000 EUR before
+  v0.5.3 stays until the shopper changes it. The change applies to the agent's next payment attempt on the
+  same grant, keeps what was spent and needs no new sign-in; a payment the shopper makes at `continue_url`
   never counts against the agent's limit. An agent that completes with no instrument hands the checkout over: from then on
-  agents see it `requires_escalation` (`shopper_pays`) and the shopper pays at `continue_url` in
-  Drop-in. A checkout whose only missing detail is the receipt's email (an agent shopping as a
-  guest) asks for it there: `POST /api/checkouts/:id/email` `{ email }` fills that gap once, never
-  replaces an email already set or an account's, and answers 404 for another account's checkout
-  (`src/server/accounts/customers.test.ts`, "takes one at its link, once").
+  agents see it `requires_escalation` (`shopper_pays`) and the shopper pays at `continue_url` in Drop-in. A checkout
+  whose only missing detail is the receipt's email (an agent shopping as a guest) asks for it there:
+  `POST /api/checkouts/:id/email` `{ email }` fills that gap once, never replaces an email already set or
+  an account's, and answers 404 for another account's checkout (`src/server/accounts/customers.test.ts`,
+  "takes one at its link, once"); a signed-in viewer's page posts the account's email at once. Delivery (owner,
+  2026-11-26): standard (4.95 EUR, free from 100 EUR), express (9.95 EUR) or a pickup point (free), to a demo
+  address or pickup point on ordinary French streets (`src/lib/delivery.ts`), preselected; `POST
+  /api/checkouts/:id/delivery` `{ method, placeId }` (open, not held, the viewer's or no account's; else 400
+  `invalid_delivery`, 409 or 404). The fee is the `fulfillment` total; no choice is standard to the first
+  address; the payment and the order keep the delivery they priced, and another place at the same price chosen
+  before Pay is taken at the claim (`commerce.test.ts` "delivery", `src/lib/delivery.test.ts`).
   Drop-in's `beforeSubmit` first claims it (`POST /api/checkouts/:id/pay-intent` `{ sessionId }`);
   409 `payment_in_progress` or `checkout_changed` (the page reloads) stops the payment. The page
   follows the shopper's one bag (Ask spec): it refreshes when its checkout changes, and a `web`
   checkout takes the bag's lines through `POST /api/checkouts/:id/lines` `{ lines }` (open, not
-  held, the viewer's or no account's; else 409 or 404). A person reads every refusal in plain
-  words: these routes answer `{ error: <sentence>, code }` and the view's messages carry the same
-  sentence (`src/lib/shopper-words.ts`), never the agents' text, which names fields. The view adds
-  `signedIn` and, on a guest's checkout or the viewer's own, `accountEmail`, which fills the
-  receipt field in advance.
+  held, the viewer's or no account's; else 409 or 404). A person reads every refusal in plain words:
+  these routes answer `{ error: <sentence>, code }` and the view's messages carry the same sentence
+  (`src/lib/shopper-words.ts`), never the agents' text. The view adds `signedIn`, `delivery` and, on a
+  guest's checkout or the viewer's own, `accountEmail`.
 - **Checkout status for an agent:** with lines, a buyer email and payments configured, a guest's
   checkout is `ready_for_complete` (it may pay with a network token) and a signed-in agent's is
   too while the total fits its remaining limit, unless it was handed to the shopper; `payment.instruments` lists the account's saved
@@ -319,21 +322,18 @@ before, every deploy or restart emptied orders, agents and grants.
   the playground's basic auth is unset (as on Render), every email in it is masked (first letter,
   `•••`, domain). `GET /api/back-office` keeps its fields and takes `page`, `per`, the same filters
   and `channel`; its `trace` is the requested page, with `trace_total` and `trace_pages`.
-- **Docs:** `/docs` explains, with diagrams drawn in SVG from the theme's tokens, how an agent
-  finds and uses the store: PAP 1.0 (`/docs/poppy`), MCP (`/docs/mcp`), Code Mode
-  (`/docs/code-mode`), WebMCP (`/docs/webmcp`),
-  UCP (`/docs/ucp`) and the Adyen calls (`/docs/adyen`). Each sequence diagram steps through its
-  messages with Next and Back and has the same steps as text. Before each diagram an "In plain
-  words" panel says, for a visitor who is not technical, what the page is about and how to read
-  the diagram; after it a "What to remember" list keeps the two or three facts that matter
-  (`src/components/docs/plain.ts`). The overview adds "Words you will meet", a short glossary
-  (MCP, UCP, Poppy, token, scope, webhook, Adyen TEST) and "A ten-minute demo": eight stops for
-  someone presenting the store, each with what to do, what to point out and a link on this origin.
-  A "Try it" panel reads, from the
-  visitor's browser, only public documents of this origin (`/.well-known/poppy.json`,
-  `/.well-known/ucp`, `/.well-known/oauth-authorization-server`, MCP `tools/list`); nothing it
-  sends pays, signs in or changes state (MCP `tools/list` is a `POST`, sent without cookies, so it
-  shows the `401` challenge an agent first meets). Each page links to the Back Office log filtered
+- **Docs:** `/docs` explains, with diagrams drawn in SVG from the theme's tokens, how an agent finds and
+  uses the store: PAP 1.0 (`/docs/poppy`), MCP (`/docs/mcp`), Code Mode (`/docs/code-mode`), WebMCP
+  (`/docs/webmcp`), UCP (`/docs/ucp`) and the Adyen calls (`/docs/adyen`). Each sequence diagram steps
+  through its messages with Next and Back and has the same steps as text. Before each diagram an "In plain
+  words" panel says, for a visitor who is not technical, what the page is about and how to read the diagram;
+  after it a "What to remember" list keeps the two or three facts that matter (`src/components/docs/plain.ts`).
+  The overview adds "Words you will meet", a short glossary (MCP, UCP, Poppy, token, scope, webhook, Adyen
+  TEST) and "A ten-minute demo": eight stops for someone presenting the store, each with what to do, what to
+  point out and a link on this origin. A "Try it" panel reads, from the visitor's browser, only public
+  documents of this origin (`/.well-known/poppy.json`, `/.well-known/ucp`,
+  `/.well-known/oauth-authorization-server`, MCP `tools/list`); nothing it sends pays, signs in or changes
+  state (MCP `tools/list` is a `POST`, sent without cookies, so it shows the `401` an agent first meets). Each page links to the Back Office log filtered
   on its channels. The UCP profile's `saved_card` and `network_token` handlers point their `spec`
   at `/docs/ucp#saved-card-handler` and `#network-token-handler`. `/agents` is a short "Connect
   your AI agent" page for shoppers: the MCP address with a copy button, three steps, ChatGPT (the

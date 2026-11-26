@@ -158,6 +158,20 @@ export function receiptNeeded(feed: Widget[]): string | undefined {
   return messages.some((m) => record(m) && m.code === "missing_buyer_email") ? bag.id : undefined;
 }
 
+const CHANGEABLE = new Set(["incomplete", "requires_escalation", "ready_for_complete"]);
+
+// The newest bag's checkout while its delivery can still change: the panel's delivery block, with
+// the bag's subtotal so the block reads the fees again when the lines change (free from 100 EUR).
+export function deliveryCheckout(feed: Widget[]): { id: string; subtotal?: number } | undefined {
+  const bag = feed.filter((w) => w.resourceUri === BAG_URI).at(-1)?.structuredContent;
+  if (!record(bag) || typeof bag.id !== "string" || !bag.id.startsWith("chk_")) return undefined;
+  if (typeof bag.status !== "string" || !CHANGEABLE.has(bag.status)) return undefined;
+  const totals = Array.isArray(bag.totals) ? bag.totals : [];
+  const line = totals.find((t) => record(t) && t.type === "subtotal");
+  const subtotal = record(line) && typeof line.amount === "number" ? line.amount : undefined;
+  return { id: bag.id, subtotal };
+}
+
 export type BagLine = { variantId: string; quantity: number };
 export type SiteBag = { lines: BagLine[]; checkoutId?: string; paid: boolean; key: string };
 

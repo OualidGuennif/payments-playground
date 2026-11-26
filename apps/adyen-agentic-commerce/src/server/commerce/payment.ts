@@ -2,6 +2,7 @@
 // Completing a checkout: the payment instrument, the grant's budget, Adyen's answer and the order
 // it places.
 import { variantById } from "../catalog/catalog";
+import { DEFAULT_DELIVERY, type Delivery } from "../../lib/delivery";
 import { CURRENCY } from "../core/config";
 import { customerById } from "../accounts/customers";
 import { findBy, get, put } from "../core/db";
@@ -37,9 +38,10 @@ function placeOrder(
   paidBy: Order["paidBy"],
   pspReference: string | undefined,
   status: Order["status"],
-  paidLines: Line[] = checkout.lines,
+  paidLines: Line[],
+  delivery: Delivery,
 ): Order {
-  const p = price(paidLines);
+  const p = price(paidLines, delivery);
   const order: Order = {
     id: newId("ord"),
     checkoutId: checkout.id,
@@ -49,6 +51,7 @@ function placeOrder(
     total: p.total,
     currency: CURRENCY,
     buyer: buyerOf(checkout),
+    delivery,
     status,
     channel: checkout.channel,
     customerId: checkout.customerId,
@@ -108,12 +111,16 @@ export function placePaidOrder(
   reportedAmount: number | undefined,
 ): Order | string {
   const lines = record.lines ?? checkout.lines;
+  // A record without a delivery (made before any choice, or before delivery choices existed) was
+  // priced as the default; never the checkout's choice made after the payment was sent.
+  const delivery = (record.lines ? record.delivery : checkout.delivery) ?? DEFAULT_DELIVERY;
   if (reportedAmount !== undefined && reportedAmount !== record.amount)
     return `Adyen authorised ${reportedAmount}, the payment was sent for ${record.amount}`;
-  if (price(lines).total !== record.amount)
-    return `The lines total ${price(lines).total}, the payment was sent for ${record.amount}`;
+  const total = price(lines, delivery).total;
+  if (total !== record.amount)
+    return `The lines total ${total}, the payment was sent for ${record.amount}`;
   const paidBy = record.purpose === "agent" ? "agent" : "shopper";
-  return placeOrder(checkout, paidBy, pspReference, "authorised", lines);
+  return placeOrder(checkout, paidBy, pspReference, "authorised", lines, delivery);
 }
 
 /**
@@ -369,6 +376,7 @@ export async function completeCheckout(
     reference: paymentReference,
     amount: assessment.total,
     lines: checkout.lines,
+    delivery: checkout.delivery,
     reservation: live ? "held" : undefined,
     grantId,
     agentName,

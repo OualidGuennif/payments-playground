@@ -3,12 +3,15 @@
 // checkout before it submits, an agent's complete claims it by moving it to complete_in_progress.
 // Each claim reads and writes in one synchronous step (bun:sqlite, one process), so two claims
 // never both pass.
-import { findBy, get } from "../core/db";
+import { DEFAULT_DELIVERY } from "../../lib/delivery";
+import { findBy, get, put } from "../core/db";
 import { trace } from "../core/trace";
 import {
   type Checkout,
+  type Delivery,
   err,
   type Line,
+  now,
   PAYING_MS,
   type PaymentRecord,
   paymentInProgress,
@@ -27,6 +30,8 @@ export const sameLines = (a: Line[] | undefined, b: Line[]) =>
   a !== undefined &&
   a.length === b.length &&
   a.every((l, i) => l.variantId === b[i]?.variantId && l.quantity === b[i]?.quantity);
+
+const sameDelivery = (a: Delivery, b: Delivery) => a.method === b.method && a.placeId === b.placeId;
 
 /**
  * Whether the account is paying another checkout now: a Drop-in hold, or an agent's payment sent
@@ -83,7 +88,7 @@ export function claimWebPayment(
   const status = assess({ ...checkout, paying: undefined }, undefined, []).status;
   if (
     record.reference !== `${id}-s${checkout.attempts}` ||
-    record.amount !== price(checkout.lines).total ||
+    record.amount !== price(checkout.lines, checkout.delivery).total ||
     !sameLines(record.lines, checkout.lines) ||
     status === "incomplete" ||
     status === "canceled"
@@ -96,6 +101,11 @@ export function claimWebPayment(
       "requires_buyer_review",
     );
   }
+  // Another address or pickup point at the same price keeps the form's session; the order then ships
+  // where the shopper chose before paying, and the hold below stops any change after this.
+  const chosen = checkout.delivery ?? DEFAULT_DELIVERY;
+  if (!sameDelivery(record.delivery ?? DEFAULT_DELIVERY, chosen))
+    put("payments", record.id, { ...record, delivery: chosen, updatedAt: now() });
   const until = new Date(at + PAYING_MS).toISOString();
   const payer = viewerId && viewerId !== checkout.customerId ? viewerId : undefined;
   return saveCheckout({

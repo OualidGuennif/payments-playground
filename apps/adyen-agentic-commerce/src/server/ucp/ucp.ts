@@ -477,7 +477,7 @@ export async function renderCheckout(checkout: commerce.Checkout, auth?: Auth) {
         ? checkout.buyer
         : undefined,
     currency: CURRENCY,
-    totals: commerce.totals(checkout.lines),
+    totals: commerce.totals(checkout.lines, checkout.delivery),
     messages: [...assessment.messages, ...signals],
     links: links(),
     expires_at: checkout.expiresAt,

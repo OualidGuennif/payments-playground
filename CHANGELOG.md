@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-26
+
 - The voice password is now the owner's `VOICE_MODE_PASSWORD` (any length, so `adyentic` works;
   unset, voice is not offered) instead of a word fixed in the code, and the voice icon shows from
   the panel's first opening: unlocking starts the conversation, no message needed first.

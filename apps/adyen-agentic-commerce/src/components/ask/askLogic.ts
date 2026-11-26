@@ -158,6 +158,15 @@ export function receiptNeeded(feed: Widget[]): string | undefined {
   return messages.some((m) => record(m) && m.code === "missing_buyer_email") ? bag.id : undefined;
 }
 
+const CHANGEABLE = new Set(["incomplete", "requires_escalation", "ready_for_complete"]);
+
+// The newest bag's checkout while its delivery can still change: the panel's delivery block.
+export function deliveryCheckout(feed: Widget[]): string | undefined {
+  const bag = feed.filter((w) => w.resourceUri === BAG_URI).at(-1)?.structuredContent;
+  if (!record(bag) || typeof bag.id !== "string" || !bag.id.startsWith("chk_")) return undefined;
+  return typeof bag.status === "string" && CHANGEABLE.has(bag.status) ? bag.id : undefined;
+}
+
 export type BagLine = { variantId: string; quantity: number };
 export type SiteBag = { lines: BagLine[]; checkoutId?: string; paid: boolean; key: string };
 

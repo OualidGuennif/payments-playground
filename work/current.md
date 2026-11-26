@@ -7,12 +7,12 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 ## Ask agent on the agentic store, a PAP agent — WAITING-OWNER
 
-- Owner decision: 2026-11-25, Ask agent plan; 2026-11-26, 7-point panel plan, then v0.9.1
-  release approved in chat ("Gooo push").
-- State: v0.9.1 live (main dd09ca0, tag v0.9.1), reviewed in prod. The voice password's value is
-  in ask-agent.md and config.test.ts since v0.9.0, and the repository is public.
-- Next: rotate `VOICE_MODE_PASSWORD` on Render; a live voice call and a real passkey (who: owner);
-  remove the value from spec and test on a yes (who: agent); Pi exemption ends 12-02.
+- Owner decision: 2026-11-26, v0.9.1 released; same day "fixe tout": canonical host, account email
+  on the receipt when signed in, delivery standard/express/pickup point with preset places, test live.
+- State: v0.9.1 live; v0.9.2 on develop (delivery, account receipt, onrender host 308). The voice
+  password's value is in ask-agent.md, config.test.ts and CHANGELOG.md, repository public.
+- Next: visual yes on the v0.9.2 screenshots (who: owner); release and live test (who: agent);
+  rotate `VOICE_MODE_PASSWORD` on Render (who: owner); Pi exemption ends 12-02.
 - Blocker: none.
 - Evidence: knowledge/current/digital-status.md (v0.9.1 deploy row); GitHub release v0.9.1.
 

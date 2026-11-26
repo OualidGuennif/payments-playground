@@ -5,6 +5,18 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store answers its pages under one name only: a page asked under Render's own
+  `.onrender.com` name moves (308) to the same path on `PUBLIC_ORIGIN`. There the passkey failed
+  ("RP ID invalid for this domain") and the session cookie belonged to the other host, so an
+  agent's links (approval page, Show details, the checkout) looked signed out.
+- Signed in, the receipt takes the account's email at once, in the Ask panel and on the checkout
+  page, instead of asking for an email.
+- Delivery choice: Standard (4.95 EUR, free from 100 EUR), Express (9.95 EUR) or a pickup point
+  (free), with preset addresses and pickup points on ordinary French streets, preselected, on the
+  checkout page and under the bag in the Ask panel. The server prices it (`fulfillment` total in
+  UCP too), the payment and the order keep it, and a change at the same price before Pay is the
+  one the order ships to.
+
 ## [0.9.1] - 2026-11-26
 
 - The Ask panel opens a page only when the shopper asks for it or taps a widget button: the

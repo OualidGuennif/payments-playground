@@ -91,10 +91,18 @@ export function AskReceipt({
     setStep("account");
     await save({ account: true });
   };
-  const latest = useRef({ signedIn, follow });
+  const latest = useRef({ signedIn, follow, save });
   useEffect(() => {
-    latest.current = { signedIn, follow };
+    latest.current = { signedIn, follow, save };
   });
+  // Signed in, the account's email goes on the receipt without a question; the buttons show only
+  // when that fails, or to choose another email.
+  const asked = useRef(false);
+  useEffect(() => {
+    if (step !== "account" || !accountEmail || asked.current) return;
+    asked.current = true;
+    void latest.current.save({ account: true });
+  }, [step, accountEmail]);
 
   const finish = (result: SignIn) => {
     setBusy(false);
@@ -158,10 +166,11 @@ export function AskReceipt({
       {step === "account" && (
         <div className="mt-2 space-y-2.5">
           <p className="text-muted">
-            Send the receipt to{" "}
-            <span className="text-ink">{accountEmail ?? "your account's email"}</span>?
+            {busy ? "Sending the receipt to " : "Send the receipt to "}
+            <span className="text-ink">{accountEmail ?? "your account's email"}</span>
+            {busy ? "…" : "?"}
           </p>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className={busy ? "hidden" : "flex flex-wrap items-center gap-2"}>
             <button
               type="button"
               className="btn px-4 py-1.5"

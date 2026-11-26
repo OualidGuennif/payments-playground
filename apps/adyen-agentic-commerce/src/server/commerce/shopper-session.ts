@@ -55,6 +55,7 @@ export async function startShopperSession(loaded: Checkout, customer?: Customer)
     reference,
     amount: assessment.total,
     lines: checkout.lines,
+    delivery: checkout.delivery,
     sessionId: session.id,
     createdAt: now(),
     updatedAt: now(),

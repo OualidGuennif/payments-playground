@@ -22,6 +22,7 @@ import { trace } from "./core/trace";
 import { handlerSchema, networkTokenSchema, profile } from "./ucp/ucp";
 import { openApi } from "./ucp/openapi";
 import { isRecord, json, published, safeEqual } from "./core/util";
+import { DEFAULT_DELIVERY, parseDelivery } from "../lib/delivery";
 import { maskEmails } from "../lib/mask";
 import { shopperWords } from "../lib/shopper-words";
 import { PLUGIN_ZIP_PATH, pluginZip } from "./mcp/widgets";
@@ -229,6 +230,34 @@ const browserApi = new Elysia({ prefix: "/api" })
       throw error;
     }
   })
+  // Standard, express or a pickup point, from the store's own lists: the page and the Ask panel
+  // both send it here, the checkout's account or a guest's link holder only.
+  .post("/checkouts/:id/delivery", ({ request, params, body }) => {
+    const limited = sessionLimit(request, "payment");
+    if (limited) return limited;
+    const customer = customerOf(request);
+    const delivery = parseDelivery(body);
+    if (!delivery) return refused(400, "invalid_delivery");
+    try {
+      const checkout = commerce.loadCheckout(params.id, "browser");
+      if (checkout.customerId && checkout.customerId !== customer?.id)
+        return refused(404, "not_found");
+      const updated = commerce.setDelivery(checkout, delivery);
+      trace({
+        channel: commerce.channelOf(updated),
+        actor: "shopper",
+        method: "POST",
+        path: "/api/checkouts/:id/delivery",
+        status: 200,
+        ref: updated.id,
+        detail: { method: delivery.method, place: delivery.placeId },
+      });
+      return checkoutView(updated, customer);
+    } catch (error) {
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
+      throw error;
+    }
+  })
   // The shopper's one bag reached a web checkout page: its lines follow, unless a payment holds it.
   .post("/checkouts/:id/lines", ({ request, params, body }) => {
     const limited = sessionLimit(request, "payment");
@@ -347,7 +376,7 @@ const browserApi = new Elysia({ prefix: "/api" })
 export function checkoutView(checkout: commerce.Checkout, viewer?: Customer) {
   const ownsIt = !checkout.customerId || checkout.customerId === viewer?.id;
   const assessment = commerce.assess(checkout, undefined, []);
-  const priced = commerce.price(checkout.lines);
+  const priced = commerce.price(checkout.lines, checkout.delivery);
   const order = checkout.orderId ? get<commerce.Order>("orders", checkout.orderId) : undefined;
   return {
     id: checkout.id,
@@ -369,6 +398,7 @@ export function checkoutView(checkout: commerce.Checkout, viewer?: Customer) {
     subtotal: priced.subtotal,
     fulfillment: priced.fulfillment,
     total: priced.total,
+    delivery: checkout.delivery ?? DEFAULT_DELIVERY,
     buyer: ownsIt ? checkout.buyer : undefined,
     // The page offers the signed-in shopper their own address for a receipt instead of a blank
     // field, and offers sign-in instead when the session has ended.
@@ -416,7 +446,7 @@ export function backOfficeView(channel?: commerce.Channel, query: Record<string,
         channel: commerce.channelOf(c),
         customerId: c.customerId,
         agentName: c.agentName,
-        total: commerce.price(c.lines).total,
+        total: commerce.price(c.lines, c.delivery).total,
         attempts: c.attempts,
         orderId: c.orderId,
         createdAt: c.createdAt,

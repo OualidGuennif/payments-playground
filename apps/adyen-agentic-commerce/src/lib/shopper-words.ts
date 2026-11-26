@@ -37,6 +37,7 @@ const WORDS: Record<string, string> = {
   too_many_line_items: "Your bag holds as many different items as it can.",
   invalid_email: "Check the email address: it looks incomplete.",
   email_set: "This checkout already has an email for the receipt.",
+  invalid_delivery: "Choose a delivery option and an address or pickup point from the list.",
   rate_limited: "Too many tries at once. Wait a minute, then try again.",
   session_failed: "The payment form could not open. Refresh the page to try again.",
   result_unconfirmed: "Adyen has not confirmed the payment yet. This page updates when it does.",

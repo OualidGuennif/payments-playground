@@ -10,6 +10,7 @@ export {
   channelOf,
   type Checkout,
   CommerceError,
+  type Delivery,
   FREE_SHIPPING_FROM,
   type Line,
   MAX_LINES,
@@ -35,6 +36,7 @@ export {
   cancelCheckout,
   createCheckout,
   loadCheckout,
+  setDelivery,
   updateCheckout,
 } from "./checkouts";
 export { chosenInstrument, completeCheckout, type Instrument, type NetworkToken } from "./payment";

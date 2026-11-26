@@ -12,6 +12,7 @@ import {
   channelOf,
   type Checkout,
   CHECKOUT_TTL_MS,
+  type Delivery,
   err,
   type Message,
   now,
@@ -74,6 +75,15 @@ export function updateCheckout(checkout: Checkout, body: Record<string, unknown>
   });
 }
 
+// The shopper's delivery choice, from the checkout page or the Ask panel: the total moves with it,
+// so it waits like the lines while a payment holds the checkout.
+export function setDelivery(checkout: Checkout, delivery: Delivery): Checkout {
+  if (checkout.phase !== "open")
+    throw err(409, "checkout_not_editable", `Checkout is ${checkout.phase}`);
+  if (payingNow(checkout)) throw paymentInProgress();
+  return saveCheckout({ ...checkout, delivery, lastMessage: undefined });
+}
+
 export function cancelCheckout(checkout: Checkout): Checkout {
   if (checkout.phase === "completed" || checkout.phase === "complete_in_progress") {
     throw err(409, "checkout_not_cancelable", `Checkout is ${checkout.phase}`);
@@ -111,7 +121,7 @@ export type Assessment = {
 export const budgetUrl = (grantId: string) => `${config().publicOrigin}/account#agent-${grantId}`;
 
 export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAlias[]): Assessment {
-  const { total } = price(checkout.lines);
+  const { total } = price(checkout.lines, checkout.delivery);
   const messages: Message[] = checkout.lastMessage ? [checkout.lastMessage] : [];
   if (checkout.phase !== "open") {
     const status = checkout.phase === "completed" ? "completed" : checkout.phase;

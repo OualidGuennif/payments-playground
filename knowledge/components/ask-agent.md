@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T12:30:00Z
+  at: 2026-11-26T16:30:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -147,15 +147,19 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   showed one: every carousel and bag the agent shows, in order, and every answer to the widget's
   own taps land in it, so it keeps the collection and the bag and shows the newest; an earlier
   message keeps a line ("Collection shown", "Bag shown"). When the bag's checkout lacks a receipt
-  email, a block under the widget asks for it, drawn by the panel itself: signed in, "Send the
-  receipt to b•••@example.com?" with "Use this email" and "Another email"; a guest types one, or
+  email, a block under the widget asks for it, drawn by the panel itself: signed in, the account's
+  email goes on at once ("Use this email" and "Another email" only after a failure); a guest types one, or
   taps "I have an account" to sign in inside the block (email prefilled from what was typed,
   password or passkey, the browser's own autofill offered), and the account's email is then used
   without leaving the chat (the header's account menu follows); the block opens on that sign-in
   when this browser signed in here before. Whether an email has an account is never shown (no
   account enumeration). A bag shown before a reload can be older than its checkout: when the
   store refuses an email because one is set, the block re-reads the checkout (`get_checkout`)
-  and closes once the bag needs none.
+  and closes once the bag needs none. While the newest bag's checkout can still change (incomplete,
+  needing review or ready), a delivery block under the widget offers Standard, Express or a pickup
+  point with the store's preset addresses or pickup points, preselected; the choice goes to the
+  store's own `POST /api/checkouts/:id/delivery`, never to the model, and the widget then re-reads
+  the checkout (`get_checkout`) for the store's new total (`askLogic.test.ts` "site bag").
   **One bag per browser:** when the widget shows an open bag, the site's bag (header count,
   `/cart`) takes its lines and the open checkout page hears of it at once; a completed bag empties
   the site's bag. The agent hears the site's bag in `<shop_context>` as `bag:` with catalogue titles

@@ -82,6 +82,30 @@ export function originTrialToken(
   return token && token.length <= 4096 && /^[A-Za-z0-9+/]+={0,2}$/.test(token) ? token : undefined;
 }
 
+const LOOPBACK = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
+/**
+ * Where a page asked under another name of this service belongs: the same path on the public
+ * origin. The session cookie holds only on the host that set it and passkeys are bound to the
+ * public origin's host, while every agent link (approval page, Show details, continue_url) names
+ * that origin, so a shopper signed in under Render's own name looked signed out there and could not
+ * use a passkey. Only pages move, only for an https public origin; a loopback run never leaves the
+ * machine, and the API and agent paths answer under any name.
+ */
+export function canonicalUrl(
+  method: string,
+  url: { pathname: string; search: string },
+  host: string | null,
+  origin: string | undefined,
+): string | undefined {
+  if (!origin || !host || (method !== "GET" && method !== "HEAD")) return undefined;
+  const own = new URL(origin);
+  const asked = host.trim().toLowerCase();
+  if (own.protocol !== "https:" || asked === own.host || LOOPBACK.test(asked)) return undefined;
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/oauth/")) return undefined;
+  return `${own.origin}${url.pathname}${url.search}`;
+}
+
 function pass(): NextResponse {
   const response = NextResponse.next();
   const token = originTrialToken();
@@ -91,6 +115,9 @@ function pass(): NextResponse {
 
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  const host = request.headers.get("host");
+  const moved = canonicalUrl(request.method, request.nextUrl, host, publicOrigin());
+  if (moved) return NextResponse.redirect(moved, 308);
   if (!PROTECTED.some((p) => path === p || path.startsWith(`${p}/`))) return pass();
   if (crossSiteRefused(request.method, request.headers, [request.nextUrl.origin, publicOrigin()])) {
     return new NextResponse("Cross-site request refused", { status: 403 });

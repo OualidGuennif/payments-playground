@@ -38,8 +38,9 @@ function placeOrder(
   pspReference: string | undefined,
   status: Order["status"],
   paidLines: Line[] = checkout.lines,
+  delivery: Checkout["delivery"] = checkout.delivery,
 ): Order {
-  const p = price(paidLines);
+  const p = price(paidLines, delivery);
   const order: Order = {
     id: newId("ord"),
     checkoutId: checkout.id,
@@ -49,6 +50,7 @@ function placeOrder(
     total: p.total,
     currency: CURRENCY,
     buyer: buyerOf(checkout),
+    delivery,
     status,
     channel: checkout.channel,
     customerId: checkout.customerId,
@@ -108,12 +110,15 @@ export function placePaidOrder(
   reportedAmount: number | undefined,
 ): Order | string {
   const lines = record.lines ?? checkout.lines;
+  // A record from before delivery choices was priced as standard, the default.
+  const delivery = record.lines ? record.delivery : checkout.delivery;
   if (reportedAmount !== undefined && reportedAmount !== record.amount)
     return `Adyen authorised ${reportedAmount}, the payment was sent for ${record.amount}`;
-  if (price(lines).total !== record.amount)
-    return `The lines total ${price(lines).total}, the payment was sent for ${record.amount}`;
+  const total = price(lines, delivery).total;
+  if (total !== record.amount)
+    return `The lines total ${total}, the payment was sent for ${record.amount}`;
   const paidBy = record.purpose === "agent" ? "agent" : "shopper";
-  return placeOrder(checkout, paidBy, pspReference, "authorised", lines);
+  return placeOrder(checkout, paidBy, pspReference, "authorised", lines, delivery);
 }
 
 /**
@@ -369,6 +374,7 @@ export async function completeCheckout(
     reference: paymentReference,
     amount: assessment.total,
     lines: checkout.lines,
+    delivery: checkout.delivery,
     reservation: live ? "held" : undefined,
     grantId,
     agentName,

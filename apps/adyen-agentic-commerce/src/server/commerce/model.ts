@@ -1,5 +1,9 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // The records commerce keeps (carts, checkouts, orders, payments), its limits and its error.
+import type { Delivery } from "../../lib/delivery";
+
+export type { Delivery } from "../../lib/delivery";
+export { FREE_SHIPPING_FROM, STANDARD_FEE as SHIPPING } from "../../lib/delivery";
 
 export type Line = { id: string; variantId: string; quantity: number };
 // Where a record was made: the store's pages and /api, or UCP REST and MCP (ADR-015).
@@ -53,6 +57,8 @@ export type Checkout = {
   handedOverAt?: string;
   // The shopper's Drop-in payment that holds this checkout until `until` (lock.ts).
   paying?: { channel: Channel; reference: string; until: string };
+  // The shopper's delivery choice; none means standard to the first address (lib/delivery.ts).
+  delivery?: Delivery;
   // The signed-in account whose browser claimed that hold, when it is not the checkout's own
   // account (a guest bag, or another account's): its other payments wait too, until that payment
   // is released or refused or an agent pays instead (lock.ts).
@@ -72,6 +78,7 @@ export type Order = {
   total: number;
   currency: string;
   buyer?: Buyer;
+  delivery?: Delivery;
   status: "authorised" | "pending";
   // Where the checkout was made; paidBy says who paid it.
   channel?: Channel;
@@ -101,6 +108,8 @@ export type PaymentRecord = {
   // The lines this amount was priced from: the order is placed from them, not from the checkout,
   // which stays editable while a Drop-in session is open.
   lines?: Line[];
+  // The delivery that amount was priced with, for the same reason.
+  delivery?: Delivery;
   // An agent payment's hold on the grant's budget: settled once, by whichever path learns first,
   // on the grant it was made on, whatever grant the checkout names by then.
   reservation?: "held" | "released";
@@ -144,8 +153,6 @@ export type CardAlias = {
 
 export const MAX_LINES = 20;
 export const MAX_QUANTITY = 10;
-export const FREE_SHIPPING_FROM = 10000;
-export const SHIPPING = 495;
 export const CHECKOUT_TTL_MS = 6 * 3600_000;
 
 export class CommerceError extends Error {

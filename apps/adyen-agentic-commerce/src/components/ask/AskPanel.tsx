@@ -16,6 +16,7 @@ import {
 } from "react";
 import { AskConnect } from "./AskConnect";
 import { Icon } from "./AskIcon";
+import { AskDelivery } from "./AskDelivery";
 import { AskReceipt } from "./AskReceipt";
 import { AskText } from "./AskText";
 import { MuteButton, useVoice, VoiceButton, VoicePanel } from "./AskVoice";
@@ -38,6 +39,7 @@ import {
   launcherNext,
   oneWidget,
   preview,
+  deliveryCheckout,
   receiptNeeded,
   type SessionView,
   shownMessages,
@@ -378,6 +380,7 @@ export function AskPanel() {
   const visible = shownMessages(messages);
   const one = oneWidget(visible, taps);
   const receipt = one && view?.state === "active" ? receiptNeeded(one.feed) : undefined;
+  const delivery = one && view?.state === "active" ? deliveryCheckout(one.feed) : undefined;
   const unavailable = view !== undefined && !view.available;
   const locked = view?.state === "locked";
   const ended = view?.state === "ended";
@@ -536,6 +539,13 @@ export function AskPanel() {
                           onResult={onResult}
                           onOpen={showPage}
                         />
+                        {delivery && (
+                          <AskDelivery
+                            key={`delivery:${delivery}`}
+                            checkoutId={delivery}
+                            onResult={onResult}
+                          />
+                        )}
                         {receipt && (
                           <AskReceipt
                             key={receipt}

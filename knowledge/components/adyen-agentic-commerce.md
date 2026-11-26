@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T03:50:00Z
+  at: 2026-11-26T05:30:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -428,11 +428,11 @@ before, every deploy or restart emptied orders, agents and grants.
    with its own network token, a signed-in agent needs the same token, grant and limit, a guest
    none of them; otherwise `requires_escalation`. The grant is re-read after the card lookup and the total is reserved on it
    when the checkout is claimed, with nothing awaited in between, so completes on several checkouts
-   at once cannot together pass the limit. Each payment's reservation is settled once: the first of
-   the synchronous refusal, a network error or a refusal webhook (even after another payment placed
-   the order) gives it back, and a success webhook for a payment whose reservation was given back
-   charges it again before the order. The synchronous answer re-reads the payment and the checkout
-   first: after a webhook placed the order or held a mismatch during the call, it places no other.
+   at once cannot together pass the limit. Each reservation is settled once, on its own grant: the
+   first of the synchronous refusal, a network error or a refusal webhook (even after another
+   payment placed the order) gives it back, and a success webhook after that charges it again before
+   the order. The synchronous answer re-reads the payment and the checkout first: after a webhook
+   placed the order or held a mismatch during the call, it places no other.
 4. A checkout is paid at most once: it is re-read after the card lookup and `complete_in_progress`
    is claimed before the call with nothing awaited in between, so two completes at once send one
    payment; the idempotency key is `agent-pay-<checkout id>-a<attempt>`; a refusal opens a new

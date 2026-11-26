@@ -71,15 +71,17 @@ function placeOrder(
 
 /**
  * Gives an agent payment's reservation back, once: the synchronous answer and the webhook can both
- * report a refusal, and only the first gives the budget back.
+ * report a refusal, and only the first gives the budget back. It goes to the grant the payment was
+ * reserved on; `grantId` (the checkout's) serves only a record that does not name one.
  */
 export function releaseReservation(
   record: PaymentRecord,
   grantId: string | undefined,
 ): PaymentRecord {
   const fresh = get<PaymentRecord>("payments", record.id) ?? record;
-  if (fresh.reservation !== "held" || !grantId) return fresh;
-  chargeGrant(grantId, -fresh.amount);
+  const grant = fresh.grantId ?? grantId;
+  if (fresh.reservation !== "held" || !grant) return fresh;
+  chargeGrant(grant, -fresh.amount);
   return put("payments", fresh.id, { ...fresh, reservation: "released", updatedAt: now() });
 }
 
@@ -89,8 +91,9 @@ export function releaseReservation(
  */
 export function holdReservation(record: PaymentRecord, grantId: string | undefined): void {
   const fresh = get<PaymentRecord>("payments", record.id) ?? record;
-  if (fresh.reservation !== "released" || !grantId) return;
-  chargeGrant(grantId, fresh.amount);
+  const grant = fresh.grantId ?? grantId;
+  if (fresh.reservation !== "released" || !grant) return;
+  chargeGrant(grant, fresh.amount);
   put("payments", fresh.id, { ...fresh, reservation: "held", updatedAt: now() });
 }
 
@@ -366,6 +369,7 @@ export async function completeCheckout(
     amount: assessment.total,
     lines: checkout.lines,
     reservation: live ? "held" : undefined,
+    grantId,
     agentName,
     createdAt: prior?.createdAt ?? now(),
     updatedAt: now(),

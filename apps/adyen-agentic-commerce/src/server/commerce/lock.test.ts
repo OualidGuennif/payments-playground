@@ -608,6 +608,28 @@ describe("payment lock", () => {
     expect(held(checkout.id)?.phase).toBe("open");
   });
 
+  test("an old pending result listing an earlier payment leaves a later refusal refused", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    const refusedAs = (pspReference: string) =>
+      commerce.applyNotification({
+        ...(refusal(`${checkout.id}-s1`) as object),
+        pspReference,
+      } as never);
+    commerce.claimWebPayment(checkout.id, session.id);
+    fake.session = {
+      status: "paymentPending",
+      payments: [{ resultCode: "Pending", pspReference: "PSP1" }],
+    };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    refusedAs("PSP1");
+    // A retry in the same form is refused too; then the first result is posted again.
+    commerce.claimWebPayment(checkout.id, session.id);
+    refusedAs("PSP2");
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(codeAt(`${checkout.id}-s1`)).toBe("Refused");
+    expect(held(checkout.id)?.phase).toBe("open");
+  });
+
   test("a hold past its time holds nothing", async () => {
     const { checkout, session } = await openedOnTheWeb();
     const at = Date.now();
@@ -732,6 +754,31 @@ describe("one payment at a time per account", () => {
     commerce.applyNotification(refusal(`${theirs.id}-a2`));
     expect(list<commerce.Order>("orders")).toHaveLength(1);
     expect(grants()[0]!.spent).toBe(0);
+  });
+
+  test("a late webhook settles a payment on the grant it was reserved on", async () => {
+    agent.ip = randomIp();
+    await agent.signIn();
+    const first = authenticate(`Bearer ${agent.accessToken}`, "/mcp") as Auth;
+    const theirs = commerce.createCheckout({ line_items: items(SOCKS) }, first);
+    fake.answers.push(new Error("timeout"));
+    await commerce.completeCheckout(commerce.loadCheckout(theirs.id, first), savedCard, first);
+    // The shopper approves the agent again; its next payment, with its own token, is a new one.
+    await agent.signIn();
+    const second = authenticate(`Bearer ${agent.accessToken}`, "/mcp") as Auth;
+    expect(second.grant.id).not.toBe(first.grant.id);
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
+    await commerce.completeCheckout(commerce.loadCheckout(theirs.id, second), agentPays, second);
+    // Adyen had authorised the first payment after all.
+    commerce.applyNotification({
+      eventCode: "AUTHORISATION",
+      success: "true",
+      merchantReference: `${theirs.id}-a1`,
+      pspReference: "PSPFIRST",
+    } as never);
+    const spent = (id: string) => grants().find((g) => g.id === id)?.spent;
+    expect(spent(first.grant.id)).toBe(1695);
+    expect(spent(second.grant.id)).toBe(1695);
   });
 
   test("a payer whose hold has ended is not held by a later payment on that bag", async () => {

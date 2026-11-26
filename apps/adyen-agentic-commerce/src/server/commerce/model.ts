@@ -101,8 +101,10 @@ export type PaymentRecord = {
   // The lines this amount was priced from: the order is placed from them, not from the checkout,
   // which stays editable while a Drop-in session is open.
   lines?: Line[];
-  // An agent payment's hold on the grant's budget: settled once, by whichever path learns first.
+  // An agent payment's hold on the grant's budget: settled once, by whichever path learns first,
+  // on the grant it was made on, whatever grant the checkout names by then.
   reservation?: "held" | "released";
+  grantId?: string;
   sessionId?: string;
   resultCode?: string;
   pspReference?: string;

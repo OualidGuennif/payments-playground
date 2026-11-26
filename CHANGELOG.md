@@ -11,18 +11,18 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   failed payment no longer reopens a checkout whose order, or amount mismatch, a webhook recorded
   while the call was in flight, nor one the shopper's Drop-in has claimed since, and a pending
   answer reports the checkout as it stands. A pending Drop-in payment that Adyen later answers as
-  refused, canceled or expired reopens its checkout, as the refusal webhook would, unless it is
-  held as a mismatch. A failed payment reopens a checkout only when no other payment on it may
-  still pay, whichever fails last, and never over a held mismatch; a session answer (Adyen never
-  updates its status) no longer undoes what a payment's webhook, authorised or refused, or its
-  session's end settled, even read again or posted under a new claim; an agent's retry after a network error keeps its
-  one payment record, only for the same bag and card (told apart by a keyed fingerprint, never the
-  number) and until a webhook refuses it; a refused agent payment gives its budget back
-  even when the shopper's payment placed the order; a pending answer of one form leaves another
-  tab's hold. No Drop-in result or webhook turns a held mismatch into an order, and a session still
-  under way keeps its hold. The same payment form claiming again keeps the payer its first claim named,
-  or names the shopper who signed in since. `docs/KNOWN_LIMITS.md` now says what a checkout's link
-  lets its holder do.
+  refused, canceled or expired reopens its checkout, as the refusal webhook would, unless it is held
+  as a mismatch. A failed payment reopens a checkout only when no other payment on it may still pay,
+  whichever fails last, and never over a held mismatch; a session answer (Adyen never updates its
+  status) no longer undoes what a payment's webhook, authorised or refused, or its session's end
+  settled, even read again or posted under a new claim; an agent's retry after a network error keeps
+  its one payment record, only for the same bag and card (told apart by a keyed fingerprint, never
+  the number) and until a webhook refuses it; a refused agent payment gives its budget back even
+  when the shopper's payment placed the order, always on the grant it was reserved on; a pending
+  answer of one form leaves another tab's hold. No Drop-in result or webhook turns a held mismatch
+  into an order, and a session still under way keeps its hold. The same payment form claiming again
+  keeps the payer its first claim named, or names the shopper who signed in since.
+  `docs/KNOWN_LIMITS.md` now says what a checkout's link lets its holder do.
 
 - Run the Ask agent's MCP client on `@modelcontextprotocol/client` 2.3.1 instead of the 2.0.0
   that Flue 2.3.1 pins, through a root `overrides` entry: 2.0.0 carries GHSA-6prh-2h8m-c8cw

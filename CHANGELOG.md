@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-26
+
 - Fix four findings of the independent review of the agentic store. The Ask agent's payment check
   now reads the instruments where the store does (`checkout.payment`), so strict mode, an
   unconnected account and card data are refused again. Code Mode counts store calls as they

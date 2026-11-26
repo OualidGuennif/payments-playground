@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T06:00:00Z
+  at: 2026-11-26T06:15:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -447,9 +447,9 @@ before, every deploy or restart emptied orders, agents and grants.
    account's checkout counts too, until that payment is released or refused or an agent pays the
    checkout); a failed payment reopens the checkout only with no order or held mismatch and no
    other payment on it that may still pay (an agent's call in flight, a payment Adyen left pending),
-   whichever fails last; a session answer never undoes what its webhook or session end settled;
-   a session priced before an edit gets `checkout_changed`; a result or refusal
-   webhook ends only its own hold (`commerce/lock.test.ts`; `docs/KNOWN_LIMITS.md`).
+   whichever fails last; a session answer never undoes what a webhook or the session's end settled,
+   but for a retry it names; a session priced before an edit gets `checkout_changed`; a result or
+   refusal webhook ends only its own hold (`commerce/lock.test.ts`; `docs/KNOWN_LIMITS.md`).
 5. Every PAP MUST that applies to the merchant side maps to a test (matrix in the app's
    `src/server/pap/conformance.test.ts`).
 6. No secret, token, client assertion or stored payment method id appears in the trace, logs or

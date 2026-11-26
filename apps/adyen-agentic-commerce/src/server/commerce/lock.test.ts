@@ -223,6 +223,8 @@ describe("payment lock", () => {
       amount: { value: 1, currency: "EUR" },
     } as never);
   const held = (id: string) => get<commerce.Checkout>("checkouts", id);
+  const codeAt = (reference: string) =>
+    list<commerce.PaymentRecord>("payments").find((p) => p.reference === reference)?.resultCode;
 
   for (const [name, answer] of [
     ["refusal", { resultCode: "Refused", refusalReason: "Refused" }],
@@ -369,7 +371,12 @@ describe("payment lock", () => {
     fake.during = mismatchDuring(checkout.id);
     fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
     await commerce.completeCheckout(reload(checkout.id), agentPays);
-    commerce.applyNotification(refusal(`${checkout.id}-a2`));
+    // The refusal reaches the reopen rule: both the held mismatch and the authorised payment
+    // behind it keep the checkout from reopening.
+    expect(commerce.applyNotification(refusal(`${checkout.id}-a2`, "PSPAGENT"))).toBe(
+      "refusal recorded",
+    );
+    expect(codeAt(`${checkout.id}-a2`)).toBe("Refused");
     expect(held(checkout.id)?.phase).toBe("complete_in_progress");
     expect(held(checkout.id)?.lastMessage?.code).toBe("amount_mismatch");
   });
@@ -577,9 +584,6 @@ describe("payment lock", () => {
     expect(sentReferences()).toEqual([`${checkout.id}-a2`, `${checkout.id}-a3`]);
   });
 
-  const codeAt = (reference: string) =>
-    list<commerce.PaymentRecord>("payments").find((p) => p.reference === reference)?.resultCode;
-
   test("a session answer never makes a payment its webhook authorised pending again", async () => {
     const { checkout, session } = await openedOnTheWeb();
     commerce.claimWebPayment(checkout.id, session.id);
@@ -631,20 +635,43 @@ describe("payment lock", () => {
     expect(held(checkout.id)?.phase).toBe("open");
   });
 
-  test("a retry in the same form left pending after a refusal keeps the form's hold", async () => {
+  // A retry Adyen names is shown pending (nothing else may pay until it settles); one it does not
+  // name keeps the form's hold until it runs out.
+  for (const [named, payments] of [
+    ["named", [{ resultCode: "Pending", pspReference: "PSP2" }]],
+    ["unnamed", []],
+  ] as const) {
+    test(`a retry in the same form left pending after a refusal stays protected (${named})`, async () => {
+      const { checkout, session } = await openedOnTheWeb();
+      commerce.claimWebPayment(checkout.id, session.id);
+      commerce.applyNotification(refusal(`${checkout.id}-s1`, "PSP1"));
+      commerce.claimWebPayment(checkout.id, session.id);
+      fake.session = { status: "paymentPending", payments: [...payments] };
+      await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+      const after = held(checkout.id);
+      if (payments.length) expect(after?.phase).toBe("complete_in_progress");
+      else expect(after?.paying?.reference).toBe(`${checkout.id}-s1`);
+    });
+  }
+
+  test("a refusal of an earlier card during a retry's 3-D Secure leaves the retry pending", async () => {
     const { checkout, session } = await openedOnTheWeb();
     commerce.claimWebPayment(checkout.id, session.id);
-    commerce.applyNotification({
-      ...(refusal(`${checkout.id}-s1`) as object),
-      pspReference: "PSP1",
-    } as never);
+    // The first card is refused in the form; the retry is being authenticated when the first
+    // card's refusal webhook lands, and Adyen then answers the retry as pending.
     commerce.claimWebPayment(checkout.id, session.id);
+    commerce.applyNotification(refusal(`${checkout.id}-s1`, "PSP1"));
     fake.session = {
       status: "paymentPending",
       payments: [{ resultCode: "Pending", pspReference: "PSP2" }],
     };
     await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
-    expect(held(checkout.id)?.paying?.reference).toBe(`${checkout.id}-s1`);
+    expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+    // The retry's own refusal then reopens the checkout; the first card's, sent again, does not.
+    commerce.applyNotification(refusal(`${checkout.id}-s1`, "PSP1"));
+    expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+    commerce.applyNotification(refusal(`${checkout.id}-s1`, "PSP2"));
+    expect(held(checkout.id)?.phase).toBe("open");
   });
 
   test("a late refusal of an earlier card leaves the form's authorised payment authorised", async () => {

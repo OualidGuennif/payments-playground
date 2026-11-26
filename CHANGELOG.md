@@ -15,9 +15,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   as a mismatch. A failed payment reopens a checkout only when no other payment on it may still pay,
   whichever fails last, and never over a held mismatch; a session answer (Adyen never updates its
   status) no longer undoes what a payment's webhook, authorised or refused, or its session's end
-  settled, even read again or posted under a new claim; an agent's retry after a network error keeps
-  its one payment record, only for the same bag and card (told apart by a keyed fingerprint, never
-  the number) and until a webhook refuses it; a refused agent payment gives its budget back, and one
+  settled, even read again or posted under a new claim, but shows a retry in the same form that it
+  names and no webhook settled as pending; an agent's retry after a network error keeps its one
+  payment record, only for the same bag and card (told apart by a keyed fingerprint, never the
+  number) and until a webhook refuses it; a refused agent payment gives its budget back, and one
   authorised after an unknown outcome charges it again, even when the shopper's payment placed the
   order, always on the grant it was reserved on; a late refusal of an earlier card in the form never
   undoes a later payment that paid or may still pay; an agent payment Adyen answered with Error is a

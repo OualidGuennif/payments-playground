@@ -96,14 +96,19 @@ export async function finishShopperSession(
   const authorised = result.payments.find((p) => p.resultCode === "Authorised");
   // Adyen never updates the status a session result reports, so once this payment's webhook
   // (Authorised, Refused) or an ended session settled it, an answer naming no authorised payment
-  // may be older than that and changes nothing, whatever pending payment it lists: a page
-  // reloaded, or an old result posted again under a new claim, keeps it. An "active" answer with
-  // no payment says nothing either.
+  // may be older than that and changes nothing: a page reloaded, or an old result posted again
+  // under a new claim, keeps it. Only a refused record yields to a pending payment the answer
+  // names that no webhook has settled: a retry in the same form. An "active" answer with no
+  // payment says nothing either.
+  const settledBy = record.settledBy ?? [];
+  const fresh = result.payments.find(
+    (p) => p.pspReference !== undefined && !settledBy.includes(p.pspReference),
+  );
   const ended =
     record.resultCode === "Authorised" ||
     record.resultCode === "Refused" ||
     FAILED.has(record.resultCode ?? "");
-  const settled = !authorised && ended;
+  const settled = !authorised && ended && !(record.resultCode === "Refused" && fresh);
   const silent = result.status === "active" && !result.payments.length;
   put("payments", record.id, {
     ...record,
@@ -111,8 +116,8 @@ export async function finishShopperSession(
       ? {}
       : {
           resultCode: authorised ? "Authorised" : result.status,
-          pspReference:
-            authorised?.pspReference ?? result.payments[0]?.pspReference ?? record.pspReference,
+          // Never a payment a webhook already settled: its refusal would no longer match.
+          pspReference: authorised?.pspReference ?? fresh?.pspReference ?? record.pspReference,
         }),
     updatedAt: now(),
   });

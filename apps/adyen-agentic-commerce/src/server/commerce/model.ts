@@ -105,6 +105,9 @@ export type PaymentRecord = {
   // on the grant it was made on, whatever grant the checkout names by then.
   reservation?: "held" | "released";
   grantId?: string;
+  // The PSP references Adyen's webhooks settled under this reference (a form may try several
+  // cards): a session answer brings back as pending only a payment not among them.
+  settledBy?: string[];
   // A network error left Adyen's answer unknown: only such a payment is resent under its key, since
   // Adyen answers a key it already answered (an "Error" result included) with the same answer.
   outcomeUnknown?: boolean;

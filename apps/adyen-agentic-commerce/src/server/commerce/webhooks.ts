@@ -13,18 +13,24 @@ export function applyNotification(item: adyen.NotificationItem): string {
   if (!record) return "no matching payment";
   const success = item.success === "true";
   if (item.eventCode !== "AUTHORISATION") return "recorded";
+  const settledBy = item.pspReference
+    ? [...new Set([...(record.settledBy ?? []), item.pspReference])]
+    : record.settledBy;
   // A refusal names one payment: when the record already follows another that has paid or may
   // still pay (a later card in the same form), it is a late refusal of an earlier attempt and
-  // changes nothing.
+  // changes nothing but the list of settled payments.
   if (
     !success &&
     record.pspReference !== undefined &&
     record.pspReference !== item.pspReference &&
     mayPay(record.resultCode)
-  )
+  ) {
+    put("payments", record.id, { ...record, settledBy, updatedAt: now() });
     return "refusal of an earlier attempt";
+  }
   put("payments", record.id, {
     ...record,
+    settledBy,
     resultCode: success ? "Authorised" : "Refused",
     pspReference: item.pspReference ?? record.pspReference,
     refusalReason: success ? undefined : item.reason,

@@ -69,9 +69,11 @@ a holder of that link can also delay the account that way. A form that fails in 
 answers does not tell the store; its hold simply runs out. A 3-D Secure challenge that outlasts
 the hold lets an agent, or the form in another tab, pay meanwhile. The store learns of a browser's
 payment only when Adyen answers it, so the checkout may reopen while that payment is still being
-authenticated, or when a late refusal of an earlier card lands after a retry Adyen left pending
-without naming it. After a refusal webhook, a retry in the same form that Adyen leaves pending is not
-shown as pending: the form's hold covers it for 15 minutes, and its webhook still settles it. An agent that completes again after a network
+authenticated (a refusal of an earlier card in the same form that lands then also ends the form's
+hold), or when a late refusal of an earlier card lands after a retry Adyen left pending without
+naming it. After a refusal webhook, a retry in the same form that Adyen leaves pending is shown as
+pending when Adyen's answer names it; otherwise the form's hold covers it for 15 minutes, and its
+webhook still settles it. An agent that completes again after a network
 error with another bag or card, or after the shopper's form started a new attempt, sends a new
 payment while the first one's outcome is still unknown.
 When two payments are authorised, the second is cancelled by hand, as above. A signed-in shopper who opens the

@@ -84,11 +84,14 @@ export function AskReceipt({
     sessionChanged();
     router.refresh();
   };
+  // The account's email is asked for once per block, whichever path asks first.
+  const asked = useRef(false);
   // Signed in from this step: then the account's email goes on the checkout.
   const signedIn = async () => {
     follow();
     setPassword("");
     setStep("account");
+    asked.current = true;
     await save({ account: true });
   };
   const latest = useRef({ signedIn, follow, save });
@@ -97,7 +100,6 @@ export function AskReceipt({
   });
   // Signed in, the account's email goes on the receipt without a question; the buttons show only
   // when that fails, or to choose another email.
-  const asked = useRef(false);
   useEffect(() => {
     if (step !== "account" || !accountEmail || asked.current) return;
     asked.current = true;

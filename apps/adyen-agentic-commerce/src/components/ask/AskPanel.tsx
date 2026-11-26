@@ -541,8 +541,8 @@ export function AskPanel() {
                         />
                         {delivery && (
                           <AskDelivery
-                            key={`delivery:${delivery}`}
-                            checkoutId={delivery}
+                            key={`delivery:${delivery.id}:${delivery.subtotal ?? ""}`}
+                            checkoutId={delivery.id}
                             onResult={onResult}
                           />
                         )}

@@ -126,6 +126,29 @@ describe("delivery", () => {
     ]);
   });
 
+  test("a choice made after the payment was sent never changes what that payment's order records", async () => {
+    // The form's session priced the default; the delivery changes before any claim, and Adyen
+    // authorises the amount that was sent.
+    const c = open();
+    const session = await commerce.startShopperSession(c);
+    commerce.setDelivery(commerce.loadCheckout(c.id, "browser"), {
+      method: "express",
+      placeId: "home",
+    });
+    fake.session = {
+      status: "completed",
+      payments: [{ resultCode: "Authorised", pspReference: "PSPLATE", amount: 1695 }],
+    };
+    await commerce.finishShopperSession(commerce.loadCheckout(c.id, "browser"), session.id, "r");
+    expect(list<commerce.Order>("orders")).toEqual([
+      expect.objectContaining({
+        total: 1695,
+        fulfillment: 495,
+        delivery: { method: "standard", placeId: "home" },
+      }),
+    ]);
+  });
+
   test("a change of price after the form opened is refused at Pay, never charged", async () => {
     const c = open();
     const session = await commerce.startShopperSession(c);

@@ -16,6 +16,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   checkout page and under the bag in the Ask panel. The server prices it (`fulfillment` total in
   UCP too), the payment and the order keep it, and a change at the same price before Pay is the
   one the order ships to.
+- Fix the release review's findings: a payment sent before any delivery choice records the
+  standard delivery it was priced with, never a choice made after it was sent; the receipt block
+  asks for the account's email once after an in-block sign-in; the Ask panel's delivery block
+  reads the fees again when the bag's subtotal changes.
 
 ## [0.9.1] - 2026-11-26
 

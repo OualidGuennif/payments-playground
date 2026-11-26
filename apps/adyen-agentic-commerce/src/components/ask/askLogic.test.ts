@@ -486,7 +486,13 @@ describe("site bag", () => {
 
   test("the delivery block follows the newest checkout while it can still change", () => {
     for (const status of ["incomplete", "requires_escalation", "ready_for_complete"])
-      expect(deliveryCheckout(fed({ id: "chk_1", status }))).toBe("chk_1");
+      expect(deliveryCheckout(fed({ id: "chk_1", status }))?.id).toBe("chk_1");
+    const priced = {
+      id: "chk_1",
+      status: "incomplete",
+      totals: [{ type: "subtotal", amount: 1200 }],
+    };
+    expect(deliveryCheckout(fed(priced))).toEqual({ id: "chk_1", subtotal: 1200 });
     for (const status of ["complete_in_progress", "completed", "canceled"])
       expect(deliveryCheckout(fed({ id: "chk_1", status }))).toBeUndefined();
     expect(deliveryCheckout(fed({ id: "cart_1", status: "incomplete" }))).toBeUndefined();

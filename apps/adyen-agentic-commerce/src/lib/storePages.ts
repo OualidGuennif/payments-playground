@@ -16,7 +16,7 @@ const PAGES: { path: RegExp; query: Record<string, RegExp> }[] = [
 const SECTION = /^(#[a-z0-9-]{1,40})?$/;
 // The URL parser drops tabs and newlines and reads a backslash as a slash; a value carrying one
 // is refused before parsing, so what is checked is what was written.
-export const oddForUrl = (value: string) =>
+const oddForUrl = (value: string) =>
   value.includes("\\") ||
   [...value].some((c) => {
     const code = c.charCodeAt(0);

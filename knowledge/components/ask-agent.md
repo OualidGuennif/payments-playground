@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T07:16:00Z
+  at: 2026-11-26T08:18:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -93,6 +93,7 @@ voice mode (GPT-Live) talks to the same agent through the same gate.
   transcript, `session.delegation.created`, `session.usage.updated`, `session.updated` and
   `session.closed`; it sends only `session.commentary.append` and `session.close`.
 - **Console** `POST /api/console/login` `{ password }`, `POST /api/console/logout`, `GET
+  /api/console/status` (200 `{ signedIn }`, asked before the page draws its form), `GET
   /api/console/overview`, `GET /api/console/sessions?state=`, `GET /api/console/sessions/:id`,
   `POST /api/console/sessions/:id/end|lock`, `GET|POST /api/console/settings`, `POST
   /api/console/playground` `{ text, sessionId? }`, `POST /api/console/redteam`. Every POST needs
@@ -131,8 +132,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   over a dimmed page; full screen on demand; Escape minimises it; it reopens, open or minimised,
   after a reload in the same tab. It is absent on `/console`, `/back-office`, `/consent`,
   `/device` and `/oauth`. Answers are light Markdown parsed to data and drawn by React (no HTML;
-  a link is a store path or an address on the page's own origin and opens in place; any other
-  address shows as plain text). Each widget runs in a sandboxed
+  a link opens in place only to a page `open_page` may open, the list of invariant 21; any other
+  address, the owner's pages and a path whose dot segments collapse into `//` show as plain text). Each widget runs in a sandboxed
   `srcdoc` frame (`allow-scripts` only, so an opaque origin) as an MCP Apps host: `ui/initialize`
   with the page's theme, `tools/call` sent to `POST /api/ask/widget`, `ui/message` refused,
   `ui/open-link` for the store's pages only, size changes clamped to 120 to 900 px. Chromium refuses an opaque-origin frame's requests to a loopback address, so the host
@@ -149,12 +150,14 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   the site's bag. The agent hears the site's bag in `<shop_context>` as `bag:` with catalogue titles
   and ids; on a `/checkout/chk_…` page, that checkout's lines instead (open, and the session's
   account's or no account's).
-  When voice is offered, a round icon of five bars beside Send asks for the password, then starts a
+  When voice is offered, a round icon of five bars beside Send shows from the panel's first
+  opening, before any message; it asks for the password (unlocking starts the conversation when
+  none runs), then starts a
   call (microphone, WebRTC to OpenAI with the server's answer, a data channel that only listens);
   while the call runs its bars move (still with reduced motion) and it hangs up, and a bar above
   the composer shows the countdown, the last caption and End; the composer waits and the
-  conversation refreshes every 3 s. Closing the panel, a page without it or an inactive session
-  hangs up. A call's end is a note "Voice call ended".
+  conversation refreshes every 3 s. Closing the panel, a page without it, an inactive session or
+  voice no longer offered (out of normal mode) hangs up. A call's end is a note "Voice call ended".
   **Minimised:** the header's "Minimise" button, Escape, or the site header's Ask button while the
   panel is open shrinks it to a bar at the bottom right (full width under 768 px) that hides the
   conversation and keeps everything else running: an answer being written, a voice call, the
@@ -172,7 +175,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   `signed_out`, `other_customer`, `ended_by_shopper`, `ended_by_console`), `session_locked` 423,
   `invalid_request` 400, `session_busy` 409 (a message of this session is still being answered),
   `not_signed_in` 401 (connect), `strict_mode` 403 (connect in strict
-  mode), `voice_unavailable` 404 (switch off, no OpenAI key, another provider, strict mode),
+  mode), `voice_unavailable` 404 (switch off, no OpenAI key, no `VOICE_MODE_PASSWORD`, another provider,
+  strict mode),
   `voice_locked` 403 (not unlocked), `invalid_password` 401, `voice_limit` 429 (fewer than 30 s
   left), `voice_failed` 502 (OpenAI refused or the sideband did not attach), `session_busy` 409
   (a call is already running),
@@ -286,7 +290,10 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     when refused no later than the stage it names, and its guard costs count in the day's total.
     Test: `ask/console.test.ts`.
 14. **Voice:** offered only when the session's model is OpenAI's, its mode normal, voice on and
-    OpenAI's key set; unlocked by `adyentic` checked on the server as two digests (5 wrong tries
+    OpenAI's key and `VOICE_MODE_PASSWORD` set (any length, unlike the console's; the owner sets
+    `adyentic`). Before the first message, or once a conversation ended, the panel is told voice as
+    a new session would offer it (none after a lock). Unlocked by that password checked on the
+    server as two digests (5 wrong tries
     per 15 minutes per address), per session. The browser holds no key and steers nothing: the
     server creates the GPT-Live session with client delegation and
     `allowed_client_events: []`, attaches its sideband before answering the SDP, and keeps one
@@ -295,11 +302,11 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     characters); sideband events replayed on attach count once. A call lasts at most the least of
     the session's and the day's voice minutes (running calls reserve theirs), both budgets at
     0.05 USD a minute, and the session's time left; the cap, an unexpected `session.updated`, an
-    ended session or the switch turned off closes it. Its seconds and cost land on the session and
+    ended session, a session out of normal mode or the switch turned off closes it. Its seconds and cost land on the session and
     on a note the day's totals count, even when the sideband is lost. The voice model's own words
     outside a delegation pass no stage: it has no tool, its instructions keep it to the shop, the
     shopper sees its captions, and the minutes cap bounds it. Test: `ask/voice.test.ts` with a
-    stubbed OpenAI.
+    stubbed OpenAI; `ask/config.test.ts` "the voice password takes any length".
 15. **Widget actions** go to `/mcp` only for `search_catalog`, `get_product`, `lookup_catalog`,
     `create_cart`, `update_cart`, `get_cart`, `create_checkout`, `update_checkout`,
     `get_checkout`, and `complete_checkout` only when connected and normal; anything else is
@@ -339,7 +346,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     nothing itself: a message's last accepted page rides on its `final` event only when stage 5
     let the answer through, and the agent's verdict names it for the console. Outside a shopper
     message, in an ended or locked session and in a voice delegation it is refused (the voice
-    says where to go instead). The panel checks the page again with the same list. Test:
+    says where to go instead). The panel checks the page again with the same list, and a link in an
+    answer opens in place only to a page on it. Test:
     `lib/storePages.test.ts`; `ask/agent.test.ts` "open_page"; `ask/pipeline.test.ts` "a blocked
     answer opens no page"; `components/ask/askLogic.test.ts` "store links only".
 
@@ -365,7 +373,8 @@ store's tools and Adyen, and links and amounts pass stage 5.
   at the stage it names.
 - `/console`: wrong password five times then 429; model change audited; a session's transcript with
   verdicts and costs.
-- Voice, by the owner on an OpenAI session: unlock with `adyentic`, ask for a product by voice,
+- Voice, by the owner on an OpenAI session: before any message, unlock with `adyentic`
+  (`VOICE_MODE_PASSWORD`), ask for a product by voice,
   the carousel appears in the chat.
 - At 375 and 1440 px, light and dark: minimise during an answer and during a voice call, both
   carry on and the bar shows them; navigate and reload, the bar stays; "take me to my account"

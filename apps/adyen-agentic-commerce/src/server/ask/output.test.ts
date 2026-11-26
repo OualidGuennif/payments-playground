@@ -58,6 +58,14 @@ describe("stage 5: output filter", () => {
     expect(result.scoreDelta).toBe(-5);
   });
 
+  test("a store address whose dot segments collapse to another site is removed", () => {
+    const result = run(
+      `[a](/..//evil.example/x) [b](/%2e%2e//evil.example/y) and ${STORE}/..//evil.example/z`,
+    );
+    expect(result.text).not.toContain("evil.example");
+    expect(result.scoreDelta).toBe(-5);
+  });
+
   test("bare foreign URLs are replaced; the store's are kept", () => {
     const result = run(`Go to ${STORE}/bag or https://evil.example/x or www.evil.example.`);
     expect(result.text).toBe(`Go to ${STORE}/bag or ${LINK_PLACEHOLDER} or ${LINK_PLACEHOLDER}`);

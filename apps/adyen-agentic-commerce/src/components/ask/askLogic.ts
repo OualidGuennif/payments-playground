@@ -2,7 +2,7 @@
 // The panel's pure parts, tested without a browser: reading the answer stream, the words shown
 // while it runs, which messages and widgets are drawn, and the MCP Apps host's replies to a widget.
 
-import { oddForUrl } from "../../lib/storePages";
+import { openablePage } from "../../lib/storePages";
 
 type Json = Record<string, unknown>;
 const record = (v: unknown): v is Json => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -176,7 +176,8 @@ export function storePath(url: unknown, origins: string[]): string | undefined {
   if (typeof url !== "string") return undefined;
   try {
     const parsed = new URL(url);
-    if (!origins.includes(parsed.origin)) return undefined;
+    // A path the parser collapsed to "//" would leave the store once the router reads it.
+    if (!origins.includes(parsed.origin) || parsed.pathname.startsWith("//")) return undefined;
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
     return undefined;
@@ -230,19 +231,10 @@ export type Block =
   | { kind: "h"; at: number; inline: Inline[] }
   | { kind: "ul" | "ol"; at: number; items: Item[] };
 
-// A link to this store only, as the path the router opens in place: another site's address, a
-// protocol-relative "//" or "/\" and any other scheme stay plain text. A backslash or a control
-// character is refused before parsing, since the URL parser reads the first as a slash and drops
-// the second.
-export function linkPath(href: string, origin: string): string | undefined {
-  if (oddForUrl(href)) return undefined;
-  try {
-    const url = new URL(href, origin);
-    return url.origin === origin ? `${url.pathname}${url.search}${url.hash}` : undefined;
-  } catch {
-    return undefined;
-  }
-}
+// A link opens in place only to a page open_page may open (spec invariant 21): another site, a
+// protocol-relative "//" or "/\", dot segments that collapse into one, the owner's pages, a query
+// the list does not name and any other scheme stay plain text.
+export const linkPath = (href: string, origin: string) => openablePage(href, origin);
 
 const INLINE =
   /`([^`\n]+)`|\[([^\]\n]+)\]\(\s*<?([^)\s>]+)>?\s*\)|\*\*([^*\n]+)\*\*|(?<![\w*])\*([^*\n]+)\*(?![\w*])|(?<!\w)_([^_\n]+)_(?!\w)|(https?:\/\/[^\s<>()]*[^\s<>().,;:!?'"])/g;

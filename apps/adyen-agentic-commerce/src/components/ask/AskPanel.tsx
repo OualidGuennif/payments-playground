@@ -21,7 +21,14 @@ import { AskText } from "./AskText";
 import { useVoice, VoiceButton, VoicePanel } from "./AskVoice";
 import { followBag, readCart } from "@/lib/client";
 import { openablePage } from "@/lib/storePages";
-import { askCall, savedAskState, sendMessage, setAskState, useAskState } from "./askClient";
+import {
+  askCall,
+  askState,
+  savedAskState,
+  sendMessage,
+  setAskState,
+  useAskState,
+} from "./askClient";
 import {
   afterPage,
   type AskMessage,
@@ -151,13 +158,6 @@ export function AskPanel() {
     if (answer.data.messages.length === 0) setTaps([]);
   }, []);
 
-  const voice = useVoice({
-    view,
-    active: shown && !hiddenOn(pathname) && view?.state === "active",
-    onUnlocked: () => void load(false),
-  });
-  const calling = voice.calling;
-
   const onResult = useCallback(
     (fed: Fed) => setTaps((t) => [...t.filter((x) => x.resourceUri !== fed.resourceUri), fed]),
     [],
@@ -167,16 +167,6 @@ export function AskPanel() {
   useEffect(() => {
     if (shown && pathname && !busy.current) void load(true);
   }, [shown, pathname, load]);
-
-  // During a voice call the conversation fills from the server: each voiced turn is a message.
-  useEffect(() => {
-    if (!calling) return;
-    const timer = setInterval(() => void load(true), 3_000);
-    return () => {
-      clearInterval(timer);
-      void load(true);
-    };
-  }, [calling, load]);
 
   // The page makes room for the docked panel on wide screens (globals.css).
   useEffect(() => {
@@ -220,7 +210,7 @@ export function AskPanel() {
       if (!path) return;
       setWide(false);
       const docks = window.matchMedia("(min-width: 1024px)").matches;
-      setAskState(afterPage(savedAskState(), docks));
+      setAskState(afterPage(askState(), docks));
       router.push(path);
     },
     [router],
@@ -238,6 +228,24 @@ export function AskPanel() {
     setNotice(undefined);
     return undefined;
   }, []);
+
+  const voice = useVoice({
+    view,
+    shown: shown && !hiddenOn(pathname),
+    begin: startNew,
+    onUnlocked: () => void load(false),
+  });
+  const calling = voice.calling;
+
+  // During a voice call the conversation fills from the server: each voiced turn is a message.
+  useEffect(() => {
+    if (!calling) return;
+    const timer = setInterval(() => void load(true), 3_000);
+    return () => {
+      clearInterval(timer);
+      void load(true);
+    };
+  }, [calling, load]);
 
   // One message through the whole pipeline; the answer streams its progress, then one final.
   const send = useCallback(

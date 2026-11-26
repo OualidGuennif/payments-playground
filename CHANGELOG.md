@@ -5,6 +5,17 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The voice password is now the owner's `VOICE_MODE_PASSWORD` (any length, so `adyentic` works;
+  unset, voice is not offered) instead of a word fixed in the code, and the voice icon shows from
+  the panel's first opening: unlocking starts the conversation, no message needed first.
+- Fix the findings of the panel's independent review. A link in an answer opens only to a page
+  `open_page` may open, so a store path whose dot segments collapse into `//` (`/..//other.site`)
+  and the owner's pages stay plain text; stage 5 and the widget's page opening refuse that path
+  too. A voice call ends when its conversation leaves normal mode, on the server and in the
+  panel, which no longer hides a running call's controls. Opening a page keeps the panel's state
+  when the browser refuses session storage.
+- The console page asks `GET /api/console/status` whether it is signed in, so a visit before
+  signing in no longer logs a refused call in the browser's console.
 - The Ask agent can open the store's own pages for the shopper: a new `open_page` tool takes only
   paths from a fixed list (account, bag, products, checkouts, orders, shop, docs, sign-in), never
   the console, Back Office, consent, device or OAuth pages, nor another site; the panel opens it

@@ -144,6 +144,23 @@ describe("light Markdown", () => {
     expect(linkPath("/\\evil.example/a", O)).toBeUndefined();
     expect(linkPath("javascript:alert(1)", O)).toBeUndefined();
     expect(linkPath("data:text/html,x", O)).toBeUndefined();
+    // Dot segments the parser collapses into a protocol-relative "//" path.
+    expect(linkPath("/..//evil.example", O)).toBeUndefined();
+    expect(linkPath("/%2e%2e//evil.example", O)).toBeUndefined();
+    expect(linkPath(`${O}/..//evil.example`, O)).toBeUndefined();
+    // The list open_page uses: the owner's pages and the Adyen return parameters stay plain text.
+    for (const owner of [
+      "/console",
+      "/back-office",
+      "/consent/c_1",
+      "/device?user_code=ABCD",
+      "/oauth/authorize?client_id=x",
+      "/api/ask/session/end",
+      "/mcp",
+      "/%2e%2e/console",
+      "/account?sessionId=x&redirectResult=y",
+    ])
+      expect(linkPath(owner, O)).toBeUndefined();
     expect(inlines("[pay](javascript:alert(1))", O).some((p) => p.kind === "link")).toBe(false);
     const parts = inlines("See [this](https://evil.example/x) or https://evil.example/y", O);
     expect(parts.some((p) => p.kind === "link")).toBe(false);
@@ -152,7 +169,7 @@ describe("light Markdown", () => {
 
   test("bold, code, links and a bare address without its full stop", () => {
     const parts = inlines(
-      "**Coat** in `M`: see [it](/products/coat) or https://x.test/a.",
+      "**Coat** in `M`: see [it](/products/coat) or https://x.test/cart.",
       "https://x.test",
     );
     expect(parts.map((p) => p.kind)).toEqual([
@@ -165,7 +182,7 @@ describe("light Markdown", () => {
       "link",
       "text",
     ]);
-    expect(parts[6]).toMatchObject({ href: "/a" });
+    expect(parts[6]).toMatchObject({ href: "/cart" });
     expect(parts.at(-1)).toMatchObject({ text: "." });
     expect(inlines("[link removed]", "https://x.test")).toEqual([
       { kind: "text", text: "[link removed]", at: 0 },
@@ -298,6 +315,8 @@ describe("the MCP Apps host", () => {
     });
     expect(storePath("javascript:alert(1)", [STORE])).toBeUndefined();
     expect(storePath(`${STORE}/cart?x=1#top`, [STORE])).toBe("/cart?x=1#top");
+    expect(storePath(`${STORE}/..//evil.example`, [STORE])).toBeUndefined();
+    expect(storePath(`${STORE}/%2e%2e//evil.example/x`, [STORE])).toBeUndefined();
   });
 
   test("notifications get no answer: ready sends the data, a size is clamped", async () => {

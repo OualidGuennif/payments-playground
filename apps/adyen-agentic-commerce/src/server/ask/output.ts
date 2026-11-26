@@ -24,8 +24,10 @@ const squashed = (text: string) =>
 
 const onStore = (href: string, storeOrigin: string) => {
   try {
-    // Resolved against the store, so a relative path stays and "//evil.example" does not.
-    return new URL(href, storeOrigin).origin === storeOrigin;
+    // Resolved against the store, so a relative path stays and "//evil.example" does not, nor a
+    // path whose dot segments collapse into "//", which a browser reads as another site.
+    const url = new URL(href, storeOrigin);
+    return url.origin === storeOrigin && !url.pathname.startsWith("//");
   } catch {
     return false;
   }

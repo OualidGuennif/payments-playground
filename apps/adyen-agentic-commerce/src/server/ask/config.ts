@@ -53,6 +53,7 @@ export type AskConfig = {
   voice: { enabled: boolean; model: string };
   limits: AskLimits;
   consolePassword?: string;
+  voicePassword?: string;
 };
 
 export const CONSOLE_PASSWORD_MIN = 16;
@@ -118,6 +119,9 @@ export function readAskConfig(env: Record<string, string | undefined>): AskConfi
     },
     limits,
     consolePassword: password && password.length >= CONSOLE_PASSWORD_MIN ? password : undefined,
+    // Any length, unlike the console's: a switch against casual use that the unlock route
+    // rate-limits per address (spec invariant 14). Unset, voice is not offered.
+    voicePassword: clean(env.VOICE_MODE_PASSWORD),
   };
 }
 

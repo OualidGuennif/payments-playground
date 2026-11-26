@@ -12,7 +12,7 @@ import {
   GUARD_MODEL,
   startFauxRuntime,
 } from "../testing/ask";
-import { readAskConfig, resetAskConfig } from "./config";
+import { askConfig, readAskConfig, resetAskConfig } from "./config";
 import { forgetHouseConnections } from "./house";
 import { forgetAskLimits } from "./limits";
 import { refusalText } from "./refusals";
@@ -37,6 +37,7 @@ const enable = (voice = true) =>
     answer: { model: ANSWER_MODEL, effort: "low" },
     guard: { model: GUARD_MODEL, effort: "minimal" },
     voice: { enabled: voice, model: "gpt-live-1.1" },
+    voicePassword: "adyentic",
   });
 
 type Sent = Record<string, unknown> & { type: string };
@@ -178,6 +179,33 @@ describe("unlocking", () => {
     const right = await browser.call("POST", "/api/ask/voice/unlock", { password: "adyentic" });
     expect(right.status).toBe(200);
     expect((await browser.view()).voice).toEqual({ available: true, unlocked: true });
+  });
+
+  test("before the first message voice shows as a new session would offer it", async () => {
+    const browser = new Browser();
+    const view = await browser.view();
+    expect(view.state).toBe("none");
+    expect(view.voice).toEqual({ available: true, unlocked: false });
+    // Unlocking needs the session the panel starts first.
+    expect(
+      (await browser.call("POST", "/api/ask/voice/unlock", { password: "adyentic" })).status,
+    ).toBe(409);
+  });
+
+  test("the password is VOICE_MODE_PASSWORD at any length; unset, voice is not offered", async () => {
+    resetAskConfig({ ...askConfig(), voicePassword: undefined });
+    const browser = new Browser();
+    expect((await browser.view()).voice.available).toBe(false);
+    await browser.call("POST", "/api/ask/session");
+    expect((await browser.view()).voice.available).toBe(false);
+    expect((await browser.call("POST", "/api/ask/voice/unlock", { password: "" })).status).toBe(
+      404,
+    );
+    resetAskConfig({ ...askConfig(), voicePassword: "ab" });
+    expect((await browser.view()).voice.available).toBe(true);
+    expect((await browser.call("POST", "/api/ask/voice/unlock", { password: "ab" })).status).toBe(
+      200,
+    );
   });
 
   test("five wrong tries per address, then 429 even with the right password", async () => {
@@ -364,6 +392,22 @@ describe("during a call", () => {
     tickCall(second.session.id);
     expect(second.socket.closed).toBe(true);
     expect(sessionById(second.session.id)?.voice.seconds).toBeGreaterThanOrEqual(600);
+  });
+
+  test("a conversation that leaves normal mode ends the call, since voice is no longer offered", async () => {
+    const { session, socket } = await inCall();
+    tickCall(session.id);
+    expect(socket.of("session.close")).toHaveLength(0);
+    const live = sessionById(session.id);
+    if (!live) throw new Error("no session");
+    // One injection refusal takes a new shopper from 100 to 65: strict mode, still active.
+    save({ ...live, score: 65 });
+    tickCall(session.id);
+    expect(socket.of("session.close")).toHaveLength(1);
+    socket.event(liveEvent("session.closed", { reason: "close_requested" }));
+    expect(transcript(session.id).at(-1)?.verdicts).toEqual([
+      { stage: "voice", result: "not_normal" },
+    ]);
   });
 
   test("hanging up, or ending the conversation, asks OpenAI to close the call", async () => {

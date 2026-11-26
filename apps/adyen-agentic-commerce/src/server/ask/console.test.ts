@@ -83,6 +83,7 @@ describe("signing in", () => {
       const owner = new Owner();
       expect((await owner.signIn("anything-at-all-123")).status).toBe(404);
       expect((await owner.call("GET", "/overview")).status).toBe(404);
+      expect((await owner.call("GET", "/status")).status).toBe(404);
     }
   });
 
@@ -105,7 +106,12 @@ describe("signing in", () => {
 
   test("every route needs the cookie; every POST the store's origin and X-Console", async () => {
     expect((await new Owner().call("GET", "/overview")).status).toBe(403);
+    // The page asks first whether it is signed in: a plain answer, never a refusal.
+    const before = await new Owner().call("GET", "/status");
+    expect(before.status).toBe(200);
+    expect(await before.json()).toEqual({ signedIn: false });
     const owner = await signedIn();
+    expect(await (await owner.call("GET", "/status")).json()).toEqual({ signedIn: true });
     expect((await owner.call("GET", "/overview")).status).toBe(200);
     const foreign = await owner.call("POST", "/settings", {}, { origin: "https://evil.example" });
     expect(foreign.status).toBe(403);
@@ -113,6 +119,7 @@ describe("signing in", () => {
     expect(noHeader.status).toBe(403);
     await owner.call("POST", "/logout");
     expect((await owner.call("GET", "/overview")).status).toBe(403);
+    expect(await (await owner.call("GET", "/status")).json()).toEqual({ signedIn: false });
   });
 });
 

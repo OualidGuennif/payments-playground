@@ -2,8 +2,9 @@
 // Spec: knowledge/components/ask-agent.md
 // Voice in the panel: a round icon beside Send starts it, the password the server checks unlocks
 // it, then one call at a time with live captions and a countdown. What the voice hears and answers
-// lands in the conversation. The state lives in the panel, which stays mounted while minimised;
-// closing the panel, leaving for a page without it or the session ending hangs up.
+// lands in the conversation. The icon shows from the panel's first opening; unlocking starts the
+// conversation if none is running. The state lives in the panel, which stays mounted while
+// minimised; closing the panel, leaving for a page without it or the session ending hangs up.
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { askCall } from "./askClient";
 import { type Caption, clockText, nextCaption, type SessionView } from "./askLogic";
@@ -13,11 +14,15 @@ type Phase = "idle" | "unlocking" | "connecting" | "live";
 
 export function useVoice({
   view,
-  active,
+  shown,
+  begin,
   onUnlocked,
 }: {
   view: SessionView | undefined;
-  active: boolean;
+  // The panel is open or minimised on a page that has it.
+  shown: boolean;
+  // Starts the conversation the unlock needs; a sentence when the store refused one.
+  begin: () => Promise<string | undefined>;
   onUnlocked: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -40,10 +45,19 @@ export function useVoice({
   // Unmounting the panel ends the call.
   useEffect(() => () => call.current?.end(), []);
 
-  // So does closing it, a page without the assistant, or a session that is no longer active.
+  // So does closing it, a page without the assistant, or voice no longer offered (out of normal
+  // mode): its controls are gone, so is the call. The icon shows before the first message too.
+  const available = shown && Boolean(view?.voice.available);
   useEffect(() => {
-    if (!active) end();
-  }, [active, end]);
+    if (!available) end();
+  }, [available, end]);
+
+  // A call belongs to its conversation: one that ended or locked hangs up.
+  const inCall = phase === "connecting" || phase === "live";
+  const sessionState = view?.state;
+  useEffect(() => {
+    if (inCall && sessionState !== "active") end();
+  }, [inCall, sessionState, end]);
 
   useEffect(() => {
     if (phase !== "live") return;
@@ -57,6 +71,11 @@ export function useVoice({
 
   const unlock = async (event: FormEvent) => {
     event.preventDefault();
+    // Before the first message there is no conversation yet: unlocking starts one.
+    if (view?.state !== "active") {
+      const refused = await begin();
+      if (refused) return setProblem(refused);
+    }
     const answer = await askCall<{ unlocked: boolean }>("/voice/unlock", { password });
     setPassword("");
     if (!answer.data) return setProblem(answer.message);
@@ -97,10 +116,10 @@ export function useVoice({
   };
 
   return {
-    available: active && Boolean(view?.voice.available),
+    available,
     unlocked: Boolean(view?.voice.unlocked),
     phase,
-    calling: phase === "connecting" || phase === "live",
+    calling: inCall,
     password,
     setPassword,
     problem,

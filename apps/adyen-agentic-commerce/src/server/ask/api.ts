@@ -152,19 +152,31 @@ export const liveSession = (h: Here) =>
 export const shownMode = (session: AskSession, customer: Customer | undefined) =>
   modeFor(session.score, isRegular(customer)) === "normal" ? "normal" : "strict";
 
-// Voice is offered on an OpenAI conversation in normal mode, with the switch on and OpenAI's key
-// set (spec invariant 14).
-export const voiceOffered = (h: Here, live: AskSession) =>
+// Voice is offered on an OpenAI conversation in normal mode, with the switch on, OpenAI's key and
+// the voice password set (spec invariant 14).
+const voiceSwitch = (h: Here) =>
   h.available &&
   h.settings.voiceEnabled &&
   askConfig().keys.openai &&
+  Boolean(askConfig().voicePassword);
+
+export const voiceOffered = (h: Here, live: AskSession) =>
+  voiceSwitch(h) &&
   live.answer.model.startsWith("openai/") &&
   shownMode(live, h.customer) === "normal";
+
+// Before the first message, or once a conversation ended, the panel offers voice as the session
+// its unlock starts would: a new one begins in normal mode on the answer model chosen now. A
+// locked conversation offers none.
+const voiceForNew = (h: Here) =>
+  voiceSwitch(h) &&
+  h.session?.state !== "locked" &&
+  Boolean(h.settings.answer?.model.startsWith("openai/"));
 
 // What the panel shows (spec Outputs): never a score, a verdict, a model, a cost or a key.
 export function sessionView(h: Here) {
   const live = liveSession(h);
-  const voice = Boolean(live && voiceOffered(h, live));
+  const voice = live ? voiceOffered(h, live) : voiceForNew(h);
   return {
     available: h.available,
     state: h.session?.state ?? "none",

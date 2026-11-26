@@ -158,11 +158,13 @@ function OverviewTab() {
 }
 
 export function ConsoleApp() {
-  // undefined: not known yet; the first overview call says which.
+  // undefined: not known yet; the status call says which.
   const [signedIn, setSignedIn] = useState<boolean>();
   const [tab, setTab] = useState<Tab>("overview");
   useEffect(() => {
-    void consoleCall("/overview").then((answer) => setSignedIn(answer.status === 200));
+    void consoleCall<{ signedIn: boolean }>("/status").then((answer) =>
+      setSignedIn(answer.data?.signedIn === true),
+    );
   }, []);
   if (signedIn === undefined) return <p className="text-sm text-muted">Loading…</p>;
   if (!signedIn) return <SignIn onDone={() => setSignedIn(true)} />;

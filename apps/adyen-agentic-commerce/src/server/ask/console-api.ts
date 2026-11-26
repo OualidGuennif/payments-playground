@@ -99,6 +99,13 @@ export const consoleApi = new Elysia({ prefix: "/api/console" })
     closeConsoleSession(request.headers.get("cookie"));
     return reply(200, { signedIn: false }, { "set-cookie": consoleCookie("", 0) });
   })
+  // Whether this browser holds a console sign-in: the page asks before it draws the form, so a
+  // visit before signing in leaves no refused call in the browser's console.
+  .get("/status", ({ request }) => {
+    const stop = refused(request, { post: false, signedIn: false });
+    if (stop) return stop;
+    return reply(200, { signedIn: consoleSignedIn(request.headers.get("cookie")) });
+  })
   .get(
     "/overview",
     ({ request }) =>

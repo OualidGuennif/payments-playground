@@ -93,6 +93,9 @@ export function setAskState(next: PanelState) {
   for (const listener of listeners) listener();
 }
 
+// The state now, held in memory: it stays right when storage is refused.
+export const askState = () => state;
+
 export function savedAskState(): PanelState {
   try {
     return savedState(sessionStorage.getItem(OPEN_KEY));

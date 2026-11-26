@@ -75,6 +75,13 @@ describe("ask config", () => {
     expect(readAskConfig({ CONSOLE_PASSWORD: PASSWORD }).consolePassword).toBe(PASSWORD);
   });
 
+  test("the voice password takes any length; empty or unset means none", () => {
+    expect(readAskConfig({ VOICE_MODE_PASSWORD: "adyentic" }).voicePassword).toBe("adyentic");
+    expect(readAskConfig({ VOICE_MODE_PASSWORD: "ab" }).voicePassword).toBe("ab");
+    expect(readAskConfig({ VOICE_MODE_PASSWORD: "" }).voicePassword).toBeUndefined();
+    expect(readAskConfig({}).voicePassword).toBeUndefined();
+  });
+
   test("disabled is safe: no key, no usable model", () => {
     const config = readAskConfig({});
     expect(usable(config.answer.model, config.keys)).toBe(false);

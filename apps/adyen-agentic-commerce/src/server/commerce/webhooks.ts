@@ -40,6 +40,8 @@ export function applyNotification(item: adyen.NotificationItem): string {
   }
   if (success) {
     if (record.purpose === "agent") holdReservation(record, checkout.grantId);
+    // A held amount mismatch waits for a person: no payment turns it into an order.
+    if (checkout.lastMessage?.code === "amount_mismatch") return "amount mismatch held, no order";
     const placed = placePaidOrder(checkout, record, item.pspReference, item.amount?.value);
     if (typeof placed === "string") {
       holdMismatch(checkout, placed);
@@ -51,11 +53,12 @@ export function applyNotification(item: adyen.NotificationItem): string {
   // A refused Drop-in payment no longer holds the checkout; another payment's hold stays.
   const paying = checkout.paying?.reference === record.reference ? undefined : checkout.paying;
   if (refusalReopens(checkout, record.reference)) {
-    // The refused payment was the last one on this bag, so it has no payer any more.
+    // The payer goes with the refused payment; another tab's form still holding the checkout
+    // keeps its own.
     saveCheckout({
       ...checkout,
       paying,
-      payerId: undefined,
+      payerId: paying ? checkout.payerId : undefined,
       phase: "open",
       lastMessage: {
         type: "error",

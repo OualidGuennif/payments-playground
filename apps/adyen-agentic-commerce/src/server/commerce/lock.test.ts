@@ -412,6 +412,76 @@ describe("payment lock", () => {
     expect(held(checkout.id)?.phase).toBe("open");
   });
 
+  test("an agent's retry after a network error keeps a refusal its webhook recorded meanwhile", async () => {
+    const { checkout } = await openedOnTheWeb();
+    fake.answers.push(new Error("timeout"));
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    expect(held(checkout.id)?.phase).toBe("open");
+    commerce.applyNotification(refusal(`${checkout.id}-a2`));
+    // Adyen replays the first answer for the same idempotency key.
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    expect(held(checkout.id)?.phase).toBe("open");
+    const rows = list<{ reference: string }>("payments").filter(
+      (p) => p.reference === `${checkout.id}-a2`,
+    );
+    expect(rows).toHaveLength(1);
+  });
+
+  for (const status of ["canceled", "expired", "refused"]) {
+    test(`a pending answer after the session ended ${status} changes nothing`, async () => {
+      const { checkout, session } = await openedOnTheWeb();
+      commerce.claimWebPayment(checkout.id, session.id);
+      fake.session = { status, payments: [] };
+      await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+      fake.session = { status: "paymentPending", payments: [] };
+      await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+      expect(held(checkout.id)?.phase).toBe("open");
+    });
+  }
+
+  test("an 'active' answer with no payment leaves a pending Drop-in payment pending", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    fake.settle = async () => {
+      fake.session = { status: "paymentPending", payments: [] };
+      await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+      fake.session = { status: "active", payments: [] };
+      await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    };
+    fake.answers.push({ resultCode: "Refused", refusalReason: "Refused" });
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+  });
+
+  test("a pending answer of an older form leaves the hold of a newer one", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id, Date.now() - commerce.PAYING_MS - 1);
+    const newer = await commerce.startShopperSession(reload(checkout.id));
+    commerce.claimWebPayment(checkout.id, newer.id, Date.now(), "cus_newer");
+    fake.session = { status: "paymentPending", payments: [] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(commerce.payingNow(reload(checkout.id))?.reference).toBe(`${checkout.id}-s2`);
+    commerce.applyNotification(refusal(`${checkout.id}-s1`));
+    expect(held(checkout.id)?.phase).toBe("open");
+    expect(commerce.payingNow(reload(checkout.id))?.reference).toBe(`${checkout.id}-s2`);
+    expect(held(checkout.id)?.payerId).toBe("cus_newer");
+  });
+
+  test("an agent's success webhook never turns a held amount mismatch into an order", async () => {
+    const { checkout } = await openedOnTheWeb();
+    fake.during = mismatchDuring(checkout.id);
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    commerce.applyNotification({
+      eventCode: "AUTHORISATION",
+      success: "true",
+      merchantReference: `${checkout.id}-a2`,
+      pspReference: "PSPAGENT",
+    } as never);
+    expect(held(checkout.id)?.lastMessage?.code).toBe("amount_mismatch");
+    expect(list<commerce.Order>("orders")).toHaveLength(0);
+  });
+
   test("a hold past its time holds nothing", async () => {
     const { checkout, session } = await openedOnTheWeb();
     const at = Date.now();

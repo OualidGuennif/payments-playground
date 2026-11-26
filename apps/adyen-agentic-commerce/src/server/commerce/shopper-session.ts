@@ -94,15 +94,20 @@ export async function finishShopperSession(
   const checkout = get<Checkout>("checkouts", loaded.id) ?? loaded;
   const record = get<PaymentRecord>("payments", known.id) ?? known;
   const authorised = result.payments.find((p) => p.resultCode === "Authorised");
-  // A refusal webhook may have settled this payment during the await: an answer that names no
-  // newer payment is older than it and must not mark the payment pending again.
+  // An answer that names no newer payment changes nothing once the session has ended (it takes no
+  // more payments), or once a refusal webhook landed during this await: it is older than them. An
+  // "active" answer with no payment says nothing about the payment either.
   const newer = result.payments.some(
     (p) => p.pspReference !== undefined && p.pspReference !== record.pspReference,
   );
-  const settled = !authorised && !newer && record.resultCode === "Refused";
+  const ended =
+    FAILED.has(record.resultCode ?? "") ||
+    (record.resultCode === "Refused" && known.resultCode !== "Refused");
+  const settled = !authorised && !newer && ended;
+  const silent = result.status === "active" && !result.payments.length;
   put("payments", record.id, {
     ...record,
-    resultCode: authorised ? "Authorised" : settled ? record.resultCode : result.status,
+    resultCode: authorised ? "Authorised" : settled || silent ? record.resultCode : result.status,
     pspReference:
       authorised?.pspReference ?? result.payments[0]?.pspReference ?? record.pspReference,
     updatedAt: now(),
@@ -123,14 +128,19 @@ export async function finishShopperSession(
     const placed = placePaidOrder(checkout, record, authorised.pspReference, authorised.amount);
     if (typeof placed === "string") holdMismatch(checkout, placed);
   } else if (result.status === "paymentPending" && !settled) {
-    saveCheckout({ ...checkout, phase: "complete_in_progress", paying: undefined });
+    // This payment no longer holds the checkout; the form of another tab keeps its own hold.
+    const paying = checkout.paying?.reference === record.reference ? undefined : checkout.paying;
+    saveCheckout({ ...checkout, phase: "complete_in_progress", paying });
   } else if (FAILED.has(result.status) && refusalReopens(checkout, record.reference)) {
     // This attempt's pending payment failed after all: Adyen's answer reopens the checkout as its
     // refusal webhook would, which a local run never receives.
+    const paying = checkout.paying?.reference === record.reference ? undefined : checkout.paying;
     saveCheckout({
       ...checkout,
       phase: "open",
-      payerId: undefined,
+      paying,
+      // The payer goes with this payment; another tab's form still holding the checkout keeps its own.
+      payerId: paying ? checkout.payerId : undefined,
       lastMessage: {
         type: "error",
         code: "payment_refused",

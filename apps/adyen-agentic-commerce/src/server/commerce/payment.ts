@@ -4,7 +4,7 @@
 import { variantById } from "../catalog/catalog";
 import { CURRENCY } from "../core/config";
 import { customerById } from "../accounts/customers";
-import { get, put } from "../core/db";
+import { findBy, get, put } from "../core/db";
 import { allows, type Auth, chargeGrant, liveAuth } from "../oauth/oauth";
 import { trace } from "../core/trace";
 import { isRecord, newId } from "../core/util";
@@ -329,8 +329,14 @@ export async function completeCheckout(
   const grantId = live?.grant.id;
   const agentName = claimed.agentName ?? "Guest agent";
   const paymentReference = `${checkout.id}-a${attempt}`;
+  // A retry after a network error is the same payment at Adyen (same idempotency key): it keeps
+  // the one record, and a refusal a webhook recorded on it meanwhile.
+  const prior = findBy<PaymentRecord>("payments", "reference", paymentReference)[0];
   const record: PaymentRecord = {
-    id: newId("pay"),
+    id: prior?.id ?? newId("pay"),
+    resultCode: prior?.resultCode === "Refused" ? "Refused" : undefined,
+    refusalReason: prior?.resultCode === "Refused" ? prior.refusalReason : undefined,
+    pspReference: prior?.resultCode === "Refused" ? prior.pspReference : undefined,
     purpose: "agent",
     channel: "agent",
     instrument: instrument.handler,
@@ -341,7 +347,7 @@ export async function completeCheckout(
     lines: checkout.lines,
     reservation: live ? "held" : undefined,
     agentName,
-    createdAt: now(),
+    createdAt: prior?.createdAt ?? now(),
     updatedAt: now(),
   };
   put("payments", record.id, record);
@@ -430,7 +436,9 @@ export async function completeCheckout(
       ...result,
     },
   });
-  if (result.resultCode === "Authorised") {
+  // The answer that stands: a webhook's, when one came first.
+  const code = answered.resultCode;
+  if (code === "Authorised") {
     // The webhook may have placed the order, or held a mismatch, while the call was in flight.
     const current = get<Checkout>("checkouts", checkout.id) ?? claimed;
     if (!current.orderId && current.lastMessage?.code !== "amount_mismatch") {
@@ -442,8 +450,7 @@ export async function completeCheckout(
   }
   // Pending keeps the reservation until the webhook settles it.
   // Answered as it stands now: a webhook may have settled the checkout during the call.
-  if (result.resultCode === "Pending" || result.resultCode === "Received")
-    return loadCheckout(checkout.id, "browser");
+  if (code === "Pending" || code === "Received") return loadCheckout(checkout.id, "browser");
   // A refusal ends this attempt, not the order: the shopper can still pay at continue_url.
   releaseReservation(answered, grantId);
   const retry =
@@ -458,7 +465,7 @@ export async function completeCheckout(
     lastMessage: {
       type: "error",
       code: "payment_refused",
-      content: `Adyen answered ${result.resultCode}${result.refusalReason ? ` (${result.refusalReason})` : ""}. ${retry}`,
+      content: `Adyen answered ${code}${answered.refusalReason ? ` (${answered.refusalReason})` : ""}. ${retry}`,
       severity: "requires_buyer_review",
     },
   });

@@ -16,6 +16,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   too. A voice call ends when its conversation leaves normal mode, on the server and in the
   panel, which no longer hides a running call's controls. Opening a page keeps the panel's state
   when the browser refuses session storage.
+- Fix the findings of the release's full review. A link or page whose query is named like an
+  object's own property (`/cart?toString=1`) is refused instead of crashing the panel or the
+  agent's turn, and a locked conversation shows no voice icon, so unlocking cannot start a new
+  conversation the panel does not offer.
 - The console page asks `GET /api/console/status` whether it is signed in, so a visit before
   signing in no longer logs a refused call in the browser's console.
 - The Ask agent can open the store's own pages for the shopper: a new `open_page` tool takes only

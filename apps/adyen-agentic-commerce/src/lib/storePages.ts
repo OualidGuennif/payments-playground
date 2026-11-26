@@ -36,7 +36,8 @@ export function openablePage(value: unknown, origin: string): string | undefined
   const page = PAGES.find((p) => p.path.test(url.pathname));
   if (!page) return undefined;
   for (const [name, text] of url.searchParams) {
-    const rule = page.query[name];
+    // Own rules only: a name such as "toString" must not reach Object.prototype.
+    const rule = Object.hasOwn(page.query, name) ? page.query[name] : undefined;
     if (!rule?.test(text)) return undefined;
   }
   return `${url.pathname}${url.search ? `?${url.searchParams}` : ""}${url.hash}`;

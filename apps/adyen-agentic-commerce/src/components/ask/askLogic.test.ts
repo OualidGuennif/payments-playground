@@ -21,6 +21,8 @@ import {
   linkPath,
   launcherNext,
   afterPage,
+  type SessionView,
+  voiceShown,
   savedState,
   preview,
   shownMessages,
@@ -202,6 +204,22 @@ describe("light Markdown", () => {
     expect(blocks("<img src=x onerror=alert(1)>", "")).toEqual([
       { kind: "p", at: 0, inline: [{ kind: "text", text: "<img src=x onerror=alert(1)>", at: 0 }] },
     ]);
+  });
+});
+
+describe("voice in the panel", () => {
+  const view = (state: SessionView["state"], available = true) =>
+    ({ state, voice: { available, unlocked: false } }) as SessionView;
+
+  test("shown before the first message and after an end, never on a locked conversation", () => {
+    expect(voiceShown(true, view("none"))).toBe(true);
+    expect(voiceShown(true, view("ended"))).toBe(true);
+    expect(voiceShown(true, view("active"))).toBe(true);
+    // A 423 marks the view locked while its voice field is still the last one read.
+    expect(voiceShown(true, view("locked"))).toBe(false);
+    expect(voiceShown(true, view("active", false))).toBe(false);
+    expect(voiceShown(false, view("active"))).toBe(false);
+    expect(voiceShown(true, undefined)).toBe(false);
   });
 });
 

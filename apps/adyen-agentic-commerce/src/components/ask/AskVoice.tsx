@@ -7,7 +7,7 @@
 // minimised; closing the panel, leaving for a page without it or the session ending hangs up.
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { askCall } from "./askClient";
-import { type Caption, clockText, nextCaption, type SessionView } from "./askLogic";
+import { type Caption, clockText, nextCaption, type SessionView, voiceShown } from "./askLogic";
 import { startVoiceCall, type VoiceCall } from "./voiceCall";
 
 type Phase = "idle" | "unlocking" | "connecting" | "live";
@@ -47,7 +47,7 @@ export function useVoice({
 
   // So does closing it, a page without the assistant, or voice no longer offered (out of normal
   // mode): its controls are gone, so is the call. The icon shows before the first message too.
-  const available = shown && Boolean(view?.voice.available);
+  const available = voiceShown(shown, view);
   useEffect(() => {
     if (!available) end();
   }, [available, end]);
@@ -71,7 +71,9 @@ export function useVoice({
 
   const unlock = async (event: FormEvent) => {
     event.preventDefault();
-    // Before the first message there is no conversation yet: unlocking starts one.
+    // Before the first message, or after an end, unlocking starts the conversation; a locked one
+    // shows no voice and starts none.
+    if (view?.state === "locked") return;
     if (view?.state !== "active") {
       const refused = await begin();
       if (refused) return setProblem(refused);

@@ -26,6 +26,17 @@ describe("the pages the Ask agent may open (spec invariant 21)", () => {
     expect(open(`${ORIGIN}/account#orders`)).toBe("/account#orders");
   });
 
+  test("a query named like an object's own property is refused, never a crash", () => {
+    for (const path of [
+      "/cart?toString=1",
+      "/shop?constructor=x",
+      "/products/coat?hasOwnProperty=1",
+      "/cart?__proto__=1",
+      "/account?valueOf=1",
+    ])
+      expect(open(path)).toBeUndefined();
+  });
+
   test("another site never opens", () => {
     expect(open("https://evil.example/account")).toBeUndefined();
     expect(open("//evil.example/account")).toBeUndefined();

@@ -15,6 +15,11 @@ export type AskMessage = {
   at: number;
 };
 export type Mode = "normal" | "strict";
+// The voice icon: on a page that has the panel, when the server offers voice, and never on a
+// locked conversation, whose view a refused message marks locked before it is read again.
+export const voiceShown = (shown: boolean, view: SessionView | undefined) =>
+  shown && view?.state !== "locked" && Boolean(view?.voice.available);
+
 export type SessionView = {
   available: boolean;
   state: "active" | "ended" | "locked" | "none";

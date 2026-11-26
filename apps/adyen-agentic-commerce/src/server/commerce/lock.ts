@@ -91,15 +91,13 @@ export function claimWebPayment(
     );
   }
   const until = new Date(at + PAYING_MS).toISOString();
+  const payer = viewerId && viewerId !== checkout.customerId ? viewerId : undefined;
   return saveCheckout({
     ...checkout,
     paying: { channel: "web", reference: record.reference, until },
-    // The same form claiming again (a retry) keeps the payer its first claim named.
-    payerId: held
-      ? checkout.payerId
-      : viewerId && viewerId !== checkout.customerId
-        ? viewerId
-        : undefined,
+    // The same form claiming again (a retry) keeps the payer its first claim named, or names the
+    // shopper who has signed in since.
+    payerId: held ? (checkout.payerId ?? payer) : payer,
   });
 }
 

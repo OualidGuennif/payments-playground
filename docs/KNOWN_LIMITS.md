@@ -63,9 +63,9 @@ from the server. On the website, Drop-in's Sessions flow sends the payment from 
 Adyen, and the store's hold is asked in `beforeSubmit`: a modified browser that skips it can still
 get a second authorisation. The store then places no second order (the checkout is already
 completed), and the extra authorisation is cancelled by hand in the Customer Area.
-A checkout's id is its link: whoever holds `continue_url` may pay it, and a payment form opened
-there holds the checkout, and its account's other payments, for up to 15 minutes, so a holder of
-that link can also delay the account that way. A form that fails in the browser before Adyen
+A checkout's id is its link: whoever holds `continue_url` may pay it, and pressing Pay in the
+payment form there holds the checkout, and its account's other payments, for up to 15 minutes, so
+a holder of that link can also delay the account that way. A form that fails in the browser before Adyen
 answers does not tell the store; its hold simply runs out. A signed-in shopper who opens the
 payment form of a checkout no account holds becomes that checkout's account, and a checkout an
 agent created without a token stays open to any agent that has its id.

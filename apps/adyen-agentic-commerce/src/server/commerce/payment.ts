@@ -254,13 +254,14 @@ export function chosenInstrument(body: Record<string, unknown>): Instrument | un
 }
 
 // An agent's payment that failed may reopen the checkout only if its claim still stands: while
-// the call was in flight a webhook may have placed an order (a Drop-in payment that skipped the
-// hold) or refused it and let the shopper's Drop-in claim the checkout for a newer attempt.
+// the call was in flight a webhook may have placed an order or held an amount mismatch (a Drop-in
+// payment that skipped the hold), or refused it and let the shopper's Drop-in claim a newer attempt.
 function stillClaimed(id: string, attempt: number): Checkout | undefined {
   const current = get<Checkout>("checkouts", id);
   return current?.phase === "complete_in_progress" &&
     current.attempts === attempt &&
-    !current.orderId
+    !current.orderId &&
+    current.lastMessage?.code !== "amount_mismatch"
     ? current
     : undefined;
 }
@@ -439,7 +440,9 @@ export async function completeCheckout(
     return loadCheckout(checkout.id, "browser");
   }
   // Pending keeps the reservation until the webhook settles it.
-  if (result.resultCode === "Pending" || result.resultCode === "Received") return claimed;
+  // Answered as it stands now: a webhook may have settled the checkout during the call.
+  if (result.resultCode === "Pending" || result.resultCode === "Received")
+    return loadCheckout(checkout.id, "browser");
   // A refusal ends this attempt, not the order: the shopper can still pay at continue_url.
   releaseReservation(answered, grantId);
   const retry =

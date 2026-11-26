@@ -212,11 +212,69 @@ describe("payment lock", () => {
     });
   }
 
-  test("a re-claim of the held form keeps its payer", async () => {
+  // The same Drop-in payment, authorised for another amount, holds the checkout as a mismatch.
+  const mismatchDuring = (id: string) => () =>
+    commerce.applyNotification({
+      eventCode: "AUTHORISATION",
+      success: "true",
+      merchantReference: `${id}-s1`,
+      pspReference: "PSPWEB",
+      amount: { value: 1, currency: "EUR" },
+    } as never);
+  const held = (id: string) => get<commerce.Checkout>("checkouts", id);
+
+  for (const [name, answer] of [
+    ["refusal", { resultCode: "Refused", refusalReason: "Refused" }],
+    ["error", new Error("timeout")],
+  ] as const) {
+    test(`an agent's ${name} answering after an amount mismatch keeps the checkout held`, async () => {
+      const { checkout } = await openedOnTheWeb();
+      fake.during = mismatchDuring(checkout.id);
+      fake.answers.push(answer);
+      await commerce.completeCheckout(reload(checkout.id), agentPays);
+      expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+      expect(held(checkout.id)?.lastMessage?.code).toBe("amount_mismatch");
+    });
+  }
+
+  test("an agent's pending answer after the order was placed answers with the order", async () => {
+    const { checkout } = await openedOnTheWeb();
+    fake.during = () =>
+      commerce.applyNotification({
+        eventCode: "AUTHORISATION",
+        success: "true",
+        merchantReference: `${checkout.id}-s1`,
+        pspReference: "PSPWEB",
+      } as never);
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPPENDING" });
+    const answered = await commerce.completeCheckout(reload(checkout.id), agentPays);
+    expect(answered.phase).toBe("completed");
+  });
+
+  test("a re-claim of the held form keeps its payer, or names the one signed in since", async () => {
     const { checkout, session } = await openedOnTheWeb();
     commerce.claimWebPayment(checkout.id, session.id, Date.now(), "cus_payer");
     commerce.claimWebPayment(checkout.id, session.id);
-    expect(get<commerce.Checkout>("checkouts", checkout.id)?.payerId).toBe("cus_payer");
+    expect(held(checkout.id)?.payerId).toBe("cus_payer");
+    const { checkout: later, session: form } = await openedOnTheWeb();
+    commerce.claimWebPayment(later.id, form.id);
+    commerce.claimWebPayment(later.id, form.id, Date.now(), "cus_signed_in");
+    expect(held(later.id)?.payerId).toBe("cus_signed_in");
+  });
+
+  test("a pending Drop-in payment still active, or held as a mismatch, is not reopened", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id);
+    fake.session = { status: "paymentPending", payments: [] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    fake.session = { status: "active", payments: [] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+    mismatchDuring(checkout.id)();
+    fake.session = { status: "refused", payments: [{ resultCode: "Refused" }] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+    expect(held(checkout.id)?.lastMessage?.code).toBe("amount_mismatch");
   });
 
   test("a pending Drop-in payment that then fails reopens the checkout", async () => {

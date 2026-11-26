@@ -77,6 +77,9 @@ export async function startShopperSession(loaded: Checkout, customer?: Customer)
   };
 }
 
+// The session statuses that end a payment without paying; "active" is still under way.
+const FAILED = new Set(["refused", "canceled", "expired"]);
+
 export async function finishShopperSession(
   loaded: Checkout,
   sessionId: string,
@@ -113,11 +116,13 @@ export async function finishShopperSession(
   } else if (result.status === "paymentPending") {
     saveCheckout({ ...checkout, phase: "complete_in_progress", paying: undefined });
   } else if (
+    FAILED.has(result.status) &&
     checkout.phase === "complete_in_progress" &&
+    checkout.lastMessage?.code !== "amount_mismatch" &&
     record.reference === `${checkout.id}-s${checkout.attempts}`
   ) {
     // This attempt's pending payment failed after all: Adyen's answer reopens the checkout as its
-    // refusal webhook would, which a local run never receives.
+    // refusal webhook would, which a local run never receives. A mismatch stays held.
     saveCheckout({
       ...checkout,
       phase: "open",

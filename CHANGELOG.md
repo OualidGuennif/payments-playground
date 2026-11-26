@@ -7,12 +7,14 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [0.8.0] - 2026-11-26
 
-- Fix three findings of the release's security review of the payment lock. An agent's refused or
-  failed payment no longer reopens a checkout whose order a webhook placed while the call was in
-  flight, nor one the shopper's Drop-in has claimed since. A pending Drop-in payment that Adyen
-  later answers as failed reopens its checkout, as the refusal webhook would. The same payment
-  form claiming again keeps the payer its first claim named. `docs/KNOWN_LIMITS.md` now says what
-  a checkout's link lets its holder do.
+- Fix the findings of the release's security review of the payment lock. An agent's refused or
+  failed payment no longer reopens a checkout whose order, or amount mismatch, a webhook recorded
+  while the call was in flight, nor one the shopper's Drop-in has claimed since, and a pending
+  answer reports the checkout as it stands. A pending Drop-in payment that Adyen later answers as
+  refused, canceled or expired reopens its checkout, as the refusal webhook would, unless it is
+  held as a mismatch. The same payment form claiming again keeps the payer its first claim named,
+  or names the shopper who signed in since. `docs/KNOWN_LIMITS.md` now says what a checkout's link
+  lets its holder do.
 
 - Run the Ask agent's MCP client on `@modelcontextprotocol/client` 2.3.1 instead of the 2.0.0
   that Flue 2.3.1 pins, through a root `overrides` entry: 2.0.0 carries GHSA-6prh-2h8m-c8cw

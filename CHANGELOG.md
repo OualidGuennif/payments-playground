@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-26
+
 - The Ask panel opens a page only when the shopper asks for it or taps a widget button: the
   agent's `open_page` refuses a widget's tap and its prompt forbids pages nobody asked for, and
   each carousel card gains "Show details", which opens the product's page.

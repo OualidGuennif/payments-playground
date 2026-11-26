@@ -8,11 +8,11 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 ## Ask agent on the agentic store, a PAP agent — ACTIVE
 
 - Owner decision: 2026-11-25, Ask agent plan; 2026-11-26, 7-point panel plan approved (voice
-  pages, Show details, mute, side talk, iPhone fields, compact widget, receipt sign-in).
-- State: v0.9.0 live; the 7 points are built, checked and seen at 375/1440 px on develop, not
-  released.
-- Next: independent review and push develop (who: agent); visual yes on the screenshots, then
-  release v0.9.1 (who: owner decides); Pi exemption ends 12-02.
+  pages, Show details, mute, side talk, iPhone fields, compact widget, receipt sign-in); same day,
+  in chat, release v0.9.1 approved ("Gooo push").
+- State: v0.9.0 live; v0.9.1 cut on develop, the 7 points reviewed (a254fbe, fd50c24, 024db55).
+- Next: release PR to main, review, green CI, merge, tag, Render deploy and production review
+  (who: agent); Pi exemption ends 12-02.
 - Blocker: none.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 

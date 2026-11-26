@@ -26,6 +26,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   sign-in or tapped "Use a passkey", and a passkey picked just before leaving signs in without
   setting the email. The session view carries only a voiced answer's page, and a call measures
   "after the call began" on the server's clock, so a typed answer's page never opens twice.
+- Every voice call starts unmuted: a mute toggled while a call that then failed was connecting
+  no longer carries over to the next call.
 
 ## [0.9.0] - 2026-11-26
 

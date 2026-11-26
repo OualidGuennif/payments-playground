@@ -95,6 +95,9 @@ export function useVoice({
     setProblem(undefined);
     setCaption(undefined);
     cancelled.current = false;
+    // Every call starts unmuted, even after one that failed while connecting.
+    mutedNow.current = false;
+    setMuted(false);
     setPhase("connecting");
     const started = await startVoiceCall((event) => {
       if (event.kind === "started") {
@@ -113,6 +116,8 @@ export function useVoice({
     });
     if (started.problem) {
       setProblem(started.problem.message);
+      mutedNow.current = false;
+      setMuted(false);
       setPhase("idle");
       return;
     }

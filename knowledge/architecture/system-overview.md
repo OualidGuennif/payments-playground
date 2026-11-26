@@ -7,7 +7,7 @@ status: stable
 scope: system-overview
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T10:00:00Z
+  at: 2026-11-26T01:20:00Z
 sources:
   - id: architecture-doc
     resource: git-history:docs/ARCHITECTURE.md
@@ -48,7 +48,8 @@ payments-playground/
 
 Versions are exact in every `package.json`; `bunfig.toml` hoists one copy of each into the root
 `node_modules`, refuses versions published in the last week (`minimumReleaseAge`), and `bun.lock`
-is the one lockfile.
+is the one lockfile. The root `overrides` raises one transitive package past a vulnerable pin
+(`@modelcontextprotocol/client`, under Flue: [ADR-018](../decisions/ADR-018-ask-agent-flue-in-process.md)).
 
 ## How one app is put together
 

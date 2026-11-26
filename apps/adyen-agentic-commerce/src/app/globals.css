@@ -92,6 +92,13 @@
   }
 }
 
+/* The Ask panel docks on the right of a wide screen: the page makes room rather than hide under it. */
+@media (min-width: 1024px) {
+  html[data-ask="docked"] body {
+    padding-right: 420px;
+  }
+}
+
 /* The Docs diagrams draw the current message, then fade in an answer. */
 @keyframes seq-draw {
   from {

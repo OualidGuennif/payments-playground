@@ -1,12 +1,12 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // The HTTP edge for agents: rate limit, bearer token, Poppy-Session, UCP headers, idempotency and
 // the trace, in front of the UCP operation table (REST under /ucp/v1, JSON-RPC at /mcp).
-import { createHmac, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
 import { CommerceError } from "./commerce/commerce";
 import { config, UCP_VERSION } from "./core/config";
 import { database } from "./core/db";
-import { type Auth, authenticate, issuer } from "./oauth/oauth";
+import { credentialFingerprint } from "./core/fingerprint";
+import { type Auth, authenticate, issuer, type ResourcePath } from "./oauth/oauth";
 import { PapError, type PapSession, verifyPoppy } from "./pap/pap";
 import { negotiate, ProfileError, profileFromHeader } from "./ucp/profile";
 import { trace } from "./core/trace";
@@ -27,6 +27,7 @@ import {
 } from "./ucp/ucp";
 import { canonicalJson, isRecord, isUuid, json, readJson, sha256 } from "./core/util";
 import { MCP_TOOLS } from "./mcp/mcp-tools";
+import { type CallTool, codeTools, runCode, toolAnswerOf, toolResultOf } from "./mcp/codemode";
 import { listResources, readResource, stylistPromptText } from "./mcp/widgets";
 
 const WINDOW_MS = 60_000;
@@ -103,8 +104,8 @@ const mcpError = (id: unknown, code: string, content: string, extra: object = {}
 
 type Edge = { auth?: Auth; session?: PapSession; actor: string; response?: Response };
 
-async function edge(request: Request, resourcePath: "" | "/mcp"): Promise<Edge> {
-  const mcp = resourcePath === "/mcp";
+async function edge(request: Request, resourcePath: ResourcePath): Promise<Edge> {
+  const mcp = resourcePath !== "";
   const refuse = (response: Response): Edge => ({ actor: "?", response });
   const retry = rateLimited(clientIp(request));
   if (retry) {
@@ -159,15 +160,9 @@ async function edge(request: Request, resourcePath: "" | "/mcp"): Promise<Edge> 
 // --- idempotency -------------------------------------------------------------------------------
 
 // A complete body is fixed but for a network token's number and expiry, so a plain hash of it
-// could be searched offline. Each credential enters the stored hash only through an HMAC whose key
-// never reaches the database (derived from the Adyen API key, else random for this process): a
-// different credential under the same Idempotency-Key is still another body (409).
-let fingerprintKey: string | Buffer | undefined;
-function credentialFingerprint(credential: unknown): string {
-  const apiKey = config().adyen.apiKey;
-  fingerprintKey ??= apiKey ? sha256(`velune-idempotency:${apiKey}`) : randomBytes(32);
-  return createHmac("sha256", fingerprintKey).update(canonicalJson(credential)).digest("hex");
-}
+// could be searched offline. Each credential enters the stored hash only through a keyed HMAC
+// (core/fingerprint.ts): a different credential under the same Idempotency-Key is still another
+// body (409).
 
 function withFingerprints(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(withFingerprints);
@@ -449,7 +444,149 @@ const rpcError = (id: unknown, code: number, message: string, data?: unknown) =>
 export async function handleMcp(request: Request): Promise<Response> {
   if (request.method !== "POST")
     return json(405, rpcError(null, -32000, "Use POST"), { allow: "POST" });
-  const e = await edge(request, "/mcp");
+  return serveMcp(request, await edge(request, "/mcp"));
+}
+
+// The store's own Ask agent (knowledge/components/ask-agent.md) reaches the same handler
+// in-process, never through a route. Without a token it is a guest exactly as a signed-out PAP
+// agent is; with its shopper's grant token, that token is checked like any other, so the house
+// agent holds no privilege of its own. Its per-address limits are the Ask agent's.
+export async function handleHouseMcp(request: Request, guest: PapSession): Promise<Response> {
+  if (request.method !== "POST")
+    return json(405, rpcError(null, -32000, "Use POST"), { allow: "POST" });
+  const auth = authenticate(request.headers.get("authorization"), "/mcp");
+  if (auth === "invalid")
+    return serveMcp(request, {
+      actor: guest.clientName,
+      response: json(
+        401,
+        mcpError(null, "identity_required", "The access token is invalid or expired."),
+      ),
+    });
+  return auth
+    ? serveMcp(request, { auth, actor: auth.grant.clientName })
+    : serveMcp(request, { session: guest, actor: guest.clientName });
+}
+
+// Code Mode (knowledge/components/code-mode.md): the same identity as /mcp, a second resource.
+// The agent's code runs in a sandbox; each store call it makes is a tools/call on serveMcp with
+// this request's identity and headers, counted against the same per-address limit, so the code
+// can do nothing its caller could not do one call at a time.
+const CODE_RUNS_PER_MINUTE = 10;
+
+export async function handleCodeMcp(request: Request): Promise<Response> {
+  if (request.method !== "POST")
+    return json(405, rpcError(null, -32000, "Use POST"), { allow: "POST" });
+  const e = await edge(request, "/mcp/code");
+  const refused = (response: Response) => {
+    trace({
+      channel: "mcp",
+      actor: e.actor,
+      method: "POST",
+      path: "/mcp/code",
+      status: response.status,
+      ref: null,
+      detail: { refused: true },
+    });
+    return response;
+  };
+  if (e.response) return refused(e.response);
+  if (!e.auth && !e.session)
+    return refused(
+      json(401, mcpError(null, "identity_required", "Sign in to use the store's tools"), {
+        "www-authenticate": wwwAuthenticate("/mcp/code"),
+      }),
+    );
+  const message = await readJson(request);
+  if (!isRecord(message) || message.jsonrpc !== "2.0" || typeof message.method !== "string")
+    return json(400, rpcError(null, -32600, "Invalid JSON-RPC request"));
+  const { id, method } = message;
+  const params = isRecord(message.params) ? message.params : {};
+  if (id === undefined) return new Response(null, { status: 202 });
+  switch (method) {
+    case "initialize": {
+      const asked =
+        typeof params.protocolVersion === "string" ? params.protocolVersion : PROTOCOLS[0]!;
+      return json(
+        200,
+        rpc(id, {
+          protocolVersion: PROTOCOLS.includes(asked) ? asked : PROTOCOLS[0],
+          capabilities: { tools: { listChanged: false } },
+          serverInfo: {
+            name: "atelier-velune-code-mode",
+            title: "Atelier Velune, Code Mode",
+            version: "1.0.0",
+          },
+          instructions:
+            "Atelier Velune demo store on Adyen TEST, as code. Write one async arrow function per task: call search to read the tool list, then execute to call the store's tools through codemode.<tool>(args) and return only what you need. Paying is not available here: use complete_checkout on the store's /mcp endpoint.",
+        }),
+      );
+    }
+    case "ping":
+      return json(200, rpc(id, {}));
+    case "tools/list":
+      return json(200, rpc(id, { tools: codeTools() }));
+    case "tools/call": {
+      const name = String(params.name ?? "");
+      if (name !== "search" && name !== "execute")
+        return json(200, rpcError(id, -32602, `Unknown tool ${name}`));
+      const args = isRecord(params.arguments) ? params.arguments : {};
+      // Each run holds the main thread for up to half a second: fewer runs than requests.
+      const wait = rateLimited(`code:${clientIp(request)}`, CODE_RUNS_PER_MINUTE);
+      if (wait)
+        return json(
+          429,
+          mcpError(id, "rate_limited", "Too many Code Mode runs", { retry_after: wait }),
+          { "retry-after": String(wait) },
+        );
+      const callTool: CallTool = async (tool, toolArgs) => {
+        const retry = rateLimited(clientIp(request));
+        if (retry)
+          return {
+            ok: false,
+            code: "rate_limited",
+            message: `Too many requests; retry in ${retry} s.`,
+          };
+        const headers = new Headers(request.headers);
+        headers.delete("content-length");
+        headers.set("content-type", "application/json");
+        const inner = new Request(`${config().publicOrigin}/mcp`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "tools/call",
+            params: { name: tool, arguments: toolArgs },
+          }),
+        });
+        const response = await serveMcp(inner, e);
+        return toolAnswerOf(await response.json().catch(() => undefined));
+      };
+      const run = await runCode(name, args.code, callTool);
+      trace({
+        channel: "mcp",
+        actor: e.actor,
+        method: "tools/call",
+        path: "/mcp/code",
+        status: 200,
+        ref: null,
+        detail: {
+          tool: name,
+          ok: run.ok,
+          error: run.ok ? undefined : run.code,
+          calls: run.calls,
+          chars: typeof args.code === "string" ? args.code.length : 0,
+        },
+      });
+      return json(200, rpc(id, toolResultOf(run)));
+    }
+    default:
+      return json(200, rpcError(id, -32601, `Method ${method} not found`));
+  }
+}
+
+async function serveMcp(request: Request, e: Edge): Promise<Response> {
   const refused = (response: Response) => {
     trace({
       channel: "mcp",

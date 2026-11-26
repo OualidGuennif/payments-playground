@@ -4,6 +4,7 @@ import { CheckoutPay } from "@/components/CheckoutPay";
 import { checkoutView } from "@/server/api";
 import { loadCheckout, sessionIdForReference } from "@/server/commerce/commerce";
 import { config } from "@/server/core/config";
+import { currentCustomer } from "@/lib/session";
 
 export const metadata = { title: "Checkout" };
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export default async function CheckoutPage({
   const { id } = await params;
   let view: ReturnType<typeof checkoutView>;
   try {
-    view = checkoutView(loadCheckout(id, "browser"));
+    view = checkoutView(loadCheckout(id, "browser"), await currentCustomer());
   } catch {
     notFound();
   }

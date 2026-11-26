@@ -22,7 +22,12 @@ export type Collection =
   | "customers"
   | "customer_sessions"
   | "passkeys"
-  | "webauthn_challenges";
+  | "webauthn_challenges"
+  | "ask_settings"
+  | "ask_audit"
+  | "ask_sessions"
+  | "ask_messages"
+  | "console_sessions";
 
 const SCHEMA = `
 create table if not exists docs (

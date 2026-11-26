@@ -121,7 +121,7 @@ describe("connect() origin pinning", () => {
     expect(posted[1]?.targetOrigin).toBe("https://chatgpt.com");
   });
 
-  test("pins initialized, call, say, and open to the parent origin after first reply", async () => {
+  test("pins initialized, call and open to the parent origin after first reply", async () => {
     const { parent, posted, dispatchMessage } = installDom();
     const host = connect({ result: () => {}, theme: () => {} });
 
@@ -143,17 +143,6 @@ describe("connect() origin pinning", () => {
     });
     await callPromise;
 
-    const sayPromise = host.say("Add to my bag.");
-    const sayReq = posted.at(-1);
-    expect(sayReq?.message.method).toBe("ui/message");
-    expect(sayReq?.targetOrigin).toBe("https://chatgpt.com");
-    dispatchMessage(parent, "https://chatgpt.com", {
-      jsonrpc: "2.0",
-      id: sayReq?.message.id,
-      result: {},
-    });
-    await sayPromise;
-
     const openPromise = host.open("https://store.example/account");
     const openReq = posted.at(-1);
     expect(openReq?.message.method).toBe("ui/open-link");
@@ -168,6 +157,9 @@ describe("connect() origin pinning", () => {
     expect(posted.slice(1).every((entry) => entry.targetOrigin === "https://chatgpt.com")).toBe(
       true,
     );
+    // The widget never writes to the assistant: no ui/message, ever.
+    expect(posted.some((entry) => entry.message.method === "ui/message")).toBe(false);
+    expect("say" in host).toBe(false);
   });
 
   test("keeps '*' target when parent has an opaque ('null') origin", async () => {

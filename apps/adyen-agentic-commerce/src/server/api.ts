@@ -3,6 +3,9 @@
 // for their paths, so the request URL each handler sees is the public path (PAP's htu needs it).
 import { Elysia, status } from "elysia";
 import { accountApi, customerOf, sessionLimit } from "./accounts/account-api";
+import { askApi } from "./ask/api";
+import { consoleApi } from "./ask/console-api";
+import { voiceApi } from "./ask/voice-api";
 import { productSvg } from "./catalog/art";
 import * as adyen from "./payments/adyen";
 import * as backOffice from "./back-office/back-office";
@@ -13,14 +16,21 @@ import type { Customer } from "./accounts/customers";
 import { get, list } from "./core/db";
 import * as oauth from "./oauth/oauth";
 import { poppyDocument } from "./pap/pap";
-import { clientIp, handleMcp, handleRest, rateLimited } from "./protocol";
+import { clientIp, handleCodeMcp, handleMcp, handleRest, rateLimited } from "./protocol";
 import { handleFeedback, handleTasks } from "./pap/tasks";
 import { trace } from "./core/trace";
 import { handlerSchema, networkTokenSchema, profile } from "./ucp/ucp";
 import { openApi } from "./ucp/openapi";
 import { isRecord, json, published, safeEqual } from "./core/util";
 import { maskEmails } from "../lib/mask";
+import { shopperWords } from "../lib/shopper-words";
 import { PLUGIN_ZIP_PATH, pluginZip } from "./mcp/widgets";
+
+// A browser route's refusal: the shopper's sentence and the code the page acts on, never the
+// store's text for agents, which names fields and states.
+const refused = (httpStatus: number, code: string) =>
+  status(httpStatus, { error: shopperWords(code), code });
+const refusedBy = (error: commerce.CommerceError) => refused(error.status, error.msg.code);
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -165,8 +175,7 @@ const browserApi = new Elysia({ prefix: "/api" })
       });
       return { id: checkout.id };
     } catch (error) {
-      if (error instanceof commerce.CommerceError)
-        return status(error.status, { error: error.msg.content });
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
       throw error;
     }
   })
@@ -174,7 +183,7 @@ const browserApi = new Elysia({ prefix: "/api" })
     try {
       return checkoutView(commerce.loadCheckout(params.id, "browser"), customerOf(request));
     } catch {
-      return status(404, { error: "Checkout not found" });
+      return refused(404, "not_found");
     }
   })
   .post("/checkouts/:id/session", async ({ request, params }) => {
@@ -186,9 +195,93 @@ const browserApi = new Elysia({ prefix: "/api" })
         customerOf(request),
       );
     } catch (error) {
-      if (error instanceof commerce.CommerceError)
-        return status(error.status, { error: error.msg.content });
-      return status(502, { error: "The payment session could not be created" });
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
+      return refused(502, "session_failed");
+    }
+  })
+  // A checkout handed over without an email (an agent shopping as a guest) gets it from the person
+  // paying at its link. It fills a gap only: an email already set, or an account's, never changes.
+  .post("/checkouts/:id/email", ({ request, params, body }) => {
+    const limited = sessionLimit(request, "payment");
+    if (limited) return limited;
+    const input = isRecord(body) ? body : {};
+    const customer = customerOf(request);
+    try {
+      const checkout = commerce.loadCheckout(params.id, "browser");
+      if (checkout.customerId && checkout.customerId !== customer?.id)
+        return refused(404, "not_found");
+      if (commerce.buyerOf(checkout)?.email) return refused(409, "email_set");
+      const email = typeof input.email === "string" ? input.email.trim() : "";
+      if (!email) return refused(400, "invalid_email");
+      const updated = commerce.updateCheckout(checkout, { buyer: { ...checkout.buyer, email } });
+      trace({
+        channel: commerce.channelOf(updated),
+        actor: "shopper",
+        method: "POST",
+        path: "/api/checkouts/:id/email",
+        status: 200,
+        ref: updated.id,
+        detail: { email: "set" },
+      });
+      return checkoutView(updated, customer);
+    } catch (error) {
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
+      throw error;
+    }
+  })
+  // The shopper's one bag reached a web checkout page: its lines follow, unless a payment holds it.
+  .post("/checkouts/:id/lines", ({ request, params, body }) => {
+    const limited = sessionLimit(request, "payment");
+    if (limited) return limited;
+    const input = isRecord(body) ? body : {};
+    const customer = customerOf(request);
+    try {
+      const checkout = commerce.loadCheckout(params.id, "browser");
+      if (
+        commerce.channelOf(checkout) !== "web" ||
+        (checkout.customerId && checkout.customerId !== customer?.id)
+      )
+        return refused(404, "not_found");
+      const lines = Array.isArray(input.lines)
+        ? input.lines.map((l) => ({
+            item: { id: isRecord(l) ? l.variantId : undefined },
+            quantity: isRecord(l) ? l.quantity : undefined,
+          }))
+        : undefined;
+      if (!lines?.length) return refused(400, "invalid_line_items");
+      const updated = commerce.updateCheckout(checkout, { line_items: lines });
+      trace({
+        channel: "web",
+        actor: "shopper",
+        method: "POST",
+        path: "/api/checkouts/:id/lines",
+        status: 200,
+        ref: updated.id,
+        detail: { lines: updated.lines.length },
+      });
+      return checkoutView(updated, customer);
+    } catch (error) {
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
+      throw error;
+    }
+  })
+  // Drop-in's beforeSubmit: the checkout is held for this session's payment, or the form stops.
+  .post("/checkouts/:id/pay-intent", ({ request, params, body }) => {
+    const limited = sessionLimit(request, "payment");
+    if (limited) return limited;
+    const input = isRecord(body) ? body : {};
+    const sessionId = typeof input.sessionId === "string" ? input.sessionId : "";
+    try {
+      const held = commerce.claimWebPayment(
+        params.id,
+        sessionId,
+        Date.now(),
+        customerOf(request)?.id,
+      );
+      return { held: true, until: held.paying?.until };
+    } catch (error) {
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
+      throw error;
     }
   })
   .post("/checkouts/:id/session-result", async ({ request, params, body }) => {
@@ -201,9 +294,8 @@ const browserApi = new Elysia({ prefix: "/api" })
       );
       return checkoutView(checkout, customerOf(request));
     } catch (error) {
-      if (error instanceof commerce.CommerceError)
-        return status(error.status, { error: error.msg.content });
-      return status(502, { error: "Adyen could not confirm the session" });
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
+      return refused(502, "result_unconfirmed");
     }
   })
   .get("/back-office", ({ request, query }) => {
@@ -261,9 +353,10 @@ export function checkoutView(checkout: commerce.Checkout, viewer?: Customer) {
     id: checkout.id,
     phase: checkout.phase,
     status: assessment.status,
-    messages: assessment.messages.filter(
-      (m) => m.code !== "payments_unavailable" && m.code !== "sign_in_required",
-    ),
+    // A person reads the store's refusals in plain words, never the text written for agents.
+    messages: assessment.messages
+      .filter((m) => m.code !== "payments_unavailable" && m.code !== "sign_in_required")
+      .map((m) => ({ ...m, content: shopperWords(m.code) })),
     agentName: checkout.agentName,
     lines: priced.items.map(({ line, variant, amount }) => ({
       id: line.id,
@@ -277,6 +370,10 @@ export function checkoutView(checkout: commerce.Checkout, viewer?: Customer) {
     fulfillment: priced.fulfillment,
     total: priced.total,
     buyer: ownsIt ? checkout.buyer : undefined,
+    // The page offers the signed-in shopper their own address for a receipt instead of a blank
+    // field, and offers sign-in instead when the session has ended.
+    signedIn: Boolean(viewer),
+    accountEmail: viewer && ownsIt ? viewer.email : undefined,
     channel: commerce.channelOf(checkout),
     order: order
       ? {
@@ -370,6 +467,9 @@ const app = new Elysia()
   )
   .get("/.well-known/oauth-protected-resource/mcp", () =>
     withCors(json(200, oauth.protectedResourceMetadata(`${config().publicOrigin}/mcp`))),
+  )
+  .get("/.well-known/oauth-protected-resource/mcp/code", () =>
+    withCors(json(200, oauth.protectedResourceMetadata(`${config().publicOrigin}/mcp/code`))),
   )
   .get("/oauth/authorize", async ({ request }) => {
     const outcome = await oauth.startAuthorization(new URL(request.url).searchParams);
@@ -529,10 +629,14 @@ const app = new Elysia()
   )
   .all("/ucp/v1/*", ({ request, params }) => handleRest(request, `/${params["*"]}`))
   .all("/mcp", ({ request }) => handleMcp(request))
+  .all("/mcp/code", ({ request }) => handleCodeMcp(request))
   .get("/poppy/tasks", ({ request }) => handleTasks(request))
   .post("/poppy/feedback", ({ request }) => handleFeedback(request))
   .use(browserApi)
-  .use(accountApi);
+  .use(accountApi)
+  .use(askApi)
+  .use(voiceApi)
+  .use(consoleApi);
 
 export type App = typeof app;
 

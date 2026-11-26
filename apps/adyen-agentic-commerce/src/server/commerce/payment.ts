@@ -4,7 +4,8 @@
 import { variantById } from "../catalog/catalog";
 import { CURRENCY } from "../core/config";
 import { customerById } from "../accounts/customers";
-import { get, put } from "../core/db";
+import { findBy, get, put } from "../core/db";
+import { credentialFingerprint } from "../core/fingerprint";
 import { allows, type Auth, chargeGrant, liveAuth } from "../oauth/oauth";
 import { trace } from "../core/trace";
 import { isRecord, newId } from "../core/util";
@@ -17,7 +18,9 @@ import {
   type Order,
   type OrderLine,
   type PaymentRecord,
+  paymentInProgress,
 } from "./model";
+import { accountPaying, refusalReopens, sameLines } from "./lock";
 import { price } from "./pricing";
 import { savedCards } from "./saved-cards";
 import { assess, buyerOf, loadCheckout, saveCheckout } from "./checkouts";
@@ -56,21 +59,29 @@ function placeOrder(
     createdAt: now(),
   };
   put("orders", order.id, order);
-  saveCheckout({ ...checkout, phase: "completed", orderId: order.id, lastMessage: undefined });
+  saveCheckout({
+    ...checkout,
+    phase: "completed",
+    orderId: order.id,
+    lastMessage: undefined,
+    paying: undefined,
+  });
   return order;
 }
 
 /**
  * Gives an agent payment's reservation back, once: the synchronous answer and the webhook can both
- * report a refusal, and only the first gives the budget back.
+ * report a refusal, and only the first gives the budget back. It goes to the grant the payment was
+ * reserved on; `grantId` (the checkout's) serves only a record that does not name one.
  */
 export function releaseReservation(
   record: PaymentRecord,
   grantId: string | undefined,
 ): PaymentRecord {
   const fresh = get<PaymentRecord>("payments", record.id) ?? record;
-  if (fresh.reservation !== "held" || !grantId) return fresh;
-  chargeGrant(grantId, -fresh.amount);
+  const grant = fresh.grantId ?? grantId;
+  if (fresh.reservation !== "held" || !grant) return fresh;
+  chargeGrant(grant, -fresh.amount);
   return put("payments", fresh.id, { ...fresh, reservation: "released", updatedAt: now() });
 }
 
@@ -80,8 +91,9 @@ export function releaseReservation(
  */
 export function holdReservation(record: PaymentRecord, grantId: string | undefined): void {
   const fresh = get<PaymentRecord>("payments", record.id) ?? record;
-  if (fresh.reservation !== "released" || !grantId) return;
-  chargeGrant(grantId, fresh.amount);
+  const grant = fresh.grantId ?? grantId;
+  if (fresh.reservation !== "released" || !grant) return;
+  chargeGrant(grant, fresh.amount);
   put("payments", fresh.id, { ...fresh, reservation: "held", updatedAt: now() });
 }
 
@@ -121,6 +133,7 @@ export function holdMismatch(checkout: Checkout, reason: string): void {
   saveCheckout({
     ...checkout,
     phase: "complete_in_progress",
+    paying: undefined,
     lastMessage: {
       type: "error",
       code: "amount_mismatch",
@@ -244,6 +257,17 @@ export function chosenInstrument(body: Record<string, unknown>): Instrument | un
   return { handler: "saved_card", alias };
 }
 
+// An agent's payment that failed may reopen the checkout only if its claim still stands: while
+// the call was in flight a webhook may have placed an order or held an amount mismatch (a Drop-in
+// payment that skipped the hold), or refused it and let the shopper's Drop-in claim a newer attempt,
+// or Adyen may have left a Drop-in payment pending, which the checkout then waits for.
+function stillClaimed(id: string, attempt: number): Checkout | undefined {
+  const current = get<Checkout>("checkouts", id);
+  return current?.attempts === attempt && refusalReopens(current, `${id}-a${attempt}`)
+    ? current
+    : undefined;
+}
+
 export async function completeCheckout(
   loaded: Checkout,
   body: Record<string, unknown>,
@@ -271,6 +295,8 @@ export async function completeCheckout(
   // reserved part of the budget during the await above, or the shopper may have revoked it.
   const live = liveAuth(auth);
   if (auth && !live) return checkout;
+  // The shopper is paying another checkout of the account (in Drop-in, or through another agent).
+  if (live && accountPaying(live.grant.customerId, checkout.id)) throw paymentInProgress();
   const assessment = assess(checkout, live, cards);
   if (assessment.status !== "ready_for_complete") return checkout;
   // No instrument is the agent's third choice: the shopper pays at continue_url, in Drop-in.
@@ -286,9 +312,36 @@ export async function completeCheckout(
 
   // Claimed and the budget reserved synchronously before the network call, so a parallel complete
   // sees the checkout in progress and the grant already charged; a refusal or an error gives it back.
-  const attempt = checkout.attempts + 1;
+  // A retry after a network error resends the same payment under the same idempotency key, but
+  // only while its outcome is unknown and for the same bag and card: a payment a webhook refused
+  // since, or another bag or card, is a new attempt, and the earlier payment keeps its own record.
+  const lastFour = instrument.handler === "network_token" ? instrument.lastFour : card?.lastFour;
+  const instrumentKey =
+    instrument.handler === "saved_card"
+      ? `card:${instrument.alias}`
+      : `token:${credentialFingerprint({
+          number: instrument.token.number,
+          expiryMonth: instrument.token.expiryMonth,
+          expiryYear: instrument.token.expiryYear,
+        })}`;
+  const resent = (p: PaymentRecord | undefined) =>
+    p?.purpose === "agent" &&
+    p.resultCode === "Error" &&
+    p.outcomeUnknown === true &&
+    p.amount === assessment.total &&
+    sameLines(p.lines, checkout.lines) &&
+    p.instrumentKey === instrumentKey;
+  const recordOf = (n: number) =>
+    findBy<PaymentRecord>("payments", "reference", `${checkout.id}-a${n}`)[0];
+  // The latest attempt may be the unknown one when a pending Drop-in payment kept the checkout
+  // from reopening after the error, so its number was never given back.
+  let attempt = resent(recordOf(checkout.attempts)) ? checkout.attempts : checkout.attempts + 1;
+  while (recordOf(attempt) && !resent(recordOf(attempt))) attempt += 1;
+  const prior = recordOf(attempt);
+  // The agent's payment is not the browser's: an earlier Drop-in payer no longer pays this bag.
   const claimed = saveCheckout({
     ...checkout,
+    payerId: undefined,
     phase: "complete_in_progress",
     attempts: attempt,
     channel: checkout.channel ?? "agent",
@@ -306,18 +359,20 @@ export async function completeCheckout(
   const agentName = claimed.agentName ?? "Guest agent";
   const paymentReference = `${checkout.id}-a${attempt}`;
   const record: PaymentRecord = {
-    id: newId("pay"),
+    id: prior?.id ?? newId("pay"),
     purpose: "agent",
     channel: "agent",
     instrument: instrument.handler,
-    lastFour: instrument.handler === "network_token" ? instrument.lastFour : card?.lastFour,
+    lastFour,
+    instrumentKey,
     checkoutId: checkout.id,
     reference: paymentReference,
     amount: assessment.total,
     lines: checkout.lines,
     reservation: live ? "held" : undefined,
+    grantId,
     agentName,
-    createdAt: now(),
+    createdAt: prior?.createdAt ?? now(),
     updatedAt: now(),
   };
   put("payments", record.id, record);
@@ -348,12 +403,17 @@ export async function completeCheckout(
       return loadCheckout(checkout.id, "browser");
     }
     // The retry reserves again under the same reference; if Adyen did authorise this call, its
-    // webhook charges the budget again before the order is placed.
+    // webhook charges the budget again before the order is placed. A refusal webhook that landed
+    // during the call stands, so the next complete is a new attempt.
     const released = releaseReservation(record, grantId);
     put("payments", record.id, {
       ...released,
-      resultCode: "Error",
-      refusalReason: (error as Error).message.slice(0, 200),
+      resultCode: released.resultCode === "Refused" ? "Refused" : "Error",
+      outcomeUnknown: released.resultCode !== "Refused",
+      refusalReason:
+        released.resultCode === "Refused"
+          ? released.refusalReason
+          : (error as Error).message.slice(0, 200),
       updatedAt: now(),
     });
     trace({
@@ -365,8 +425,10 @@ export async function completeCheckout(
       ref: checkout.id,
       detail: { reference: paymentReference, error: (error as Error).message },
     });
+    const current = stillClaimed(checkout.id, attempt);
+    if (!current) return loadCheckout(checkout.id, "browser");
     return saveCheckout({
-      ...claimed,
+      ...current,
       phase: "open",
       attempts: checkout.attempts,
       lastMessage: {
@@ -377,10 +439,13 @@ export async function completeCheckout(
       },
     });
   }
-  // Re-read: a webhook may have settled this payment while the call was in flight.
+  // Re-read: a webhook may have settled this payment while the call was in flight, and its
+  // answer stands over this one (a pending answer must not make a refused payment pending again).
+  const stored = get<PaymentRecord>("payments", record.id) ?? record;
   const answered = put("payments", record.id, {
-    ...(get<PaymentRecord>("payments", record.id) ?? record),
+    ...stored,
     ...result,
+    resultCode: stored.resultCode ?? result.resultCode,
     updatedAt: now(),
   });
   trace({
@@ -401,7 +466,9 @@ export async function completeCheckout(
       ...result,
     },
   });
-  if (result.resultCode === "Authorised") {
+  // The answer that stands: a webhook's, when one came first.
+  const code = answered.resultCode;
+  if (code === "Authorised") {
     // The webhook may have placed the order, or held a mismatch, while the call was in flight.
     const current = get<Checkout>("checkouts", checkout.id) ?? claimed;
     if (!current.orderId && current.lastMessage?.code !== "amount_mismatch") {
@@ -412,20 +479,23 @@ export async function completeCheckout(
     return loadCheckout(checkout.id, "browser");
   }
   // Pending keeps the reservation until the webhook settles it.
-  if (result.resultCode === "Pending" || result.resultCode === "Received") return claimed;
+  // Answered as it stands now: a webhook may have settled the checkout during the call.
+  if (code === "Pending" || code === "Received") return loadCheckout(checkout.id, "browser");
   // A refusal ends this attempt, not the order: the shopper can still pay at continue_url.
   releaseReservation(answered, grantId);
   const retry =
     instrument.handler === "network_token"
       ? "Complete again with another network token, or with no instrument to hand the shopper continue_url."
       : "The shopper can pay at continue_url.";
+  const current = stillClaimed(checkout.id, attempt);
+  if (!current) return loadCheckout(checkout.id, "browser");
   return saveCheckout({
-    ...claimed,
+    ...current,
     phase: "open",
     lastMessage: {
       type: "error",
       code: "payment_refused",
-      content: `Adyen answered ${result.resultCode}${result.refusalReason ? ` (${result.refusalReason})` : ""}. ${retry}`,
+      content: `Adyen answered ${code}${answered.refusalReason ? ` (${answered.refusalReason})` : ""}. ${retry}`,
       severity: "requires_buyer_review",
     },
   });

@@ -5,15 +5,20 @@ import Link from "next/link";
 import { type FormEvent, useState } from "react";
 import { type Answer, messageOf } from "@/lib/answer";
 import { api } from "@/lib/client";
+import { rememberAccount, useKnownAccount } from "@/lib/known";
 
 export function SignInForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: string }) {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const signUp = mode === "sign-up";
+  const known = useKnownAccount();
 
   // A full navigation, so the next page's server render sees the new session cookie. The fragment
   // survived the redirect to this page (an agent's manage_url opens /account#agent-<id>).
-  const done = () => window.location.assign(next.includes("#") ? next : next + location.hash);
+  const done = () => {
+    rememberAccount();
+    window.location.assign(next.includes("#") ? next : next + location.hash);
+  };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,13 +64,28 @@ export function SignInForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: 
   return (
     <div className="panel mx-auto max-w-md space-y-5">
       <div className="space-y-1">
-        <h1 className="text-2xl">{signUp ? "Create your account" : "Sign in"}</h1>
+        <h1 className="text-2xl">
+          {signUp ? "Create your account" : known ? "Welcome back" : "Sign in"}
+        </h1>
         <p className="text-sm text-muted">
           {signUp
             ? "Your account keeps your saved cards, your orders and the agents you connect."
-            : "Sign in to see your account or to connect an agent."}
+            : known
+              ? "Sign in again to pick up where you left off: your bag stays as it is."
+              : "Sign in to see your account or to connect an agent."}
         </p>
       </div>
+      {signUp && known ? (
+        <p role="status" className="rounded-xl border border-line px-3.5 py-2.5 text-sm">
+          This browser already has an account here.{" "}
+          <Link
+            href={`/sign-in?next=${encodeURIComponent(next)}`}
+            className="font-medium underline"
+          >
+            Sign in instead
+          </Link>
+        </p>
+      ) : null}
       <form onSubmit={submit} className="space-y-4">
         {signUp ? (
           <label className="block space-y-1 text-sm">

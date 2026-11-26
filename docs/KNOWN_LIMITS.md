@@ -58,6 +58,33 @@ order pages stay public, so a shopper handed a `continue_url` can pay without th
 basic auth, any client that reaches the store, an agent included, can open an account and approve
 its own sign-in to it, an account with no saved card.
 
+The payment lock (one payment at a time per checkout) is complete on the agent side, which pays
+from the server. On the website, Drop-in's Sessions flow sends the payment from the browser to
+Adyen, and the store's hold is asked in `beforeSubmit`: a modified browser that skips it can still
+get a second authorisation. The store then places no second order (the checkout is already
+completed), and the extra authorisation is cancelled by hand in the Customer Area.
+A checkout's id is its link: whoever holds `continue_url` may pay it, and pressing Pay in the
+payment form there holds the checkout, and its account's other payments, for up to 15 minutes, so
+a holder of that link can also delay the account that way. A form that fails in the browser before Adyen
+answers does not tell the store; its hold simply runs out. A 3-D Secure challenge that outlasts
+the hold lets an agent, or the form in another tab, pay meanwhile. The store learns of a browser's
+payment only when Adyen answers it, so the checkout may reopen while that payment is still being
+authenticated (a refusal of an earlier card in the same form that lands then also ends the form's
+hold), or when a late refusal of an earlier card lands after a retry Adyen left pending without
+naming it. After a refusal webhook, a retry in the same form that Adyen leaves pending is shown as
+pending when Adyen's answer names it; otherwise the form's hold covers it for 15 minutes, and its
+webhook still settles it. An agent that completes again after a network
+error with another bag or card, or after the shopper's form started a new attempt, sends a new
+payment while the first one's outcome is still unknown.
+When two payments are authorised, the second is cancelled by hand, as above. A signed-in shopper who opens the
+payment form of a checkout no account holds becomes that checkout's account, and a checkout an
+agent created without a token stays open to any agent that has its id.
+
+Code Mode (`/mcp/code`) runs the agent's JavaScript in QuickJS on the server's main thread, not in
+a separate process or worker. One run can hold the store for at most half a second of interpreter
+time; an address gets 10 runs a minute and all runs together 10 seconds a minute. Many addresses
+at once could still slow the store within that budget.
+
 Adyen cannot reach `localhost`, so a local run never receives the `AUTHORISATION` webhook; an order
 is still placed from the synchronous `/payments` answer. The Render Blueprint has put the SQLite
 file on a 1 GB disk since v0.3.2, but the service used the disk only from 2026-11-18, once

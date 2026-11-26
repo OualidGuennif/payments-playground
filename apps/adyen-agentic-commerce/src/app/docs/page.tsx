@@ -1,6 +1,9 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import Link from "next/link";
 import { DOCS, OVERVIEW } from "@/components/docs/content";
+import { DEMO, GLOSSARY, OVERVIEW_PLAIN } from "@/components/docs/plain";
+import { Rich } from "@/components/docs/Rich";
+import { PlainWords, Remember } from "@/components/docs/PlainWords";
 import { SequenceDiagram } from "@/components/docs/SequenceDiagram";
 import { config } from "@/server/core/config";
 
@@ -13,6 +16,7 @@ export default function Docs() {
   const o = config().publicOrigin;
   const endpoints: [string, string][] = [
     ["MCP server", `${o}/mcp`],
+    ["Code Mode (MCP)", `${o}/mcp/code`],
     ["PAP discovery", `${o}/.well-known/poppy.json`],
     ["PAP tasks", `${o}/poppy/tasks`],
     ["UCP profile", `${o}/.well-known/ucp`],
@@ -34,11 +38,55 @@ export default function Docs() {
         </p>
       </header>
 
+      <PlainWords paragraphs={OVERVIEW_PLAIN.plain} />
+
       <SequenceDiagram
         title="One purchase by an AI agent, from your request to the order"
         actors={OVERVIEW.actors}
         steps={OVERVIEW.steps}
       />
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Remember items={OVERVIEW_PLAIN.remember} />
+        <section className="panel space-y-2">
+          <h2 className="text-lg">Words you will meet</h2>
+          <dl className="space-y-1.5 text-sm">
+            {GLOSSARY.map(([term, meaning]) => (
+              <div key={term}>
+                <dt className="inline font-medium">{term}. </dt>
+                <dd className="inline text-muted">{meaning}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      </div>
+
+      <section className="space-y-3" aria-labelledby="demo">
+        <h2 id="demo" className="text-xl">
+          A ten-minute demo
+        </h2>
+        <p className="max-w-[68ch] text-sm text-muted">
+          For showing the store to someone. Each stop says what to do and what to point out.
+        </p>
+        <ol className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-3">
+          {DEMO.map((stop, i) => (
+            <li key={stop.title} className="panel space-y-1.5">
+              <p className="text-xs text-muted">
+                {i + 1} · {stop.minutes} min
+              </p>
+              <h3 className="font-medium">
+                <Link className="underline" href={stop.href}>
+                  {stop.title}
+                </Link>
+              </h3>
+              <p className="text-sm">
+                <Rich text={stop.act} />
+              </p>
+              <p className="text-sm text-muted">{stop.see}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-xl">Each part, message by message</h2>

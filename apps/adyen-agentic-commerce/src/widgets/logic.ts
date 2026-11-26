@@ -1,9 +1,8 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // What the widgets show and send, kept apart from the DOM so it can be tested: views of the UCP
-// answers, the tool calls a "By hand" button makes, and the sentence a "With the assistant"
-// button sends instead. A widget decides nothing the store does not check again (ADR-017).
+// answers and the tool calls their buttons make. A widget decides nothing the store does not
+// check again (ADR-017), and never writes to the assistant.
 
-export type Mode = "hand" | "assistant";
 export type Call = { name: string; arguments: Record<string, unknown> };
 
 type Money = { amount: number; currency?: string };
@@ -41,11 +40,12 @@ const SHOPPER_TEXT: Record<string, string | null> = {
   spend_limit_exceeded: null,
   checkout_expired: "This checkout expired. Check out again from your bag.",
   empty_checkout: "Your bag is empty.",
-  missing_buyer_email: "The store needs an email for the receipt. Approve on the store to add it.",
+  missing_buyer_email: "The store needs an email for the receipt.",
   out_of_stock: "Something in your bag has just sold out. Remove it to go on.",
   no_saved_card: "Your account has no saved card. Save one on the store, or approve there.",
   payment_refused: "The card was refused. Try again, or choose another card.",
   payment_unavailable: "The payment could not start. Try again in a moment.",
+  payment_in_progress: "A payment for this bag is already in progress.",
   amount_mismatch:
     "No order was placed: the payment did not match your bag. The store will check it.",
 };
@@ -91,6 +91,12 @@ const record = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 const text = (v: unknown) => (typeof v === "string" ? v : undefined);
 const whole = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+
+// The Ask panel hands the store's own pictures over inline, because Chromium refuses its opaque
+// frame's requests to a loopback store. In an <img> such a URL draws and runs nothing.
+const INLINE_IMAGE = /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,[A-Za-z0-9+/]+={0,2}$/;
+export const inlineImage = (url: unknown): url is string =>
+  typeof url === "string" && INLINE_IMAGE.test(url);
 
 // The UCP envelope names one capability per answer; it says which view the answer belongs to.
 export function capabilityOf(data: unknown): string | undefined {
@@ -186,7 +192,12 @@ export function bagView(data: unknown): BagView | undefined {
     problems: [
       ...new Set(
         messages
-          .filter((m: UcpMessage) => m.type === "error" && typeof m.content === "string")
+          // A payment already running is news to the shopper, though UCP reads it as info.
+          .filter(
+            (m: UcpMessage) =>
+              (m.type === "error" || m.code === "payment_in_progress") &&
+              typeof m.content === "string",
+          )
           .map((m: UcpMessage) =>
             m.code && Object.hasOwn(SHOPPER_TEXT, m.code) ? SHOPPER_TEXT[m.code] : m.content,
           )
@@ -244,7 +255,7 @@ export const describe = (p: UcpProduct, v: UcpVariant) => {
   return parts.length ? `${p.title} in ${parts.join(", ")}` : p.title;
 };
 
-// --- "By hand": the tool calls ----------------------------------------------------------------
+// --- the tool calls ------------------------------------------------------------------------------
 
 export const newKey = () => crypto.randomUUID();
 const meta = (key: string) => ({ "idempotency-key": key });
@@ -358,45 +369,17 @@ export function payCall(bag: BagView, instrumentId: string, key: string): Call |
 
 export const isOpen = (bag: BagView) => bag.kind === "cart" || OPEN.has(bag.status);
 
-// --- the one place a button's mode is decided --------------------------------------------------
+// --- what a button does ------------------------------------------------------------------------
 
-export type Action =
-  | { kind: "call"; label: string; call: Call }
-  | { kind: "say"; text: string }
-  | { kind: "none" };
+export type Action = { kind: "call"; label: string; call: Call } | { kind: "none" };
 
-// "With the assistant" never reaches a tool: it only writes to the assistant, which decides.
-export function choose(
-  mode: Mode,
-  label: string,
-  call: () => Call | undefined,
-  sentence: () => string,
-): Action {
-  if (mode === "assistant") return { kind: "say", text: sentence() };
+// A button calls the store's tool itself; the widget never writes to the assistant.
+export function choose(label: string, call: () => Call | undefined): Action {
   const made = call();
   return made ? { kind: "call", label, call: made } : { kind: "none" };
 }
 
-// --- "With the assistant": the sentences ------------------------------------------------------
-
-export const say = {
-  search: (query: string) =>
-    query.trim()
-      ? `Show me ${query.trim().slice(0, 200)} from Atelier Velune.`
-      : "Show me the Atelier Velune collection.",
-  more: () => "Show me more products like these.",
-  add: (p: UcpProduct, v: UcpVariant) => `Add the ${describe(p, v)} to my bag.`,
-  quantity: (line: BagLine, quantity: number) =>
-    quantity > 0
-      ? `Change the quantity of ${line.title} in my bag to ${quantity}.`
-      : `Remove ${line.title} from my bag.`,
-  checkout: () => "Take my bag to checkout.",
-  refreshCheckout: () => "Refresh my Atelier Velune checkout to check my saved cards.",
-  pay: (instrument: Instrument, total: string) =>
-    `Pay ${total} for my bag with my saved card ${instrument.label}.`,
-};
-
-// What a "By hand" action tells the model, so the conversation knows the cart or checkout id.
+// What a button tells the model, so the conversation knows the cart or checkout id.
 export function contextFor(bag: BagView) {
   const items = bag.lines.map((l) => `${l.quantity} × ${l.title}`).join(", ");
   const total = money(bag.total, bag.currency);

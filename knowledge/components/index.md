@@ -15,6 +15,9 @@ generated:
 | [adyen-digital](adyen-digital.md)                   | stable | Pages, every API route, client components. Focus.   |
 | [adyen-v6-styling](adyen-v6-styling.md)             | stable | Drop-in theming workbench                           |
 | [adyen-agentic-commerce](adyen-agentic-commerce.md) | draft  | Store agents shop over UCP and PAP, paid on TEST    |
+| [Ask agent](ask-agent.md)                           | draft  | The store's own chat: Flue agent, gate, console     |
+| [MCP Apps widgets](mcp-apps-widgets.md)             | draft  | The store's carousel and bag inside agent hosts     |
+| [Code Mode](code-mode.md)                           | draft  | The store's MCP tools as sandboxed agent code       |
 | [landing](landing.md)                               | stable | Static front door linking to the three apps         |
 | [packages/platform](platform-package.md)            | stable | Server library, module by module                    |
 | [packages/ui](ui-package.md)                        | stable | Browser-safe components and Adyen Web configuration |

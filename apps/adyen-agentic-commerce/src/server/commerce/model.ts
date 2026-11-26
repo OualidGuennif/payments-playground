@@ -51,6 +51,12 @@ export type Checkout = {
   orderId?: string;
   // When an agent completed with no instrument: from then on the shopper pays at continue_url.
   handedOverAt?: string;
+  // The shopper's Drop-in payment that holds this checkout until `until` (lock.ts).
+  paying?: { channel: Channel; reference: string; until: string };
+  // The signed-in account whose browser claimed that hold, when it is not the checkout's own
+  // account (a guest bag, or another account's): its other payments wait too, until that payment
+  // is released or refused or an agent pays instead (lock.ts).
+  payerId?: string;
   createdAt: string;
   updatedAt: string;
   expiresAt: string;
@@ -86,14 +92,25 @@ export type PaymentRecord = {
   customerId?: string;
   instrument?: "saved_card" | "network_token";
   lastFour?: string;
+  // Which card an agent payment used: the saved card's alias, or a keyed fingerprint of the
+  // network token (core/fingerprint.ts), never the number itself. A resend must use the same one.
+  instrumentKey?: string;
   checkoutId?: string;
   reference: string;
   amount: number;
   // The lines this amount was priced from: the order is placed from them, not from the checkout,
   // which stays editable while a Drop-in session is open.
   lines?: Line[];
-  // An agent payment's hold on the grant's budget: settled once, by whichever path learns first.
+  // An agent payment's hold on the grant's budget: settled once, by whichever path learns first,
+  // on the grant it was made on, whatever grant the checkout names by then.
   reservation?: "held" | "released";
+  grantId?: string;
+  // The PSP references Adyen's webhooks settled under this reference (a form may try several
+  // cards): a session answer brings back as pending only a payment not among them.
+  settledBy?: string[];
+  // A network error left Adyen's answer unknown: only such a payment is resent under its key, since
+  // Adyen answers a key it already answered (an "Error" result included) with the same answer.
+  outcomeUnknown?: boolean;
   sessionId?: string;
   resultCode?: string;
   pspReference?: string;
@@ -149,3 +166,19 @@ export const err = (
 ) => new CommerceError(status, { type: "error", code, content, severity, path });
 
 export const now = () => new Date().toISOString();
+
+// Long enough for a 3-D Secure challenge; a shopper who walks away frees the checkout after it.
+export const PAYING_MS = 15 * 60_000;
+
+/** The Drop-in payment holding this checkout now, if any: an expired hold holds nothing. */
+export const payingNow = (checkout: Checkout, at = Date.now()) =>
+  checkout.paying && Date.parse(checkout.paying.until) > at ? checkout.paying : undefined;
+
+export const paymentInProgress = () =>
+  err(
+    409,
+    "payment_in_progress",
+    "A payment for this checkout is already in progress",
+    undefined,
+    "requires_buyer_review",
+  );

@@ -1,5 +1,5 @@
-// The widgets' decisions without a DOM: which variant a choice names, what a "By hand" button
-// sends, and that "With the assistant" sends only a sentence (invariant 29).
+// The widgets' decisions without a DOM: which variant a choice names and what a button calls; a
+// button never writes to the assistant (invariant 29).
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import { describe, expect, test } from "bun:test";
 import {
@@ -11,11 +11,11 @@ import {
   choose,
   contextDataFor,
   contextFor,
+  inlineImage,
   offered,
   payCall,
   quantityCall,
   refreshCheckoutCall,
-  say,
   searchCall,
   type UcpProduct,
   variantFor,
@@ -146,6 +146,25 @@ describe("views of UCP answers", () => {
       "A message the widget has no words for",
     ]);
   });
+
+  test("a payment already running reads in words, though UCP sends it as info", () => {
+    const bag = checkout("complete_in_progress", {
+      messages: [{ type: "info", code: "payment_in_progress", content: "raw store text" }],
+    });
+    expect(bag.problems).toEqual(["A payment for this bag is already in progress."]);
+  });
+});
+
+describe("inline images", () => {
+  test("only a base64 picture is drawn inline", () => {
+    expect(inlineImage("data:image/svg+xml;base64,PHN2Zy8+")).toBe(true);
+    expect(inlineImage("data:image/png;base64,iVBORw0KGgo=")).toBe(true);
+    expect(inlineImage("data:text/html;base64,PHNjcmlwdD4=")).toBe(false);
+    expect(inlineImage("data:image/svg+xml,<svg onload=alert(1)>")).toBe(false);
+    expect(inlineImage('data:image/svg+xml;base64,PHN2Zy8+"><script>')).toBe(false);
+    expect(inlineImage("https://elsewhere.example/a.svg")).toBe(false);
+    expect(inlineImage(undefined)).toBe(false);
+  });
 });
 
 describe("choosing a variant", () => {
@@ -162,7 +181,7 @@ describe("choosing a variant", () => {
   });
 });
 
-describe('"By hand" calls', () => {
+describe("button calls", () => {
   test("search sends the query and the cursor only", () => {
     expect(searchCall("  linen  ", "c2")).toEqual({
       name: "search_catalog",
@@ -249,38 +268,17 @@ describe('"By hand" calls', () => {
   });
 });
 
-describe("the two modes", () => {
-  test('"With the assistant" never makes a tool call, whatever the button', () => {
-    let built = 0;
-    const call = () => {
-      built++;
-      return searchCall("x");
-    };
-    const action = choose("assistant", "Searching", call, () => say.search("linen shirts"));
-    expect(action).toEqual({ kind: "say", text: "Show me linen shirts from Atelier Velune." });
-    expect(built).toBe(0);
-    expect(choose("hand", "Searching", call, () => "unused")).toEqual({
+describe("buttons", () => {
+  test("a button always makes its tool call and never writes to the assistant", () => {
+    expect(choose("Searching", () => searchCall("x"))).toEqual({
       kind: "call",
       label: "Searching",
       call: searchCall("x"),
     });
-    expect(
-      choose(
-        "hand",
-        "Paying",
-        () => undefined,
-        () => "unused",
-      ),
-    ).toEqual({ kind: "none" });
+    expect(choose("Paying", () => undefined)).toEqual({ kind: "none" });
   });
 
-  test("the sentences name what the shopper chose, and a by-hand change names its cart", () => {
-    const v = variantFor(TRENCH, { colour: "sand", size: "M" })!;
-    expect(say.add(TRENCH, v)).toBe("Add the Trench coat in Sand, size M to my bag.");
-    expect(say.pay(checkout().instruments[0]!, "€16.95")).toBe(
-      "Pay €16.95 for my bag with my saved card Visa •••• 1111 · 03/30.",
-    );
-    expect(say.refreshCheckout()).toContain("Refresh my Atelier Velune checkout");
+  test("a change names its cart or checkout to the model, without the shopper's data", () => {
     expect(refreshCheckoutCall("chk_1")).toEqual({
       name: "get_checkout",
       arguments: { id: "chk_1" },

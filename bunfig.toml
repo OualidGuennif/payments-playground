@@ -6,3 +6,11 @@ exact = true
 # A version must be a week old before an install resolves it: a hijacked release is usually
 # caught and pulled within days (semgrep bun-missing-minimum-release-age).
 minimumReleaseAge = 604800
+# Owner's choice, 2026-11-25: Pi 1.6.0 (its four packages, published 2026-11-20) for the Ask agent,
+# pinned exactly by the lockfile. Remove this line once the release is a week old (27 Nov).
+minimumReleaseAgeExcludes = [
+  "@earendil-works/pi-ai",
+  "@earendil-works/pi-agent-core",
+  "@earendil-works/pi-schema",
+  "@earendil-works/pi-telemetry",
+]

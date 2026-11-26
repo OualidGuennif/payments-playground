@@ -5,13 +5,15 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Reorganize the three apps' code layout — ACTIVE
+## Ask agent on the agentic store, a PAP agent — ACTIVE
 
-- Owner decision: 2026-11-25, in chat: plan approved; digital, then styling, then agentic;
-  moves and splits only, no stack, URL or behaviour change.
-- State: digital, styling and agentic reorganized and committed on `develop`, unpushed.
-- Next: `pr-review` receipt (who: agent), then the owner's yes to push (who: owner).
-- Blocker: none.
+- Owner decision: 2026-11-25, in chat: guest-or-signed-in chat sidebar, Flue agent, server-only
+  keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
+- State: owner said "Push main" (2026-11-25); bump `2fa2055` pushed, PR #20 open; security-review
+  fixes `5ff25fc`, `0e4e2be`, `a929c43` and the pending Drop-in fix (unpushed), override `6001a88`.
+- Next: Review OK, push develop, release v0.8.0 to main, Render check (who: agent, tonight);
+  Ask keys on Render, voice, a real assistant (who: owner); Pi exemption 11-27.
+- Blocker: the independent review of the pending Drop-in fix.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 
 ## v0.7.1: ChatGPT widget fixes, card-save return, MCP stylist & ZIP — WAITING-OWNER

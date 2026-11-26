@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client";
+import { rememberAccount } from "@/lib/known";
 import { maskEmail } from "@/lib/mask";
 
 type Who = { email: string; name: string } | null;
@@ -27,7 +28,12 @@ function whoIs(path: string): Promise<Who> {
       path,
       who: api()
         .session.get()
-        .then(({ data }) => (data && "customer" in data ? (data.customer as Who) : null))
+        .then(({ data }) => {
+          const who = data && "customer" in data ? (data.customer as Who) : null;
+          // Once seen signed in, this browser greets the shopper back after the session ends.
+          if (who) rememberAccount();
+          return who;
+        })
         // Unknown reads as signed out: the menu then offers Sign in, never someone's account.
         .catch(() => null),
     };

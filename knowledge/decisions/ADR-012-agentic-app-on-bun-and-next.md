@@ -48,3 +48,7 @@ image, its route files re-export the Elysia handler instead of rewrites, and CI 
 **Amended 2026-11-17.** [ADR-015](ADR-015-customer-accounts-and-agent-network-tokens.md) adds
 customer passkeys: the store pins `@simplewebauthn/server` 14.1.0 and `@simplewebauthn/browser`
 14.0.0 exactly, like its other dependencies.
+
+**Amended 2026-11-25.** [ADR-018](ADR-018-ask-agent-flue-in-process.md) adds the Ask agent: the
+store pins `@earendil-works/pi-ai` 1.6.0 and `valibot` 1.5.0, and `@flue/runtime` 2.3.1 joins them,
+all run in the store's own Bun process.

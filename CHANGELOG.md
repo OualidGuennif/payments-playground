@@ -5,6 +5,162 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-26
+
+- Post to the Ask panel's widget frame through one helper: its `"*"` target, the only name an
+  opaque-origin frame has, carries Semgrep's annotation as the widget's own bridge does, since the
+  frame only ever holds the store's widget (no link, form, HTML sink or navigation).
+- Fix the findings of the release's security review of the payment lock. An agent's refused or
+  failed payment no longer reopens a checkout whose order, or amount mismatch, a webhook recorded
+  while the call was in flight, nor one the shopper's Drop-in has claimed since, and a pending
+  answer reports the checkout as it stands. A pending Drop-in payment that Adyen later answers as
+  refused, canceled or expired reopens its checkout, as the refusal webhook would, unless it is held
+  as a mismatch. A failed payment reopens a checkout only when no other payment on it may still pay,
+  whichever fails last, and never over a held mismatch; a session answer (Adyen never updates its
+  status) no longer undoes what a payment's webhook, authorised or refused, or its session's end
+  settled, even read again or posted under a new claim, but shows a retry in the same form that it
+  names and no webhook settled as pending; an agent's retry after a network error keeps its one
+  payment record, only for the same bag and card (told apart by a keyed fingerprint, never the
+  number) and until a webhook refuses it; a refused agent payment gives its budget back, and one
+  authorised after an unknown outcome charges it again, even when the shopper's payment placed the
+  order, always on the grant it was reserved on; a late refusal of an earlier card in the form never
+  undoes a later payment that paid or may still pay; an agent payment Adyen answered with Error is a
+  new attempt, only an unknown outcome is resent; a pending answer after a refusal keeps the form's
+  hold for a retry; a pending answer of one form leaves another tab's hold. No Drop-in result or
+  webhook turns a held mismatch into an order, and a session still under way keeps its hold. The
+  same payment form claiming again keeps the payer its first claim named, or names the shopper who
+  signed in since. `docs/KNOWN_LIMITS.md` now says what a checkout's link lets its holder do.
+
+- Run the Ask agent's MCP client on `@modelcontextprotocol/client` 2.3.1 instead of the 2.0.0
+  that Flue 2.3.1 pins, through a root `overrides` entry: 2.0.0 carries GHSA-6prh-2h8m-c8cw
+  (redirects to another origin re-sent headers and bodies) and GHSA-6qxp-vccf-f47h (OAuth
+  credentials sent to an authorization server the MCP server names), which CI's OSV scan refuses.
+
+- Fix four findings of the independent review of the agentic store. The Ask agent's payment check
+  now reads the instruments where the store does (`checkout.payment`), so strict mode, an
+  unconnected account and card data are refused again. Code Mode counts store calls as they
+  start, so `Promise.all` cannot pass the 20-call cap, and a host-side error ends a run at once.
+  A widget call no longer reactivates a session locked while it ran. Capital Cyrillic and Greek
+  look-alikes now meet the injection signatures. A second tab can no longer open a payment form while
+  another tab's payment holds the checkout, which kept that payment's refusal from reopening it.
+  A signed-in shopper paying a guest bag now also holds their account's other payments, until
+  Adyen settles that payment; once it is released or refused, or an agent pays that bag instead,
+  the shopper's account is free again.
+- Add a ten-minute demo to the agentic `/docs` overview: eight stops, each saying what to do and
+  what to point out. The local PAP agent script ends an over-budget run by printing the shopper's
+  link instead of a stack trace.
+- Explain every agentic `/docs` page in plain words: before each diagram, what it is about and
+  how to read it; after it, what to remember; and a short glossary on the overview, written for a
+  visitor who is not technical.
+- Add Code Mode at `/mcp/code` (Cloudflare's pattern): two tools, `search` and `execute`, where
+  an agent sends one short JavaScript function that calls the store's own MCP tools and gets only
+  its result back. The code runs in a fresh QuickJS WebAssembly sandbox (no network, files or
+  timers; 32 MB, half a second of interpreter time, 20 store calls, 10 runs a minute per address);
+  every call carries the agent's own token, and paying stays a direct call on `/mcp`. `/mcp/code`
+  is a third OAuth resource; `/docs/code-mode` explains it and `scripts/pap-agent.ts --code-mode`
+  shows it end to end.
+- Speak to shoppers in plain words: every refusal on the store's browser routes and every
+  checkout message reads as one sentence from a single table (never an agent text such as a field
+  name), and a browser that was once signed in greets the shopper back: "Welcome back" on
+  sign-in, "Sign in instead" on sign-up, a sign-in link beside the receipt fields, and the
+  account's own email filled in when signed in.
+- Keep one bag per browser: the Ask panel's bag becomes the site's bag (header count, `/cart`), a
+  paid one empties it, and the open checkout page follows it at once (a site checkout takes the
+  bag's lines through `POST /api/checkouts/:id/lines`, an agent's checkout refreshes, every 4 s
+  as well) and reloads Drop-in for the new total. The agent hears the site's bag, or the open
+  checkout's, as catalogue titles and ids. One account now pays one checkout at a time, across
+  the website and every agent.
+- Pay one way at a time: the checkout page's Drop-in holds the checkout for its payment before it
+  sends it (`POST /api/checkouts/:id/pay-intent`, 15 minutes), so an agent's or the Ask panel's
+  `complete_checkout` sends nothing meanwhile, edits and cancels wait, a second tab is refused, and
+  a bag changed since the form opened reloads the form instead of paying the old total; a result
+  or a refusal webhook frees it. The store spec's MCP Apps parts move to their own spec.
+- Ask the receipt email in the Ask panel itself: when the bag's checkout lacks one, a block under
+  the widget offers the account's address (shown masked) or takes a typed one, and posts it to
+  `POST /api/ask/checkout-email`, never through the assistant; the route takes only a checkout
+  this conversation showed, sets the email once and keeps it out of the transcript.
+- Keep one widget in the Ask panel: the carousel and the bag share one frame under the newest
+  message that showed one, fed every view the agent or a tap brought, while earlier messages keep
+  a line. The widget loses its "By hand" / "With the assistant" switch and its TEST note: its
+  buttons call the store's tools and never write to the assistant, in the panel and in ChatGPT.
+- Tighten the Ask agent against prompt injection, after the prompt-injection-defense skill, OWASP
+  LLM01:2025 and Microsoft's indirect-injection guidance: stage 1 also refuses claimed authority,
+  faked boundaries, a role without rules, look-alike letters, digit spellings and base64 payloads,
+  and names its weak signals to the guard; the guard knows the twelve attack families and the
+  session's earlier refusals; a second injection locks the session; the agent's prompt carries the
+  standing rules; store answers carrying an injection are withheld from the agent and buyer data
+  is masked in them; answers mask emails and phone numbers; the red team grows to 16 attacks.
+- Show the product pictures in the Ask panel's carousel and bag: the panel hands the store's own
+  images to the widget inline, because Chromium refuses its sandboxed frame's requests to a
+  loopback store; the widget draws a base64 `data:image/` picture besides the store's own.
+- Let the agentic store's checkout page ask for a missing receipt email: a checkout an agent
+  handed over as a guest no longer stops at "missing details"; the email fills that gap once and
+  never replaces one already set.
+- Declare the Ask agent's secrets on the agentic store's Render service: the four model keys and
+  the console password, each set by hand in the dashboard; the deploy runbook says what each one
+  turns on.
+- Add the Ask agent's GPT-Live voice mode on OpenAI conversations: unlocked with its password,
+  checked on the server; the server creates each call with OpenAI's key and keeps its sideband,
+  so the browser holds no key and can send no command; every spoken request runs the same five
+  stages and the voice says only what they let through; calls stop at the session's and the day's
+  voice minutes and budgets, and their seconds count in the day's cost. The panel gets a voice
+  button, live captions and a countdown; the store's pages may now ask for the microphone.
+- Add the Ask agent's panel on the agentic store: an Ask button in the header opens a right
+  sidebar (the page makes room on wide screens), a sheet on phones, or full screen; answers stream
+  their progress, then light Markdown drawn without HTML; the store's carousel and bag run inside
+  it as MCP Apps widgets in sandboxed frames, their taps sent through `/api/ask/widget` and their
+  messages through the five stages; a signed-in shopper connects the account from it.
+- Add the Atelier Velune console page at `/console` (not found without a console password, never
+  indexed): an overview of today's sessions, cost against the daily budget, cache reads and
+  refusals; the sessions with each transcript and its verdicts; model, effort and limit settings
+  offering only providers with a key, sending only what changed; the playground and red team.
+- Add the Atelier Velune console's server side under `/api/console`: a password sign-in that
+  exists only with a `CONSOLE_PASSWORD` of 16 characters or more, five tries per 15 minutes, a
+  strict cookie; today's sessions, cost, cache reads and refusals; every session's transcript with
+  its verdicts, and ending or locking one; audited model and limit settings; a playground and a
+  red-team list that run the gate on demand.
+- Add the Ask agent's shopper routes under `/api/ask`: the session (read, start, end), a message
+  answered as a stream of stage progress, tool steps and one final answer, connecting the account
+  through the store's own device sign-in, and widget taps limited to shopping tools. They refuse
+  calls from other sites and never show a score, a verdict, a model or a cost.
+- Add the Ask agent's house agent and message pipeline: a Flue 2.3.1 agent shops through the
+  store's own MCP handler in-process, as a signed-out guest or with the shopper's own device-grant
+  token, never with card data; the five stages run in order with one message at a time per
+  session, refused text is kept redacted, and every model call, Flue's retries included, is
+  counted and stopped at the cap before it reaches a provider.
+- Add the Ask agent's LLM guard and output filter: stage 3 asks a small model for exactly one
+  `verdict` call (allow, off topic, injection, abuse) and refuses on anything else, an error or
+  8 s of silence; stage 5 blocks an answer that leaks the prompt's canary, drops links off the
+  store, removes card numbers, replaces EUR amounts no tool returned and caps answers at 2,000
+  characters. ADR-012 names the store's new pins.
+- Add the Ask agent's deterministic stages: stage 1 normalizes a message, refuses tag characters,
+  over-long text and strong injection phrasings in English and French, removes hidden and bidi
+  characters and the prompt's delimiters, and replaces card numbers, IBANs and passwords before
+  any model; stage 2 checks the session's message, cost and daily limits and the per-address
+  rate, and sets the mode from the session score (normal, strict, locked; 10 points of relief for
+  regular shoppers). Refusals answer one fixed sentence in French or English.
+- Add the Ask agent's browser sessions: one per browser behind an `av_ask` cookie of 128 random
+  bits stored only as a hash; a guest who signs in keeps the conversation, sign-out or another
+  customer ends it; time and idle limits; per-address limits for new sessions, messages and
+  password tries; the regular-shopper test (paid order, 7-day account, no lock in 30 days).
+- Add the Ask agent's configuration: `src/server/ask/config.ts` reads which provider keys are set
+  (never their values), the answer and guard models and efforts, the limits within fixed ranges
+  and the console password (16 characters or the console is off); `settings.ts` lets the console
+  override them, refuses a model whose provider has no key, ignores a stored one whose key went
+  away and audits each change. `.env.example` lists every new variable. Adds `@flue/runtime`
+  2.3.1's companions `@earendil-works/pi-ai` 1.6.0 and `valibot` 1.5.0; on the owner's choice
+  `bunfig.toml` exempts Pi 1.6.0's four packages from the 7-day release age until 27 Nov.
+- Specify the agentic store's Ask agent before its code: the component doc with its five-stage
+  gate, session score, limits, console and voice invariants, ADR-018 (Flue in-process on Bun,
+  Pi's OpenAI, Anthropic, Mistral and DeepSeek providers, the store's own MCP as the only tools,
+  GPT-Live voice), and its threat table in SECURITY.md.
+- Record the v0.7.2 deploy check: PR #19 merged on `main` (`2daf80e`, CI `45572176026` green),
+  tag `v0.7.2` published, and Render's deployments of landing, digital, styling and agentic
+  succeeded by 07:59:33 UTC. Health, public pages and read-only routes answer on the three apps,
+  and the static chunks of digital `/sessions`, styling `/`, the Sessions resume and the agent
+  budget form match the release build. No payment, part-paid reload or signed-in budget change
+  was run on the public host.
+
 ## [0.7.2] - 2026-11-25
 
 - Fix the agentic account page's agent budget: the limit is labelled as a total including what

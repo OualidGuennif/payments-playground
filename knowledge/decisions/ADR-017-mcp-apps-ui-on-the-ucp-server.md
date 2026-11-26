@@ -5,12 +5,12 @@ description: "Owner, 2026-11-18: the agentic store's MCP server serves a product
 tags: [decision, agentic, mcp, ucp, pap, chatgpt, ui]
 status: stable
 generated:
-  by: antigravity/gemini
-  at: 2026-11-19T00:48:02Z
+  by: claude-code/opus-5.5
+  at: 2026-11-25T17:00:00Z
 sources:
   - id: spec
     resource: ../components/adyen-agentic-commerce.md
-    title: The store's spec (Inputs, Outputs, invariants 28 to 30)
+    title: The store's spec and its MCP Apps widgets (invariants 28 to 30)
   - id: mcp-apps-chatgpt
     resource: https://developers.openai.com/apps-sdk/mcp-apps-in-chatgpt
     title: "OpenAI: Add UI to your MCP server (MCP Apps in ChatGPT, commerce rules)"
@@ -55,7 +55,9 @@ card, two modes, and a plugin that can be downloaded from the site.
    or `manage_url` on this site, where the shopper confirms with a password or a passkey.
 3. **Two modes.** "By hand": the buttons call the tools themselves. "With the assistant": the same
    buttons send the assistant a sentence ("Add the Trench coat in Sand, size M, to my bag") and the
-   assistant calls the tools; the widget then shows each new answer.
+   assistant calls the tools; the widget then shows each new answer. Amended 2026-11-25 (owner):
+   the two modes are gone; the buttons always call the tools and never write to the assistant,
+   who still shops when asked in the chat (store spec, invariant 29).
 4. **Standard first.** The widget speaks the MCP Apps bridge and falls back to `window.openai` when
    the host offers only that. Both are written here, about a hundred lines, with no new dependency.
 5. **Payments ask first.** `complete_checkout` is annotated destructive and open-world, the cancel

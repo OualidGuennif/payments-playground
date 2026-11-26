@@ -13,7 +13,7 @@ export function authorizationServerMetadata() {
     token_endpoint: `${iss}/oauth/token`,
     revocation_endpoint: `${iss}/oauth/revoke`,
     registration_endpoint: `${iss}/oauth/register`,
-    protected_resources: [iss, `${iss}/mcp`],
+    protected_resources: [iss, `${iss}/mcp`, `${iss}/mcp/code`],
     scopes_supported: ADVERTISED_SCOPES,
     response_types_supported: ["code"],
     grant_types_supported: [...DEFAULT_GRANT_TYPES, DEVICE_GRANT],

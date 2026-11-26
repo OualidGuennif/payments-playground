@@ -2,12 +2,14 @@
 import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
-// The same headers the other playgrounds send (packages/platform SECURITY_HEADERS; ADR-005: no CSP).
+// The headers the other playgrounds send (packages/platform SECURITY_HEADERS; ADR-005: no CSP),
+// except the microphone below.
 // The consent page holds the Allow button, so it must never render inside another site's frame.
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  // The Ask panel's voice mode asks for the microphone on the store's own pages only.
+  "Permissions-Policy": "camera=(), microphone=(self), geolocation=()",
   "X-Frame-Options": "DENY",
   "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
 };

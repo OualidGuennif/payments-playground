@@ -63,6 +63,18 @@ export function setCartQuantity(variantId: string, quantity: number): CartLine[]
 
 export const clearCart = (): CartLine[] => writeCart([]);
 
+// The Ask panel's bag changed: the site's bag takes its lines, and an open checkout page hears it.
+export const BAG_EVENT = "velune-bag";
+export type BagChange = { lines: CartLine[]; checkoutId?: string; paid: boolean };
+export function followBag(change: BagChange): void {
+  writeCart(
+    change.paid
+      ? []
+      : change.lines.map((l) => ({ ...l, quantity: Math.min(MAX_QUANTITY, l.quantity) })),
+  );
+  window.dispatchEvent(new CustomEvent<BagChange>(BAG_EVENT, { detail: change }));
+}
+
 export function useCart() {
   const [lines, setLines] = useState<CartLine[]>([]);
   useEffect(() => {

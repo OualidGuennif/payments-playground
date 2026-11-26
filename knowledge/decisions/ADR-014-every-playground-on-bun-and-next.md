@@ -62,3 +62,10 @@ install never resolves a version published in the last seven days (CI's semgrep 
 `@simplewebauthn/browser` 14.0.0 for the agentic store's passkeys
 ([ADR-015](ADR-015-customer-accounts-and-agent-network-tokens.md)); both passed the one-week
 release-age rule when installed.
+
+**Amended 2026-11-25.** The agentic store's Ask agent
+([ADR-018](ADR-018-ask-agent-flue-in-process.md)) adds `@flue/runtime` 2.3.1, `valibot` 1.5.0 and
+Pi 1.6.0. On the owner's choice Pi 1.6.0 was installed five days after its release: `bunfig.toml`
+lists its four packages (`pi-ai`, `pi-agent-core`, `pi-schema`, `pi-telemetry`) in
+`minimumReleaseAgeExcludes`, to be removed on 2026-11-27. Two install scripts stay blocked
+(`@google/genai`, `protobufjs`).

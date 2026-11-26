@@ -18,6 +18,8 @@ export {
   type Order,
   type OrderLine,
   type PaymentRecord,
+  PAYING_MS,
+  payingNow,
   type Phase,
   type Severity,
   SHIPPING,
@@ -27,6 +29,7 @@ export { cardAlias, forgetCardCache, savedCards } from "./saved-cards";
 export { cancelCart, createCart, loadCart, updateCart } from "./carts";
 export {
   assess,
+  buyerOf,
   type Assessment,
   budgetUrl,
   cancelCheckout,
@@ -42,4 +45,5 @@ export {
   startCardSave,
   startShopperSession,
 } from "./shopper-session";
+export { accountPaying, claimWebPayment, releasePayment } from "./lock";
 export { applyNotification } from "./webhooks";

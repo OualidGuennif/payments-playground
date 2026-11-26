@@ -15,6 +15,8 @@ import {
   err,
   type Message,
   now,
+  payingNow,
+  paymentInProgress,
 } from "./model";
 import { parseBuyer, parseLines, price } from "./pricing";
 import { loadCart, ownedBy } from "./carts";
@@ -60,6 +62,8 @@ export const saveCheckout = (c: Checkout) => put("checkouts", c.id, { ...c, upda
 export function updateCheckout(checkout: Checkout, body: Record<string, unknown>): Checkout {
   if (checkout.phase !== "open")
     throw err(409, "checkout_not_editable", `Checkout is ${checkout.phase}`);
+  // The amount being paid must not move under the shopper's Drop-in payment.
+  if (payingNow(checkout)) throw paymentInProgress();
   const lines =
     body.line_items === undefined ? checkout.lines : parseLines(body.line_items, checkout.lines);
   return saveCheckout({
@@ -74,6 +78,7 @@ export function cancelCheckout(checkout: Checkout): Checkout {
   if (checkout.phase === "completed" || checkout.phase === "complete_in_progress") {
     throw err(409, "checkout_not_cancelable", `Checkout is ${checkout.phase}`);
   }
+  if (payingNow(checkout)) throw paymentInProgress();
   return saveCheckout({ ...checkout, phase: "canceled" });
 }
 
@@ -111,6 +116,15 @@ export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAl
   if (checkout.phase !== "open") {
     const status = checkout.phase === "completed" ? "completed" : checkout.phase;
     return { status, messages, total };
+  }
+  // The shopper is paying it in Drop-in: an agent reads it in progress and sends nothing.
+  if (payingNow(checkout)) {
+    const { content, code, severity } = paymentInProgress().msg;
+    return {
+      status: "complete_in_progress",
+      messages: [...messages, { type: "info", code, content, severity }],
+      total,
+    };
   }
   if (Date.parse(checkout.expiresAt) < Date.now()) {
     return {

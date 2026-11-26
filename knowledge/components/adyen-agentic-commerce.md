@@ -6,8 +6,8 @@ tags: [component, agentic, pap, ucp, mcp, checkout, bun]
 status: draft
 scope: component-adyen-agentic-commerce
 generated:
-  by: antigravity/gemini
-  at: 2026-11-25T14:00:00Z
+  by: claude-code/opus-5.5
+  at: 2026-11-26T06:15:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -27,13 +27,16 @@ sources:
     title: "Standalone output; no rewrites: route files re-export the Elysia handler at the public paths"
   - id: src
     resource: ../../apps/adyen-agentic-commerce/src
-    title: "Pages (app/), API (app/api), server modules (server/: api.ts and protocol.ts at the top, one folder per domain: core, payments, catalog, commerce, accounts, oauth, ucp, mcp, pap, back-office; oauth.ts and commerce.ts re-export their folder's files, one per responsibility)"
+    title: "Pages (app/), API (app/api), server modules (server/: api.ts and protocol.ts at the top, one folder per domain: core, payments, catalog, commerce, accounts, oauth, ucp, mcp, pap, back-office, ask; oauth.ts and commerce.ts re-export their folder's files, one per responsibility)"
   - id: widgets
     resource: ../../apps/adyen-agentic-commerce/src/widgets
     title: "MCP Apps widgets (carousel, bag), their bridge and logic"
   - id: plugin
     resource: ../../apps/adyen-agentic-commerce/plugin/atelier-velune
     title: "The plugin package served as a ZIP"
+  - id: widgets-spec
+    resource: ./mcp-apps-widgets.md
+    title: "MCP Apps widgets: carousel, bag, bridge, plugin ZIP (invariants 28 to 30)"
 ---
 
 # adyen-agentic-commerce
@@ -61,7 +64,8 @@ a guest, or hand the checkout to the shopper, who pays at `continue_url`.
 | `src/server/catalog/catalog.ts`                   | Products, variants (colour, size), prices in EUR minor units   | Repo  | Shipped with build  |
 | SQLite (`DATABASE_PATH`, `bun:sqlite`)    | Carts, checkouts, orders, OAuth clients/codes/tokens, grants,  | App   | Per request         |
 |                                           | seen JWT ids, idempotency records, protocol trace, webhooks,   |       |                     |
-|                                           | customers, customer sessions, passkeys, WebAuthn challenges    |       |                     |
+|                                           | customers, customer sessions, passkeys, WebAuthn challenges,   |       |                     |
+|                                           | the Ask agent's records ([ask-agent](ask-agent.md))            |       |                     |
 | Adyen Checkout API v72 TEST               | `/sessions`, `/payments` (stored card or network token), the   | Adyen | Per call            |
 |                                           | stored payment methods of each account's `shopperReference`,   |       |                     |
 |                                           | a network token's brand (`/cardDetails`)                       |       |                     |
@@ -125,7 +129,10 @@ before, every deploy or restart emptied orders, agents and grants.
   REST catalogue, carts and checkouts work anonymously. `/mcp` answers 401 with the resource
   metadata URL until the agent signs in, unless the request carries a verified `Poppy-Session`:
   a PAP agent signed out gets the same guest access as on REST (PAP's UCP extension §8), and a
-  generic MCP client, which sends no Session, keeps the 401. Client metadata documents must be
+  generic MCP client, which sends no Session, keeps the 401. The store's own Ask agent reaches the
+  same handler in-process (`handleHouseMcp`, on no route): without a token it is a guest like a
+  signed-out PAP agent; with its shopper's grant token, that token is checked like any other
+  ([ask-agent](ask-agent.md)). Client metadata documents must be
   https, except loopback ones while `PUBLIC_ORIGIN` is itself loopback (local runs and
   `scripts/pap-agent.ts`).
 - **Outbound fetches (PAP 1.0 §3):** before fetching a URL an agent gave it (client document,
@@ -155,13 +162,14 @@ before, every deploy or restart emptied orders, agents and grants.
   when that capability was kept. The cheap checks (route, headers, body, Idempotency-Key) come
   before the fetch.
 - **Resource indicators (RFC 8707):** `resource` on authorize, device authorization and token
-  requests must be `PUBLIC_ORIGIN` (UCP REST) or `${PUBLIC_ORIGIN}/mcp`, compared after RFC 3986
+  requests must be `PUBLIC_ORIGIN` (UCP REST), `${PUBLIC_ORIGIN}/mcp` or `${PUBLIC_ORIGIN}/mcp/code`
+  ([Code Mode](code-mode.md)), compared after RFC 3986
   normalisation (the origin's trailing slash is the origin; a query, fragment or other path is
   not), and may repeat; at the token endpoint it must also be one the grant was issued for, and it
   is checked before a device code or refresh token is spent. A token issued for one resource is
   accepted only there (401 `invalid_token` elsewhere); a token issued without one is accepted at
-  both. The refresh token always keeps what the grant gave: the resources named at authorization
-  (none means both) and the approved scopes. A token request (code, device code or refresh) may
+  all three. The refresh token always keeps what the grant gave: the resources named at authorization
+  (none means all) and the approved scopes. A token request (code, device code or refresh) may
   narrow the access token to fewer resources and scopes, never the refresh token, so a later
   refresh can ask for the rest (PAP 1.0 §4.5, RFC 6749 §6). `scripts/pap-agent.ts` signs in
   without `resource`, since a PAP sign-in covers every resource, and names the MCP URL at the
@@ -199,16 +207,8 @@ before, every deploy or restart emptied orders, agents and grants.
   describing what it returns. They read the read-only `GET /api/catalog` and write the
   same cart and `POST /api/checkouts` as the buttons; `start_checkout` opens the checkout page,
   where the shopper pays in Drop-in. This is separate from `/mcp`, which is unchanged.
-- **Shopper in an agent host's UI (MCP Apps, [ADR-017](../decisions/ADR-017-mcp-apps-ui-on-the-ucp-server.md)):**
-  a host that renders MCP Apps (ChatGPT, Claude) shows the product carousel or the bag inside the
-  conversation. The shopper picks a mode in it: "By hand", where its buttons call the UCP tools
-  through the host (search, next page, add to bag, quantities, checkout, pay with a listed saved
-  card), or "With the assistant", where the same buttons only send the assistant a sentence and the
-  assistant calls the tools. Either way every call is the host's `tools/call` on the shopper's
-  grant; the widget holds no token and no card data, and from the host's first message on it posts to
-  the host's origin only (keeping `"*"` for the handshake and for an opaque `"null"` host origin).
-  It shows the store's refusals in its own plain words for the codes it knows, and the store's
-  text for any other.
+- **Shopper in an agent host's UI (MCP Apps):** taps in the carousel or the bag call the UCP
+  tools through the host on the shopper's grant: [MCP Apps widgets](mcp-apps-widgets.md#inputs).
 - **Catalogue:** UCP's `filters.categories` (any of the listed ones) and `filters.price` (`min`,
   `max`, minor units) on search, lookup and product; the singular `category` this store read
   before stays accepted. Search pages with `pagination.limit` (10 by default, at most 50) and the
@@ -224,7 +224,7 @@ before, every deploy or restart emptied orders, agents and grants.
 ## Outputs
 
 - **Discovery:** `/.well-known/poppy.json`, `/.well-known/oauth-protected-resource` (and
-  `/.well-known/oauth-protected-resource/mcp`), `/.well-known/oauth-authorization-server`,
+  `/.well-known/oauth-protected-resource/mcp` and `…/mcp/code`), `/.well-known/oauth-authorization-server`,
   `/.well-known/ucp`. `poppy.json` gives `auth.scopes` as a map of scope to description and
   `auth.scope_hints` keyed by scope with both `changes` and `personal_data` (PAP 1.0 §3.1, §4.7),
   `tasks.endpoint`, and an MCP description that names the three ways to pay (saved card, the
@@ -287,7 +287,19 @@ before, every deploy or restart emptied orders, agents and grants.
   keeps what was spent and needs no new sign-in; a payment the shopper makes at `continue_url`
   never counts against the agent's limit. An agent that completes with no instrument hands the checkout over: from then on
   agents see it `requires_escalation` (`shopper_pays`) and the shopper pays at `continue_url` in
-  Drop-in.
+  Drop-in. A checkout whose only missing detail is the receipt's email (an agent shopping as a
+  guest) asks for it there: `POST /api/checkouts/:id/email` `{ email }` fills that gap once, never
+  replaces an email already set or an account's, and answers 404 for another account's checkout
+  (`src/server/accounts/customers.test.ts`, "takes one at its link, once").
+  Drop-in's `beforeSubmit` first claims it (`POST /api/checkouts/:id/pay-intent` `{ sessionId }`);
+  409 `payment_in_progress` or `checkout_changed` (the page reloads) stops the payment. The page
+  follows the shopper's one bag (Ask spec): it refreshes when its checkout changes, and a `web`
+  checkout takes the bag's lines through `POST /api/checkouts/:id/lines` `{ lines }` (open, not
+  held, the viewer's or no account's; else 409 or 404). A person reads every refusal in plain
+  words: these routes answer `{ error: <sentence>, code }` and the view's messages carry the same
+  sentence (`src/lib/shopper-words.ts`), never the agents' text, which names fields. The view adds
+  `signedIn` and, on a guest's checkout or the viewer's own, `accountEmail`, which fills the
+  receipt field in advance.
 - **Checkout status for an agent:** with lines, a buyer email and payments configured, a guest's
   checkout is `ready_for_complete` (it may pay with a network token) and a signed-in agent's is
   too while the total fits its remaining limit, unless it was handed to the shopper; `payment.instruments` lists the account's saved
@@ -308,9 +320,16 @@ before, every deploy or restart emptied orders, agents and grants.
   `•••`, domain). `GET /api/back-office` keeps its fields and takes `page`, `per`, the same filters
   and `channel`; its `trace` is the requested page, with `trace_total` and `trace_pages`.
 - **Docs:** `/docs` explains, with diagrams drawn in SVG from the theme's tokens, how an agent
-  finds and uses the store: PAP 1.0 (`/docs/poppy`), MCP (`/docs/mcp`), WebMCP (`/docs/webmcp`),
+  finds and uses the store: PAP 1.0 (`/docs/poppy`), MCP (`/docs/mcp`), Code Mode
+  (`/docs/code-mode`), WebMCP (`/docs/webmcp`),
   UCP (`/docs/ucp`) and the Adyen calls (`/docs/adyen`). Each sequence diagram steps through its
-  messages with Next and Back and has the same steps as text. A "Try it" panel reads, from the
+  messages with Next and Back and has the same steps as text. Before each diagram an "In plain
+  words" panel says, for a visitor who is not technical, what the page is about and how to read
+  the diagram; after it a "What to remember" list keeps the two or three facts that matter
+  (`src/components/docs/plain.ts`). The overview adds "Words you will meet", a short glossary
+  (MCP, UCP, Poppy, token, scope, webhook, Adyen TEST) and "A ten-minute demo": eight stops for
+  someone presenting the store, each with what to do, what to point out and a link on this origin.
+  A "Try it" panel reads, from the
   visitor's browser, only public documents of this origin (`/.well-known/poppy.json`,
   `/.well-known/ucp`, `/.well-known/oauth-authorization-server`, MCP `tools/list`); nothing it
   sends pays, signs in or changes state (MCP `tools/list` is a `POST`, sent without cookies, so it
@@ -319,25 +338,12 @@ before, every deploy or restart emptied orders, agents and grants.
   at `/docs/ucp#saved-card-handler` and `#network-token-handler`. `/agents` is a short "Connect
   your AI agent" page for shoppers: the MCP address with a copy button, three steps, ChatGPT (the
   one client tested end to end), other MCP hosts, the device code and WebMCP, linking to the Docs.
-- **MCP Apps UI:** `initialize` announces `resources`, `prompts` and boutique stylist instructions;
-  `prompts/list` and `prompts/get` serve `personal-stylist`. `resources/list` serves
-  `ui://widget/product-carousel-v2.html` and `ui://widget/cart-checkout-v2.html`
-  (`text/html;profile=mcp-app`, inline script and style; `resources/read` keeps v1 aliases; unknown
-  URI `-32002`), with `_meta.ui.csp` images from `PUBLIC_ORIGIN` only and `openai/widgetCSP` adding
-  that origin to `redirect_domains`. `search_catalog` and `get_product` name the carousel; cart
-  and checkout tools (`complete_checkout` included) name the bag (`_meta.ui.resourceUri`, alias
-  `openai/outputTemplate`, `ui.visibility` `["model","app"]`, `openai/widgetAccessible`,
-  `openai/toolInvocation`). `bridge.ts` deduplicates host payloads, ignores stale
-  `openai:set_globals` after `ui/initialize`, keeps updates silent via `setWidgetState` in ChatGPT
-  and structured `ui/update-model-context` elsewhere, and falls back on `openExternal`. The bag
-  offers "Save a test card" and "Refresh cards" when no saved card is present. `complete_checkout`
-  is destructive and open-world, cancel tools destructive. `src/widgets/` builds into
-  `src/server/mcp/widgets.gen.ts` with a source hash check.
-- **Plugin package:** `GET /downloads/atelier-velune-plugin.zip` packages `plugin/atelier-velune/`
-  (`plugin.json` meeting OpenAI listing limits, `mcp.json` with Agent Plugins `$schema`,
-  `${PUBLIC_ORIGIN}/mcp` and `extensions["com.openai"].auth` CIMD, `personal-stylist` skill,
-  icons), without hooks or app references; `/docs/chatgpt` explains direct MCP vs ZIP import.
-- **Account:** the header shows "Sign in" or the initial menu (desktop and mobile). `/account`
+- **MCP Apps UI and plugin package:** the carousel and bag UI resources, the `personal-stylist`
+  prompt and the plugin ZIP: [MCP Apps widgets](mcp-apps-widgets.md#outputs).
+- **Account:** the header shows "Sign in" or the initial menu (desktop and mobile). A browser
+  seen signed in keeps the cookie `velune_known=1` (no personal data, 400 days, kept after
+  sign-out and an ended session): sign-in then reads "Welcome back", sign-up offers "Sign in
+  instead", and the receipt fields offer sign-in. It decides nothing. `/account`
   shows overview tiles, agents (state from `agent-status.ts`, UTC dates, `#agent-<grant>`), orders
   (pages of 10), saved cards and security (passkeys, sign-out). Card saves and `/checkout/[id]`
   Drop-in return through `/api/return` (`GET`/`POST`, validated `/account` or `/checkout/chk_*`
@@ -414,24 +420,36 @@ before, every deploy or restart emptied orders, agents and grants.
    and the order is placed from those lines, not from the checkout, which stays editable while a
    Drop-in session is open. When Adyen reports an amount other than the one sent, no order is
    placed and the checkout is held with `amount_mismatch`. Payments are found by reference or
-   session id, never inside a window of recent rows. A late refusal of an earlier attempt neither
-   reopens the checkout nor gives budget back.
+   session id, never inside a window of recent rows. A late refusal of an earlier attempt (another
+   PSP reference) neither reopens the checkout, gives budget back nor undoes a later payment.
 3. An agent pays with a saved card only with a valid access token carrying the checkout and pay
    scopes (a token without the checkout scope cannot complete at all: 403), a grant that is not
    revoked, a card of the grant's account, and a total at or under the grant's remaining limit;
    with its own network token, a signed-in agent needs the same token, grant and limit, a guest
    none of them; otherwise `requires_escalation`. The grant is re-read after the card lookup and the total is reserved on it
    when the checkout is claimed, with nothing awaited in between, so completes on several checkouts
-   at once cannot together pass the limit. Each payment's reservation is settled once: the first of
-   the synchronous refusal, a network error or a refusal webhook gives it back, and a success
-   webhook for a payment whose reservation was given back charges it again before the order. The
-   synchronous answer re-reads the payment and the checkout first: when a webhook already placed
-   the order or held a mismatch during the call, it neither places a second order nor releases.
+   at once cannot together pass the limit. Each reservation is settled once, on its own grant: the
+   first of the synchronous refusal, a network error or a refusal webhook (even after another
+   payment's order) gives it back, and a success webhook after that charges it again, whichever
+   payment placed the order. The synchronous answer re-reads the payment and the checkout first:
+   after a webhook placed the order or held a mismatch during the call, it places no other.
 4. A checkout is paid at most once: it is re-read after the card lookup and `complete_in_progress`
    is claimed before the call with nothing awaited in between, so two completes at once send one
    payment; the idempotency key is `agent-pay-<checkout id>-a<attempt>`; a refusal opens a new
-   attempt, a network error retries the same key; a completed checkout is immutable. A Drop-in
-   result is likewise re-read after Adyen answers, so a repeated result places one order.
+   attempt, a network error retries its key and record for the same bag and card until refused; a
+   completed checkout is immutable; a repeated result or webhook places one order, none on a mismatch.
+   One payment at a time across channels: a pay-intent holds the checkout 15 min; meanwhile an
+   agent's complete sends nothing (`payment_in_progress`), edits and cancels refuse, a new Drop-in
+   session (another tab) refuses so the held attempt stays current, and an agent's claim refuses
+   pay-intents; one account pays one checkout at a time (an agent's complete or a pay-intent on
+   another checkout of the account refuses with `payment_in_progress` while one is held or in
+   progress, for 15 min at most; a hold its signed-in browser claimed on a guest's or another
+   account's checkout counts too, until that payment is released or refused or an agent pays the
+   checkout); a failed payment reopens the checkout only with no order or held mismatch and no
+   other payment on it that may still pay (an agent's call in flight, a payment Adyen left pending),
+   whichever fails last; a session answer never undoes what a webhook or the session's end settled,
+   but for a retry it names; a session priced before an edit gets `checkout_changed`; a result or
+   refusal webhook ends only its own hold (`commerce/lock.test.ts`; `docs/KNOWN_LIMITS.md`).
 5. Every PAP MUST that applies to the merchant side maps to a test (matrix in the app's
    `src/server/pap/conformance.test.ts`).
 6. No secret, token, client assertion or stored payment method id appears in the trace, logs or
@@ -489,8 +507,8 @@ before, every deploy or restart emptied orders, agents and grants.
     (`src/server/accounts/customers.test.ts`, "agents act for an account").
 16. A network-token credential serves one `/cardDetails` and one `/payments` call: it is never
     stored, traced, logged or returned (digits in an error text are masked; the idempotency
-    record's hash takes each `credential` only through an HMAC whose key never reaches the
-    database, so another token under the same key is still a 409), and Adyen gets
+    record's hash and an agent payment's record keep it only as an HMAC whose key never reaches
+    the database, so another token is another body (409) or a new payment), and Adyen gets
     `networkToken` with the brand it read, `ContAuth` and `UnscheduledCardOnFile`, with no
     stored-payment field. A bad field, or a checkout not ready to pay, sends the number nowhere;
     a checkout handed to the shopper takes no instrument from agents
@@ -541,18 +559,16 @@ before, every deploy or restart emptied orders, agents and grants.
     data mark, never a scope name, keeps the one-sentence warning, sends `spend_limit_eur` 0
     when `ucp:pay` is not asked, and has Allow as its first submit button, the one Enter in the
     budget field presses (`src/components/ConsentForm.test.tsx`).
-27. The Docs pages render on the server with every diagram's steps as text, and their Try it
+27. The Docs pages render on the server with every diagram's steps as text, plain words before
+    every diagram and what to remember after it, a ten-minute demo whose stops add up to ten
+    minutes and link only to this origin, and no dash a reader would trip on; their Try it
     panels send only a `GET` of this origin's public documents or a `POST` of MCP `tools/list` to
     this origin's `/mcp` (`src/components/docs/docs.test.tsx`).
-28. The UI resources (v2 URIs and v1 aliases) answer where `tools/list` does, load nothing outside
-    `PUBLIC_ORIGIN`, match their sources' hash, and serve `prompts/list`/`prompts/get`
-    (`src/server/mcp/widgets.test.ts`).
-29. A widget has no authority: "By hand" calls UCP tools (named `saved_card`, single-attempt
-    idempotency keys, extending the open bag), "With the assistant" sends a sentence, and the bridge
-    pins parent origin and suppresses stale host `toolOutput` / composer text
-    (`src/widgets/logic.test.ts`, `src/server/mcp/widgets.test.ts`, `src/widgets/bridge.test.ts`).
-30. The plugin ZIP holds its listed files, `$schema`, `${PUBLIC_ORIGIN}/mcp`, OpenAI OAuth CIMD
-    and valid listing fields, with no app reference or hook (`src/server/mcp/plugin.test.ts`).
+28. to 30. The MCP Apps widgets and the plugin ZIP: invariants 1 to 3 of
+    [MCP Apps widgets](mcp-apps-widgets.md).
+31. A shopper never reads a text written for agents: every code the commerce code raises has a
+    plain sentence that names no field, code or state, and an unknown code reads as a general
+    sentence (`src/lib/shopper-words.test.ts`; `src/server/browser-words.test.ts`).
 
 ## Determinism
 
@@ -566,7 +582,9 @@ is whatever LLM the shopper points at it.
   `ssr:assert` boots the standalone server and expects "Agentic Commerce" on the home page.
 - Locally, `bun run scripts/pap-agent.ts` checks that `poppy.json` names the site's own domain and
   that the issuer lists the MCP URL in `protected_resources`, signs in as a PAP client, waits for
-  the shopper's consent (or `--auto-consent`) and buys one item over MCP.
+  the shopper's consent (or `--auto-consent`) and buys one item over MCP (`--code-mode` builds the
+  checkout in one `execute` on `/mcp/code`); over budget it prints the `continue_url` it hands the
+  shopper and exits 0, since that is the designed outcome.
 - `src/server/pap/conformance.test.ts` "task coverage": the tasks document's shape and references,
   feedback 202 with attribution only after a verified Session, and its `invalid_request` cases.
 - `poppy.json` passes the PAP 1.0 §3.1/§4.7 shape test; the UCP profile's scope keys match the
@@ -582,9 +600,7 @@ is whatever LLM the shopper points at it.
   registration, none on the shopper's own pages, and the cart and checkout calls against the API.
   In a browser, a stand-in `document.modelContext` sees the five tools register on `/shop` and
   leave on `/account`.
-- MCP Apps: both widgets in a browser inside a stand-in host (both bridges, both modes, 375 and
-  1440 px, light and dark); in ChatGPT, the owner's own account: the carousel renders, a by-hand
-  "Add to bag", and a saved-card payment after the host's confirmation.
+- MCP Apps widgets: [their own checks](mcp-apps-widgets.md#acceptance-checks).
 - On TEST: a human Drop-in payment Authorised; a zero-value card save; an agent `complete_checkout`
   Authorised with ContAuth; the matching `AUTHORISATION` webhook accepted.
 - Accounts: sign-up, sign-in, sign-out and a passkey registered then used to sign in, in a
@@ -613,7 +629,8 @@ is whatever LLM the shopper points at it.
   browser attaches that basic auth to a cross-site form POST, the proxy also refuses a state-changing
   request on those paths whose `Sec-Fetch-Site`, or else `Origin`, names another site; the consent
   decision cannot be forged from another page. Every response carries the platform's security
-  headers (`X-Frame-Options: DENY` among them), so the consent page cannot be framed.
+  headers (`X-Frame-Options: DENY` among them), so the consent page cannot be framed; only the
+  microphone is allowed to the store's own pages, for the Ask agent's voice.
 - Conversations, browser sign-in and the Operations extension of PAP; `skill_index`, and feedback
   answered with an alternative (every report gets 202).
 - A host whose DNS answer changes between the address check and the fetch's own lookup (DNS

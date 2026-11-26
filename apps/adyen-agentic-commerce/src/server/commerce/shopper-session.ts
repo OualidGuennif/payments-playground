@@ -2,14 +2,15 @@
 // The shopper's browser: a Sessions payment for a checkout, and saving a card from the account
 // page.
 import { config, CURRENCY } from "../core/config";
-import { type Customer } from "../accounts/customers";
+import type { Customer } from "../accounts/customers";
 import { findBy, get, put } from "../core/db";
 import { trace } from "../core/trace";
 import { newId } from "../core/util";
 import * as adyen from "../payments/adyen";
-import { type Checkout, err, now, type PaymentRecord } from "./model";
+import { type Checkout, err, now, type PaymentRecord, paymentInProgress } from "./model";
 import { forgetCardCache } from "./saved-cards";
 import { assess, buyerOf, loadCheckout, saveCheckout } from "./checkouts";
+import { refusalReopens, releasePayment } from "./lock";
 import { holdMismatch, placePaidOrder } from "./payment";
 
 // Saved cards show in Drop-in only for the checkout's own signed-in account; anyone else, guest or
@@ -31,6 +32,9 @@ export async function startShopperSession(loaded: Checkout, customer?: Customer)
       "requires_buyer_input",
     );
   }
+  // Another tab's Drop-in holds the checkout: a new session would start a new attempt, so that
+  // payment's refusal would read as stale and its retry as a changed bag.
+  if (assessment.status === "complete_in_progress") throw paymentInProgress();
   const attempt = checkout.attempts + 1;
   saveCheckout({ ...checkout, attempts: attempt });
   const reference = `${checkout.id}-s${attempt}`;
@@ -73,6 +77,9 @@ export async function startShopperSession(loaded: Checkout, customer?: Customer)
   };
 }
 
+// The session statuses that end a payment without paying; "active" is still under way.
+const FAILED = new Set(["refused", "canceled", "expired"]);
+
 export async function finishShopperSession(
   loaded: Checkout,
   sessionId: string,
@@ -87,10 +94,31 @@ export async function finishShopperSession(
   const checkout = get<Checkout>("checkouts", loaded.id) ?? loaded;
   const record = get<PaymentRecord>("payments", known.id) ?? known;
   const authorised = result.payments.find((p) => p.resultCode === "Authorised");
+  // Adyen never updates the status a session result reports, so once this payment's webhook
+  // (Authorised, Refused) or an ended session settled it, an answer naming no authorised payment
+  // may be older than that and changes nothing: a page reloaded, or an old result posted again
+  // under a new claim, keeps it. Only a refused record yields to a pending payment the answer
+  // names that no webhook has settled: a retry in the same form. An "active" answer with no
+  // payment says nothing either.
+  const settledBy = record.settledBy ?? [];
+  const fresh = result.payments.find(
+    (p) => p.pspReference !== undefined && !settledBy.includes(p.pspReference),
+  );
+  const ended =
+    record.resultCode === "Authorised" ||
+    record.resultCode === "Refused" ||
+    FAILED.has(record.resultCode ?? "");
+  const settled = !authorised && ended && !(record.resultCode === "Refused" && fresh);
+  const silent = result.status === "active" && !result.payments.length;
   put("payments", record.id, {
     ...record,
-    resultCode: authorised ? "Authorised" : result.status,
-    pspReference: authorised?.pspReference ?? result.payments[0]?.pspReference,
+    ...(settled || silent
+      ? {}
+      : {
+          resultCode: authorised ? "Authorised" : result.status,
+          // Never a payment a webhook already settled: its refusal would no longer match.
+          pspReference: authorised?.pspReference ?? fresh?.pspReference ?? record.pspReference,
+        }),
     updatedAt: now(),
   });
   trace({
@@ -103,11 +131,42 @@ export async function finishShopperSession(
     detail: result,
   });
   if (checkout.phase === "completed") return checkout;
+  // A held amount mismatch waits for a person: no result turns it into an order or reopens it.
+  if (checkout.lastMessage?.code === "amount_mismatch") return loadCheckout(checkout.id, "browser");
   if (result.status === "completed" && authorised) {
     const placed = placePaidOrder(checkout, record, authorised.pspReference, authorised.amount);
     if (typeof placed === "string") holdMismatch(checkout, placed);
-  } else if (result.status === "paymentPending") {
-    saveCheckout({ ...checkout, phase: "complete_in_progress" });
+  } else if (result.status === "paymentPending" && !settled) {
+    // This payment no longer holds the checkout; the form of another tab keeps its own hold.
+    const paying = checkout.paying?.reference === record.reference ? undefined : checkout.paying;
+    saveCheckout({ ...checkout, phase: "complete_in_progress", paying });
+  } else if (FAILED.has(result.status) && refusalReopens(checkout, record.reference)) {
+    // This attempt's pending payment failed after all: Adyen's answer reopens the checkout as its
+    // refusal webhook would, which a local run never receives.
+    const paying = checkout.paying?.reference === record.reference ? undefined : checkout.paying;
+    saveCheckout({
+      ...checkout,
+      phase: "open",
+      paying,
+      // The payer goes with this payment; another tab's form still holding the checkout keeps its own.
+      payerId: paying ? checkout.payerId : undefined,
+      lastMessage: {
+        type: "error",
+        code: "payment_refused",
+        content: "Adyen refused the payment",
+        severity: "requires_buyer_review",
+      },
+    });
+  } else if (
+    FAILED.has(result.status) ||
+    result.status === "completed" ||
+    (result.status === "active" && result.payments.length)
+  ) {
+    // The payment ended without paying (or an attempt was refused in a session still open for a
+    // retry): it no longer holds the checkout. A session under way with no payment keeps it, and so
+    // does a pending answer about a payment already settled: it may be a retry in the same form,
+    // which its hold covers until it runs out.
+    releasePayment(checkout.id, record.reference);
   }
   return loadCheckout(checkout.id, "browser");
 }

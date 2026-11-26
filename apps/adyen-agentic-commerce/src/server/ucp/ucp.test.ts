@@ -288,12 +288,16 @@ describe("agent payment", () => {
     const second = await checkout([OXFORD, BEANIE]);
     const auth = authenticate(`Bearer ${agent.accessToken}`, "/mcp") as Auth;
     const body = { payment: { instruments: [{ id: ALIAS, handler_id: "saved_card" }] } };
-    await Promise.all([
+    const answers = await Promise.allSettled([
       completeCheckout(loadCheckout(first.id, auth), body, auth),
       completeCheckout(loadCheckout(second.id, auth), body, auth),
     ]);
     expect(fake.payments).toHaveLength(1);
     expect(grants()[0]!.spent).toBe(9295);
+    // The account pays one checkout at a time: the second is refused before its budget is read.
+    const refused = answers.filter((a) => a.status === "rejected");
+    expect(refused).toHaveLength(1);
+    expect(String((refused[0] as PromiseRejectedResult).reason)).toContain("already in progress");
   });
 
   test("a refusal ends the attempt, not the checkout; the retry uses a new key", async () => {

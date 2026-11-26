@@ -189,6 +189,48 @@ describe("payment lock", () => {
     expect(list<commerce.Order>("orders")).toHaveLength(1);
   });
 
+  // A Drop-in payment that skipped the hold (a modified browser) is authorised while the agent's
+  // call is in flight; the agent's late answer must not reopen the paid checkout.
+  for (const [name, answer] of [
+    ["refusal", { resultCode: "Refused", refusalReason: "Refused" }],
+    ["error", new Error("timeout")],
+  ] as const) {
+    test(`an agent's ${name} answering after the order was placed leaves the order`, async () => {
+      const { checkout } = await openedOnTheWeb();
+      fake.during = () =>
+        commerce.applyNotification({
+          eventCode: "AUTHORISATION",
+          success: "true",
+          merchantReference: `${checkout.id}-s1`,
+          pspReference: "PSPWEB",
+        } as never);
+      fake.answers.push(answer);
+      await commerce.completeCheckout(reload(checkout.id), agentPays);
+      const after = reload(checkout.id);
+      expect(after.phase).toBe("completed");
+      expect(list<commerce.Order>("orders")).toHaveLength(1);
+    });
+  }
+
+  test("a re-claim of the held form keeps its payer", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id, Date.now(), "cus_payer");
+    commerce.claimWebPayment(checkout.id, session.id);
+    expect(get<commerce.Checkout>("checkouts", checkout.id)?.payerId).toBe("cus_payer");
+  });
+
+  test("a pending Drop-in payment that then fails reopens the checkout", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id, Date.now(), "cus_payer");
+    fake.session = { status: "paymentPending", payments: [] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(reload(checkout.id).phase).toBe("complete_in_progress");
+    fake.session = { status: "refused", payments: [{ resultCode: "Refused" }] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(reload(checkout.id).phase).toBe("open");
+    expect(get<commerce.Checkout>("checkouts", checkout.id)?.payerId).toBeUndefined();
+  });
+
   test("a hold past its time holds nothing", async () => {
     const { checkout, session } = await openedOnTheWeb();
     const at = Date.now();

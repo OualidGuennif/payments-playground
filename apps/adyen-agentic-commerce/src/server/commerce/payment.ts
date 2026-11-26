@@ -253,6 +253,18 @@ export function chosenInstrument(body: Record<string, unknown>): Instrument | un
   return { handler: "saved_card", alias };
 }
 
+// An agent's payment that failed may reopen the checkout only if its claim still stands: while
+// the call was in flight a webhook may have placed an order (a Drop-in payment that skipped the
+// hold) or refused it and let the shopper's Drop-in claim the checkout for a newer attempt.
+function stillClaimed(id: string, attempt: number): Checkout | undefined {
+  const current = get<Checkout>("checkouts", id);
+  return current?.phase === "complete_in_progress" &&
+    current.attempts === attempt &&
+    !current.orderId
+    ? current
+    : undefined;
+}
+
 export async function completeCheckout(
   loaded: Checkout,
   body: Record<string, unknown>,
@@ -378,8 +390,10 @@ export async function completeCheckout(
       ref: checkout.id,
       detail: { reference: paymentReference, error: (error as Error).message },
     });
+    const current = stillClaimed(checkout.id, attempt);
+    if (!current) return loadCheckout(checkout.id, "browser");
     return saveCheckout({
-      ...claimed,
+      ...current,
       phase: "open",
       attempts: checkout.attempts,
       lastMessage: {
@@ -432,8 +446,10 @@ export async function completeCheckout(
     instrument.handler === "network_token"
       ? "Complete again with another network token, or with no instrument to hand the shopper continue_url."
       : "The shopper can pay at continue_url.";
+  const current = stillClaimed(checkout.id, attempt);
+  if (!current) return loadCheckout(checkout.id, "browser");
   return saveCheckout({
-    ...claimed,
+    ...current,
     phase: "open",
     lastMessage: {
       type: "error",

@@ -94,7 +94,12 @@ export function claimWebPayment(
   return saveCheckout({
     ...checkout,
     paying: { channel: "web", reference: record.reference, until },
-    payerId: viewerId && viewerId !== checkout.customerId ? viewerId : undefined,
+    // The same form claiming again (a retry) keeps the payer its first claim named.
+    payerId: held
+      ? checkout.payerId
+      : viewerId && viewerId !== checkout.customerId
+        ? viewerId
+        : undefined,
   });
 }
 

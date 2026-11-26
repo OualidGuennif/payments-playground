@@ -112,6 +112,23 @@ export async function finishShopperSession(
     if (typeof placed === "string") holdMismatch(checkout, placed);
   } else if (result.status === "paymentPending") {
     saveCheckout({ ...checkout, phase: "complete_in_progress", paying: undefined });
+  } else if (
+    checkout.phase === "complete_in_progress" &&
+    record.reference === `${checkout.id}-s${checkout.attempts}`
+  ) {
+    // This attempt's pending payment failed after all: Adyen's answer reopens the checkout as its
+    // refusal webhook would, which a local run never receives.
+    saveCheckout({
+      ...checkout,
+      phase: "open",
+      payerId: undefined,
+      lastMessage: {
+        type: "error",
+        code: "payment_refused",
+        content: "Adyen refused the payment",
+        severity: "requires_buyer_review",
+      },
+    });
   } else {
     // Refused, canceled or expired: this payment no longer holds the checkout.
     releasePayment(checkout.id, record.reference);

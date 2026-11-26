@@ -20,7 +20,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   object's own property (`/cart?toString=1`) is refused instead of crashing the panel or the
   agent's turn, and a locked conversation shows no voice icon, so unlocking cannot start a new
   conversation the panel does not offer. The server enforces it: while the browser's
-  conversation is locked, `POST /api/ask/session` answers `session_locked` 423 as a message does.
+  conversation is locked, `POST /api/ask/session` and `POST /api/ask/session/end` answer
+  `session_locked` 423 as a message does, and a score already under the lock threshold locks it
+  at that moment, so neither a new conversation nor clearing the cookie reopens it.
 - The console page asks `GET /api/console/status` whether it is signed in, so a visit before
   signing in no longer logs a refused call in the browser's console. Its session list shows a
   session whose time ran out as ended, as the overview already counted it, instead of active.

@@ -204,6 +204,30 @@ describe("a message", () => {
     expect(recentSessions(5).filter((s) => s.state === "active")).toEqual([]);
   });
 
+  test("a score under the lock threshold locks the conversation when a new one is asked", async () => {
+    const browser = new Browser();
+    await browser.call("POST", "/api/ask/session");
+    const session = recentSessions(1)[0];
+    if (!session) throw new Error("no session");
+    // No message has acted on the score yet: the session is still active in storage.
+    save({ ...session, score: 20 });
+    expect((await browser.call("POST", "/api/ask/session")).status).toBe(423);
+    expect((await browser.view()).state).toBe("locked");
+  });
+
+  test("ending a locked conversation keeps it paused and its cookie", async () => {
+    const browser = new Browser();
+    await browser.call("POST", "/api/ask/session");
+    const session = recentSessions(1)[0];
+    if (!session) throw new Error("no session");
+    endSession(session, "locked");
+    const end = await browser.call("POST", "/api/ask/session/end");
+    expect(end.status).toBe(423);
+    expect(end.headers.get("set-cookie")).toBeNull();
+    expect((await browser.call("POST", "/api/ask/session")).status).toBe(423);
+    expect(recentSessions(5).filter((s) => s.state === "active")).toEqual([]);
+  });
+
   test("a body that is not JSON with a text is invalid", async () => {
     const browser = new Browser();
     const response = await handle(

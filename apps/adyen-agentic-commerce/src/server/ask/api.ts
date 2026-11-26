@@ -237,6 +237,17 @@ function begin(request: Request, h: Here): { session: AskSession; cookie: string
   return { session, cookie: sessionCookie(token, limits.sessionMinutes * 60) };
 }
 
+// The browser's conversation when it is locked: by its state, or by a score under the lock
+// threshold that no message has acted on yet, which locks it now (spec invariant 5).
+function lockedHere(h: Here): AskSession | undefined {
+  const session = h.session;
+  if (!session) return undefined;
+  if (session.state === "locked") return session;
+  if (liveSession(h) && modeFor(session.score, isRegular(h.customer)) === "locked")
+    return endSession(session, "locked");
+  return undefined;
+}
+
 function endedAnswer(session: AskSession, reason: EndReason) {
   void disconnect(session.id);
   if (reason === "locked" || session.state === "locked")
@@ -333,7 +344,8 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
     const h = here(request);
     // A locked conversation stays paused until its cookie lapses: as a message cannot, a new
     // session (the panel's or voice's) cannot reopen it either.
-    if (h.session?.state === "locked") return endedAnswer(h.session, "locked");
+    const locked = lockedHere(h);
+    if (locked) return endedAnswer(locked, "locked");
     const started = begin(request, h);
     if (started instanceof Response) return started;
     return json(200, sessionView({ ...h, session: started.session, ended: undefined }), {
@@ -343,6 +355,9 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
   .post("/session/end", ({ request }) => {
     if (foreign(request)) return forbidden();
     const h = here(request);
+    // Ending would clear the cookie that keeps a locked conversation paused.
+    const locked = lockedHere(h);
+    if (locked) return endedAnswer(locked, "locked");
     const live = liveSession(h);
     if (live) {
       endSession(live, "ended_by_shopper");

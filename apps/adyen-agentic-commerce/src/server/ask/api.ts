@@ -193,6 +193,7 @@ export function sessionView(h: Here) {
           role: m.role,
           text: m.text,
           widgets: m.widgets ?? [],
+          ...(m.role === "assistant" && m.page ? { page: m.page } : {}),
           at: m.at,
         }))
       : [],

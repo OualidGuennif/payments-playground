@@ -30,6 +30,7 @@ import {
   stageLabel,
   storePath,
   voiceEvent,
+  voicePage,
 } from "./askLogic";
 
 const CAROUSEL = "ui://widget/product-carousel-v2.html";
@@ -480,5 +481,28 @@ describe("site bag", () => {
       fed({ id: "cart_1", line_items: [line("a", 0), { item: {} }, line("b", 1)] }),
     );
     expect(bag?.lines).toEqual([{ variantId: "b", quantity: 1 }]);
+  });
+});
+
+describe("voice pages (spec invariant 21)", () => {
+  const said = (at: number, page?: string, role: AskMessage["role"] = "assistant"): AskMessage => ({
+    role,
+    text: "x",
+    widgets: [],
+    ...(page ? { page } : {}),
+    at,
+  });
+
+  test("the newest voiced answer's page opens once; older and earlier ones never do", () => {
+    const messages = [said(5, "/account"), said(10, "/cart"), said(11, "/shop"), said(12)];
+    const first = voicePage(messages, 8, new Set());
+    expect(first).toEqual({ page: "/shop", seen: [10, 11] });
+    const again = voicePage(messages, 8, new Set(first.seen));
+    expect(again).toEqual({ page: undefined, seen: [] });
+  });
+
+  test("a shopper's or a note's page, or one before the call, opens nothing", () => {
+    const messages = [said(3, "/cart"), said(9, "/cart", "shopper"), said(10, "/cart", "note")];
+    expect(voicePage(messages, 5, new Set()).page).toBeUndefined();
   });
 });

@@ -191,6 +191,10 @@ export function admit(input: {
     bag ? `bag: ${bag}` : undefined,
     `signed in: ${session.customerId ? "yes" : "no"}`,
     `account connected: ${session.connected ? "yes" : "no"}`,
+    // Heard, not typed: a microphone also catches words said to someone else nearby.
+    input.via === "voice"
+      ? "channel: voice transcript, which may hold words meant for someone nearby; answer only what is asked of you"
+      : undefined,
   ]
     .filter(Boolean)
     .join("; ");
@@ -256,6 +260,7 @@ export async function answer(input: {
       role: "assistant",
       text,
       widgets: widgets.length ? widgets : undefined,
+      ...(page ? { page } : {}),
       verdicts,
       usage,
       costUsd,

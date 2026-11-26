@@ -64,6 +64,8 @@ export type AskMessage = {
   text: string;
   via?: "text" | "voice" | "widget";
   widgets?: { resourceUri: string; structuredContent: unknown }[];
+  // A store page the answer asked to open (stage 5 let it through), read again by a voice call.
+  page?: string;
   verdicts?: StageVerdict[];
   usage?: { input: number; output: number; cacheRead: number; cacheWrite: number; calls: number };
   costUsd?: number;

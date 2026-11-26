@@ -30,6 +30,9 @@ export function useVoice({
   const [problem, setProblem] = useState<string>();
   const [caption, setCaption] = useState<Caption>();
   const [left, setLeft] = useState<number>();
+  const [muted, setMuted] = useState(false);
+  // Read when the call object arrives, so a mute pressed while connecting holds.
+  const mutedNow = useRef(false);
   const call = useRef<VoiceCall>(undefined);
   const startedAt = useRef<number>(undefined);
   // Ended while still connecting: the call is hung up as soon as it exists.
@@ -39,6 +42,8 @@ export function useVoice({
     cancelled.current = true;
     call.current?.end();
     call.current = undefined;
+    mutedNow.current = false;
+    setMuted(false);
     setPhase("idle");
   }, []);
 
@@ -100,6 +105,8 @@ export function useVoice({
       else {
         call.current = undefined;
         startedAt.current = undefined;
+        mutedNow.current = false;
+        setMuted(false);
         setLeft(undefined);
         setPhase("idle");
       }
@@ -114,6 +121,7 @@ export function useVoice({
       return;
     }
     call.current = started.call;
+    started.call?.mute(mutedNow.current);
     setLeft(started.call?.maxSeconds);
   };
 
@@ -130,6 +138,13 @@ export function useVoice({
     unlock,
     start,
     end,
+    muted,
+    toggleMute: () => {
+      const next = !mutedNow.current;
+      mutedNow.current = next;
+      call.current?.mute(next);
+      setMuted(next);
+    },
     // The icon beside Send: start, ask for the password, or hang up.
     press: () => {
       if (phase === "connecting" || phase === "live") return end();
@@ -166,6 +181,41 @@ function Wave({ live }: { live: boolean }) {
         <path key={d} d={d} />
       ))}
     </svg>
+  );
+}
+
+// A microphone, struck through while muted.
+const MIC = "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3";
+export function MuteButton({ voice }: { voice: Voice }) {
+  if (!voice.available || !voice.calling) return null;
+  const label = voice.muted ? "Unmute the microphone" : "Mute the microphone";
+  return (
+    <button
+      type="button"
+      onClick={voice.toggleMute}
+      aria-pressed={voice.muted}
+      aria-label={label}
+      title={label}
+      className={`grid size-11 shrink-0 place-items-center rounded-full border transition-colors ${
+        voice.muted
+          ? "border-bad bg-card text-bad"
+          : "border-line bg-card text-ink hover:bg-line/60"
+      }`}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="size-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d={MIC} />
+        {voice.muted && <path d="M4 4l16 16" />}
+      </svg>
+    </button>
   );
 }
 
@@ -211,7 +261,11 @@ export function VoicePanel({ voice }: { voice: Voice }) {
             <span className="relative inline-flex size-2.5 rounded-full bg-ok" />
           </span>
           <p role="status" className="flex-1 text-sm">
-            {voice.phase === "connecting" ? "Connecting the voice…" : "Listening"}
+            {voice.phase === "connecting"
+              ? "Connecting the voice…"
+              : voice.muted
+                ? "Muted"
+                : "Listening"}
             {voice.phase === "live" && voice.left !== undefined && (
               <span className="text-muted tabular-nums"> · {clockText(voice.left)} left</span>
             )}
@@ -242,7 +296,7 @@ export function VoicePanel({ voice }: { voice: Voice }) {
             id="ask-voice-password"
             type="password"
             autoComplete="off"
-            className="field min-h-10 flex-1"
+            className="field min-h-10 min-w-0 flex-1"
             value={voice.password}
             onChange={(e) => voice.setPassword(e.target.value)}
           />

@@ -27,6 +27,7 @@ import {
   type PayAttempt,
   offered,
   payCall,
+  productPage,
   quantityCall,
   refreshCheckoutCall,
   searchCall,
@@ -274,6 +275,15 @@ function card(p: UcpProduct) {
       : h("div", { class: "noimg", "aria-hidden": "true" }),
     h("h3", {}, p.title),
     price ? h("p", { class: "price" }, money(price.amount, price.currency)) : null,
+    h(
+      "button",
+      {
+        type: "button",
+        class: "link details",
+        onclick: () => void open(productPage(STORE, p.id, variant?.id)),
+      },
+      "Show details",
+    ),
     pills(p, choice, "colour"),
     pills(p, choice, "size"),
     h(

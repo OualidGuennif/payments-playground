@@ -14,6 +14,7 @@ import {
   inlineImage,
   offered,
   payCall,
+  productPage,
   quantityCall,
   refreshCheckoutCall,
   searchCall,
@@ -292,5 +293,20 @@ describe("buttons", () => {
       total: 1695,
       items: [{ id: "socks", title: "socks", quantity: 1 }],
     });
+  });
+});
+
+describe("Show details", () => {
+  test("opens the product's page on the store, on the picked variant", () => {
+    expect(productPage("https://store.example", "trench", "trench-sand-s")).toBe(
+      "https://store.example/products/trench?variant=trench-sand-s",
+    );
+    expect(productPage("https://store.example", "a/../console")).toBe(
+      "https://store.example/products/a%2F..%2Fconsole",
+    );
+  });
+
+  test("without a store origin it names no page", () => {
+    expect(productPage("", "trench")).toBeUndefined();
   });
 });

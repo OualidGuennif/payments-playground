@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T09:21:00Z
+  at: 2026-11-26T12:18:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -123,7 +123,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   never the model's. Verdicts and score changes go to the transcript the console reads.
 - **Session view:** `{ available, state: active | ended | locked | none, reason, endsAt, mode:
   normal | strict, signedIn, accountEmail?, connected, voice: { available, unlocked }, messages:
-  [{ role, text, widgets, at }] }`; an ended session shows no messages. `accountEmail` is the
+  [{ role, text, widgets, page?, at }] }`; an ended session shows no messages; `page` is the store
+  path an assistant answer asked to open (stage 5 let it through), so a voice call can open it. `accountEmail` is the
   signed-in account's email masked (first letter and domain, `b•••@example.com`), for the receipt
   block only.
   A shopper never sees scores, verdicts, models, costs or other sessions.
@@ -136,7 +137,9 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   address, the owner's pages and a path whose dot segments collapse into `//` show as plain text). Each widget runs in a sandboxed
   `srcdoc` frame (`allow-scripts` only, so an opaque origin) as an MCP Apps host: `ui/initialize`
   with the page's theme, `tools/call` sent to `POST /api/ask/widget`, `ui/message` refused,
-  `ui/open-link` for the store's pages only, size changes clamped to 120 to 900 px. Chromium refuses an opaque-origin frame's requests to a loopback address, so the host
+  `ui/open-link` for the store's pages only (opened as the panel opens a page, below), size
+  changes clamped to 120 to 900 px. The carousel is compact (about two cards across the panel)
+  and each card has "Show details", which opens the product's page; in ChatGPT it opens as a link. Chromium refuses an opaque-origin frame's requests to a loopback address, so the host
   fetches the store's own images (`PUBLIC_ORIGIN/api/art/*.svg`, at most 64 per data) from the page
   and hands them to the widget as `data:` URLs, in its data and in its tool answers; one it cannot
   fetch keeps its address. The conversation holds one widget, under the newest message that
@@ -144,7 +147,14 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   own taps land in it, so it keeps the collection and the bag and shows the newest; an earlier
   message keeps a line ("Collection shown", "Bag shown"). When the bag's checkout lacks a receipt
   email, a block under the widget asks for it, drawn by the panel itself: signed in, "Send the
-  receipt to b•••@example.com?" with "Use this email" and "Another email"; a guest types one.
+  receipt to b•••@example.com?" with "Use this email" and "Another email"; a guest types one, or
+  taps "I have an account" to sign in inside the block (email prefilled from what was typed,
+  password or passkey, the browser's own autofill offered), and the account's email is then used
+  without leaving the chat (the header's account menu follows); the block opens on that sign-in
+  when this browser signed in here before. Whether an email has an account is never shown (no
+  account enumeration). A bag shown before a reload can be older than its checkout: when the
+  store refuses an email because one is set, the block re-reads the checkout (`get_checkout`)
+  and closes once the bag needs none.
   **One bag per browser:** when the widget shows an open bag, the site's bag (header count,
   `/cart`) takes its lines and the open checkout page hears of it at once; a completed bag empties
   the site's bag. The agent hears the site's bag in `<shop_context>` as `bag:` with catalogue titles
@@ -154,8 +164,9 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   opening, before any message; it asks for the password (unlocking starts the conversation when
   none runs), then starts a
   call (microphone, WebRTC to OpenAI with the server's answer, a data channel that only listens);
-  while the call runs its bars move (still with reduced motion) and it hangs up, and a bar above
-  the composer shows the countdown, the last caption and End; the composer waits and the
+  while the call runs its bars move (still with reduced motion) and it hangs up, a microphone
+  button on its left mutes and unmutes the shopper (the call and its minutes go on), and a bar
+  above the composer shows the countdown, the last caption and End; the composer waits and the
   conversation refreshes every 3 s. Closing the panel, a page without it, an inactive session or
   voice no longer offered (out of normal mode) hangs up. A call's end is a note "Voice call ended".
   **Minimised:** the header's "Minimise" button, Escape, or the site header's Ask button while the
@@ -166,9 +177,13 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   composer; "Open the conversation" restores the panel and Close closes it (closing ends a call).
   The page is neither dimmed nor narrowed while the panel is minimised, and its end scrolls above
   the bar.
-  **Opening a page:** when an answer carries `page`, the panel opens it in place after showing the
-  answer, only if it passes the same list in the browser. Below 1024 px the panel then minimises so
-  the page shows; from 1024 px it stays docked, leaving full screen if it was.
+  **Opening a page:** nothing navigates by itself: a page opens only when the shopper asked for it
+  (an answer that carries `page`) or tapped a widget's button. When an answer carries `page`, the
+  panel opens it in place after showing the answer, only if it passes the same list in the
+  browser; during a voice call, the refresh opens the page of each voiced answer that came after
+  the call started, once. Below 1024 px the panel then minimises so the page shows; from 1024 px
+  it stays docked, leaving full screen if it was. The panel's fields use 16 px text on touch
+  screens, so Safari on iPhone does not zoom when one takes focus.
 - **Errors** (JSON `{ error, message }`): `ask_disabled` 503 (no answer model with a key, or the
   switch off), `budget_exhausted` 503 (daily budget spent, until 00:00 UTC), `rate_limited` 429
   with `retry-after`, `session_ended` 409 with `reason` (`time`, `idle`, `messages`, `budget`,
@@ -307,7 +322,11 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     characters); sideband events replayed on attach count once. A call lasts at most the least of
     the session's and the day's voice minutes (running calls reserve theirs), both budgets at
     0.05 USD a minute, and the session's time left; the cap, an unexpected `session.updated`, an
-    ended session, a session out of normal mode or the switch turned off closes it. Its seconds and cost land on the session and
+    ended session, a session out of normal mode or the switch turned off closes it. The voice
+    is told to stay silent and not delegate when the shopper is talking to someone else, and a
+    delegation reaches the agent with the fact that it is a voice transcript that may hold words
+    meant for someone nearby (judged by the models, best effort). Muting stops the browser's
+    microphone track only. Its seconds and cost land on the session and
     on a note the day's totals count, even when the sideband is lost. The voice model's own words
     outside a delegation pass no stage: it has no tool, its instructions keep it to the shop, the
     shopper sees its captions, and the minutes cap bounds it. Test: `ask/voice.test.ts` with a
@@ -337,7 +356,9 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     needs the session, `X-Ask: 1`, the store's origin and 10 calls a minute per address, accepts
     only a checkout id a widget of this conversation showed, sets the email once (never over one
     already set, never on a paid checkout), and writes the note "Receipt email set" without it.
-    Test: `ask/api.test.ts` "receipt email".
+    The block's sign-in posts to the store's own session and passkey routes, like `/sign-in`; the
+    conversation only gains the note "Signed in". Test: `ask/api.test.ts` "receipt email";
+    `lib/signIn.test.ts`.
 20. **The bag fact is the store's own words:** `bag:` in `<shop_context>` names only catalogue
     titles, ids and quantities, from lines the server checked (or read from the checkout), never
     the shopper's text; a checkout of another account adds nothing. Test: `ask/context.test.ts`
@@ -349,12 +370,14 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     path, query parameter or origin is refused with a sentence the model reads, so `/consent`,
     `/device`, `/oauth`, `/console`, `/back-office`, `/api` and `/mcp` never open. It opens
     nothing itself: a message's last accepted page rides on its `final` event only when stage 5
-    let the answer through, and the agent's verdict names it for the console. Outside a shopper
-    message, in an ended or locked session and in a voice delegation it is refused (the voice
-    says where to go instead). The panel checks the page again with the same list, and a link in an
-    answer opens in place only to a page on it. Test:
+    let the answer through, and the agent's verdict names it for the console; the answer's
+    message keeps it for a voice call. The agent calls it only when the shopper asks to go to a
+    page. Outside a shopper message or voice delegation (a widget's tap), and in an ended or
+    locked session, it is refused. The panel checks the page again with the same list, and a link
+    in an answer opens in place only to a page on it. Test:
     `lib/storePages.test.ts`; `ask/agent.test.ts` "open_page"; `ask/pipeline.test.ts` "a blocked
-    answer opens no page"; `components/ask/askLogic.test.ts` "store links only".
+    answer opens no page"; `ask/voice.test.ts` "a voiced answer keeps its page";
+    `components/ask/askLogic.test.ts` "store links only", "voice pages".
 
 ## Determinism
 
@@ -380,17 +403,22 @@ store's tools and Adyen, and links and amounts pass stage 5.
   verdicts and costs.
 - Voice, by the owner on an OpenAI session: before any message, unlock with `adyentic`
   (`VOICE_MODE_PASSWORD`), ask for a product by voice,
-  the carousel appears in the chat.
+  the carousel appears in the chat; say "take me to my bag", `/cart` opens; mute, speak, nothing is
+  heard; unmute.
 - At 375 and 1440 px, light and dark: minimise during an answer and during a voice call, both
   carry on and the bar shows them; navigate and reload, the bar stays; "take me to my account"
   opens `/account` (the panel minimises at 375 px, stays docked at 1440 px); a link to another
-  site in an answer shows as text.
+  site in an answer shows as text; "Show details" on a carousel card opens the product's page; on
+  an iPhone, focusing the composer or the receipt email does not zoom; a guest with an account
+  signs in inside the receipt block and the receipt takes the account's email.
 
 ## Out of scope
 
 - Keys typed by shoppers, a model or effort picker for shoppers, LiteLLM, OpenCode Go.
 - A sandbox, code execution, files, web browsing or subagents for the agent.
 - Voice on Anthropic, Mistral or DeepSeek conversations; voice without the password.
-- Opening a page from a voice call; opening or linking any page of another site.
+- Opening a page the shopper did not ask for (no automatic navigation); opening or linking any
+  page of another site.
+- Telling a shopper whether an email has an account.
 - LIVE payments; any payment path the store's MCP tools do not already have.
 - Keeping transcripts beyond the store's database (no external tracing or analytics).

@@ -18,7 +18,7 @@ import { AskConnect } from "./AskConnect";
 import { Icon } from "./AskIcon";
 import { AskReceipt } from "./AskReceipt";
 import { AskText } from "./AskText";
-import { useVoice, VoiceButton, VoicePanel } from "./AskVoice";
+import { MuteButton, useVoice, VoiceButton, VoicePanel } from "./AskVoice";
 import { followBag, readCart } from "@/lib/client";
 import { openablePage } from "@/lib/storePages";
 import {
@@ -43,6 +43,7 @@ import {
   shownMessages,
   siteBagOf,
   stageLabel,
+  voicePage,
   widgetLine,
 } from "./askLogic";
 import { WidgetFrame } from "./WidgetFrame";
@@ -204,16 +205,21 @@ export function AskPanel() {
 
   // A page the agent named opens in place once its answer shows, if the browser's own check of
   // the store's pages agrees (spec invariant 21); below 1024 px the panel then steps aside.
-  const openPage = useCallback(
-    (page: string) => {
-      const path = openablePage(page, window.location.origin);
-      if (!path) return;
+  const showPage = useCallback(
+    (path: string) => {
       setWide(false);
       const docks = window.matchMedia("(min-width: 1024px)").matches;
       setAskState(afterPage(askState(), docks));
       router.push(path);
     },
     [router],
+  );
+  const openPage = useCallback(
+    (page: string) => {
+      const path = openablePage(page, window.location.origin);
+      if (path) showPage(path);
+    },
+    [showPage],
   );
 
   const startNew = useCallback(async (): Promise<string | undefined> => {
@@ -236,6 +242,24 @@ export function AskPanel() {
     onUnlocked: () => void load(false),
   });
   const calling = voice.calling;
+
+  // A voiced answer's page opens once, as a typed answer's does (spec invariant 21). `callFrom`
+  // is the newest message's time when the call began: nothing older ever opens.
+  const callFrom = useRef<number>(undefined);
+  const openedPages = useRef(new Set<number>());
+  const newestAt = useRef(0);
+  useEffect(() => {
+    newestAt.current = messages.at(-1)?.at ?? 0;
+  }, [messages]);
+  useEffect(() => {
+    callFrom.current = calling ? newestAt.current : undefined;
+  }, [calling]);
+  useEffect(() => {
+    if (callFrom.current === undefined) return;
+    const { page, seen } = voicePage(messages, callFrom.current, openedPages.current);
+    for (const at of seen) openedPages.current.add(at);
+    if (page) openPage(page);
+  }, [messages, openPage]);
 
   // During a voice call the conversation fills from the server: each voiced turn is a message.
   useEffect(() => {
@@ -501,13 +525,19 @@ export function AskPanel() {
                   widget={
                     one?.home === index ? (
                       <>
-                        <WidgetFrame uri={one.uri} feed={one.feed} onResult={onResult} />
+                        <WidgetFrame
+                          uri={one.uri}
+                          feed={one.feed}
+                          onResult={onResult}
+                          onOpen={showPage}
+                        />
                         {receipt && (
                           <AskReceipt
                             key={receipt}
                             checkoutId={receipt}
                             accountEmail={view?.accountEmail}
                             onResult={onResult}
+                            onSignedIn={() => void load(false)}
                           />
                         )}
                       </>
@@ -574,9 +604,10 @@ export function AskPanel() {
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onKeys}
                 disabled={unavailable || locked || calling}
-                placeholder={calling ? "On a voice call…" : "Ask about a piece, your bag…"}
-                className="field max-h-40 min-h-11 flex-1 resize-none py-2.5 [field-sizing:content]"
+                placeholder={calling ? "On a voice call…" : "Ask about a piece…"}
+                className="field max-h-40 min-h-11 min-w-0 flex-1 resize-none py-2.5 [field-sizing:content]"
               />
+              <MuteButton voice={voice} />
               <VoiceButton voice={voice} />
               <button
                 type="submit"

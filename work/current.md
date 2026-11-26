@@ -5,16 +5,16 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Ask agent on the agentic store, a PAP agent — WAITING-OWNER
+## Ask agent on the agentic store, a PAP agent — ACTIVE
 
-- Owner decision: 2026-11-25, in chat: guest-or-signed-in chat sidebar, Flue agent, server-only
-  keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
-- State: v0.9.0 released (PR #21, main `0744e23`, tag, CI green) and live on Render; prod review
-  of the four services clean (pages, console errors, chat, open_page, minimise, voice offered).
-- Next: sign in to prod `/console`, unlock voice and try a voice call (who: owner); drop Pi's
-  `minimumReleaseAgeExcludes` entry after 2026-12-02 (who: agent).
+- Owner decision: 2026-11-25, Ask agent plan; 2026-11-26, 7-point panel plan approved (voice
+  pages, Show details, mute, side talk, iPhone fields, compact widget, receipt sign-in).
+- State: v0.9.0 live; the 7 points are built, checked and seen at 375/1440 px on develop, not
+  released.
+- Next: independent review and push develop (who: agent); visual yes on the screenshots, then
+  release v0.9.1 (who: owner decides); Pi exemption ends 12-02.
 - Blocker: none.
-- Evidence: knowledge/current/digital-status.md (v0.9.0 deploy row); GitHub release v0.9.0.
+- Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 
 ## v0.7.1: ChatGPT widget fixes, card-save return, MCP stylist & ZIP — WAITING-OWNER
 

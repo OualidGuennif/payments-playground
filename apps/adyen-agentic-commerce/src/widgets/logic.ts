@@ -257,6 +257,18 @@ export const describe = (p: UcpProduct, v: UcpVariant) => {
 
 // --- the tool calls ------------------------------------------------------------------------------
 
+// The product's own page on the store, on the variant the shopper picked: what "Show details"
+// opens through the host, which takes the store's links only.
+export function productPage(store: string, productId: string, variantId?: string) {
+  try {
+    const url = new URL(`/products/${encodeURIComponent(productId)}`, store);
+    if (variantId) url.searchParams.set("variant", variantId);
+    return url.href;
+  } catch {
+    return undefined;
+  }
+}
+
 export const newKey = () => crypto.randomUUID();
 const meta = (key: string) => ({ "idempotency-key": key });
 const linesOf = (bag: BagView) =>

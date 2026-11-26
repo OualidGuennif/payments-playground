@@ -5,6 +5,23 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The Ask panel opens a page only when the shopper asks for it or taps a widget button: the
+  agent's `open_page` refuses a widget's tap and its prompt forbids pages nobody asked for, and
+  each carousel card gains "Show details", which opens the product's page.
+- Voice can open the page the shopper asks for: a voice delegation may call `open_page`, the
+  answer keeps its page on the stored message and in the session view, and the panel opens it once
+  during the call. The voice agent stays silent when the shopper talks to someone nearby, and a
+  voice delegation tells the agent its text is a transcript.
+- A microphone button left of the voice icon mutes and unmutes the shopper during a call (the call
+  and its minutes go on).
+- On iPhone: every store field is 16 px on touch screens, so Safari no longer zooms into the
+  message bar or the receipt field, and the message bar no longer overflows at 375 px. The widget
+  is more compact (about two cards across), with 44 px hit areas kept.
+- The receipt block signs in without leaving the chat: "I have an account" opens a sign-in with
+  the typed email prefilled, a password or a passkey (also offered by the browser's autofill), then
+  the account's email goes on the receipt. A browser that signed in here before opens on it. It
+  never says whether an email has an account. `/sign-in` and the block share `src/lib/signIn.ts`.
+
 ## [0.9.0] - 2026-11-26
 
 - The voice password is now the owner's `VOICE_MODE_PASSWORD` (any length, so `adyentic` works;

@@ -7,6 +7,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [0.8.0] - 2026-11-26
 
+- Run the Ask agent's MCP client on `@modelcontextprotocol/client` 2.3.1 instead of the 2.0.0
+  that Flue 2.3.1 pins, through a root `overrides` entry: 2.0.0 carries GHSA-6prh-2h8m-c8cw
+  (redirects to another origin re-sent headers and bodies) and GHSA-6qxp-vccf-f47h (OAuth
+  credentials sent to an authorization server the MCP server names), which CI's OSV scan refuses.
+
 - Fix four findings of the independent review of the agentic store. The Ask agent's payment check
   now reads the instruments where the store does (`checkout.payment`), so strict mode, an
   unconnected account and card data are refused again. Code Mode counts store calls as they

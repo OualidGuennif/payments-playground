@@ -6,7 +6,7 @@ tags: [decision, agentic, ask, flue, llm, security, voice]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T18:00:00Z
+  at: 2026-11-26T01:20:00Z
 sources:
   - id: spec
     resource: ../components/ask-agent.md
@@ -107,7 +107,11 @@ OpenAI's GPT-Live pages) and a spike under Bun 1.4.4 found:
 
 - `@flue/runtime` 2.3.1 brings Pi with every provider's SDK (about 110 packages, AWS and Google
   among them); two install scripts are blocked. Flue declares Node ≥ 22.19 and runs here on Bun;
-  a Flue upgrade is checked against the spike's cases (`ask/runtime.test.ts`).
+  a Flue upgrade is checked against the spike's cases (`ask/runtime.test.ts`). Flue pins
+  `@modelcontextprotocol/client` 2.0.0 exactly, which CI's OSV scan refuses (GHSA-6prh-2h8m-c8cw:
+  cross-origin redirects re-send headers and bodies; GHSA-6qxp-vccf-f47h: OAuth credentials sent
+  to a server-chosen authorization server); the root `package.json` overrides it to 2.3.1 (fixed
+  for both) until a Flue release moves past it.
 - The password `adyentic` is in the repository: it is a sales gate, not protection. Protection is
   the minutes caps, the per-address limits and the daily budget.
 - One Flue `turn` per model call means a provider outage costs up to four calls per message; the

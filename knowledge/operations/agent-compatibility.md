@@ -99,7 +99,9 @@ copying a directory does not establish loaded hooks or identical runtime guarant
   appended, `structuredContent` kept) and `session_before_compact` as PreCompact (`{cancel: true}`
   and a notification without a verified handover) to `tools/agents/hook.py pi`. `bash` and
   `powershell` are Bash, `read`/`edit`/`write`/`grep` name their file in `path`, `find` and `ls` are
-  Glob and LS, and an unknown tool carrying a `command` string is a shell call.
+  Glob and LS, and an unknown tool carrying a `command` string is a shell call. A Pi 1.6 `codemode`
+  script passes as `{ code }`; each call it makes carries `parentToolCallId` and meets the same
+  guards, and its feedback reaches the script only (checked on Pi 1.6.1).
   `tools/agents/run pi` requires 1.4.0+. Its compaction aborts the running turn, so once it is done
   the extension sends a message that resumes the task from the handover. `tools/agents/run pi rpc`
   starts the template's headless RPC runner instead (`tools/agents/pi-rpc`): one `pi --mode rpc`

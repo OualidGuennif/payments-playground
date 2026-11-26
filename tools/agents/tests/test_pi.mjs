@@ -52,6 +52,18 @@ test('Pi treats an unknown tool carrying a command as a shell call', async () =>
   assert.equal((await handlers.tool_call(custom, ctx)).block, true);
 });
 
+test('Pi checks each tool call a codemode script makes like a direct one', async () => {
+  // Pi 1.6 sends a script's tools.<name>() calls through tool_call with parentToolCallId and an id
+  // "<parent>/<n>"; the script itself arrives as { code }, which only the nested calls can act on.
+  const { handlers, ctx } = load(root);
+  const script = { type: 'tool_call', toolCallId: 'call-9', toolName: 'codemode', input: { code: 'text(await tools.bash({ command: "ls" }))' } };
+  assert.equal(await handlers.tool_call(script, ctx), undefined);
+  const nested = (toolName, input) => ({ type: 'tool_call', toolCallId: 'call-9/1', parentToolCallId: 'call-9', toolName, input });
+  assert.equal((await handlers.tool_call(nested('bash', { command: 'cat .env' }), ctx)).block, true);
+  assert.equal((await handlers.tool_call(nested('read', { path: `${root}/.env` }), ctx)).block, true);
+  assert.equal(await handlers.tool_call(nested('bash', { command: 'git status --short' }), ctx), undefined);
+});
+
 test('Pi started in a subfolder finds the project hooks', async () => {
   const { handlers, ctx } = load(`${root}/demo`);
   assert.equal(await handlers.tool_call(bash('git status --short'), ctx), undefined);

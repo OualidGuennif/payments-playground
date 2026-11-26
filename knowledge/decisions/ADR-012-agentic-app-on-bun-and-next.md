@@ -6,7 +6,7 @@ tags: [decision, agentic, bun, nextjs, elysia]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-26T06:45:00Z
 sources:
   - id: app
     resource: ../../apps/adyen-agentic-commerce
@@ -51,4 +51,5 @@ customer passkeys: the store pins `@simplewebauthn/server` 14.1.0 and `@simplewe
 
 **Amended 2026-11-25.** [ADR-018](ADR-018-ask-agent-flue-in-process.md) adds the Ask agent: the
 store pins `@earendil-works/pi-ai` 1.6.0 and `valibot` 1.5.0, and `@flue/runtime` 2.3.1 joins them,
-all run in the store's own Bun process.
+all run in the store's own Bun process. **Amended 2026-11-26:** `pi-ai` 1.6.1
+([ADR-014](ADR-014-every-playground-on-bun-and-next.md)).

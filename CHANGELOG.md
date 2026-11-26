@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Move the Ask agent to Pi 1.6.1 (`pi-ai`, and `pi-agent-core`, `pi-schema` and `pi-telemetry`
+  through Flue). A test shows Pi's catalogue still lists the default answer and guard models; the
+  release-age exception for Pi stays until 2 December; `@google/genai` 3.6.1 has no install script.
+- Show, on Pi 1.6.1, that each tool call a `codemode` script makes meets the template's guards like
+  a direct call.
+
 ## [0.8.0] - 2026-11-26
 
 - Post to the Ask panel's widget frame through one helper: its `"*"` target, the only name an

@@ -1,10 +1,11 @@
 // Spec: knowledge/components/ask-agent.md
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import type { Provider } from "@earendil-works/pi-ai";
+import { createModels, type Provider } from "@earendil-works/pi-ai";
 import { fauxAssistantMessage, fauxText } from "@earendil-works/pi-ai/providers/faux";
 import { freshStore } from "../testing/agent";
 import { askSession, faux, startFauxRuntime } from "../testing/ask";
 import { houseAgentRunner } from "./agent";
+import { parseModel, readAskConfig } from "./config";
 import {
   admitModelOperation,
   announceModelRequest,
@@ -18,6 +19,19 @@ import {
 } from "./runtime";
 
 describe("provider keys", () => {
+  // A Pi upgrade that drops a default model from its catalog would leave the guard unavailable
+  // (fail closed) and the answer model unknown, so the bump has to show they are still listed.
+  test("Pi's catalog still lists the default answer and guard models", () => {
+    const models = createModels();
+    for (const provider of keyedProviders({ OPENAI_API_KEY: "sk-test-catalog" }))
+      models.setProvider(provider);
+    const { answer, guard } = readAskConfig({});
+    for (const choice of [answer, guard]) {
+      const parsed = parseModel(choice.model);
+      expect(parsed && models.getModel(parsed.provider, parsed.id)).toBeDefined();
+    }
+  });
+
   test("a key pasted with quotes or a newline is cleaned; an empty one is unset", () => {
     const env: Record<string, string | undefined> = {
       OPENAI_API_KEY: ' "sk-test-1"\n',

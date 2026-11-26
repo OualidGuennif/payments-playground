@@ -244,7 +244,7 @@ describe("one payment at a time per account", () => {
     const web = commerce.createCheckout({ line_items: items(OXFORD) }, undefined, { customer });
     const session = await commerce.startShopperSession(web, customer);
     commerce.claimWebPayment(web.id, session.id);
-    expect(
+    await expect(
       commerce.completeCheckout(commerce.loadCheckout(theirs.id, auth), savedCard, auth),
     ).rejects.toThrow("already in progress");
     expect(fake.payments).toHaveLength(0);
@@ -260,13 +260,30 @@ describe("one payment at a time per account", () => {
     const { checkout: guest, session } = await openedOnTheWeb();
     commerce.claimWebPayment(guest.id, session.id, Date.now(), customer.id);
     expect(commerce.accountPaying(customer.id, theirs.id)).toBe(true);
-    expect(
+    await expect(
       commerce.completeCheckout(commerce.loadCheckout(theirs.id, auth), savedCard, auth),
     ).rejects.toThrow("already in progress");
     expect(fake.payments).toHaveLength(0);
     // The hold ends with its payment: released, it stops nothing.
     commerce.releasePayment(guest.id, `${guest.id}-s1`);
     expect(commerce.accountPaying(customer.id, theirs.id)).toBe(false);
+  });
+
+  test("the signed-in payer's pending Drop-in payment on a guest bag still holds the account", async () => {
+    agent.ip = randomIp();
+    await agent.signIn();
+    const customer = customerById(grants()[0]!.customerId)!;
+    const own = commerce.createCheckout({ line_items: items(OXFORD) }, undefined, { customer });
+    const ownSession = await commerce.startShopperSession(own, customer);
+    const { checkout: guest, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(guest.id, session.id, Date.now(), customer.id);
+    // Adyen keeps the guest bag's payment pending: the hold is gone, the payment is not.
+    fake.session = { status: "paymentPending", payments: [] };
+    await commerce.finishShopperSession(reload(guest.id), session.id, "r");
+    expect(reload(guest.id).phase).toBe("complete_in_progress");
+    expect(codeOf(() => commerce.claimWebPayment(own.id, ownSession.id))).toBe(
+      "payment_in_progress",
+    );
   });
 
   test("an agent paying for the account stops a Drop-in claim on another checkout", async () => {

@@ -35,9 +35,7 @@ export function accountPaying(customerId: string | undefined, exceptId: string, 
   // The account's own checkouts, and any checkout its browser holds while signed in.
   return (
     findBy<Checkout>("checkouts", "customerId", customerId).some(busy) ||
-    findBy<Checkout>("checkouts", "payerId", customerId).some(
-      (c) => payingNow(c, at) !== undefined && busy(c),
-    )
+    findBy<Checkout>("checkouts", "payerId", customerId).some(busy)
   );
 }
 

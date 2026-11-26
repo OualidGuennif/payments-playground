@@ -71,7 +71,8 @@ the hold lets an agent, or the form in another tab, pay meanwhile. The store lea
 payment only when Adyen answers it, so the checkout may reopen while that payment is still being
 authenticated, and a refusal webhook that lands while the store asks for the result of a retry in
 the same form can hide that retry's pending state. An agent that completes again after a network
-error with another bag or card sends a new payment while the first one's outcome is still unknown.
+error with another bag or card, or after the shopper's form started a new attempt, sends a new
+payment while the first one's outcome is still unknown.
 When two payments are authorised, the second is cancelled by hand, as above. A signed-in shopper who opens the
 payment form of a checkout no account holds becomes that checkout's account, and a checkout an
 agent created without a token stays open to any agent that has its id.

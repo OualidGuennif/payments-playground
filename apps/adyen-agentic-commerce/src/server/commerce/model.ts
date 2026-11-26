@@ -92,6 +92,9 @@ export type PaymentRecord = {
   customerId?: string;
   instrument?: "saved_card" | "network_token";
   lastFour?: string;
+  // Which card an agent payment used: the saved card's alias, or a keyed fingerprint of the
+  // network token (core/fingerprint.ts), never the number itself. A resend must use the same one.
+  instrumentKey?: string;
   checkoutId?: string;
   reference: string;
   amount: number;

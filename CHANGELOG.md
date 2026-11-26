@@ -14,9 +14,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   refused, canceled or expired reopens its checkout, as the refusal webhook would, unless it is
   held as a mismatch. A failed payment reopens a checkout only when no other payment on it may
   still pay, whichever fails last, and never over a held mismatch; an answer older than a refusal
-  webhook (a same-form retry's included), or after its session ended, no longer makes a payment
-  pending again; an agent's retry after a network error keeps its one payment record, only for the
-  same bag and card and until a webhook refuses it; a refused agent payment gives its budget back
+  webhook (a same-form retry's included, and a result read again after it), or after its session
+  ended, no longer makes a payment pending again; an agent's retry after a network error keeps its
+  one payment record, only for the same bag and card (told apart by a keyed fingerprint, never the
+  number) and until a webhook refuses it; a refused agent payment gives its budget back
   even when the shopper's payment placed the order; a pending answer of one form leaves another
   tab's hold. No Drop-in result or webhook turns a held mismatch into an order, and a session still
   under way keeps its hold. The same payment form claiming again keeps the payer its first claim named,

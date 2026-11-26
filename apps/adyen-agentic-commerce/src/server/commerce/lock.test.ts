@@ -537,6 +537,45 @@ describe("payment lock", () => {
     expect(list<commerce.Order>("orders")).toHaveLength(0);
   });
 
+  test("a session result read again after the refusal webhook leaves the checkout open", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id);
+    fake.session = { status: "paymentPending", payments: [] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    commerce.applyNotification(refusal(`${checkout.id}-s1`));
+    expect(held(checkout.id)?.phase).toBe("open");
+    // Adyen's session keeps answering paymentPending; the browser asks again.
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(held(checkout.id)?.phase).toBe("open");
+  });
+
+  test("a payment left unknown by a network error is resent after a pending one fails", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    fake.settle = async () => {
+      fake.session = { status: "paymentPending", payments: [] };
+      await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    };
+    fake.answers.push(new Error("timeout"));
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+    commerce.applyNotification(refusal(`${checkout.id}-s1`));
+    expect(held(checkout.id)?.phase).toBe("open");
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    expect(sentReferences()).toEqual([`${checkout.id}-a2`, `${checkout.id}-a2`]);
+  });
+
+  test("a retry with another card of the same last four digits is a new payment", async () => {
+    const { checkout } = await openedOnTheWeb();
+    fake.answers.push(new Error("timeout"));
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    const renewed = structuredClone(agentPays);
+    renewed.payment.instruments[0]!.credential.expiry_month = 9;
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
+    await commerce.completeCheckout(reload(checkout.id), renewed);
+    expect(sentReferences()).toEqual([`${checkout.id}-a2`, `${checkout.id}-a3`]);
+  });
+
   test("a hold past its time holds nothing", async () => {
     const { checkout, session } = await openedOnTheWeb();
     const at = Date.now();

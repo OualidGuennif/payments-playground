@@ -95,17 +95,17 @@ export async function finishShopperSession(
   const record = get<PaymentRecord>("payments", known.id) ?? known;
   const authorised = result.payments.find((p) => p.resultCode === "Authorised");
   // An answer that names no newer payment changes nothing once the session has ended (it takes no
-  // more payments), or once a refusal webhook landed during this await: it is older than them. An
+  // more payments), or once a refusal webhook ended the payment: it is older than them. An
   // "active" answer with no payment says nothing about the payment either.
   const newer = result.payments.some(
     (p) => p.pspReference !== undefined && p.pspReference !== record.pspReference,
   );
-  const refusedDuring =
-    record.resultCode === "Refused" &&
-    (known.resultCode !== "Refused" ||
-      known.pspReference !== record.pspReference ||
-      known.updatedAt !== record.updatedAt);
-  const ended = FAILED.has(record.resultCode ?? "") || refusedDuring;
+  // A refusal webhook clears this form's hold: unless the form claimed the checkout again since
+  // (a retry in the same form), the refusal is the payment's last word. Adyen's session keeps
+  // answering paymentPending after it, so a result read again must not undo it.
+  const refusedSince =
+    record.resultCode === "Refused" && checkout.paying?.reference !== record.reference;
+  const ended = FAILED.has(record.resultCode ?? "") || refusedSince;
   const settled = !authorised && !newer && ended;
   const silent = result.status === "active" && !result.payments.length;
   put("payments", record.id, {

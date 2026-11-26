@@ -5,6 +5,7 @@ import { variantById } from "../catalog/catalog";
 import { CURRENCY } from "../core/config";
 import { customerById } from "../accounts/customers";
 import { findBy, get, put } from "../core/db";
+import { credentialFingerprint } from "../core/fingerprint";
 import { allows, type Auth, chargeGrant, liveAuth } from "../oauth/oauth";
 import { trace } from "../core/trace";
 import { isRecord, newId } from "../core/util";
@@ -312,15 +313,25 @@ export async function completeCheckout(
   // only while its outcome is unknown and for the same bag and card: a payment a webhook refused
   // since, or another bag or card, is a new attempt, and the earlier payment keeps its own record.
   const lastFour = instrument.handler === "network_token" ? instrument.lastFour : card?.lastFour;
+  const instrumentKey =
+    instrument.handler === "saved_card"
+      ? `card:${instrument.alias}`
+      : `token:${credentialFingerprint({
+          number: instrument.token.number,
+          expiryMonth: instrument.token.expiryMonth,
+          expiryYear: instrument.token.expiryYear,
+        })}`;
   const resent = (p: PaymentRecord | undefined) =>
-    p?.resultCode === "Error" &&
+    p?.purpose === "agent" &&
+    p.resultCode === "Error" &&
     p.amount === assessment.total &&
     sameLines(p.lines, checkout.lines) &&
-    p.instrument === instrument.handler &&
-    p.lastFour === lastFour;
+    p.instrumentKey === instrumentKey;
   const recordOf = (n: number) =>
     findBy<PaymentRecord>("payments", "reference", `${checkout.id}-a${n}`)[0];
-  let attempt = checkout.attempts + 1;
+  // The latest attempt may be the unknown one when a pending Drop-in payment kept the checkout
+  // from reopening after the error, so its number was never given back.
+  let attempt = resent(recordOf(checkout.attempts)) ? checkout.attempts : checkout.attempts + 1;
   while (recordOf(attempt) && !resent(recordOf(attempt))) attempt += 1;
   const prior = recordOf(attempt);
   // The agent's payment is not the browser's: an earlier Drop-in payer no longer pays this bag.
@@ -349,6 +360,7 @@ export async function completeCheckout(
     channel: "agent",
     instrument: instrument.handler,
     lastFour,
+    instrumentKey,
     checkoutId: checkout.id,
     reference: paymentReference,
     amount: assessment.total,

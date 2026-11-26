@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T03:15:00Z
+  at: 2026-11-26T03:35:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -507,8 +507,8 @@ before, every deploy or restart emptied orders, agents and grants.
     (`src/server/accounts/customers.test.ts`, "agents act for an account").
 16. A network-token credential serves one `/cardDetails` and one `/payments` call: it is never
     stored, traced, logged or returned (digits in an error text are masked; the idempotency
-    record's hash takes each `credential` only through an HMAC whose key never reaches the
-    database, so another token under the same key is still a 409), and Adyen gets
+    record's hash and an agent payment's record keep it only as an HMAC whose key never reaches
+    the database, so another token is another body (409) or a new payment), and Adyen gets
     `networkToken` with the brand it read, `ContAuth` and `UnscheduledCardOnFile`, with no
     stored-payment field. A bad field, or a checkout not ready to pay, sends the number nowhere;
     a checkout handed to the shopper takes no instrument from agents

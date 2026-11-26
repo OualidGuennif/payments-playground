@@ -1,11 +1,11 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // The HTTP edge for agents: rate limit, bearer token, Poppy-Session, UCP headers, idempotency and
 // the trace, in front of the UCP operation table (REST under /ucp/v1, JSON-RPC at /mcp).
-import { createHmac, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
 import { CommerceError } from "./commerce/commerce";
 import { config, UCP_VERSION } from "./core/config";
 import { database } from "./core/db";
+import { credentialFingerprint } from "./core/fingerprint";
 import { type Auth, authenticate, issuer, type ResourcePath } from "./oauth/oauth";
 import { PapError, type PapSession, verifyPoppy } from "./pap/pap";
 import { negotiate, ProfileError, profileFromHeader } from "./ucp/profile";
@@ -160,15 +160,9 @@ async function edge(request: Request, resourcePath: ResourcePath): Promise<Edge>
 // --- idempotency -------------------------------------------------------------------------------
 
 // A complete body is fixed but for a network token's number and expiry, so a plain hash of it
-// could be searched offline. Each credential enters the stored hash only through an HMAC whose key
-// never reaches the database (derived from the Adyen API key, else random for this process): a
-// different credential under the same Idempotency-Key is still another body (409).
-let fingerprintKey: string | Buffer | undefined;
-function credentialFingerprint(credential: unknown): string {
-  const apiKey = config().adyen.apiKey;
-  fingerprintKey ??= apiKey ? sha256(`velune-idempotency:${apiKey}`) : randomBytes(32);
-  return createHmac("sha256", fingerprintKey).update(canonicalJson(credential)).digest("hex");
-}
+// could be searched offline. Each credential enters the stored hash only through a keyed HMAC
+// (core/fingerprint.ts): a different credential under the same Idempotency-Key is still another
+// body (409).
 
 function withFingerprints(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(withFingerprints);

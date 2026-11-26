@@ -2,6 +2,8 @@
 // The panel's pure parts, tested without a browser: reading the answer stream, the words shown
 // while it runs, which messages and widgets are drawn, and the MCP Apps host's replies to a widget.
 
+import { oddForUrl } from "../../lib/storePages";
+
 type Json = Record<string, unknown>;
 const record = (v: unknown): v is Json => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -28,7 +30,7 @@ export type SessionView = {
 export type StreamEvent =
   | { type: "stage"; stage: string }
   | { type: "tool"; name: string; phase: "start" | "end"; label?: string }
-  | { type: "final"; text: string; widgets: Widget[]; mode: Mode; endsAt: number }
+  | { type: "final"; text: string; widgets: Widget[]; page?: string; mode: Mode; endsAt: number }
   | { type: "error"; error: string };
 
 // Server-sent events from a fetch body: complete blocks are returned, the unfinished tail is kept.
@@ -228,24 +230,29 @@ export type Block =
   | { kind: "h"; at: number; inline: Inline[] }
   | { kind: "ul" | "ol"; at: number; items: Item[] };
 
-// A store path, or an http(s) address; never javascript:, data: or a protocol-relative "//".
-export function safeHref(href: string): boolean {
-  if (href.startsWith("/")) return !href.startsWith("//");
+// A link to this store only, as the path the router opens in place: another site's address, a
+// protocol-relative "//" or "/\" and any other scheme stay plain text. A backslash or a control
+// character is refused before parsing, since the URL parser reads the first as a slash and drops
+// the second.
+export function linkPath(href: string, origin: string): string | undefined {
+  if (oddForUrl(href)) return undefined;
   try {
-    const { protocol } = new URL(href);
-    return protocol === "https:" || protocol === "http:";
+    const url = new URL(href, origin);
+    return url.origin === origin ? `${url.pathname}${url.search}${url.hash}` : undefined;
   } catch {
-    return false;
+    return undefined;
   }
 }
 
 const INLINE =
   /`([^`\n]+)`|\[([^\]\n]+)\]\(\s*<?([^)\s>]+)>?\s*\)|\*\*([^*\n]+)\*\*|(?<![\w*])\*([^*\n]+)\*(?![\w*])|(?<!\w)_([^_\n]+)_(?!\w)|(https?:\/\/[^\s<>()]*[^\s<>().,;:!?'"])/g;
 
-export function inlines(text: string): Inline[] {
+export function inlines(text: string, origin: string): Inline[] {
   const out: Inline[] = [];
-  const link = (label: string, href: string, at: number): Inline =>
-    safeHref(href) ? { kind: "link", text: label, href, at } : { kind: "text", text: label, at };
+  const link = (label: string, href: string, at: number): Inline => {
+    const path = linkPath(href, origin);
+    return path ? { kind: "link", text: label, href: path, at } : { kind: "text", text: label, at };
+  };
   let last = 0;
   for (const m of text.matchAll(INLINE)) {
     const at = m.index;
@@ -262,13 +269,17 @@ export function inlines(text: string): Inline[] {
   return out;
 }
 
-export function blocks(text: string): Block[] {
+export function blocks(text: string, origin: string): Block[] {
   const out: Block[] = [];
   let paragraph: { at: number; lines: string[] } | undefined;
   let list: { kind: "ul" | "ol"; at: number; items: Item[] } | undefined;
   const flushParagraph = () => {
     if (paragraph)
-      out.push({ kind: "p", at: paragraph.at, inline: inlines(paragraph.lines.join("\n")) });
+      out.push({
+        kind: "p",
+        at: paragraph.at,
+        inline: inlines(paragraph.lines.join("\n"), origin),
+      });
     paragraph = undefined;
   };
   const flushList = () => {
@@ -288,11 +299,11 @@ export function blocks(text: string): Block[] {
         const kind = bullet ? "ul" : "ol";
         if (list && list.kind !== kind) flushList();
         list ??= { kind, at, items: [] };
-        list.items.push({ at, inline: inlines(item[1] ?? "") });
+        list.items.push({ at, inline: inlines(item[1] ?? "", origin) });
       } else if (heading) {
         flushParagraph();
         flushList();
-        out.push({ kind: "h", at, inline: inlines(heading[1] ?? "") });
+        out.push({ kind: "h", at, inline: inlines(heading[1] ?? "", origin) });
       } else if (!line.trim()) {
         flushParagraph();
         flushList();
@@ -407,3 +418,32 @@ export const clockText = (seconds: number) => {
   const s = Math.max(0, Math.floor(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
+
+// The panel is closed, open, or minimised to a bar that keeps the answer, the voice call and the
+// widget running (spec Panel).
+export type PanelState = "closed" | "open" | "minimised";
+
+// The site header's Ask button never stops anything: it opens a closed or minimised panel and
+// minimises an open one.
+export const launcherNext = (state: PanelState): PanelState =>
+  state === "open" ? "minimised" : "open";
+
+// After the agent opens a page, the panel steps aside below 1024 px so the page shows; from 1024
+// px it is docked beside the page and stays.
+export const afterPage = (state: PanelState, docks: boolean): PanelState =>
+  state === "open" && !docks ? "minimised" : state;
+
+export const savedState = (value: string | null): PanelState =>
+  value === "1" ? "open" : value === "min" ? "minimised" : "closed";
+
+// The start of the last answer, as plain words for the minimised bar.
+export function preview(messages: AskMessage[]): string | undefined {
+  const last = messages.filter((m) => m.role === "assistant").at(-1);
+  if (!last) return undefined;
+  return last.text
+    .replace(/\[([^\]\n]+)\]\([^)\n]*\)/g, "$1")
+    .replace(/[*_`#>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
+}

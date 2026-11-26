@@ -160,6 +160,24 @@ describe("a message", () => {
     expect(view.messages.map((m: { role: string }) => m.role)).toEqual(["shopper", "assistant"]);
   });
 
+  test("a store page the agent opens reaches the browser on the final event", async () => {
+    enable();
+    faux.setResponses([
+      verdict("allow"),
+      fauxAssistantMessage(fauxToolCall("open_page", { path: "/account#orders" }), {
+        stopReason: "toolUse",
+      }),
+      fauxAssistantMessage(fauxText("Your account opens now.")),
+    ]);
+    const response = await new Browser().call("POST", "/api/ask/messages", {
+      text: "Take me to my orders",
+      page: "/",
+    });
+    const final = (await streamed(response)).at(-1);
+    expect(final?.type).toBe("final");
+    expect(final?.data.page).toBe("/account#orders");
+  });
+
   test("a refused message is a normal final answer", async () => {
     const browser = new Browser();
     const events = await streamed(

@@ -255,7 +255,13 @@ function contextFailure(session: AskSession, failure: ContextFailure): Response 
 function shown(event: PipelineEvent | { type: "error"; error: string }) {
   if (event.type === "stage") return { stage: event.stage };
   if (event.type === "final")
-    return { text: event.text, widgets: event.widgets, mode: event.mode, endsAt: event.endsAt };
+    return {
+      text: event.text,
+      widgets: event.widgets,
+      ...(event.page ? { page: event.page } : {}),
+      mode: event.mode,
+      endsAt: event.endsAt,
+    };
   return event;
 }
 

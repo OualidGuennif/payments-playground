@@ -1,9 +1,10 @@
 "use client";
 // Spec: knowledge/components/ask-agent.md
 // The shopper's assistant: a right sidebar on wide screens (the page makes room), a sheet on
-// phones, full screen on demand. It shows what the server answers and nothing more: no score,
-// verdict, model or cost ever reaches it.
-import { usePathname } from "next/navigation";
+// phones, full screen on demand, or minimised to a bar while the answer, the voice call and the
+// widget keep running. It shows what the server answers and nothing more: no score, verdict,
+// model or cost ever reaches it.
+import { usePathname, useRouter } from "next/navigation";
 import {
   type FormEvent,
   type KeyboardEvent,
@@ -19,13 +20,17 @@ import { AskReceipt } from "./AskReceipt";
 import { AskText } from "./AskText";
 import { AskVoice } from "./AskVoice";
 import { followBag, readCart } from "@/lib/client";
-import { askCall, sendMessage, setAskOpen, useAskOpen, wasAskOpen } from "./askClient";
+import { openablePage } from "@/lib/storePages";
+import { askCall, savedAskState, sendMessage, setAskState, useAskState } from "./askClient";
 import {
+  afterPage,
   type AskMessage,
   distinctWidgets,
   endedText,
   type Fed,
+  launcherNext,
   oneWidget,
+  preview,
   receiptNeeded,
   type SessionView,
   shownMessages,
@@ -50,21 +55,23 @@ const SPARK =
 const EXPAND = "M14 4h6v6 M10 20H4v-6 M20 4l-7 7 M4 20l7-7";
 const COLLAPSE = "M4 14h6v6 M20 10h-6V4 M10 14l-7 7 M14 10l7-7";
 const CLOSE = "M6 6l12 12 M18 6L6 18";
+const MINIMISE = "M6 9l6 6 6-6";
+const RESTORE = "M6 15l6-6 6 6";
 const NEW = "M12 5v14 M5 12h14";
 const SEND = "M12 19V5 M6 11l6-6 6 6";
 
 export function AskLauncher() {
   const pathname = usePathname();
-  const open = useAskOpen();
+  const state = useAskState();
   if (hiddenOn(pathname)) return null;
   return (
     <button
       type="button"
       id="ask-launcher"
       className="btn-ghost w-11 gap-1.5 px-0 py-1.5 sm:w-auto sm:px-3"
-      aria-expanded={open}
+      aria-expanded={state === "open"}
       aria-controls="ask-panel"
-      onClick={() => setAskOpen(!open)}
+      onClick={() => setAskState(launcherNext(state))}
     >
       <Icon d={SPARK} />
       <span className="sr-only sm:not-sr-only">Ask</span>
@@ -102,7 +109,11 @@ function Bubble({ message, widget }: { message: AskMessage; widget?: ReactNode }
 
 export function AskPanel() {
   const pathname = usePathname();
-  const open = useAskOpen();
+  const router = useRouter();
+  const state = useAskState();
+  const open = state === "open";
+  const minimised = state === "minimised";
+  const shown = state !== "closed";
   const [wide, setWide] = useState(false);
   const [view, setView] = useState<SessionView>();
   const [messages, setMessages] = useState<AskMessage[]>([]);
@@ -115,6 +126,7 @@ export function AskPanel() {
   const busy = useRef(false);
   const viewNow = useRef<SessionView>(undefined);
   const panel = useRef<HTMLElement>(null);
+  const restore = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -122,7 +134,8 @@ export function AskPanel() {
   }, [view]);
 
   useEffect(() => {
-    if (wasAskOpen()) setAskOpen(true);
+    const saved = savedAskState();
+    if (saved !== "closed") setAskState(saved);
   }, []);
 
   // Reads the session; the transcript is replaced only when asked (opening, a new page).
@@ -144,10 +157,10 @@ export function AskPanel() {
     [],
   );
 
-  // Opening, and every page change while open: signing in or out changes the session.
+  // Opening, and every page change while shown: signing in or out changes the session.
   useEffect(() => {
-    if (open && pathname && !busy.current) void load(true);
-  }, [open, pathname, load]);
+    if (shown && pathname && !busy.current) void load(true);
+  }, [shown, pathname, load]);
 
   // During a voice call the conversation fills from the server: each voiced turn is a message.
   useEffect(() => {
@@ -163,17 +176,19 @@ export function AskPanel() {
   useEffect(() => {
     const root = document.documentElement;
     if (open && !wide && !hiddenOn(pathname)) root.dataset.ask = "docked";
+    else if (minimised && !hiddenOn(pathname)) root.dataset.ask = "minimised";
     else delete root.dataset.ask;
     return () => {
       delete root.dataset.ask;
     };
-  }, [open, wide, pathname]);
+  }, [open, minimised, wide, pathname]);
 
   useEffect(() => {
+    if (minimised) restore.current?.focus();
     if (!open) return;
     if (window.matchMedia("(min-width: 768px)").matches) input.current?.focus();
     else panel.current?.focus();
-  }, [open]);
+  }, [open, minimised]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on every new message or status.
   useEffect(() => {
@@ -181,10 +196,29 @@ export function AskPanel() {
   }, [messages, status]);
 
   const close = () => {
-    setAskOpen(false);
+    setAskState("closed");
     setWide(false);
     document.getElementById("ask-launcher")?.focus();
   };
+
+  const minimise = () => {
+    setAskState("minimised");
+    setWide(false);
+  };
+
+  // A page the agent named opens in place once its answer shows, if the browser's own check of
+  // the store's pages agrees (spec invariant 21); below 1024 px the panel then steps aside.
+  const openPage = useCallback(
+    (page: string) => {
+      const path = openablePage(page, window.location.origin);
+      if (!path) return;
+      setWide(false);
+      const docks = window.matchMedia("(min-width: 1024px)").matches;
+      setAskState(afterPage(savedAskState(), docks));
+      router.push(path);
+    },
+    [router],
+  );
 
   const startNew = useCallback(async (): Promise<string | undefined> => {
     const answer = await askCall<SessionView>("/session", {});
@@ -231,6 +265,7 @@ export function AskPanel() {
               ...m,
               { role: "assistant", text: event.text, widgets: event.widgets, at: Date.now() },
             ]);
+            if (event.page) openPage(event.page);
           } else if (event.type === "error") {
             settled = true;
             setNotice("The assistant could not answer this time. Please try again.");
@@ -261,7 +296,7 @@ export function AskPanel() {
       void load(false);
       return undefined;
     },
-    [pathname, startNew, load],
+    [pathname, startNew, load, openPage],
   );
 
   const submit = async (event?: FormEvent) => {
@@ -295,10 +330,10 @@ export function AskPanel() {
     followBag(followed);
   }, [followed?.key]);
 
-  if (!open || hiddenOn(pathname)) return null;
+  if (!shown || hiddenOn(pathname)) return null;
 
-  const shown = shownMessages(messages);
-  const one = oneWidget(shown, taps);
+  const visible = shownMessages(messages);
+  const one = oneWidget(visible, taps);
   const receipt = one && view?.state === "active" ? receiptNeeded(one.feed) : undefined;
   const unavailable = view !== undefined && !view.available;
   const locked = view?.state === "locked";
@@ -313,7 +348,7 @@ export function AskPanel() {
 
   return (
     <>
-      {!wide && (
+      {open && !wide && (
         <button
           type="button"
           aria-label="Close the assistant"
@@ -327,25 +362,46 @@ export function AskPanel() {
         ref={panel}
         tabIndex={-1}
         aria-labelledby="ask-title"
-        onKeyDown={(e) => e.key === "Escape" && close()}
+        onKeyDown={(event) => event.key === "Escape" && open && minimise()}
         className={`fixed z-40 flex flex-col bg-paper shadow-2xl outline-none ${
           wide
             ? "inset-0"
-            : "inset-x-0 bottom-0 h-[88dvh] rounded-t-3xl border-t border-line md:inset-x-auto md:top-0 md:right-0 md:h-dvh md:w-[420px] md:rounded-none md:border-t-0 md:border-l"
+            : minimised
+              ? "inset-x-3 bottom-3 max-h-[60dvh] rounded-2xl border border-line md:inset-x-auto md:right-4 md:bottom-4 md:w-[380px]"
+              : "inset-x-0 bottom-0 h-[88dvh] rounded-t-3xl border-t border-line md:inset-x-auto md:top-0 md:right-0 md:h-dvh md:w-[420px] md:rounded-none md:border-t-0 md:border-l"
         }`}
       >
-        <header className="border-b border-line px-4 py-3">
+        <header className={`border-b border-line px-4 ${minimised ? "py-2" : "py-3"}`}>
           <div className={`flex items-center gap-1 ${inner}`}>
             <div className="min-w-0 flex-1">
               <h2 id="ask-title" className="font-serif text-lg leading-tight">
                 Ask Atelier Velune
+                {minimised && <span className="sr-only"> (minimised)</span>}
               </h2>
-              <p className="truncate text-xs text-muted">
-                {view?.connected ? "Connected to your account · " : ""}
-                {until}
-              </p>
+              {minimised ? (
+                <p aria-live="polite" className="line-clamp-2 text-xs text-muted">
+                  {status ?? preview(visible) ?? until}
+                </p>
+              ) : (
+                <p className="truncate text-xs text-muted">
+                  {view?.connected ? "Connected to your account · " : ""}
+                  {until}
+                </p>
+              )}
             </div>
-            {shown.length > 0 && !locked && (
+            {minimised && (
+              <button
+                type="button"
+                ref={restore}
+                className="grid size-11 place-items-center rounded-full hover:bg-line/60"
+                onClick={() => setAskState("open")}
+                aria-controls="ask-panel"
+                title="Open the conversation"
+              >
+                <Icon d={RESTORE} label="Open the conversation" />
+              </button>
+            )}
+            {open && visible.length > 0 && !locked && (
               <button
                 type="button"
                 className="grid size-11 place-items-center rounded-full hover:bg-line/60 disabled:opacity-40"
@@ -356,15 +412,27 @@ export function AskPanel() {
                 <Icon d={NEW} label="New conversation" />
               </button>
             )}
-            <button
-              type="button"
-              className="grid size-11 place-items-center rounded-full hover:bg-line/60"
-              onClick={() => setWide(!wide)}
-              aria-pressed={wide}
-              title={wide ? "Leave full screen" : "Full screen"}
-            >
-              <Icon d={wide ? COLLAPSE : EXPAND} label="Full screen" />
-            </button>
+            {open && (
+              <button
+                type="button"
+                className="grid size-11 place-items-center rounded-full hover:bg-line/60"
+                onClick={() => setWide(!wide)}
+                aria-pressed={wide}
+                title={wide ? "Leave full screen" : "Full screen"}
+              >
+                <Icon d={wide ? COLLAPSE : EXPAND} label="Full screen" />
+              </button>
+            )}
+            {open && (
+              <button
+                type="button"
+                className="grid size-11 place-items-center rounded-full hover:bg-line/60"
+                onClick={minimise}
+                title="Minimise"
+              >
+                <Icon d={MINIMISE} label="Minimise the assistant" />
+              </button>
+            )}
             <button
               type="button"
               className="grid size-11 place-items-center rounded-full hover:bg-line/60"
@@ -376,9 +444,14 @@ export function AskPanel() {
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+        {/* Hidden, never unmounted, while minimised: the widget keeps its frame and its state. */}
+        <div
+          className={
+            minimised ? "hidden" : "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4"
+          }
+        >
           <div className={`space-y-4 ${inner}`}>
-            {shown.length === 0 && (
+            {visible.length === 0 && (
               <div className="space-y-3 pt-2">
                 <p className="eyebrow">Your stylist and shop assistant</p>
                 <p className="font-serif text-2xl leading-snug">
@@ -407,7 +480,7 @@ export function AskPanel() {
               </div>
             )}
             <ol role="log" aria-live="polite" aria-label="Conversation" className="space-y-4">
-              {shown.map((message, index) => (
+              {visible.map((message, index) => (
                 <Bubble
                   key={`${message.role}:${message.at}`}
                   message={message}
@@ -443,7 +516,9 @@ export function AskPanel() {
           </div>
         </div>
 
-        <footer className="border-t border-line px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <footer
+          className={`px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] ${minimised ? "pt-2" : "border-t border-line pt-3"}`}
+        >
           <div className={`space-y-2.5 ${inner}`}>
             {unavailable && (
               <p className="text-sm text-bad">The assistant is not available right now.</p>
@@ -466,7 +541,11 @@ export function AskPanel() {
                 {notice}
               </p>
             )}
-            {canConnect && <AskConnect onConnected={() => void load(false)} />}
+            {canConnect && (
+              <div className={minimised ? "hidden" : undefined}>
+                <AskConnect onConnected={() => void load(false)} />
+              </div>
+            )}
             {view?.state === "active" && (
               <AskVoice view={view} onUnlocked={() => void load(false)} onCalling={setCalling} />
             )}

@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T06:49:00Z
+  at: 2026-11-26T07:13:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -117,8 +117,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
 
 - **Message answer:** `text/event-stream` of `stage` `{ stage }` (`gate`, `context`, `guard`,
   `agent`, `output`: progress only, never the verdict), `tool` (name, start or end, label), then
-  one `final` `{ text, widgets: [{ resourceUri, structuredContent }], mode, endsAt }` or one
-  `error` `{ error }`. A refused message is a normal `final` answer with a fixed polite text,
+  one `final` `{ text, widgets: [{ resourceUri, structuredContent }], page?, mode, endsAt }` or
+  one `error` `{ error }`; `page` is a store path the panel opens after the answer (invariant 21). A refused message is a normal `final` answer with a fixed polite text,
   never the model's. Verdicts and score changes go to the transcript the console reads.
 - **Session view:** `{ available, state: active | ended | locked | none, reason, endsAt, mode:
   normal | strict, signedIn, accountEmail?, connected, voice: { available, unlocked }, messages:
@@ -128,10 +128,11 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   A shopper never sees scores, verdicts, models, costs or other sessions.
 - **Panel:** an "Ask" button in the header (icon only under 640 px) opens a right sidebar of
   420 px; from 1024 px the page makes room for it, from 768 px it overlays, below it is a sheet
-  over a dimmed page; full screen on demand; Escape closes it and focus returns to the button; it
-  reopens after a reload in the same tab. It is absent on `/console`, `/back-office`, `/consent`,
+  over a dimmed page; full screen on demand; Escape minimises it; it reopens, open or minimised,
+  after a reload in the same tab. It is absent on `/console`, `/back-office`, `/consent`,
   `/device` and `/oauth`. Answers are light Markdown parsed to data and drawn by React (no HTML;
-  a link is a store path or http(s), a store link opens in place). Each widget runs in a sandboxed
+  a link is a store path or an address on the page's own origin and opens in place; any other
+  address shows as plain text). Each widget runs in a sandboxed
   `srcdoc` frame (`allow-scripts` only, so an opaque origin) as an MCP Apps host: `ui/initialize`
   with the page's theme, `tools/call` sent to `POST /api/ask/widget`, `ui/message` refused,
   `ui/open-link` for the store's pages only, size changes clamped to 120 to 900 px. Chromium refuses an opaque-origin frame's requests to a loopback address, so the host
@@ -152,6 +153,17 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   (microphone, WebRTC to OpenAI with the server's answer, a data channel that only listens): a bar
   shows the countdown, the last caption and End; the composer waits and the conversation refreshes
   every 3 s while the call runs. A call's end is a note "Voice call ended".
+  **Minimised:** the header's "Minimise" button, Escape, or the site header's Ask button while the
+  panel is open shrinks it to a bar at the bottom right (full width under 768 px) that hides the
+  conversation and keeps everything else running: an answer being written, a voice call, the
+  widget, a device sign-in. The bar shows the title, what the assistant is doing or the start of
+  its last answer (two lines), the voice bar with its countdown and End while a call runs, and the
+  composer; "Open the conversation" restores the panel and Close closes it (closing ends a call).
+  The page is neither dimmed nor narrowed while the panel is minimised, and its end scrolls above
+  the bar.
+  **Opening a page:** when an answer carries `page`, the panel opens it in place after showing the
+  answer, only if it passes the same list in the browser. Below 1024 px the panel then minimises so
+  the page shows; from 1024 px it stays docked, leaving full screen if it was.
 - **Errors** (JSON `{ error, message }`): `ask_disabled` 503 (no answer model with a key, or the
   switch off), `budget_exhausted` 503 (daily budget spent, until 00:00 UTC), `rate_limited` 429
   with `retry-after`, `session_ended` 409 with `reason` (`time`, `idle`, `messages`, `budget`,
@@ -192,7 +204,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
    decides at each call: no tool runs outside a shopper message, `complete_checkout` with a saved
    card needs a connected account and normal mode, card data (a network token) is always refused,
    handing the checkout to the shopper always passes; the door reads the instruments where the
-   store does (`checkout.payment`), and a top-level `payment` too. The house client's tokens live in the
+   store does (`checkout.payment`), and a top-level `payment` too. Beside them it has one house
+   tool, `open_page` (invariant 21), which calls nothing and only names a store page. The house client's tokens live in the
    process's memory only; ending a session revokes its grant. Test: `ask/agent.test.ts` "guest
    has no token", "pay tools only when connected and normal", "no tool runs outside a shopper
    message"; `ask/house.test.ts`.
@@ -315,6 +328,18 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     titles, ids and quantities, from lines the server checked (or read from the checkout), never
     the shopper's text; a checkout of another account adds nothing. Test: `ask/context.test.ts`
     "bag fact". The site's bag follows the widget's (`ask/askLogic.test.ts` "site bag").
+21. **The agent opens only this store's pages:** `open_page { path }` takes a path, or an address
+    on `PUBLIC_ORIGIN`, matching `/`, `/shop` (query `category`, `q`), `/products/<id>` (query
+    `variant`), `/cart`, `/checkout/<id>`, `/orders/<id>`, `/account`, `/agents`, `/docs`,
+    `/docs/<topic>`, `/legal`, `/sign-in` or `/sign-up`, with at most a `#section`; any other
+    path, query parameter or origin is refused with a sentence the model reads, so `/consent`,
+    `/device`, `/oauth`, `/console`, `/back-office`, `/api` and `/mcp` never open. It opens
+    nothing itself: a message's last accepted page rides on its `final` event only when stage 5
+    let the answer through, and the agent's verdict names it for the console. Outside a shopper
+    message, in an ended or locked session and in a voice delegation it is refused (the voice
+    says where to go instead). The panel checks the page again with the same list. Test:
+    `lib/storePages.test.ts`; `ask/agent.test.ts` "open_page"; `ask/pipeline.test.ts` "a blocked
+    answer opens no page"; `components/ask/askLogic.test.ts` "store links only".
 
 ## Determinism
 
@@ -340,11 +365,16 @@ store's tools and Adyen, and links and amounts pass stage 5.
   verdicts and costs.
 - Voice, by the owner on an OpenAI session: unlock with `adyentic`, ask for a product by voice,
   the carousel appears in the chat.
+- At 375 and 1440 px, light and dark: minimise during an answer and during a voice call, both
+  carry on and the bar shows them; navigate and reload, the bar stays; "take me to my account"
+  opens `/account` (the panel minimises at 375 px, stays docked at 1440 px); a link to another
+  site in an answer shows as text.
 
 ## Out of scope
 
 - Keys typed by shoppers, a model or effort picker for shoppers, LiteLLM, OpenCode Go.
 - A sandbox, code execution, files, web browsing or subagents for the agent.
 - Voice on Anthropic, Mistral or DeepSeek conversations; voice without the password.
+- Opening a page from a voice call; opening or linking any page of another site.
 - LIVE payments; any payment path the store's MCP tools do not already have.
 - Keeping transcripts beyond the store's database (no external tracing or analytics).

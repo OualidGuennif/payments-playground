@@ -5,6 +5,14 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The Ask agent can open the store's own pages for the shopper: a new `open_page` tool takes only
+  paths from a fixed list (account, bag, products, checkouts, orders, shop, docs, sign-in), never
+  the console, Back Office, consent, device or OAuth pages, nor another site; the panel opens it
+  after the answer and checks it again. Links in answers now lead only to the store itself.
+- The Ask panel can be minimised to a bar that keeps the answer, the voice call and the widget
+  running, shows what the assistant is doing and lets the shopper keep writing; it is restored on
+  reload. When the agent opens a page, the panel stays docked from 1024 px and steps aside to the
+  bar below, where it would cover the page.
 - Give an Ask voice conversation 10 minutes per session by default instead of 5
   (`ASK_VOICE_MAX_MINUTES`; the day keeps 30, and the session's budget still caps a call).
 - Move the Ask agent to Pi 1.6.1 (`pi-ai`, and `pi-agent-core`, `pi-schema` and `pi-telemetry`

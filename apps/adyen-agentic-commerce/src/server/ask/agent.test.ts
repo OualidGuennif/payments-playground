@@ -30,13 +30,68 @@ beforeEach(() => {
   faux.setResponses([]);
 });
 
-const run = (cap = 6) => {
+const run = (cap = 6, via: "text" | "voice" = "text") => {
   const { session } = askSession();
   const tools: ToolEvent[] = [];
   const go = (message = "<shopper_message>\na summer dress\n</shopper_message>") =>
-    houseAgentRunner(cap)({ session, message, mode: "normal", onTool: (e) => tools.push(e) });
+    houseAgentRunner(cap)({
+      session,
+      message,
+      mode: "normal",
+      via,
+      onTool: (e) => tools.push(e),
+    });
   return { session, tools, go };
 };
+
+// What the model read back from its tool calls, as the faux provider received it.
+const toolResults: string[] = [];
+const readResults = (context: unknown) => {
+  const messages = (context as { messages?: { role?: string }[] }).messages ?? [];
+  toolResults.push(JSON.stringify(messages.filter((m) => m.role === "toolResult")));
+  return fauxAssistantMessage(fauxText("Here you are."));
+};
+const openPage = (path: string) =>
+  fauxAssistantMessage(fauxToolCall("open_page", { path }), { stopReason: "toolUse" });
+
+describe("open_page: the agent names a store page for the panel (spec invariant 21)", () => {
+  beforeEach(() => {
+    toolResults.length = 0;
+  });
+
+  test("open_page: a store page rides on the answer, the last one wins", async () => {
+    faux.setResponses([openPage("/cart"), openPage("/account#cards"), readResults]);
+    const { go, tools } = run();
+    const outcome = await go();
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.page).toBe("/account#cards");
+    expect(tools.map((t) => `${t.name}:${t.phase}`)).toContain("open_page:end");
+  });
+
+  test("open_page: another site and the owner's pages are refused, so nothing opens", async () => {
+    faux.setResponses([
+      openPage("https://evil.example/account"),
+      openPage("/console"),
+      openPage("/consent/abc"),
+      readResults,
+    ]);
+    const outcome = await run().go();
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.page).toBeUndefined();
+    expect(toolResults.join(" ")).toContain("cannot be opened");
+  });
+
+  test("open_page: a voice delegation opens nothing and is told why", async () => {
+    faux.setResponses([openPage("/account"), readResults]);
+    const outcome = await run(6, "voice").go();
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.page).toBeUndefined();
+    expect(toolResults.join(" ")).toContain("voice");
+  });
+});
 
 describe("stage 4: the house agent", () => {
   test("a guest searches through the store's own MCP handler and gets the carousel", async () => {

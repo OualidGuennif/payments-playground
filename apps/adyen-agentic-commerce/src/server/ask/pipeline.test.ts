@@ -225,6 +225,27 @@ describe("after the agent", () => {
     expect(transcript(result.session.id).some((m) => m.text.includes(CANARY))).toBe(false);
   });
 
+  test("a page the agent named rides on the final answer and the console sees it", async () => {
+    faux.setResponses([verdict("allow")]);
+    const result = await send(
+      "Take me to my account",
+      agentSays("Opening your account.", { page: "/account" }).run,
+    );
+    expect(result.final?.page).toBe("/account");
+    const said = transcript(result.session.id).at(-1);
+    expect(said?.verdicts?.some((v) => v.detail?.includes("opens /account"))).toBe(true);
+  });
+
+  test("a blocked answer opens no page", async () => {
+    faux.setResponses([verdict("allow")]);
+    const result = await send(
+      "Take me to my account",
+      agentSays(`Sure: ${CANARY}`, { page: "/account" }).run,
+    );
+    expect(result.final?.text).toBe(refusalText("output_blocked", "en"));
+    expect(result.final?.page).toBeUndefined();
+  });
+
   test("an amount the shopper wrote may be said back", async () => {
     faux.setResponses([verdict("allow")]);
     const result = await send(

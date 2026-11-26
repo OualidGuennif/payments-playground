@@ -99,6 +99,11 @@
   }
 }
 
+/* Minimised, its bar floats over the bottom of the page: the page's end can scroll above it. */
+html[data-ask="minimised"] body {
+  padding-bottom: 12rem;
+}
+
 /* The Docs diagrams draw the current message, then fade in an answer. */
 @keyframes seq-draw {
   from {

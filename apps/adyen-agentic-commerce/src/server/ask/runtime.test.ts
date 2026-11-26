@@ -153,6 +153,7 @@ describe("retries", () => {
         session,
         message,
         mode: "normal",
+        via: "text",
         onTool: () => undefined,
       });
       expect(faux.state.callCount - before).toBe(2);
@@ -168,6 +169,7 @@ describe("retries", () => {
         session,
         message,
         mode: "normal",
+        via: "text",
         onTool: () => undefined,
       });
       expect(faux.state.callCount - before).toBe(1);

@@ -21,7 +21,8 @@ import { assess, saveCheckout } from "./checkouts";
 // `paymentPending`, a /payments answer `Pending` or `Received`).
 const MAY_PAY = new Set(["Authorised", "Pending", "Received", "paymentPending"]);
 
-const sameLines = (a: Line[] | undefined, b: Line[]) =>
+/** Whether two bags hold the same variants in the same quantities, in the same order. */
+export const sameLines = (a: Line[] | undefined, b: Line[]) =>
   a !== undefined &&
   a.length === b.length &&
   a.every((l, i) => l.variantId === b[i]?.variantId && l.quantity === b[i]?.quantity);

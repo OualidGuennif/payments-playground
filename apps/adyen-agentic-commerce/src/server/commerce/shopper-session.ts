@@ -100,9 +100,12 @@ export async function finishShopperSession(
   const newer = result.payments.some(
     (p) => p.pspReference !== undefined && p.pspReference !== record.pspReference,
   );
-  const ended =
-    FAILED.has(record.resultCode ?? "") ||
-    (record.resultCode === "Refused" && known.resultCode !== "Refused");
+  const refusedDuring =
+    record.resultCode === "Refused" &&
+    (known.resultCode !== "Refused" ||
+      known.pspReference !== record.pspReference ||
+      known.updatedAt !== record.updatedAt);
+  const ended = FAILED.has(record.resultCode ?? "") || refusedDuring;
   const settled = !authorised && !newer && ended;
   const silent = result.status === "active" && !result.payments.length;
   put("payments", record.id, {

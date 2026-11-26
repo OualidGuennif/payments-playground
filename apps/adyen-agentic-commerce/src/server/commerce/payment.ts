@@ -19,7 +19,7 @@ import {
   type PaymentRecord,
   paymentInProgress,
 } from "./model";
-import { accountPaying, refusalReopens } from "./lock";
+import { accountPaying, refusalReopens, sameLines } from "./lock";
 import { price } from "./pricing";
 import { savedCards } from "./saved-cards";
 import { assess, buyerOf, loadCheckout, saveCheckout } from "./checkouts";
@@ -308,7 +308,21 @@ export async function completeCheckout(
 
   // Claimed and the budget reserved synchronously before the network call, so a parallel complete
   // sees the checkout in progress and the grant already charged; a refusal or an error gives it back.
-  const attempt = checkout.attempts + 1;
+  // A retry after a network error resends the same payment under the same idempotency key, but
+  // only while its outcome is unknown and for the same bag and card: a payment a webhook refused
+  // since, or another bag or card, is a new attempt, and the earlier payment keeps its own record.
+  const lastFour = instrument.handler === "network_token" ? instrument.lastFour : card?.lastFour;
+  const resent = (p: PaymentRecord | undefined) =>
+    p?.resultCode === "Error" &&
+    p.amount === assessment.total &&
+    sameLines(p.lines, checkout.lines) &&
+    p.instrument === instrument.handler &&
+    p.lastFour === lastFour;
+  const recordOf = (n: number) =>
+    findBy<PaymentRecord>("payments", "reference", `${checkout.id}-a${n}`)[0];
+  let attempt = checkout.attempts + 1;
+  while (recordOf(attempt) && !resent(recordOf(attempt))) attempt += 1;
+  const prior = recordOf(attempt);
   // The agent's payment is not the browser's: an earlier Drop-in payer no longer pays this bag.
   const claimed = saveCheckout({
     ...checkout,
@@ -329,18 +343,12 @@ export async function completeCheckout(
   const grantId = live?.grant.id;
   const agentName = claimed.agentName ?? "Guest agent";
   const paymentReference = `${checkout.id}-a${attempt}`;
-  // A retry after a network error is the same payment at Adyen (same idempotency key): it keeps
-  // the one record, and a refusal a webhook recorded on it meanwhile.
-  const prior = findBy<PaymentRecord>("payments", "reference", paymentReference)[0];
   const record: PaymentRecord = {
     id: prior?.id ?? newId("pay"),
-    resultCode: prior?.resultCode === "Refused" ? "Refused" : undefined,
-    refusalReason: prior?.resultCode === "Refused" ? prior.refusalReason : undefined,
-    pspReference: prior?.resultCode === "Refused" ? prior.pspReference : undefined,
     purpose: "agent",
     channel: "agent",
     instrument: instrument.handler,
-    lastFour: instrument.handler === "network_token" ? instrument.lastFour : card?.lastFour,
+    lastFour,
     checkoutId: checkout.id,
     reference: paymentReference,
     amount: assessment.total,
@@ -378,12 +386,16 @@ export async function completeCheckout(
       return loadCheckout(checkout.id, "browser");
     }
     // The retry reserves again under the same reference; if Adyen did authorise this call, its
-    // webhook charges the budget again before the order is placed.
+    // webhook charges the budget again before the order is placed. A refusal webhook that landed
+    // during the call stands, so the next complete is a new attempt.
     const released = releaseReservation(record, grantId);
     put("payments", record.id, {
       ...released,
-      resultCode: "Error",
-      refusalReason: (error as Error).message.slice(0, 200),
+      resultCode: released.resultCode === "Refused" ? "Refused" : "Error",
+      refusalReason:
+        released.resultCode === "Refused"
+          ? released.refusalReason
+          : (error as Error).message.slice(0, 200),
       updatedAt: now(),
     });
     trace({

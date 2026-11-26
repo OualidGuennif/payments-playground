@@ -412,20 +412,75 @@ describe("payment lock", () => {
     expect(held(checkout.id)?.phase).toBe("open");
   });
 
-  test("an agent's retry after a network error keeps a refusal its webhook recorded meanwhile", async () => {
+  const sentReferences = () => fake.payments.map((p) => (p as { reference: string }).reference);
+
+  test("a payment its webhook refused after a network error is not sent again", async () => {
     const { checkout } = await openedOnTheWeb();
     fake.answers.push(new Error("timeout"));
     await commerce.completeCheckout(reload(checkout.id), agentPays);
     expect(held(checkout.id)?.phase).toBe("open");
     commerce.applyNotification(refusal(`${checkout.id}-a2`));
-    // Adyen replays the first answer for the same idempotency key.
     fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
     await commerce.completeCheckout(reload(checkout.id), agentPays);
-    expect(held(checkout.id)?.phase).toBe("open");
+    expect(sentReferences()).toEqual([`${checkout.id}-a2`, `${checkout.id}-a3`]);
     const rows = list<{ reference: string }>("payments").filter(
       (p) => p.reference === `${checkout.id}-a2`,
     );
     expect(rows).toHaveLength(1);
+  });
+
+  test("a second network error keeps a refusal its webhook recorded meanwhile", async () => {
+    const { checkout } = await openedOnTheWeb();
+    fake.answers.push(new Error("timeout"));
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    // The retry's call is in flight when the first call's refusal lands, then times out too.
+    fake.during = () => commerce.applyNotification(refusal(`${checkout.id}-a2`));
+    fake.answers.push(new Error("timeout"));
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    const first = list<{ reference: string; resultCode?: string }>("payments").find(
+      (p) => p.reference === `${checkout.id}-a2`,
+    );
+    expect(first?.resultCode).toBe("Refused");
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    expect(sentReferences()).toEqual([
+      `${checkout.id}-a2`,
+      `${checkout.id}-a2`,
+      `${checkout.id}-a3`,
+    ]);
+  });
+
+  test("a retry with another bag after a network error is a new payment", async () => {
+    const { checkout } = await openedOnTheWeb();
+    fake.answers.push(new Error("timeout"));
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    commerce.updateCheckout(held(checkout.id)!, { line_items: items(SOCKS, OXFORD) });
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    expect(sentReferences()).toEqual([`${checkout.id}-a2`, `${checkout.id}-a3`]);
+    const first = list<{ reference: string; amount: number }>("payments").find(
+      (p) => p.reference === `${checkout.id}-a2`,
+    );
+    expect(first?.amount).toBe(1695);
+  });
+
+  test("a refusal webhook during the result of a retry in the same form is not undone", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id);
+    // The first card is refused; the form stays open for another, which goes to 3-D Secure.
+    commerce.applyNotification({
+      ...(refusal(`${checkout.id}-s1`) as object),
+      pspReference: "PSP1",
+    } as never);
+    commerce.claimWebPayment(checkout.id, session.id);
+    fake.settle = async () =>
+      commerce.applyNotification({
+        ...(refusal(`${checkout.id}-s1`) as object),
+        pspReference: "PSP2",
+      } as never);
+    fake.session = { status: "paymentPending", payments: [] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(held(checkout.id)?.phase).toBe("open");
   });
 
   for (const status of ["canceled", "expired", "refused"]) {

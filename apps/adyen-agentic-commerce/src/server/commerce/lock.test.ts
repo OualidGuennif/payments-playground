@@ -576,6 +576,38 @@ describe("payment lock", () => {
     expect(sentReferences()).toEqual([`${checkout.id}-a2`, `${checkout.id}-a3`]);
   });
 
+  const codeAt = (reference: string) =>
+    list<commerce.PaymentRecord>("payments").find((p) => p.reference === reference)?.resultCode;
+
+  test("a session answer never makes a payment its webhook authorised pending again", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id);
+    commerce.applyNotification({
+      eventCode: "AUTHORISATION",
+      success: "true",
+      merchantReference: `${checkout.id}-s1`,
+      pspReference: "PSPWEB",
+    } as never);
+    // The browser's result was taken while the payment was pending; Adyen never updates it.
+    fake.session = { status: "paymentPending", payments: [] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(codeAt(`${checkout.id}-s1`)).toBe("Authorised");
+    expect(reload(checkout.id).phase).toBe("completed");
+  });
+
+  test("an old pending result posted under a new claim leaves a refused payment refused", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id);
+    fake.session = { status: "paymentPending", payments: [] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    commerce.applyNotification(refusal(`${checkout.id}-s1`));
+    // A modified browser claims the checkout with the same session and posts that result again.
+    commerce.claimWebPayment(checkout.id, session.id);
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(codeAt(`${checkout.id}-s1`)).toBe("Refused");
+    expect(held(checkout.id)?.phase).toBe("open");
+  });
+
   test("a hold past its time holds nothing", async () => {
     const { checkout, session } = await openedOnTheWeb();
     const at = Date.now();

@@ -9,10 +9,10 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-25, in chat: guest-or-signed-in chat sidebar, Flue agent, server-only
   keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
-- State: v0.9.0 cut on develop (Pi 1.6.1, voice 10 min, open_page, minimised panel, voice icon
-  from the first opening, `VOICE_MODE_PASSWORD`, the panel review's four fixes), check green.
-- Next: full review, push, release PR + merge (owner's yes 11-26), Render check (who: agent);
-  `VOICE_MODE_PASSWORD=adyentic` in `.env` and on Render (who: owner); Pi exemption ends 12-02.
+- State: v0.9.0 on develop (reviewed OK, pushed); release PR #21 open; its first CI run failed
+  doc-links L3 (Pi pin and `render.yaml` without doc updates), fixed by a Docs-Checked commit.
+- Next: fix PR CI, merge (owner's yes 11-26), tag, prod review of the whole site (who: agent);
+  sign in to prod `/console` and unlock voice there (who: owner); Pi exemption ends 12-02.
 - Blocker: none.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 

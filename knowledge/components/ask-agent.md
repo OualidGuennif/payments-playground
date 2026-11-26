@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T08:18:00Z
+  at: 2026-11-26T09:21:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -55,7 +55,7 @@ voice mode (GPT-Live) talks to the same agent through the same gate.
 
 | Source                                   | What is read                                                    | Owner  | Freshness          |
 | ---------------------------------------- | --------------------------------------------------------------- | ------ | ------------------ |
-| `.env` / Render variables (never read by tooling) | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY`, `DEEPSEEK_API_KEY`, `CONSOLE_PASSWORD`, `ASK_*` defaults (`.env.example`) | Owner | Boot |
+| `.env` / Render variables (never read by tooling) | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY`, `DEEPSEEK_API_KEY`, `CONSOLE_PASSWORD`, `VOICE_MODE_PASSWORD`, `ASK_*` defaults (`.env.example`) | Owner | Boot |
 | SQLite (`DATABASE_PATH`)                 | Ask sessions, messages with stage verdicts and costs, console settings and audit log, console sessions, the house client's id | App | Per request |
 | Flue's SQLite (`dirname(DATABASE_PATH)/flue.sqlite`) | Flue's own conversation records, one instance per Ask session | Flue | Per submission |
 | The store's MCP handler (in-process `handleHouseMcp`, no route) | UCP catalogue, cart, checkout and order tools; widget resources | App | Per tool call |

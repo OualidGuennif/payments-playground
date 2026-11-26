@@ -18,7 +18,7 @@ import { AskConnect } from "./AskConnect";
 import { Icon } from "./AskIcon";
 import { AskReceipt } from "./AskReceipt";
 import { AskText } from "./AskText";
-import { AskVoice } from "./AskVoice";
+import { useVoice, VoiceButton, VoicePanel } from "./AskVoice";
 import { followBag, readCart } from "@/lib/client";
 import { openablePage } from "@/lib/storePages";
 import { askCall, savedAskState, sendMessage, setAskState, useAskState } from "./askClient";
@@ -122,7 +122,6 @@ export function AskPanel() {
   const [status, setStatus] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [draft, setDraft] = useState("");
-  const [calling, setCalling] = useState(false);
   const busy = useRef(false);
   const viewNow = useRef<SessionView>(undefined);
   const panel = useRef<HTMLElement>(null);
@@ -151,6 +150,13 @@ export function AskPanel() {
     // An empty transcript is a new or ended conversation: the old widget's taps go with it.
     if (answer.data.messages.length === 0) setTaps([]);
   }, []);
+
+  const voice = useVoice({
+    view,
+    active: shown && !hiddenOn(pathname) && view?.state === "active",
+    onUnlocked: () => void load(false),
+  });
+  const calling = voice.calling;
 
   const onResult = useCallback(
     (fed: Fed) => setTaps((t) => [...t.filter((x) => x.resourceUri !== fed.resourceUri), fed]),
@@ -546,9 +552,7 @@ export function AskPanel() {
                 <AskConnect onConnected={() => void load(false)} />
               </div>
             )}
-            {view?.state === "active" && (
-              <AskVoice view={view} onUnlocked={() => void load(false)} onCalling={setCalling} />
-            )}
+            <VoicePanel voice={voice} />
             <form onSubmit={submit} className="flex items-end gap-2">
               <label className="sr-only" htmlFor="ask-input">
                 Message the assistant
@@ -562,9 +566,10 @@ export function AskPanel() {
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onKeys}
                 disabled={unavailable || locked || calling}
-                placeholder={calling ? "On a voice call…" : "Ask about a piece, a size, your bag…"}
+                placeholder={calling ? "On a voice call…" : "Ask about a piece, your bag…"}
                 className="field max-h-40 min-h-11 flex-1 resize-none py-2.5 [field-sizing:content]"
               />
+              <VoiceButton voice={voice} />
               <button
                 type="submit"
                 className="btn size-11 shrink-0 px-0"

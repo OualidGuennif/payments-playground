@@ -16,6 +16,3 @@ export const Icon = ({ d, label }: { d: string; label?: string }) => (
     <path d={d} />
   </svg>
 );
-
-export const MIC =
-  "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z M19 11a7 7 0 0 1-14 0 M12 18v3";

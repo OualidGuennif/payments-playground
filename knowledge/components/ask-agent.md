@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T07:13:00Z
+  at: 2026-11-26T07:16:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -149,10 +149,12 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   the site's bag. The agent hears the site's bag in `<shop_context>` as `bag:` with catalogue titles
   and ids; on a `/checkout/chk_…` page, that checkout's lines instead (open, and the session's
   account's or no account's).
-  When voice is offered, a "Voice" button asks for the password, then "Talk instead" starts a call
-  (microphone, WebRTC to OpenAI with the server's answer, a data channel that only listens): a bar
-  shows the countdown, the last caption and End; the composer waits and the conversation refreshes
-  every 3 s while the call runs. A call's end is a note "Voice call ended".
+  When voice is offered, a round icon of five bars beside Send asks for the password, then starts a
+  call (microphone, WebRTC to OpenAI with the server's answer, a data channel that only listens);
+  while the call runs its bars move (still with reduced motion) and it hangs up, and a bar above
+  the composer shows the countdown, the last caption and End; the composer waits and the
+  conversation refreshes every 3 s. Closing the panel, a page without it or an inactive session
+  hangs up. A call's end is a note "Voice call ended".
   **Minimised:** the header's "Minimise" button, Escape, or the site header's Ask button while the
   panel is open shrinks it to a bar at the bottom right (full width under 768 px) that hides the
   conversation and keeps everything else running: an answer being written, a voice call, the

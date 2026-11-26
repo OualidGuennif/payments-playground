@@ -13,6 +13,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   running, shows what the assistant is doing and lets the shopper keep writing; it is restored on
   reload. When the agent opens a page, the panel stays docked from 1024 px and steps aside to the
   bar below, where it would cover the page.
+- Start Ask voice from a round icon of five bars beside Send, as chat apps do; its bars move
+  while the call is live and a second press hangs up.
 - Give an Ask voice conversation 10 minutes per session by default instead of 5
   (`ASK_VOICE_MAX_MINUTES`; the day keeps 30, and the session's budget still caps a call).
 - Move the Ask agent to Pi 1.6.1 (`pi-ai`, and `pi-agent-core`, `pi-schema` and `pi-telemetry`

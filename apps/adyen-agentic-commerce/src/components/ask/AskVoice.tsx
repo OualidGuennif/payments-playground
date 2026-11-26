@@ -1,23 +1,24 @@
 "use client";
 // Spec: knowledge/components/ask-agent.md
-// Voice in the panel: unlocked with the password the server checks, then one call at a time with
-// live captions and a countdown. What the voice hears and answers lands in the conversation.
-import { type FormEvent, useEffect, useRef, useState } from "react";
-import { Icon, MIC } from "./AskIcon";
+// Voice in the panel: a round icon beside Send starts it, the password the server checks unlocks
+// it, then one call at a time with live captions and a countdown. What the voice hears and answers
+// lands in the conversation. The state lives in the panel, which stays mounted while minimised;
+// closing the panel, leaving for a page without it or the session ending hangs up.
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { askCall } from "./askClient";
 import { type Caption, clockText, nextCaption, type SessionView } from "./askLogic";
 import { startVoiceCall, type VoiceCall } from "./voiceCall";
 
 type Phase = "idle" | "unlocking" | "connecting" | "live";
 
-export function AskVoice({
+export function useVoice({
   view,
+  active,
   onUnlocked,
-  onCalling,
 }: {
-  view: SessionView;
+  view: SessionView | undefined;
+  active: boolean;
   onUnlocked: () => void;
-  onCalling: (calling: boolean) => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [password, setPassword] = useState("");
@@ -29,12 +30,20 @@ export function AskVoice({
   // Ended while still connecting: the call is hung up as soon as it exists.
   const cancelled = useRef(false);
 
-  useEffect(() => {
-    onCalling(phase === "connecting" || phase === "live");
-  }, [phase, onCalling]);
+  const end = useCallback(() => {
+    cancelled.current = true;
+    call.current?.end();
+    call.current = undefined;
+    setPhase("idle");
+  }, []);
 
-  // Closing the panel ends the call.
+  // Unmounting the panel ends the call.
   useEffect(() => () => call.current?.end(), []);
+
+  // So does closing it, a page without the assistant, or a session that is no longer active.
+  useEffect(() => {
+    if (!active) end();
+  }, [active, end]);
 
   useEffect(() => {
     if (phase !== "live") return;
@@ -45,8 +54,6 @@ export function AskVoice({
     }, 1_000);
     return () => clearInterval(timer);
   }, [phase]);
-
-  if (!view.voice.available) return null;
 
   const unlock = async (event: FormEvent) => {
     event.preventDefault();
@@ -89,14 +96,89 @@ export function AskVoice({
     setLeft(started.call?.maxSeconds);
   };
 
-  const end = () => {
-    cancelled.current = true;
-    call.current?.end();
-    call.current = undefined;
-    setPhase("idle");
+  return {
+    available: active && Boolean(view?.voice.available),
+    unlocked: Boolean(view?.voice.unlocked),
+    phase,
+    calling: phase === "connecting" || phase === "live",
+    password,
+    setPassword,
+    problem,
+    caption,
+    left,
+    unlock,
+    start,
+    end,
+    // The icon beside Send: start, ask for the password, or hang up.
+    press: () => {
+      if (phase === "connecting" || phase === "live") return end();
+      if (phase === "unlocking") {
+        setProblem(undefined);
+        return setPhase("idle");
+      }
+      if (view?.voice.unlocked) return void start();
+      setPhase("unlocking");
+    },
+    cancelUnlock: () => {
+      setPhase("idle");
+      setProblem(undefined);
+    },
   };
+}
 
-  if (phase === "connecting" || phase === "live")
+export type Voice = ReturnType<typeof useVoice>;
+
+// Five bars, as a level meter: they move while the call is live.
+const BARS = ["M4 10v4", "M8 7v10", "M12 4v16", "M16 7v10", "M20 10v4"];
+function Wave({ live }: { live: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`size-5 ${live ? "ask-wave" : ""}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      {BARS.map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </svg>
+  );
+}
+
+export function VoiceButton({ voice }: { voice: Voice }) {
+  if (!voice.available) return null;
+  const label = voice.calling
+    ? "End the voice call"
+    : voice.unlocked
+      ? "Talk with the assistant"
+      : "Voice: unlock with the demo password";
+  return (
+    <button
+      type="button"
+      onClick={voice.press}
+      aria-pressed={voice.calling}
+      aria-expanded={voice.phase === "unlocking"}
+      aria-label={label}
+      title={label}
+      className={`grid size-11 shrink-0 place-items-center rounded-full border transition-colors ${
+        voice.calling
+          ? "border-ok bg-card text-ok"
+          : "border-line bg-card text-ink hover:bg-line/60 aria-expanded:bg-line/60"
+      }`}
+    >
+      <Wave live={voice.phase === "live"} />
+    </button>
+  );
+}
+
+// Above the composer: the password form, the call's bar, or why voice did not start.
+export function VoicePanel({ voice }: { voice: Voice }) {
+  if (!voice.available) return null;
+
+  if (voice.calling)
     return (
       <section
         aria-label="Voice call"
@@ -108,29 +190,29 @@ export function AskVoice({
             <span className="relative inline-flex size-2.5 rounded-full bg-ok" />
           </span>
           <p role="status" className="flex-1 text-sm">
-            {phase === "connecting" ? "Connecting the voice…" : "Listening"}
-            {phase === "live" && left !== undefined && (
-              <span className="text-muted tabular-nums"> · {clockText(left)} left</span>
+            {voice.phase === "connecting" ? "Connecting the voice…" : "Listening"}
+            {voice.phase === "live" && voice.left !== undefined && (
+              <span className="text-muted tabular-nums"> · {clockText(voice.left)} left</span>
             )}
           </p>
-          <button type="button" className="btn-ghost min-h-10 px-4 py-1.5" onClick={end}>
+          <button type="button" className="btn-ghost min-h-10 px-4 py-1.5" onClick={voice.end}>
             End
           </button>
         </div>
-        {caption && (
+        {voice.caption && (
           <p className="text-sm text-muted [overflow-wrap:anywhere]" aria-live="polite">
             <span className="font-medium text-ink">
-              {caption.who === "you" ? "You" : "Assistant"}:
+              {voice.caption.who === "you" ? "You" : "Assistant"}:
             </span>{" "}
-            {caption.text}
+            {voice.caption.text}
           </p>
         )}
       </section>
     );
 
-  if (phase === "unlocking")
+  if (voice.phase === "unlocking")
     return (
-      <form onSubmit={unlock} className="space-y-1.5">
+      <form onSubmit={voice.unlock} className="space-y-1.5">
         <label htmlFor="ask-voice-password" className="text-xs text-muted">
           Voice is reserved for the demo. Enter its password.
         </label>
@@ -140,46 +222,27 @@ export function AskVoice({
             type="password"
             autoComplete="off"
             className="field min-h-10 flex-1"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={voice.password}
+            onChange={(e) => voice.setPassword(e.target.value)}
           />
-          <button type="submit" className="btn min-h-10 px-4" disabled={!password}>
+          <button type="submit" className="btn min-h-10 px-4" disabled={!voice.password}>
             Unlock
           </button>
-          <button
-            type="button"
-            className="btn-ghost min-h-10 px-3"
-            onClick={() => {
-              setPhase("idle");
-              setProblem(undefined);
-            }}
-          >
+          <button type="button" className="btn-ghost min-h-10 px-3" onClick={voice.cancelUnlock}>
             Cancel
           </button>
         </div>
-        {problem && (
+        {voice.problem && (
           <p role="alert" className="text-sm text-bad">
-            {problem}
+            {voice.problem}
           </p>
         )}
       </form>
     );
 
-  return (
-    <div className="space-y-1.5">
-      <button
-        type="button"
-        className="btn-ghost min-h-10 gap-2 px-3.5 py-1.5"
-        onClick={() => (view.voice.unlocked ? void start() : setPhase("unlocking"))}
-      >
-        <Icon d={MIC} />
-        {view.voice.unlocked ? "Talk instead" : "Voice"}
-      </button>
-      {problem && (
-        <p role="alert" className="text-sm text-bad">
-          {problem}
-        </p>
-      )}
-    </div>
-  );
+  return voice.problem ? (
+    <p role="alert" className="text-sm text-bad">
+      {voice.problem}
+    </p>
+  ) : null;
 }

@@ -169,13 +169,20 @@ describe("a message", () => {
       }),
       fauxAssistantMessage(fauxText("Your account opens now.")),
     ]);
-    const response = await new Browser().call("POST", "/api/ask/messages", {
+    const browser = new Browser();
+    const response = await browser.call("POST", "/api/ask/messages", {
       text: "Take me to my orders",
       page: "/",
     });
     const final = (await streamed(response)).at(-1);
     expect(final?.type).toBe("final");
     expect(final?.data.page).toBe("/account#orders");
+    // A typed answer's page opened from its stream: the view, read again by a voice call, never
+    // carries it, whatever the browser's clock says about when the call began.
+    const view = await browser.view();
+    const answer = view.messages.find((m: { role: string }) => m.role === "assistant");
+    expect(answer?.text).toBe("Your account opens now.");
+    expect(answer?.page).toBeUndefined();
   });
 
   test("a refused message is a normal final answer", async () => {

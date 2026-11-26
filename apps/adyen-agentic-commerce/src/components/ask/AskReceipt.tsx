@@ -77,19 +77,23 @@ export function AskReceipt({
     return true;
   };
 
-  // Signed in: the panel and the page learn it, then the account's email goes on the checkout.
-  const signedIn = async () => {
+  // The panel and the page learn of a sign-in.
+  const follow = () => {
     rememberAccount();
-    setPassword("");
-    setStep("account");
     onSignedIn();
     sessionChanged();
     router.refresh();
+  };
+  // Signed in from this step: then the account's email goes on the checkout.
+  const signedIn = async () => {
+    follow();
+    setPassword("");
+    setStep("account");
     await save({ account: true });
   };
-  const latest = useRef(signedIn);
+  const latest = useRef({ signedIn, follow });
   useEffect(() => {
-    latest.current = signedIn;
+    latest.current = { signedIn, follow };
   });
 
   const finish = (result: SignIn) => {
@@ -100,13 +104,18 @@ export function AskReceipt({
 
   // While the sign-in shows, the browser offers a saved passkey among the email field's own
   // suggestions; a password sign-in, the passkey button or leaving the step ends that offer.
+  const prompting = useRef(false);
   useEffect(() => {
     if (step !== "sign-in") return;
     let live = true;
     void browserSupportsWebAuthnAutofill().then(async (offered) => {
       if (!offered || !live) return;
-      const result = await signInWithPasskey(true);
-      if (live && result.signedIn) void latest.current();
+      const result = await signInWithPasskey(true, undefined, () => live && !prompting.current);
+      if (!result.signedIn) return;
+      // A passkey picked just before the step was left still signed in: the page follows the
+      // session, and no email goes on the checkout without the shopper.
+      if (live) void latest.current.signedIn();
+      else latest.current.follow();
     });
     return () => {
       live = false;
@@ -130,7 +139,10 @@ export function AskReceipt({
   const passkey = async () => {
     setBusy(true);
     setNote(undefined);
-    finish(await signInWithPasskey());
+    prompting.current = true;
+    const result = await signInWithPasskey();
+    prompting.current = false;
+    finish(result);
   };
 
   const go = (next: Step) => {
@@ -251,7 +263,8 @@ export function AskReceipt({
           </div>
           <button
             type="button"
-            className="min-h-11 text-left text-sm font-medium underline underline-offset-4"
+            className="min-h-11 text-left text-sm font-medium underline underline-offset-4 disabled:opacity-40"
+            disabled={busy}
             onClick={() => go("email")}
           >
             Type an email instead

@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T12:18:00Z
+  at: 2026-11-26T12:30:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -124,7 +124,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
 - **Session view:** `{ available, state: active | ended | locked | none, reason, endsAt, mode:
   normal | strict, signedIn, accountEmail?, connected, voice: { available, unlocked }, messages:
   [{ role, text, widgets, page?, at }] }`; an ended session shows no messages; `page` is the store
-  path an assistant answer asked to open (stage 5 let it through), so a voice call can open it. `accountEmail` is the
+  path a voiced answer asked to open (stage 5 let it through), so the call can open it; a typed
+  answer's page opened from its own stream and is not repeated here. `accountEmail` is the
   signed-in account's email masked (first letter and domain, `b•••@example.com`), for the receipt
   block only.
   A shopper never sees scores, verdicts, models, costs or other sessions.
@@ -180,8 +181,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   **Opening a page:** nothing navigates by itself: a page opens only when the shopper asked for it
   (an answer that carries `page`) or tapped a widget's button. When an answer carries `page`, the
   panel opens it in place after showing the answer, only if it passes the same list in the
-  browser; during a voice call, the refresh opens the page of each voiced answer that came after
-  the call started, once. Below 1024 px the panel then minimises so the page shows; from 1024 px
+  browser; during a voice call, the refresh opens the page of each voiced answer stored after the
+  call started (by the server's clock, read when it starts; none before that), once. Below 1024 px the panel then minimises so the page shows; from 1024 px
   it stays docked, leaving full screen if it was. The panel's fields use 16 px text on touch
   screens, so Safari on iPhone does not zoom when one takes focus.
 - **Errors** (JSON `{ error, message }`): `ask_disabled` 503 (no answer model with a key, or the
@@ -357,8 +358,9 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     only a checkout id a widget of this conversation showed, sets the email once (never over one
     already set, never on a paid checkout), and writes the note "Receipt email set" without it.
     The block's sign-in posts to the store's own session and passkey routes, like `/sign-in`; the
-    conversation only gains the note "Signed in". Test: `ask/api.test.ts` "receipt email";
-    `lib/signIn.test.ts`.
+    conversation only gains the note "Signed in". It counts as signed in only on an answer that
+    names the customer, and a passkey picked after the sign-in step was left signs in without
+    setting the email. Test: `ask/api.test.ts` "receipt email"; `lib/signIn.test.ts`.
 20. **The bag fact is the store's own words:** `bag:` in `<shop_context>` names only catalogue
     titles, ids and quantities, from lines the server checked (or read from the checkout), never
     the shopper's text; a checkout of another account adds nothing. Test: `ask/context.test.ts`
@@ -370,13 +372,14 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     path, query parameter or origin is refused with a sentence the model reads, so `/consent`,
     `/device`, `/oauth`, `/console`, `/back-office`, `/api` and `/mcp` never open. It opens
     nothing itself: a message's last accepted page rides on its `final` event only when stage 5
-    let the answer through, and the agent's verdict names it for the console; the answer's
-    message keeps it for a voice call. The agent calls it only when the shopper asks to go to a
+    let the answer through, and the agent's verdict names it for the console; a voiced answer's
+    message keeps it for the call. The agent calls it only when the shopper asks to go to a
     page. Outside a shopper message or voice delegation (a widget's tap), and in an ended or
     locked session, it is refused. The panel checks the page again with the same list, and a link
     in an answer opens in place only to a page on it. Test:
     `lib/storePages.test.ts`; `ask/agent.test.ts` "open_page"; `ask/pipeline.test.ts` "a blocked
-    answer opens no page"; `ask/voice.test.ts` "a voiced answer keeps its page";
+    answer opens no page"; `ask/voice.test.ts` "a voiced answer keeps its page"; `ask/api.test.ts`
+    "a store page the agent opens reaches the browser";
     `components/ask/askLogic.test.ts` "store links only", "voice pages".
 
 ## Determinism

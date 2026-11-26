@@ -259,6 +259,7 @@ export async function answer(input: {
     appendMessage(ended, {
       role: "assistant",
       text,
+      via: admitted.shopper.via ?? "text",
       widgets: widgets.length ? widgets : undefined,
       ...(page ? { page } : {}),
       verdicts,

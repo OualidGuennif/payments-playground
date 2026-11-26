@@ -21,6 +21,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   the typed email prefilled, a password or a passkey (also offered by the browser's autofill), then
   the account's email goes on the receipt. A browser that signed in here before opens on it. It
   never says whether an email has an account. `/sign-in` and the block share `src/lib/signIn.ts`.
+- Fix the findings of the panel's independent review. A sign-in counts only on an answer that
+  names the customer; the browser's passkey offer never opens a prompt once the shopper left the
+  sign-in or tapped "Use a passkey", and a passkey picked just before leaving signs in without
+  setting the email. The session view carries only a voiced answer's page, and a call measures
+  "after the call began" on the server's clock, so a typed answer's page never opens twice.
 
 ## [0.9.0] - 2026-11-26
 

@@ -193,7 +193,8 @@ export function sessionView(h: Here) {
           role: m.role,
           text: m.text,
           widgets: m.widgets ?? [],
-          ...(m.role === "assistant" && m.page ? { page: m.page } : {}),
+          // Only a voiced answer's page: a typed one opened from its own stream already.
+          ...(m.role === "assistant" && m.via === "voice" && m.page ? { page: m.page } : {}),
           at: m.at,
         }))
       : [],

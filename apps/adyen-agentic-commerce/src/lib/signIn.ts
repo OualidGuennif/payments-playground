@@ -32,6 +32,18 @@ const browserCalls = (): SignInCalls => ({
 
 const UNREACHABLE = "The store could not be reached. Try again.";
 const NO_PASSKEYS = "Passkeys are unavailable right now.";
+const UNCLEAR = "Something went wrong. Try again.";
+
+// Signed in only on the store's own answer, which names the customer: an empty or foreign 200
+// (a proxy's page, a cut body) is not a sign-in.
+function outcome(answer: Answer, fallback: string): SignIn {
+  const failed = messageOf(answer, fallback);
+  if (failed) return { signedIn: false, error: failed };
+  const data = answer.data as { customer?: { email?: unknown } } | null | undefined;
+  return typeof data?.customer?.email === "string"
+    ? { signedIn: true }
+    : { signedIn: false, error: UNCLEAR };
+}
 
 export async function signInWithPassword(
   email: string,
@@ -39,11 +51,7 @@ export async function signInWithPassword(
   calls: SignInCalls = browserCalls(),
 ): Promise<SignIn> {
   try {
-    const failed = messageOf(
-      await calls.password(email, password),
-      "Something went wrong. Try again.",
-    );
-    return failed ? { signedIn: false, error: failed } : { signedIn: true };
+    return outcome(await calls.password(email, password), UNCLEAR);
   } catch {
     return { signedIn: false, error: UNREACHABLE };
   }
@@ -52,10 +60,12 @@ export async function signInWithPassword(
 /**
  * A passkey sign-in. With `autofill`, the browser offers the passkey among the email field's own
  * suggestions (its autocomplete ends in "webauthn") and the promise waits until one is picked.
+ * `wanted` is asked once the options arrive: a newer prompt started meanwhile must not be replaced.
  */
 export async function signInWithPasskey(
   autofill = false,
   calls: SignInCalls = browserCalls(),
+  wanted: () => boolean = () => true,
 ): Promise<SignIn> {
   try {
     const options = await calls.options();
@@ -67,12 +77,9 @@ export async function signInWithPasskey(
     };
     if (typeof challengeId !== "string" || !optionsJSON)
       return { signedIn: false, error: NO_PASSKEYS };
+    if (!wanted()) return { signedIn: false };
     const response = await calls.authenticate(optionsJSON, autofill);
-    const refused = messageOf(
-      await calls.verify(challengeId, response),
-      "The passkey could not be verified.",
-    );
-    return refused ? { signedIn: false, error: refused } : { signedIn: true };
+    return outcome(await calls.verify(challengeId, response), "The passkey could not be verified.");
   } catch (error) {
     // The shopper's own cancel, or a newer prompt replacing this one, needs no explanation.
     const name = (error as Error)?.name;

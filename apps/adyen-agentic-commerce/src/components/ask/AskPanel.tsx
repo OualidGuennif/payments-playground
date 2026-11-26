@@ -244,15 +244,20 @@ export function AskPanel() {
   const calling = voice.calling;
 
   // A voiced answer's page opens once, as a typed answer's does (spec invariant 21). `callFrom`
-  // is the newest message's time when the call began: nothing older ever opens.
+  // is the newest stored message's time when the call began, read from the server, whose clock
+  // stamps every stored message: nothing older ever opens, and nothing opens before it is known.
   const callFrom = useRef<number>(undefined);
   const openedPages = useRef(new Set<number>());
-  const newestAt = useRef(0);
   useEffect(() => {
-    newestAt.current = messages.at(-1)?.at ?? 0;
-  }, [messages]);
-  useEffect(() => {
-    callFrom.current = calling ? newestAt.current : undefined;
+    callFrom.current = undefined;
+    if (!calling) return;
+    let live = true;
+    void askCall<SessionView>("/session").then((answer) => {
+      if (live && answer.data) callFrom.current = answer.data.messages.at(-1)?.at ?? 0;
+    });
+    return () => {
+      live = false;
+    };
   }, [calling]);
   useEffect(() => {
     if (callFrom.current === undefined) return;

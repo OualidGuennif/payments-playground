@@ -5,6 +5,7 @@ import type { Answer } from "./answer";
 import { type SignInCalls, signInWithPasskey, signInWithPassword } from "./signIn";
 
 const ok = (data: unknown = {}): Answer => ({ data, error: null });
+const customer = () => ok({ customer: { email: "a@example.com", name: "A" } });
 const refused = (message: string): Answer => ({
   data: null,
   error: { value: { error: "invalid_login", message } },
@@ -16,7 +17,7 @@ function fake(over: Partial<SignInCalls> = {}) {
   const calls: SignInCalls = {
     password: async (email) => {
       seen.push(`password:${email}`);
-      return ok();
+      return customer();
     },
     options: async () => {
       seen.push("options");
@@ -28,7 +29,7 @@ function fake(over: Partial<SignInCalls> = {}) {
     },
     verify: async (challengeId) => {
       seen.push(`verify:${challengeId}`);
-      return ok();
+      return customer();
     },
     ...over,
   };
@@ -48,6 +49,17 @@ describe("password", () => {
       signedIn: false,
       error: "Wrong email or password.",
     });
+  });
+
+  test("a 200 that names no customer is not a sign-in, for a password or a passkey", async () => {
+    for (const data of [null, {}, "<html>proxy</html>", { customer: {} }]) {
+      const password = fake({ password: async () => ok(data) });
+      expect((await signInWithPassword("a@example.com", "pw", password.calls)).signedIn).toBe(
+        false,
+      );
+      const passkey = fake({ verify: async () => ok(data) });
+      expect((await signInWithPasskey(false, passkey.calls)).signedIn).toBe(false);
+    }
   });
 
   test("an unreachable store is not a sign-in", async () => {
@@ -72,6 +84,12 @@ describe("passkey", () => {
     const { calls, seen } = fake();
     await signInWithPasskey(true, calls);
     expect(seen).toContain("authenticate:true");
+  });
+
+  test("an autofill offer no longer wanted when its options arrive never opens a prompt", async () => {
+    const { calls, seen } = fake();
+    expect(await signInWithPasskey(true, calls, () => false)).toEqual({ signedIn: false });
+    expect(seen).toEqual(["options"]);
   });
 
   test("a cancelled or replaced prompt shows nothing", async () => {

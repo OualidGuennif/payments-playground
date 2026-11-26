@@ -15,7 +15,7 @@ import { readAskConfig, resetAskConfig } from "./config";
 import { ATTACKS } from "./console";
 import { forgetAskLimits } from "./limits";
 import { useAskModels } from "./runtime";
-import { appendMessage } from "./sessions";
+import { appendMessage, save } from "./sessions";
 
 // A test value only: the console's password in this process's test configuration.
 const PASSWORD = "console-test-password-0001";
@@ -142,6 +142,26 @@ describe("what the console shows", () => {
     expect(view.cacheByModel).toEqual([
       { model: ANSWER_MODEL, inputTokens: 400, cacheReadTokens: 300, hitRate: 0.75 },
     ]);
+  });
+
+  test("a session past its time lists as ended, as the overview counts it", async () => {
+    const { session } = askSession();
+    save({ ...session, endsAt: Date.now() - 1_000 });
+    const owner = await signedIn();
+    const active = (await (await owner.call("GET", "/sessions?state=active")).json()) as {
+      sessions: { id: string }[];
+    };
+    expect(active.sessions).toEqual([]);
+    const ended = (await (await owner.call("GET", "/sessions?state=ended")).json()) as {
+      sessions: { id: string; state: string; endReason: string }[];
+    };
+    expect(ended.sessions).toEqual([
+      expect.objectContaining({ id: session.id, state: "ended", endReason: "time" }),
+    ]);
+    const overview = (await (await owner.call("GET", "/overview")).json()) as {
+      activeSessions: number;
+    };
+    expect(overview.activeSessions).toBe(0);
   });
 
   test("sessions with their full transcript; the console may end or lock one", async () => {

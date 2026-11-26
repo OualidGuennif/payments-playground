@@ -153,11 +153,16 @@ function customerLabel(customerId: string | undefined) {
   return customer?.email ? maskEmail(customer.email) : customerId;
 }
 
-export function sessionSummary(s: AskSession) {
+// A session whose time ran out stays active in storage until its browser comes back; the console
+// shows it ended, as the overview already counts it.
+const expired = (s: AskSession, now: number) => s.state === "active" && s.endsAt <= now;
+
+export function sessionSummary(s: AskSession, now = Date.now()) {
+  const over = expired(s, now);
   return {
     id: s.id,
-    state: s.state,
-    endReason: s.endReason,
+    state: over ? ("ended" as const) : s.state,
+    endReason: over ? ("time" as const) : s.endReason,
     createdAt: s.createdAt,
     lastAt: s.lastAt,
     endsAt: s.endsAt,
@@ -175,9 +180,10 @@ export function sessionSummary(s: AskSession) {
 }
 
 export function sessionList(state?: string) {
+  const now = Date.now();
   return recentSessions(200)
-    .filter((s) => !state || s.state === state)
-    .map(sessionSummary);
+    .map((s) => sessionSummary(s, now))
+    .filter((s) => !state || s.state === state);
 }
 
 export function sessionDetail(id: string) {

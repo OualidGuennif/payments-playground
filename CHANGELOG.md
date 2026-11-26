@@ -21,7 +21,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   agent's turn, and a locked conversation shows no voice icon, so unlocking cannot start a new
   conversation the panel does not offer.
 - The console page asks `GET /api/console/status` whether it is signed in, so a visit before
-  signing in no longer logs a refused call in the browser's console.
+  signing in no longer logs a refused call in the browser's console. Its session list shows a
+  session whose time ran out as ended, as the overview already counted it, instead of active.
 - The Ask agent can open the store's own pages for the shopper: a new `open_page` tool takes only
   paths from a fixed list (account, bag, products, checkouts, orders, shop, docs, sign-in), never
   the console, Back Office, consent, device or OAuth pages, nor another site; the panel opens it

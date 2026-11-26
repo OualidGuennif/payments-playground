@@ -12,7 +12,7 @@ import {
   GUARD_MODEL,
   startFauxRuntime,
 } from "../testing/ask";
-import { readAskConfig, resetAskConfig } from "./config";
+import { askConfig, readAskConfig, resetAskConfig } from "./config";
 import { forgetHouseConnections } from "./house";
 import { forgetAskLimits } from "./limits";
 import { refusalText } from "./refusals";
@@ -37,6 +37,7 @@ const enable = (voice = true) =>
     answer: { model: ANSWER_MODEL, effort: "low" },
     guard: { model: GUARD_MODEL, effort: "minimal" },
     voice: { enabled: voice, model: "gpt-live-1.1" },
+    voicePassword: "adyentic",
   });
 
 type Sent = Record<string, unknown> & { type: string };
@@ -180,6 +181,33 @@ describe("unlocking", () => {
     expect((await browser.view()).voice).toEqual({ available: true, unlocked: true });
   });
 
+  test("before the first message voice shows as a new session would offer it", async () => {
+    const browser = new Browser();
+    const view = await browser.view();
+    expect(view.state).toBe("none");
+    expect(view.voice).toEqual({ available: true, unlocked: false });
+    // Unlocking needs the session the panel starts first.
+    expect(
+      (await browser.call("POST", "/api/ask/voice/unlock", { password: "adyentic" })).status,
+    ).toBe(409);
+  });
+
+  test("the password is VOICE_MODE_PASSWORD at any length; unset, voice is not offered", async () => {
+    resetAskConfig({ ...askConfig(), voicePassword: undefined });
+    const browser = new Browser();
+    expect((await browser.view()).voice.available).toBe(false);
+    await browser.call("POST", "/api/ask/session");
+    expect((await browser.view()).voice.available).toBe(false);
+    expect((await browser.call("POST", "/api/ask/voice/unlock", { password: "" })).status).toBe(
+      404,
+    );
+    resetAskConfig({ ...askConfig(), voicePassword: "ab" });
+    expect((await browser.view()).voice.available).toBe(true);
+    expect((await browser.call("POST", "/api/ask/voice/unlock", { password: "ab" })).status).toBe(
+      200,
+    );
+  });
+
   test("five wrong tries per address, then 429 even with the right password", async () => {
     const browser = new Browser();
     await browser.call("POST", "/api/ask/session");
@@ -231,7 +259,7 @@ describe("starting a call", () => {
     const { body, socket } = await inCall();
     expect(Object.keys(body).sort()).toEqual(["maxSeconds", "sdp"]);
     expect(body.sdp).toBe("v=0\r\nanswer\r\n");
-    expect(body.maxSeconds).toBe(300);
+    expect(body.maxSeconds).toBe(600);
     expect(JSON.stringify(body)).not.toContain(KEY);
     const [request] = requests;
     expect(request?.url).toBe(LIVE_SESSIONS);
@@ -270,7 +298,7 @@ describe("starting a call", () => {
 
   test("voice minutes used up, in the session or today, answer voice_limit", async () => {
     const { browser, session } = await unlocked();
-    save({ ...session, voice: { unlocked: true, seconds: 290 } });
+    save({ ...session, voice: { unlocked: true, seconds: 590 } });
     const spent = await browser.call("POST", "/api/ask/voice/call", { sdp: OFFER });
     expect(spent.status).toBe(429);
     expect(((await spent.json()) as { error: string }).error).toBe("voice_limit");
@@ -348,20 +376,38 @@ describe("during a call", () => {
 
   test("the minutes cap ends the call, from OpenAI's usage or from the clock", async () => {
     const first = await inCall();
-    first.socket.event(liveEvent("session.usage.updated", { usage: { seconds: 300 } }));
+    first.socket.event(liveEvent("session.usage.updated", { usage: { seconds: 599 } }));
+    expect(first.socket.of("session.close")).toHaveLength(0);
+    first.socket.event(liveEvent("session.usage.updated", { usage: { seconds: 600 } }));
     expect(first.socket.of("session.close")).toHaveLength(1);
     first.socket.event(liveEvent("session.closed", { reason: "close_requested" }));
-    expect(sessionById(first.session.id)?.voice.seconds).toBe(300);
+    expect(sessionById(first.session.id)?.voice.seconds).toBe(600);
 
     const second = await inCall();
-    offset = 301_000;
+    offset = 601_000;
     tickCall(second.session.id);
     expect(second.socket.of("session.close")).toHaveLength(1);
     // No closed event within the grace period: the clock settles it.
-    offset = 320_000;
+    offset = 620_000;
     tickCall(second.session.id);
     expect(second.socket.closed).toBe(true);
-    expect(sessionById(second.session.id)?.voice.seconds).toBeGreaterThanOrEqual(300);
+    expect(sessionById(second.session.id)?.voice.seconds).toBeGreaterThanOrEqual(600);
+  });
+
+  test("a conversation that leaves normal mode ends the call, since voice is no longer offered", async () => {
+    const { session, socket } = await inCall();
+    tickCall(session.id);
+    expect(socket.of("session.close")).toHaveLength(0);
+    const live = sessionById(session.id);
+    if (!live) throw new Error("no session");
+    // One injection refusal takes a new shopper from 100 to 65: strict mode, still active.
+    save({ ...live, score: 65 });
+    tickCall(session.id);
+    expect(socket.of("session.close")).toHaveLength(1);
+    socket.event(liveEvent("session.closed", { reason: "close_requested" }));
+    expect(transcript(session.id).at(-1)?.verdicts).toEqual([
+      { stage: "voice", result: "not_normal" },
+    ]);
   });
 
   test("hanging up, or ending the conversation, asks OpenAI to close the call", async () => {

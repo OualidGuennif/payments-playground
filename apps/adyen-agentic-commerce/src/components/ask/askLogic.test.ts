@@ -18,7 +18,13 @@ import {
   MAX_INLINE_IMAGES,
   nextCaption,
   parseEvents,
-  safeHref,
+  linkPath,
+  launcherNext,
+  afterPage,
+  type SessionView,
+  voiceShown,
+  savedState,
+  preview,
   shownMessages,
   siteBagOf,
   stageLabel,
@@ -131,17 +137,43 @@ describe("what is drawn", () => {
 });
 
 describe("light Markdown", () => {
-  test("only store paths and http(s) become links", () => {
-    expect(safeHref("/checkout/chk_1")).toBe(true);
-    expect(safeHref("https://example.com/a")).toBe(true);
-    expect(safeHref("//evil.example/a")).toBe(false);
-    expect(safeHref("javascript:alert(1)")).toBe(false);
-    expect(safeHref("data:text/html,x")).toBe(false);
-    expect(inlines("[pay](javascript:alert(1))").some((p) => p.kind === "link")).toBe(false);
+  test("store links only: another site's address stays plain text", () => {
+    const O = "https://agentic.payments-playground.com";
+    expect(linkPath("/checkout/chk_1", O)).toBe("/checkout/chk_1");
+    expect(linkPath(`${O}/account#cards`, O)).toBe("/account#cards");
+    expect(linkPath("https://example.com/a", O)).toBeUndefined();
+    expect(linkPath("//evil.example/a", O)).toBeUndefined();
+    expect(linkPath("/\\evil.example/a", O)).toBeUndefined();
+    expect(linkPath("javascript:alert(1)", O)).toBeUndefined();
+    expect(linkPath("data:text/html,x", O)).toBeUndefined();
+    // Dot segments the parser collapses into a protocol-relative "//" path.
+    expect(linkPath("/..//evil.example", O)).toBeUndefined();
+    expect(linkPath("/%2e%2e//evil.example", O)).toBeUndefined();
+    expect(linkPath(`${O}/..//evil.example`, O)).toBeUndefined();
+    // The list open_page uses: the owner's pages and the Adyen return parameters stay plain text.
+    for (const owner of [
+      "/console",
+      "/back-office",
+      "/consent/c_1",
+      "/device?user_code=ABCD",
+      "/oauth/authorize?client_id=x",
+      "/api/ask/session/end",
+      "/mcp",
+      "/%2e%2e/console",
+      "/account?sessionId=x&redirectResult=y",
+    ])
+      expect(linkPath(owner, O)).toBeUndefined();
+    expect(inlines("[pay](javascript:alert(1))", O).some((p) => p.kind === "link")).toBe(false);
+    const parts = inlines("See [this](https://evil.example/x) or https://evil.example/y", O);
+    expect(parts.some((p) => p.kind === "link")).toBe(false);
+    expect(parts.map((p) => p.text).join("")).toContain("this");
   });
 
   test("bold, code, links and a bare address without its full stop", () => {
-    const parts = inlines("**Coat** in `M`: see [it](/products/coat) or https://x.test/a.");
+    const parts = inlines(
+      "**Coat** in `M`: see [it](/products/coat) or https://x.test/cart.",
+      "https://x.test",
+    );
     expect(parts.map((p) => p.kind)).toEqual([
       "strong",
       "text",
@@ -152,13 +184,15 @@ describe("light Markdown", () => {
       "link",
       "text",
     ]);
-    expect(parts[6]).toMatchObject({ href: "https://x.test/a" });
+    expect(parts[6]).toMatchObject({ href: "/cart" });
     expect(parts.at(-1)).toMatchObject({ text: "." });
-    expect(inlines("[link removed]")).toEqual([{ kind: "text", text: "[link removed]", at: 0 }]);
+    expect(inlines("[link removed]", "https://x.test")).toEqual([
+      { kind: "text", text: "[link removed]", at: 0 },
+    ]);
   });
 
   test("paragraphs, lists and headings, each with a distinct key", () => {
-    const parsed = blocks("## Picks\nTwo ideas:\n- Trench\n- Scarf\n\n1. Size M\n2. Pay");
+    const parsed = blocks("## Picks\nTwo ideas:\n- Trench\n- Scarf\n\n1. Size M\n2. Pay", "");
     expect(parsed.map((b) => b.kind)).toEqual(["h", "p", "ul", "ol"]);
     const keys = parsed.map((b) => b.at);
     expect(new Set(keys).size).toBe(keys.length);
@@ -167,9 +201,66 @@ describe("light Markdown", () => {
       "Trench",
       "Scarf",
     ]);
-    expect(blocks("<img src=x onerror=alert(1)>")).toEqual([
+    expect(blocks("<img src=x onerror=alert(1)>", "")).toEqual([
       { kind: "p", at: 0, inline: [{ kind: "text", text: "<img src=x onerror=alert(1)>", at: 0 }] },
     ]);
+  });
+});
+
+describe("voice in the panel", () => {
+  const view = (state: SessionView["state"], available = true) =>
+    ({ state, voice: { available, unlocked: false } }) as SessionView;
+
+  test("shown before the first message and after an end, never on a locked conversation", () => {
+    expect(voiceShown(true, view("none"))).toBe(true);
+    expect(voiceShown(true, view("ended"))).toBe(true);
+    expect(voiceShown(true, view("active"))).toBe(true);
+    // A 423 marks the view locked while its voice field is still the last one read.
+    expect(voiceShown(true, view("locked"))).toBe(false);
+    expect(voiceShown(true, view("active", false))).toBe(false);
+    expect(voiceShown(false, view("active"))).toBe(false);
+    expect(voiceShown(true, undefined)).toBe(false);
+  });
+});
+
+describe("the panel's states", () => {
+  test("the site's Ask button never stops anything: it minimises an open panel", () => {
+    expect(launcherNext("closed")).toBe("open");
+    expect(launcherNext("minimised")).toBe("open");
+    expect(launcherNext("open")).toBe("minimised");
+  });
+
+  test("after the agent opens a page, the panel steps aside below 1024 px only", () => {
+    expect(afterPage("open", false)).toBe("minimised");
+    expect(afterPage("open", true)).toBe("open");
+    expect(afterPage("minimised", true)).toBe("minimised");
+  });
+
+  test("a reload restores the panel as it was", () => {
+    expect(savedState("1")).toBe("open");
+    expect(savedState("min")).toBe("minimised");
+    expect(savedState(null)).toBe("closed");
+    expect(savedState("anything")).toBe("closed");
+  });
+
+  test("the minimised bar previews the last answer as plain words", () => {
+    const at = 1;
+    expect(
+      preview([
+        { role: "assistant", text: "Old", widgets: [], at },
+        { role: "shopper", text: "Hi", widgets: [], at },
+        {
+          role: "assistant",
+          text: "## Picks\n**Trench** in `M`, see [it](/products/trench).",
+          widgets: [],
+          at,
+        },
+      ]),
+    ).toBe("Picks Trench in M, see it.");
+    expect(preview([{ role: "shopper", text: "Hi", widgets: [], at }])).toBeUndefined();
+    expect(preview([{ role: "assistant", text: "a".repeat(400), widgets: [], at }])?.length).toBe(
+      160,
+    );
   });
 });
 
@@ -242,6 +333,8 @@ describe("the MCP Apps host", () => {
     });
     expect(storePath("javascript:alert(1)", [STORE])).toBeUndefined();
     expect(storePath(`${STORE}/cart?x=1#top`, [STORE])).toBe("/cart?x=1#top");
+    expect(storePath(`${STORE}/..//evil.example`, [STORE])).toBeUndefined();
+    expect(storePath(`${STORE}/%2e%2e//evil.example/x`, [STORE])).toBeUndefined();
   });
 
   test("notifications get no answer: ready sends the data, a size is clamped", async () => {

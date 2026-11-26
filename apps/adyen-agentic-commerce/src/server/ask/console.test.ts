@@ -15,7 +15,7 @@ import { readAskConfig, resetAskConfig } from "./config";
 import { ATTACKS } from "./console";
 import { forgetAskLimits } from "./limits";
 import { useAskModels } from "./runtime";
-import { appendMessage } from "./sessions";
+import { appendMessage, save } from "./sessions";
 
 // A test value only: the console's password in this process's test configuration.
 const PASSWORD = "console-test-password-0001";
@@ -83,6 +83,7 @@ describe("signing in", () => {
       const owner = new Owner();
       expect((await owner.signIn("anything-at-all-123")).status).toBe(404);
       expect((await owner.call("GET", "/overview")).status).toBe(404);
+      expect((await owner.call("GET", "/status")).status).toBe(404);
     }
   });
 
@@ -105,7 +106,12 @@ describe("signing in", () => {
 
   test("every route needs the cookie; every POST the store's origin and X-Console", async () => {
     expect((await new Owner().call("GET", "/overview")).status).toBe(403);
+    // The page asks first whether it is signed in: a plain answer, never a refusal.
+    const before = await new Owner().call("GET", "/status");
+    expect(before.status).toBe(200);
+    expect(await before.json()).toEqual({ signedIn: false });
     const owner = await signedIn();
+    expect(await (await owner.call("GET", "/status")).json()).toEqual({ signedIn: true });
     expect((await owner.call("GET", "/overview")).status).toBe(200);
     const foreign = await owner.call("POST", "/settings", {}, { origin: "https://evil.example" });
     expect(foreign.status).toBe(403);
@@ -113,6 +119,7 @@ describe("signing in", () => {
     expect(noHeader.status).toBe(403);
     await owner.call("POST", "/logout");
     expect((await owner.call("GET", "/overview")).status).toBe(403);
+    expect(await (await owner.call("GET", "/status")).json()).toEqual({ signedIn: false });
   });
 });
 
@@ -135,6 +142,26 @@ describe("what the console shows", () => {
     expect(view.cacheByModel).toEqual([
       { model: ANSWER_MODEL, inputTokens: 400, cacheReadTokens: 300, hitRate: 0.75 },
     ]);
+  });
+
+  test("a session past its time lists as ended, as the overview counts it", async () => {
+    const { session } = askSession();
+    save({ ...session, endsAt: Date.now() - 1_000 });
+    const owner = await signedIn();
+    const active = (await (await owner.call("GET", "/sessions?state=active")).json()) as {
+      sessions: { id: string }[];
+    };
+    expect(active.sessions).toEqual([]);
+    const ended = (await (await owner.call("GET", "/sessions?state=ended")).json()) as {
+      sessions: { id: string; state: string; endReason: string }[];
+    };
+    expect(ended.sessions).toEqual([
+      expect.objectContaining({ id: session.id, state: "ended", endReason: "time" }),
+    ]);
+    const overview = (await (await owner.call("GET", "/overview")).json()) as {
+      activeSessions: number;
+    };
+    expect(overview.activeSessions).toBe(0);
   });
 
   test("sessions with their full transcript; the console may end or lock one", async () => {

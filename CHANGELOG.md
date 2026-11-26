@@ -5,6 +5,45 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-26
+
+- The voice password is now the owner's `VOICE_MODE_PASSWORD` (any length, so `adyentic` works;
+  unset, voice is not offered) instead of a word fixed in the code, and the voice icon shows from
+  the panel's first opening: unlocking starts the conversation, no message needed first.
+- Fix the findings of the panel's independent review. A link in an answer opens only to a page
+  `open_page` may open, so a store path whose dot segments collapse into `//` (`/..//other.site`)
+  and the owner's pages stay plain text; stage 5 and the widget's page opening refuse that path
+  too. A voice call ends when its conversation leaves normal mode, on the server and in the
+  panel, which no longer hides a running call's controls. Opening a page keeps the panel's state
+  when the browser refuses session storage.
+- Fix the findings of the release's full review. A link or page whose query is named like an
+  object's own property (`/cart?toString=1`) is refused instead of crashing the panel or the
+  agent's turn, and a locked conversation shows no voice icon, so unlocking cannot start a new
+  conversation the panel does not offer. The server enforces it: while the browser's
+  conversation is locked, `POST /api/ask/session` and `POST /api/ask/session/end` answer
+  `session_locked` 423 as a message does, and a score already under the lock threshold locks it
+  at that moment, so neither a new conversation nor clearing the cookie reopens it.
+- The console page asks `GET /api/console/status` whether it is signed in, so a visit before
+  signing in no longer logs a refused call in the browser's console. Its session list shows a
+  session whose time ran out as ended, as the overview already counted it, instead of active.
+- The Ask agent can open the store's own pages for the shopper: a new `open_page` tool takes only
+  paths from a fixed list (account, bag, products, checkouts, orders, shop, docs, sign-in), never
+  the console, Back Office, consent, device or OAuth pages, nor another site; the panel opens it
+  after the answer and checks it again. Links in answers now lead only to the store itself.
+- The Ask panel can be minimised to a bar that keeps the answer, the voice call and the widget
+  running, shows what the assistant is doing and lets the shopper keep writing; it is restored on
+  reload. When the agent opens a page, the panel stays docked from 1024 px and steps aside to the
+  bar below, where it would cover the page.
+- Start Ask voice from a round icon of five bars beside Send, as chat apps do; its bars move
+  while the call is live and a second press hangs up.
+- Give an Ask voice conversation 10 minutes per session by default instead of 5
+  (`ASK_VOICE_MAX_MINUTES`; the day keeps 30, and the session's budget still caps a call).
+- Move the Ask agent to Pi 1.6.1 (`pi-ai`, and `pi-agent-core`, `pi-schema` and `pi-telemetry`
+  through Flue). A test shows Pi's catalogue still lists the default answer and guard models; the
+  release-age exception for Pi stays until 2 December; `@google/genai` 3.6.1 has no install script.
+- Check that each tool call a Pi 1.6 `codemode` script makes, shaped as Pi 1.6.1 sends it, meets
+  the template's guards like a direct call (a test of the extension; it does not run `pi`).
+
 ## [0.8.0] - 2026-11-26
 
 - Post to the Ask panel's widget frame through one helper: its `"*"` target, the only name an

@@ -6,7 +6,7 @@ tags: [decision, bun, nextjs, elysia, eden, workspace]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T10:00:00Z
+  at: 2026-11-26T06:45:00Z
 sources:
   - id: workspace
     resource: ../../package.json
@@ -69,3 +69,7 @@ Pi 1.6.0. On the owner's choice Pi 1.6.0 was installed five days after its relea
 lists its four packages (`pi-ai`, `pi-agent-core`, `pi-schema`, `pi-telemetry`) in
 `minimumReleaseAgeExcludes`, to be removed on 2026-11-27. Two install scripts stay blocked
 (`@google/genai`, `protobufjs`).
+
+**Amended 2026-11-26.** On the owner's choice the four Pi packages move to 1.6.1, published
+2026-11-25, so their `minimumReleaseAgeExcludes` entry stays until 2026-12-02. Pi 1.6.1 brings
+`@google/genai` 3.6.1 (a week old), which has no install script: only `protobufjs`'s stays blocked.

@@ -99,6 +99,39 @@
   }
 }
 
+/* The voice icon's bars move like a level meter while a call is live. */
+@keyframes ask-wave {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.ask-wave path {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ask-wave 1.1s ease-in-out infinite;
+}
+.ask-wave path:nth-child(2),
+.ask-wave path:nth-child(4) {
+  animation-delay: 0.18s;
+}
+.ask-wave path:nth-child(3) {
+  animation-delay: 0.36s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ask-wave path {
+    animation: none;
+  }
+}
+
+/* Minimised, its bar floats over the bottom of the page: the page's end can scroll above it. */
+html[data-ask="minimised"] body {
+  padding-bottom: 12rem;
+}
+
 /* The Docs diagrams draw the current message, then fade in an answer. */
 @keyframes seq-draw {
   from {

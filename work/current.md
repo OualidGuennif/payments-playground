@@ -9,11 +9,11 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-25, in chat: guest-or-signed-in chat sidebar, Flue agent, server-only
   keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
-- State: owner said "Push main" (2026-11-25); bump `2fa2055` pushed, PR #20 open; security-review
-  fixes `5ff25fc`, `0e4e2be`, `a929c43` and the pending Drop-in fix (unpushed), override `6001a88`.
-- Next: Review OK, push develop, release v0.8.0 to main, Render check (who: agent, tonight);
-  Ask keys on Render, voice, a real assistant (who: owner); Pi exemption 11-27.
-- Blocker: the independent review of the pending Drop-in fix.
+- State: v0.9.0 on develop (reviewed OK, pushed); release PR #21 open; its first CI run failed
+  doc-links L3 (Pi pin and `render.yaml` without doc updates), fixed by a Docs-Checked commit.
+- Next: fix PR CI, merge (owner's yes 11-26), tag, prod review of the whole site (who: agent);
+  sign in to prod `/console` and unlock voice there (who: owner); Pi exemption ends 12-02.
+- Blocker: none.
 - Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
 
 ## v0.7.1: ChatGPT widget fixes, card-save return, MCP stylist & ZIP — WAITING-OWNER

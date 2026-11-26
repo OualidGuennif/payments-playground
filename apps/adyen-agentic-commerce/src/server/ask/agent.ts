@@ -2,11 +2,12 @@
 // Stage 4, the house agent (spec invariants 2, 7 and 12). A Flue agent with a frozen prompt, no
 // sandbox, skill or subagent; its only tools are the store's own MCP tools, reached in-process
 // through the same handler outside agents use, as a guest or with its shopper's grant token.
-import { init, useInitialData, useMcpConnection, useModel } from "@flue/runtime";
+import { init, useInitialData, useMcpConnection, useModel, useTool } from "@flue/runtime";
 import * as v from "valibot";
 import { config } from "../core/config";
 import { get, put } from "../core/db";
 import { isRecord, secret } from "../core/util";
+import { openablePage } from "../../lib/storePages";
 import { toolUiMeta } from "../mcp/widgets";
 import { handleHouseMcp } from "../protocol";
 import type { Effort } from "./config";
@@ -17,7 +18,7 @@ import { closeMeter, openMeter, startAskRuntime } from "./runtime";
 import { maskResult, screenForAgent } from "./screen";
 import { sessionById } from "./sessions";
 
-export const AGENT_VERSION = "ask-2";
+export const AGENT_VERSION = "ask-3";
 export const AGENT_NAME = "velune-ask";
 
 // One fixed list in one fixed order: the tool block is part of the cached prefix. Paying is in it
@@ -45,11 +46,13 @@ export type ToolEvent = { name: string; phase: "start" | "end"; ok?: boolean; la
 // before the message and reads it after; a tool call outside an open message is refused.
 export type Collector = {
   mode: "normal" | "strict";
+  via?: "text" | "voice" | "widget";
   onTool?: (event: ToolEvent) => void;
   widgets: Widget[];
   prices: number[];
   calls: string[];
   withheld?: number;
+  page?: string;
 };
 const collectors = new Map<string, Collector>();
 
@@ -57,8 +60,9 @@ export function openCollector(
   sessionId: string,
   mode: Collector["mode"],
   onTool?: Collector["onTool"],
+  via?: Collector["via"],
 ): Collector {
-  const collector: Collector = { mode, onTool, widgets: [], prices: [], calls: [] };
+  const collector: Collector = { mode, via, onTool, widgets: [], prices: [], calls: [] };
   collectors.set(sessionId, collector);
   return collector;
 }
@@ -103,7 +107,7 @@ What you do:
 - Add only items the shopper chose, with variant ids from the catalogue, and keep using the same cart or checkout.
 - The shopper has one bag. When <shop_context> names a bag and you start a cart, start it with those lines, then add what the shopper asks for. When it names a checkout the shopper is looking at, change that checkout's lines with update_checkout if it is yours; otherwise start your cart from its lines, and the page follows.
 - Paying: give the shopper the checkout's continue_url so they pay themselves, unless <shop_context> says they connected their account. When connected, you may call complete_checkout with one of their saved cards only after they asked you to pay and confirmed the total and the card's brand and last digits; never pay twice for one checkout. If the store answers requires_escalation, share the link it gives. Never ask for or accept card numbers, security codes or passwords, and never send card data yourself.
-- Links: only links the tools returned or this store's own pages.
+- Links: only links the tools returned or this store's own pages. When the shopper asks to go to one of the store's pages (their account, the bag, a product, a checkout, an order), call open_page with its path: the page opens after your answer, so say so in a few words.
 
 How you write: in the shopper's language, briefly (at most about 120 words unless they ask for detail), with light Markdown, no tables, and no raw JSON.
 
@@ -267,6 +271,23 @@ export async function callStoreTool(
   return { ok: false, error: typeof error === "string" ? error : "The store refused this action." };
 }
 
+// The house tool beside the store's: it names a page for the panel to open after the answer and
+// reaches nothing itself (spec invariant 21). The last page accepted in a message wins.
+export function openPage(sessionId: string, path: unknown): string {
+  const live = sessionById(sessionId)?.state === "active";
+  const collector = live ? collectors.get(sessionId) : undefined;
+  if (!collector) return "No shopper message is in progress.";
+  if (collector.via !== "text")
+    return "Pages open from the typed chat only: in a voice call, tell the shopper where to find it.";
+  collector.onTool?.({ name: "open_page", phase: "start", label: "Opening the page…" });
+  const page = openablePage(path, config().publicOrigin);
+  if (page) collector.page = page;
+  collector.onTool?.({ name: "open_page", phase: "end", ok: Boolean(page) });
+  return page
+    ? `The shopper's browser opens ${page} after your answer.`
+    : "This page cannot be opened. Use one of the store's own pages, such as /account, /cart, /products/<id>, /checkout/<id> or /orders/<id>.";
+}
+
 type AgentData = { sessionId: string };
 
 // Flue renders this once per submission. Model and effort come from the session, fixed when it
@@ -284,6 +305,13 @@ export function HouseAgent(): string {
     tools: [...STORE_TOOLS],
     timeoutMs: 60_000,
   });
+  useTool({
+    name: "open_page",
+    description:
+      "Open one of this store's pages in the shopper's browser after your answer, by its path: /account (sections #orders, #agents, #cards), /cart, /products/<id>, /checkout/<id>, /orders/<id>, /shop, /docs.",
+    input: v.object({ path: v.pipe(v.string(), v.maxLength(300)) }),
+    run: ({ data }) => openPage(sessionId, data.path),
+  });
   return agentPrompt(agentCanary());
 }
 HouseAgent.agentName = AGENT_NAME;
@@ -297,10 +325,10 @@ export const askRuntime = (providers?: Parameters<typeof startAskRuntime>[0]["pr
 
 // Stage 4 for the pipeline: one Flue submission on the session's instance, metered and capped.
 export function houseAgentRunner(maxModelCalls: number): RunAgent {
-  return async ({ session, message, mode, onTool }) => {
+  return async ({ session, message, mode, via, onTool }) => {
     await askRuntime();
     const handle = init(HouseAgent, { id: session.id });
-    const collector = openCollector(session.id, mode, onTool);
+    const collector = openCollector(session.id, mode, onTool, via);
     const meter = openMeter(session.id, maxModelCalls);
     try {
       const receipt = await handle.dispatch({ message, initialData: { sessionId: session.id } });
@@ -311,6 +339,7 @@ export function houseAgentRunner(maxModelCalls: number): RunAgent {
         widgets: collector.widgets,
         prices: collector.prices,
         withheld: collector.withheld ?? 0,
+        page: collector.page,
         calls: meter.calls,
         costUsd: meter.costUsd,
         usage: meter.usage,

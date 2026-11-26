@@ -41,7 +41,7 @@ export const LIMIT_RANGES: Record<
   maxModelCalls: { env: "ASK_MAX_MODEL_CALLS", def: 6, min: 2, max: 12 },
   sessionBudgetUsd: { env: "ASK_SESSION_BUDGET_USD", def: 0.5, min: 0.05, max: 5 },
   dailyBudgetUsd: { env: "ASK_DAILY_BUDGET_USD", def: 5, min: 0.5, max: 100 },
-  voiceMinutes: { env: "ASK_VOICE_MAX_MINUTES", def: 5, min: 1, max: 20 },
+  voiceMinutes: { env: "ASK_VOICE_MAX_MINUTES", def: 10, min: 1, max: 20 },
   voiceDailyMinutes: { env: "ASK_VOICE_DAILY_MINUTES", def: 30, min: 1, max: 240 },
 };
 
@@ -53,6 +53,7 @@ export type AskConfig = {
   voice: { enabled: boolean; model: string };
   limits: AskLimits;
   consolePassword?: string;
+  voicePassword?: string;
 };
 
 export const CONSOLE_PASSWORD_MIN = 16;
@@ -118,6 +119,9 @@ export function readAskConfig(env: Record<string, string | undefined>): AskConfi
     },
     limits,
     consolePassword: password && password.length >= CONSOLE_PASSWORD_MIN ? password : undefined,
+    // Any length, unlike the console's: a switch against casual use that the unlock route
+    // rate-limits per address (spec invariant 14). Unset, voice is not offered.
+    voicePassword: clean(env.VOICE_MODE_PASSWORD),
   };
 }
 

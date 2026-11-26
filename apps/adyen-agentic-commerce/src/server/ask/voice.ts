@@ -6,15 +6,13 @@
 import { cleanEnvValue } from "../core/config";
 import { isRecord, newId, safeEqual, sha256 } from "../core/util";
 import { askConfig, KEY_VARS } from "./config";
-import { costToday, voiceSecondsToday } from "./context";
+import { costToday, modeFor, voiceSecondsToday } from "./context";
 import { voiceFailures } from "./limits";
 import { type Lang, languageOf } from "./refusals";
 import { type AskSession, appendMessage, save, sessionById } from "./sessions";
 import { effectiveSettings } from "./settings";
 import { admitTurn, answerTurn, type Turn } from "./turn";
 
-// The owner's fixed voice password (spec invariant 14): a switch against casual use, checked here.
-const VOICE_PASSWORD = "adyentic";
 export const VOICE_USD_PER_MINUTE = 0.05;
 export const LIVE_SESSIONS = "https://api.openai.com/v1/live/sessions";
 const MAX_CALL_SECONDS = 2 * 60 * 60;
@@ -159,13 +157,15 @@ export type Unlock =
   | { kind: "wrong" }
   | { kind: "blocked"; retryAfter: number };
 
+// The password is the owner's `VOICE_MODE_PASSWORD` (spec invariant 14), unset means no voice.
 // Wrong tries count per address (5 per 15 minutes); the comparison is of two equal-length digests.
 export function unlockVoice(session: AskSession, password: unknown, address: string): Unlock {
   const key = `voice:${address}`;
   const now = transport.now();
   const wait = voiceFailures.blocked(key, now);
   if (wait) return { kind: "blocked", retryAfter: wait };
-  if (typeof password !== "string" || !safeEqual(sha256(password), sha256(VOICE_PASSWORD))) {
+  const expected = askConfig().voicePassword;
+  if (!expected || typeof password !== "string" || !safeEqual(sha256(password), sha256(expected))) {
     const retry = voiceFailures.hit(key, now);
     return retry ? { kind: "blocked", retryAfter: retry } : { kind: "wrong" };
   }
@@ -369,6 +369,8 @@ function tick(call: Call): void {
   const session = sessionById(call.sessionId);
   if (session?.state !== "active" || now >= session.endsAt) hangUp(call, "session_ended");
   else if (!effectiveSettings(askConfig()).voiceEnabled) hangUp(call, "voice_off");
+  // Voice is offered in normal mode only (spec invariant 14); a refusal mid-call can leave it.
+  else if (modeFor(session.score, call.regular) !== "normal") hangUp(call, "not_normal");
   else if (!call.startedAt && now - call.createdAt >= START_TIMEOUT_MS) hangUp(call, "not_started");
   else if (call.startedAt && (now - call.startedAt) / 1000 >= call.maxSeconds)
     hangUp(call, "limit");

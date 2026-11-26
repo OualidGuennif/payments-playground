@@ -3,7 +3,7 @@
 // The panel's only door to the server: /api/ask, every POST with X-Ask: 1. It holds no key, no
 // model and no score; the server's answers say what the shopper may see.
 import { useSyncExternalStore } from "react";
-import { parseEvents, type StreamEvent } from "./askLogic";
+import { type PanelState, parseEvents, savedState, type StreamEvent } from "./askLogic";
 
 export type Answer<T> = {
   status: number;
@@ -76,27 +76,31 @@ export async function sendMessage(
   return { status: response.status };
 }
 
-// Open or closed, shared by the header's button and the panel; a reload reopens it.
+// Closed, open or minimised, shared by the header's button and the panel; a reload in the same tab
+// restores it.
 const OPEN_KEY = "av-ask-open";
-let open = false;
+let state: PanelState = "closed";
 const listeners = new Set<() => void>();
 
-export function setAskOpen(next: boolean) {
-  open = next;
+export function setAskState(next: PanelState) {
+  state = next;
   try {
-    if (next) sessionStorage.setItem(OPEN_KEY, "1");
-    else sessionStorage.removeItem(OPEN_KEY);
+    if (next === "closed") sessionStorage.removeItem(OPEN_KEY);
+    else sessionStorage.setItem(OPEN_KEY, next === "open" ? "1" : "min");
   } catch {
-    // Storage refused (private mode): the panel still opens, it just will not reopen on reload.
+    // Storage refused (private mode): the panel still works, it just is not restored on reload.
   }
   for (const listener of listeners) listener();
 }
 
-export function wasAskOpen(): boolean {
+// The state now, held in memory: it stays right when storage is refused.
+export const askState = () => state;
+
+export function savedAskState(): PanelState {
   try {
-    return sessionStorage.getItem(OPEN_KEY) === "1";
+    return savedState(sessionStorage.getItem(OPEN_KEY));
   } catch {
-    return false;
+    return "closed";
   }
 }
 
@@ -105,9 +109,9 @@ const subscribe = (listener: () => void) => {
   return () => listeners.delete(listener);
 };
 
-export const useAskOpen = () =>
+export const useAskState = () =>
   useSyncExternalStore(
     subscribe,
-    () => open,
-    () => false,
+    () => state,
+    (): PanelState => "closed",
   );

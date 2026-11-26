@@ -152,19 +152,31 @@ export const liveSession = (h: Here) =>
 export const shownMode = (session: AskSession, customer: Customer | undefined) =>
   modeFor(session.score, isRegular(customer)) === "normal" ? "normal" : "strict";
 
-// Voice is offered on an OpenAI conversation in normal mode, with the switch on and OpenAI's key
-// set (spec invariant 14).
-export const voiceOffered = (h: Here, live: AskSession) =>
+// Voice is offered on an OpenAI conversation in normal mode, with the switch on, OpenAI's key and
+// the voice password set (spec invariant 14).
+const voiceSwitch = (h: Here) =>
   h.available &&
   h.settings.voiceEnabled &&
   askConfig().keys.openai &&
+  Boolean(askConfig().voicePassword);
+
+export const voiceOffered = (h: Here, live: AskSession) =>
+  voiceSwitch(h) &&
   live.answer.model.startsWith("openai/") &&
   shownMode(live, h.customer) === "normal";
+
+// Before the first message, or once a conversation ended, the panel offers voice as the session
+// its unlock starts would: a new one begins in normal mode on the answer model chosen now. A
+// locked conversation offers none.
+const voiceForNew = (h: Here) =>
+  voiceSwitch(h) &&
+  h.session?.state !== "locked" &&
+  Boolean(h.settings.answer?.model.startsWith("openai/"));
 
 // What the panel shows (spec Outputs): never a score, a verdict, a model, a cost or a key.
 export function sessionView(h: Here) {
   const live = liveSession(h);
-  const voice = Boolean(live && voiceOffered(h, live));
+  const voice = live ? voiceOffered(h, live) : voiceForNew(h);
   return {
     available: h.available,
     state: h.session?.state ?? "none",
@@ -225,6 +237,17 @@ function begin(request: Request, h: Here): { session: AskSession; cookie: string
   return { session, cookie: sessionCookie(token, limits.sessionMinutes * 60) };
 }
 
+// The browser's conversation when it is locked: by its state, or by a score under the lock
+// threshold that no message has acted on yet, which locks it now (spec invariant 5).
+function lockedHere(h: Here): AskSession | undefined {
+  const session = h.session;
+  if (!session) return undefined;
+  if (session.state === "locked") return session;
+  if (liveSession(h) && modeFor(session.score, isRegular(h.customer)) === "locked")
+    return endSession(session, "locked");
+  return undefined;
+}
+
 function endedAnswer(session: AskSession, reason: EndReason) {
   void disconnect(session.id);
   if (reason === "locked" || session.state === "locked")
@@ -255,7 +278,13 @@ function contextFailure(session: AskSession, failure: ContextFailure): Response 
 function shown(event: PipelineEvent | { type: "error"; error: string }) {
   if (event.type === "stage") return { stage: event.stage };
   if (event.type === "final")
-    return { text: event.text, widgets: event.widgets, mode: event.mode, endsAt: event.endsAt };
+    return {
+      text: event.text,
+      widgets: event.widgets,
+      ...(event.page ? { page: event.page } : {}),
+      mode: event.mode,
+      endsAt: event.endsAt,
+    };
   return event;
 }
 
@@ -313,6 +342,10 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
   .post("/session", ({ request }) => {
     if (foreign(request)) return forbidden();
     const h = here(request);
+    // A locked conversation stays paused until its cookie lapses: as a message cannot, a new
+    // session (the panel's or voice's) cannot reopen it either.
+    const locked = lockedHere(h);
+    if (locked) return endedAnswer(locked, "locked");
     const started = begin(request, h);
     if (started instanceof Response) return started;
     return json(200, sessionView({ ...h, session: started.session, ended: undefined }), {
@@ -322,6 +355,9 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
   .post("/session/end", ({ request }) => {
     if (foreign(request)) return forbidden();
     const h = here(request);
+    // Ending would clear the cookie that keeps a locked conversation paused.
+    const locked = lockedHere(h);
+    if (locked) return endedAnswer(locked, "locked");
     const live = liveSession(h);
     if (live) {
       endSession(live, "ended_by_shopper");

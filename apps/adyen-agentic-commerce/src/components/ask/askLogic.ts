@@ -2,6 +2,8 @@
 // The panel's pure parts, tested without a browser: reading the answer stream, the words shown
 // while it runs, which messages and widgets are drawn, and the MCP Apps host's replies to a widget.
 
+import { openablePage } from "../../lib/storePages";
+
 type Json = Record<string, unknown>;
 const record = (v: unknown): v is Json => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -13,6 +15,11 @@ export type AskMessage = {
   at: number;
 };
 export type Mode = "normal" | "strict";
+// The voice icon: on a page that has the panel, when the server offers voice, and never on a
+// locked conversation, whose view a refused message marks locked before it is read again.
+export const voiceShown = (shown: boolean, view: SessionView | undefined) =>
+  shown && view?.state !== "locked" && Boolean(view?.voice.available);
+
 export type SessionView = {
   available: boolean;
   state: "active" | "ended" | "locked" | "none";
@@ -28,7 +35,7 @@ export type SessionView = {
 export type StreamEvent =
   | { type: "stage"; stage: string }
   | { type: "tool"; name: string; phase: "start" | "end"; label?: string }
-  | { type: "final"; text: string; widgets: Widget[]; mode: Mode; endsAt: number }
+  | { type: "final"; text: string; widgets: Widget[]; page?: string; mode: Mode; endsAt: number }
   | { type: "error"; error: string };
 
 // Server-sent events from a fetch body: complete blocks are returned, the unfinished tail is kept.
@@ -174,7 +181,8 @@ export function storePath(url: unknown, origins: string[]): string | undefined {
   if (typeof url !== "string") return undefined;
   try {
     const parsed = new URL(url);
-    if (!origins.includes(parsed.origin)) return undefined;
+    // A path the parser collapsed to "//" would leave the store once the router reads it.
+    if (!origins.includes(parsed.origin) || parsed.pathname.startsWith("//")) return undefined;
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
     return undefined;
@@ -228,24 +236,20 @@ export type Block =
   | { kind: "h"; at: number; inline: Inline[] }
   | { kind: "ul" | "ol"; at: number; items: Item[] };
 
-// A store path, or an http(s) address; never javascript:, data: or a protocol-relative "//".
-export function safeHref(href: string): boolean {
-  if (href.startsWith("/")) return !href.startsWith("//");
-  try {
-    const { protocol } = new URL(href);
-    return protocol === "https:" || protocol === "http:";
-  } catch {
-    return false;
-  }
-}
+// A link opens in place only to a page open_page may open (spec invariant 21): another site, a
+// protocol-relative "//" or "/\", dot segments that collapse into one, the owner's pages, a query
+// the list does not name and any other scheme stay plain text.
+export const linkPath = (href: string, origin: string) => openablePage(href, origin);
 
 const INLINE =
   /`([^`\n]+)`|\[([^\]\n]+)\]\(\s*<?([^)\s>]+)>?\s*\)|\*\*([^*\n]+)\*\*|(?<![\w*])\*([^*\n]+)\*(?![\w*])|(?<!\w)_([^_\n]+)_(?!\w)|(https?:\/\/[^\s<>()]*[^\s<>().,;:!?'"])/g;
 
-export function inlines(text: string): Inline[] {
+export function inlines(text: string, origin: string): Inline[] {
   const out: Inline[] = [];
-  const link = (label: string, href: string, at: number): Inline =>
-    safeHref(href) ? { kind: "link", text: label, href, at } : { kind: "text", text: label, at };
+  const link = (label: string, href: string, at: number): Inline => {
+    const path = linkPath(href, origin);
+    return path ? { kind: "link", text: label, href: path, at } : { kind: "text", text: label, at };
+  };
   let last = 0;
   for (const m of text.matchAll(INLINE)) {
     const at = m.index;
@@ -262,13 +266,17 @@ export function inlines(text: string): Inline[] {
   return out;
 }
 
-export function blocks(text: string): Block[] {
+export function blocks(text: string, origin: string): Block[] {
   const out: Block[] = [];
   let paragraph: { at: number; lines: string[] } | undefined;
   let list: { kind: "ul" | "ol"; at: number; items: Item[] } | undefined;
   const flushParagraph = () => {
     if (paragraph)
-      out.push({ kind: "p", at: paragraph.at, inline: inlines(paragraph.lines.join("\n")) });
+      out.push({
+        kind: "p",
+        at: paragraph.at,
+        inline: inlines(paragraph.lines.join("\n"), origin),
+      });
     paragraph = undefined;
   };
   const flushList = () => {
@@ -288,11 +296,11 @@ export function blocks(text: string): Block[] {
         const kind = bullet ? "ul" : "ol";
         if (list && list.kind !== kind) flushList();
         list ??= { kind, at, items: [] };
-        list.items.push({ at, inline: inlines(item[1] ?? "") });
+        list.items.push({ at, inline: inlines(item[1] ?? "", origin) });
       } else if (heading) {
         flushParagraph();
         flushList();
-        out.push({ kind: "h", at, inline: inlines(heading[1] ?? "") });
+        out.push({ kind: "h", at, inline: inlines(heading[1] ?? "", origin) });
       } else if (!line.trim()) {
         flushParagraph();
         flushList();
@@ -407,3 +415,32 @@ export const clockText = (seconds: number) => {
   const s = Math.max(0, Math.floor(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
+
+// The panel is closed, open, or minimised to a bar that keeps the answer, the voice call and the
+// widget running (spec Panel).
+export type PanelState = "closed" | "open" | "minimised";
+
+// The site header's Ask button never stops anything: it opens a closed or minimised panel and
+// minimises an open one.
+export const launcherNext = (state: PanelState): PanelState =>
+  state === "open" ? "minimised" : "open";
+
+// After the agent opens a page, the panel steps aside below 1024 px so the page shows; from 1024
+// px it is docked beside the page and stays.
+export const afterPage = (state: PanelState, docks: boolean): PanelState =>
+  state === "open" && !docks ? "minimised" : state;
+
+export const savedState = (value: string | null): PanelState =>
+  value === "1" ? "open" : value === "min" ? "minimised" : "closed";
+
+// The start of the last answer, as plain words for the minimised bar.
+export function preview(messages: AskMessage[]): string | undefined {
+  const last = messages.filter((m) => m.role === "assistant").at(-1);
+  if (!last) return undefined;
+  return last.text
+    .replace(/\[([^\]\n]+)\]\([^)\n]*\)/g, "$1")
+    .replace(/[*_`#>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
+}

@@ -160,6 +160,24 @@ describe("a message", () => {
     expect(view.messages.map((m: { role: string }) => m.role)).toEqual(["shopper", "assistant"]);
   });
 
+  test("a store page the agent opens reaches the browser on the final event", async () => {
+    enable();
+    faux.setResponses([
+      verdict("allow"),
+      fauxAssistantMessage(fauxToolCall("open_page", { path: "/account#orders" }), {
+        stopReason: "toolUse",
+      }),
+      fauxAssistantMessage(fauxText("Your account opens now.")),
+    ]);
+    const response = await new Browser().call("POST", "/api/ask/messages", {
+      text: "Take me to my orders",
+      page: "/",
+    });
+    const final = (await streamed(response)).at(-1);
+    expect(final?.type).toBe("final");
+    expect(final?.data.page).toBe("/account#orders");
+  });
+
   test("a refused message is a normal final answer", async () => {
     const browser = new Browser();
     const events = await streamed(
@@ -179,6 +197,35 @@ describe("a message", () => {
     save({ ...session, score: 0 });
     const response = await browser.call("POST", "/api/ask/messages", { text: "hello" });
     expect(response.status).toBe(423);
+    // The lock holds: a new conversation is refused too, so neither voice nor a second tab
+    // reopens one.
+    expect((await browser.call("POST", "/api/ask/session")).status).toBe(423);
+    expect((await browser.view()).state).toBe("locked");
+    expect(recentSessions(5).filter((s) => s.state === "active")).toEqual([]);
+  });
+
+  test("a score under the lock threshold locks the conversation when a new one is asked", async () => {
+    const browser = new Browser();
+    await browser.call("POST", "/api/ask/session");
+    const session = recentSessions(1)[0];
+    if (!session) throw new Error("no session");
+    // No message has acted on the score yet: the session is still active in storage.
+    save({ ...session, score: 20 });
+    expect((await browser.call("POST", "/api/ask/session")).status).toBe(423);
+    expect((await browser.view()).state).toBe("locked");
+  });
+
+  test("ending a locked conversation keeps it paused and its cookie", async () => {
+    const browser = new Browser();
+    await browser.call("POST", "/api/ask/session");
+    const session = recentSessions(1)[0];
+    if (!session) throw new Error("no session");
+    endSession(session, "locked");
+    const end = await browser.call("POST", "/api/ask/session/end");
+    expect(end.status).toBe(423);
+    expect(end.headers.get("set-cookie")).toBeNull();
+    expect((await browser.call("POST", "/api/ask/session")).status).toBe(423);
+    expect(recentSessions(5).filter((s) => s.state === "active")).toEqual([]);
   });
 
   test("a body that is not JSON with a text is invalid", async () => {

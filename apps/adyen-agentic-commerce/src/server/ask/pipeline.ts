@@ -38,6 +38,7 @@ export type PipelineEvent =
       type: "final";
       text: string;
       widgets: Widget[];
+      page?: string;
       mode: Exclude<Mode, "locked">;
       score: number;
       endsAt: number;
@@ -51,6 +52,7 @@ export type AgentOutcome =
       widgets: Widget[];
       prices: number[];
       withheld?: number;
+      page?: string;
       calls: number;
       costUsd: number;
       usage: { input: number; output: number; cacheRead: number; cacheWrite: number };
@@ -67,6 +69,7 @@ export type RunAgent = (input: {
   session: AskSession;
   message: string;
   mode: Exclude<Mode, "locked">;
+  via: "text" | "voice" | "widget";
   onTool: (event: ToolEvent) => void;
 }) => Promise<AgentOutcome>;
 
@@ -233,7 +236,7 @@ export async function answer(input: {
   let final: Extract<PipelineEvent, { type: "final" }> | undefined;
   let lock = false;
   const session = () => sessionById(admitted.session.id) ?? admitted.session;
-  const finish = (text: string, widgets: Widget[], prices: number[]) => {
+  const finish = (text: string, widgets: Widget[], prices: number[], page?: string) => {
     const current = session();
     const score = applyScore(current.score, delta);
     const settled = save({
@@ -262,6 +265,7 @@ export async function answer(input: {
       type: "final",
       text,
       widgets,
+      ...(page ? { page } : {}),
       mode: shownMode(ended, modeFor(ended.score, input.regular)),
       score: ended.score,
       endsAt: ended.endsAt,
@@ -297,6 +301,7 @@ export async function answer(input: {
       session: session(),
       message: admitted.text,
       mode: admitted.mode,
+      via: admitted.shopper.via ?? "text",
       onTool: (event) => input.emit({ type: "tool", ...event }),
     });
     costUsd += agent.costUsd;
@@ -312,10 +317,11 @@ export async function answer(input: {
       return;
     }
     const withheld = agent.withheld ? `; ${agent.withheld} store answer(s) withheld` : "";
+    const opened = agent.page ? `; opens ${agent.page}` : "";
     verdicts.push({
       stage: "agent",
       result: "allow",
-      detail: `${agent.calls} model call(s)${withheld}`,
+      detail: `${agent.calls} model call(s)${withheld}${opened}`,
     });
     input.emit({ type: "stage", stage: "agent", result: "allow" });
     // The shopper's own figures are known amounts too: "under €100" may be said back.
@@ -336,7 +342,8 @@ export async function answer(input: {
     }
     // A clean message, every stage allowed and nothing to deduct, earns a little score back.
     if (delta === 0) delta = CLEAN_BONUS;
-    finish(out.text, agent.widgets, agent.prices);
+    // A page opens only with an answer stage 5 let through (spec invariant 21).
+    finish(out.text, agent.widgets, agent.prices, agent.page);
   } catch {
     verdicts.push({ stage: "agent", result: "agent_failed" });
     finish(refusalText("agent_failed", lang), [], []);

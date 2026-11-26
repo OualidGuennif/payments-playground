@@ -63,9 +63,23 @@ describe("ask config", () => {
     expect(config.limits.dailyBudgetUsd).toBe(5);
   });
 
+  // Owner's choice, 2026-11-26: a voice conversation may run ten minutes; the day keeps 30.
+  test("voice gets 10 minutes per session and 30 per day by default", () => {
+    const { limits } = readAskConfig({});
+    expect(limits.voiceMinutes).toBe(10);
+    expect(limits.voiceDailyMinutes).toBe(30);
+  });
+
   test(`a console password under ${CONSOLE_PASSWORD_MIN} characters disables the console`, () => {
     expect(readAskConfig({ CONSOLE_PASSWORD: "short" }).consolePassword).toBeUndefined();
     expect(readAskConfig({ CONSOLE_PASSWORD: PASSWORD }).consolePassword).toBe(PASSWORD);
+  });
+
+  test("the voice password takes any length; empty or unset means none", () => {
+    expect(readAskConfig({ VOICE_MODE_PASSWORD: "adyentic" }).voicePassword).toBe("adyentic");
+    expect(readAskConfig({ VOICE_MODE_PASSWORD: "ab" }).voicePassword).toBe("ab");
+    expect(readAskConfig({ VOICE_MODE_PASSWORD: "" }).voicePassword).toBeUndefined();
+    expect(readAskConfig({}).voicePassword).toBeUndefined();
   });
 
   test("disabled is safe: no key, no usable model", () => {

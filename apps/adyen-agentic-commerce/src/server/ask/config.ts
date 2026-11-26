@@ -41,7 +41,7 @@ export const LIMIT_RANGES: Record<
   maxModelCalls: { env: "ASK_MAX_MODEL_CALLS", def: 6, min: 2, max: 12 },
   sessionBudgetUsd: { env: "ASK_SESSION_BUDGET_USD", def: 0.5, min: 0.05, max: 5 },
   dailyBudgetUsd: { env: "ASK_DAILY_BUDGET_USD", def: 5, min: 0.5, max: 100 },
-  voiceMinutes: { env: "ASK_VOICE_MAX_MINUTES", def: 5, min: 1, max: 20 },
+  voiceMinutes: { env: "ASK_VOICE_MAX_MINUTES", def: 10, min: 1, max: 20 },
   voiceDailyMinutes: { env: "ASK_VOICE_DAILY_MINUTES", def: 30, min: 1, max: 240 },
 };
 

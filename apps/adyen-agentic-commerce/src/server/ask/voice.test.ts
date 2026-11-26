@@ -231,7 +231,7 @@ describe("starting a call", () => {
     const { body, socket } = await inCall();
     expect(Object.keys(body).sort()).toEqual(["maxSeconds", "sdp"]);
     expect(body.sdp).toBe("v=0\r\nanswer\r\n");
-    expect(body.maxSeconds).toBe(300);
+    expect(body.maxSeconds).toBe(600);
     expect(JSON.stringify(body)).not.toContain(KEY);
     const [request] = requests;
     expect(request?.url).toBe(LIVE_SESSIONS);
@@ -270,7 +270,7 @@ describe("starting a call", () => {
 
   test("voice minutes used up, in the session or today, answer voice_limit", async () => {
     const { browser, session } = await unlocked();
-    save({ ...session, voice: { unlocked: true, seconds: 290 } });
+    save({ ...session, voice: { unlocked: true, seconds: 590 } });
     const spent = await browser.call("POST", "/api/ask/voice/call", { sdp: OFFER });
     expect(spent.status).toBe(429);
     expect(((await spent.json()) as { error: string }).error).toBe("voice_limit");
@@ -348,20 +348,22 @@ describe("during a call", () => {
 
   test("the minutes cap ends the call, from OpenAI's usage or from the clock", async () => {
     const first = await inCall();
-    first.socket.event(liveEvent("session.usage.updated", { usage: { seconds: 300 } }));
+    first.socket.event(liveEvent("session.usage.updated", { usage: { seconds: 599 } }));
+    expect(first.socket.of("session.close")).toHaveLength(0);
+    first.socket.event(liveEvent("session.usage.updated", { usage: { seconds: 600 } }));
     expect(first.socket.of("session.close")).toHaveLength(1);
     first.socket.event(liveEvent("session.closed", { reason: "close_requested" }));
-    expect(sessionById(first.session.id)?.voice.seconds).toBe(300);
+    expect(sessionById(first.session.id)?.voice.seconds).toBe(600);
 
     const second = await inCall();
-    offset = 301_000;
+    offset = 601_000;
     tickCall(second.session.id);
     expect(second.socket.of("session.close")).toHaveLength(1);
     // No closed event within the grace period: the clock settles it.
-    offset = 320_000;
+    offset = 620_000;
     tickCall(second.session.id);
     expect(second.socket.closed).toBe(true);
-    expect(sessionById(second.session.id)?.voice.seconds).toBeGreaterThanOrEqual(300);
+    expect(sessionById(second.session.id)?.voice.seconds).toBeGreaterThanOrEqual(600);
   });
 
   test("hanging up, or ending the conversation, asks OpenAI to close the call", async () => {

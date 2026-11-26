@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T22:50:00Z
+  at: 2026-11-26T06:49:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -109,7 +109,7 @@ voice mode (GPT-Live) talks to the same agent through the same gate.
 | 6 model calls per message (agent)   | `ASK_MAX_MODEL_CALLS`        |
 | 0.50 USD per session, 5 USD per day | `ASK_SESSION_BUDGET_USD`, `ASK_DAILY_BUDGET_USD` |
 | 6 new sessions per hour, 10 messages per minute, per address | fixed |
-| Voice 5 min per session, 30 min per day | `ASK_VOICE_MAX_MINUTES`, `ASK_VOICE_DAILY_MINUTES` |
+| Voice 10 min per session, 30 min per day | `ASK_VOICE_MAX_MINUTES`, `ASK_VOICE_DAILY_MINUTES` |
 
 Costs are in USD because providers bill in USD and Pi's prices are USD.
 

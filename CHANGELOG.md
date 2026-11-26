@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Give an Ask voice conversation 10 minutes per session by default instead of 5
+  (`ASK_VOICE_MAX_MINUTES`; the day keeps 30, and the session's budget still caps a call).
 - Move the Ask agent to Pi 1.6.1 (`pi-ai`, and `pi-agent-core`, `pi-schema` and `pi-telemetry`
   through Flue). A test shows Pi's catalogue still lists the default answer and guard models; the
   release-age exception for Pi stays until 2 December; `@google/genai` 3.6.1 has no install script.

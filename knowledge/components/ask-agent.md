@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T16:30:00Z
+  at: 2026-11-26T23:05:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -168,8 +168,11 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   When voice is offered, a round icon of five bars beside Send shows from the panel's first
   opening, before any message; it asks for the password (unlocking starts the conversation when
   none runs), then starts a
-  call (microphone, WebRTC to OpenAI with the server's answer, a data channel that only listens);
-  while the call runs its bars move (still with reduced motion) and it hangs up, a microphone
+  call (microphone, WebRTC to OpenAI with the server's answer, a data channel that only listens).
+  A microphone that does not start names its cause: blocked for the site only when the browser
+  reports the site's permission as denied, else the system's privacy settings, an unanswered
+  prompt, no microphone, one busy in another app, or a browser that gives the page none
+  (`askLogic.test.ts` "microphone problems"). While the call runs its bars move (still with reduced motion) and it hangs up, a microphone
   button on its left mutes and unmutes the shopper (the call and its minutes go on), and a bar
   above the composer shows the countdown, the last caption and End; the composer waits and the
   conversation refreshes every 3 s. Closing the panel, a page without it, an inactive session or

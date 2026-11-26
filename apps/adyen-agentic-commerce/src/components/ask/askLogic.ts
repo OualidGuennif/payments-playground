@@ -432,6 +432,39 @@ export function voiceEvent(raw: unknown): VoiceEvent | undefined {
   return undefined;
 }
 
+export type MicrophonePermission = "granted" | "denied" | "prompt" | undefined;
+
+// Why the microphone did not start, in words the shopper can act on. Each getUserMedia error
+// name is one cause; "blocked for this site" is said only when the browser reports the site's
+// permission as denied, so a system setting or a missing or busy microphone is never sent to the
+// site's settings. `capable` is false where the page has no microphone API at all (an insecure
+// page or an in-app browser).
+export function microphoneProblem(
+  error: string | undefined,
+  permission: MicrophonePermission,
+  capable: boolean,
+): string {
+  if (!capable)
+    return "This browser gives the page no microphone. Open the store in Safari, Chrome, Firefox or Edge, then try again.";
+  switch (error) {
+    case "NotAllowedError":
+    case "SecurityError":
+      if (permission === "denied")
+        return "The microphone is blocked for this site. Allow it in the site's settings in your browser, then try again.";
+      if (permission === "granted")
+        return "Your system keeps the browser from the microphone. Allow the browser in the system's privacy settings, then try again.";
+      return "The microphone was not allowed. Try again and allow it when the browser asks; if it does not ask, allow the browser in the system's privacy settings.";
+    case "NotFoundError":
+    case "OverconstrainedError":
+      return "No microphone was found. Connect one, then try again.";
+    case "NotReadableError":
+    case "AbortError":
+      return "The microphone could not start; another app may be using it. Close that app, then try again.";
+    default:
+      return "The microphone could not start. Check the browser's and the system's microphone settings, then try again.";
+  }
+}
+
 export type Caption = { who: "you" | "assistant"; text: string };
 const CAPTION_MAX = 180;
 

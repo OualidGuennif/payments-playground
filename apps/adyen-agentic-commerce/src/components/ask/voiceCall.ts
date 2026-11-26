@@ -3,7 +3,12 @@
 // our server, and a data channel that only listens. The browser never holds a key and cannot
 // steer the call: the server created it and keeps its sideband.
 import { type Answer, askCall } from "./askClient";
-import { type VoiceEvent, voiceEvent } from "./askLogic";
+import {
+  type MicrophonePermission,
+  microphoneProblem,
+  type VoiceEvent,
+  voiceEvent,
+} from "./askLogic";
 
 const ICE_WAIT_MS = 3_000;
 const HANGUP_WAIT_MS = 3_000;
@@ -22,18 +27,31 @@ const gathered = (pc: RTCPeerConnection) =>
     });
   });
 
+// Firefox cannot query "microphone" and throws: the cause then stays unknown, never "blocked".
+async function microphonePermission(): Promise<MicrophonePermission> {
+  try {
+    const status = await navigator.permissions?.query({ name: "microphone" as PermissionName });
+    return status?.state;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function startVoiceCall(
   onEvent: (event: VoiceEvent) => void,
 ): Promise<{ call?: VoiceCall; problem?: Answer<unknown> }> {
+  // An insecure page or an in-app browser has no microphone API; getUserMedia then throws.
+  const capable = Boolean(globalThis.isSecureContext && navigator.mediaDevices?.getUserMedia);
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch {
+  } catch (error) {
+    const permission = capable ? await microphonePermission() : undefined;
     return {
       problem: {
         status: 0,
         error: "microphone",
-        message: "The microphone is blocked. Allow it for this site, then try again.",
+        message: microphoneProblem((error as Error | undefined)?.name, permission, capable),
       },
     };
   }

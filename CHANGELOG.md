@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The Ask agent's voice call names why the microphone did not start. Every failure used to read
+  "The microphone is blocked. Allow it for this site", even when the site was allowed and the
+  system's privacy settings, a missing microphone or another app held it; now "blocked for this
+  site" shows only when the browser reports that site permission as denied.
+
 ## [0.9.3] - 2026-11-26
 
 - The agentic store answers its pages under one name only: a page asked under Render's own

@@ -10,7 +10,7 @@ import * as adyen from "../payments/adyen";
 import { type Checkout, err, now, type PaymentRecord, paymentInProgress } from "./model";
 import { forgetCardCache } from "./saved-cards";
 import { assess, buyerOf, loadCheckout, saveCheckout } from "./checkouts";
-import { releasePayment } from "./lock";
+import { refusalReopens, releasePayment } from "./lock";
 import { holdMismatch, placePaidOrder } from "./payment";
 
 // Saved cards show in Drop-in only for the checkout's own signed-in account; anyone else, guest or
@@ -116,18 +116,20 @@ export async function finishShopperSession(
     const placed = placePaidOrder(checkout, record, authorised.pspReference, authorised.amount);
     if (typeof placed === "string") holdMismatch(checkout, placed);
   } else if (result.status === "paymentPending") {
-    saveCheckout({ ...checkout, phase: "complete_in_progress", paying: undefined });
-  } else if (
-    FAILED.has(result.status) &&
-    checkout.phase === "complete_in_progress" &&
-    record.reference === `${checkout.id}-s${checkout.attempts}`
-  ) {
+    saveCheckout({
+      ...checkout,
+      phase: "complete_in_progress",
+      paying: undefined,
+      pendingWeb: record.reference,
+    });
+  } else if (FAILED.has(result.status) && refusalReopens(checkout, record.reference)) {
     // This attempt's pending payment failed after all: Adyen's answer reopens the checkout as its
     // refusal webhook would, which a local run never receives.
     saveCheckout({
       ...checkout,
       phase: "open",
       payerId: undefined,
+      pendingWeb: undefined,
       lastMessage: {
         type: "error",
         code: "payment_refused",
@@ -135,6 +137,9 @@ export async function finishShopperSession(
         severity: "requires_buyer_review",
       },
     });
+  } else if (FAILED.has(result.status) && checkout.pendingWeb === record.reference) {
+    // The pending payment failed while an agent's attempt is still in flight: that attempt decides.
+    saveCheckout({ ...checkout, payerId: undefined, pendingWeb: undefined });
   } else if (FAILED.has(result.status) || result.status === "completed" || result.payments.length) {
     // The payment ended without paying (or an attempt was refused in a session still open for a
     // retry): it no longer holds the checkout. A session under way with no payment keeps it.

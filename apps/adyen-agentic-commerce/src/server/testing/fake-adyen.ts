@@ -36,8 +36,9 @@ export const fake = {
   // The numbers sent to /cardDetails, and the brand (or failure) it answers.
   brandLookups: [] as string[],
   brand: "visa" as string | undefined | Error,
-  // Runs while the next payment call is in flight, before it answers.
+  // Runs while the next payment call is in flight, before it answers; `settle` is awaited there.
   during: undefined as (() => void) | undefined,
+  settle: undefined as (() => Promise<unknown>) | undefined,
   reset() {
     this.cards = [VISA];
     this.answers = [];
@@ -48,6 +49,7 @@ export const fake = {
     this.brandLookups = [];
     this.brand = "visa";
     this.during = undefined;
+    this.settle = undefined;
   },
   cardBrand(number: string) {
     this.brandLookups.push(number);

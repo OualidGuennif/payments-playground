@@ -12,8 +12,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   while the call was in flight, nor one the shopper's Drop-in has claimed since, and a pending
   answer reports the checkout as it stands. A pending Drop-in payment that Adyen later answers as
   refused, canceled or expired reopens its checkout, as the refusal webhook would, unless it is
-  held as a mismatch; no Drop-in result turns a held mismatch into an order, and a session still
-  under way keeps its hold. The same payment form claiming again keeps the payer its first claim named,
+  held as a mismatch, and while it stays pending an agent's failed attempt made after the hold ran
+  out no longer reopens the checkout: it reopens once both have failed. No Drop-in result turns a
+  held mismatch into an order, and a session still under way keeps its hold. The same payment form claiming again keeps the payer its first claim named,
   or names the shopper who signed in since. `docs/KNOWN_LIMITS.md` now says what a checkout's link
   lets its holder do.
 

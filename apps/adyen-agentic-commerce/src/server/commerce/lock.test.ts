@@ -313,6 +313,56 @@ describe("payment lock", () => {
     expect(get<commerce.Checkout>("checkouts", checkout.id)?.payerId).toBeUndefined();
   });
 
+  // The shopper's 3-D Secure outlasted the hold, an agent claimed the checkout, and Adyen answers
+  // the Drop-in payment as pending while the agent's call is in flight.
+  async function pendingBesideAnAgent(answer: object | Error) {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id, Date.now() - commerce.PAYING_MS - 1);
+    fake.settle = async () => {
+      fake.session = { status: "paymentPending", payments: [] };
+      await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    };
+    fake.answers.push(answer as never);
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    return { checkout, session };
+  }
+
+  for (const [name, answer] of [
+    ["refusal", { resultCode: "Refused", refusalReason: "Refused" }],
+    ["error", new Error("timeout")],
+  ] as const) {
+    test(`a Drop-in payment left pending keeps the checkout through an agent's ${name}`, async () => {
+      const { checkout } = await pendingBesideAnAgent(answer);
+      expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+      commerce.applyNotification(refusal(`${checkout.id}-s1`));
+      expect(held(checkout.id)?.phase).toBe("open");
+    });
+  }
+
+  test("an agent's refusal webhook waits for a Drop-in payment still pending", async () => {
+    const { checkout, session } = await pendingBesideAnAgent({
+      resultCode: "Pending",
+      pspReference: "PSPAGENT",
+    });
+    commerce.applyNotification(refusal(`${checkout.id}-a2`));
+    expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+    fake.session = { status: "refused", payments: [{ resultCode: "Refused" }] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(held(checkout.id)?.phase).toBe("open");
+  });
+
+  test("a pending Drop-in payment that fails first leaves the agent's pending one to decide", async () => {
+    const { checkout, session } = await pendingBesideAnAgent({
+      resultCode: "Pending",
+      pspReference: "PSPAGENT",
+    });
+    fake.session = { status: "refused", payments: [{ resultCode: "Refused" }] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+    commerce.applyNotification(refusal(`${checkout.id}-a2`));
+    expect(held(checkout.id)?.phase).toBe("open");
+  });
+
   test("a hold past its time holds nothing", async () => {
     const { checkout, session } = await openedOnTheWeb();
     const at = Date.now();

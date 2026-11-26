@@ -17,6 +17,9 @@ import {
 import { price } from "./pricing";
 import { assess, saveCheckout } from "./checkouts";
 
+// Adyen's answers that paid, or may still pay.
+const UNSETTLED = new Set(["Authorised", "Pending", "Received"]);
+
 const sameLines = (a: Line[] | undefined, b: Line[]) =>
   a !== undefined &&
   a.length === b.length &&
@@ -99,6 +102,22 @@ export function claimWebPayment(
     // shopper who has signed in since.
     payerId: held ? (checkout.payerId ?? payer) : payer,
   });
+}
+
+/**
+ * Whether a refusal of this payment reopens the checkout. It must be the attempt in progress with
+ * no Drop-in payment still pending beside it, or that pending Drop-in payment once the agent's
+ * later attempt has failed too: a checkout reopens only when nothing of it may still be paid.
+ */
+export function refusalReopens(checkout: Checkout, reference: string): boolean {
+  if (checkout.phase !== "complete_in_progress") return false;
+  const { id, attempts } = checkout;
+  if (reference === `${id}-a${attempts}` || reference === `${id}-s${attempts}`)
+    return checkout.pendingWeb === undefined || checkout.pendingWeb === reference;
+  if (reference !== checkout.pendingWeb) return false;
+  // The agent's attempt has ended without paying once Adyen answered anything but a payment.
+  const agent = findBy<PaymentRecord>("payments", "reference", `${id}-a${attempts}`)[0];
+  return agent?.resultCode !== undefined && !UNSETTLED.has(agent.resultCode);
 }
 
 /** Frees a checkout held by this payment, and its payer; a hold by another payment stays. */

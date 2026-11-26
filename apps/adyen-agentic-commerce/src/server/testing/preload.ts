@@ -23,11 +23,19 @@ mock.module("../payments/adyen", () => ({
     fake.lookups.push(shopperReference);
     return fake.cards;
   },
-  payWithSavedCard: async (input: Parameters<typeof real.payWithSavedCard>[0]) =>
-    fake.answer(input),
+  payWithSavedCard: async (input: Parameters<typeof real.payWithSavedCard>[0]) => {
+    const settle = fake.settle;
+    fake.settle = undefined;
+    await settle?.();
+    return fake.answer(input);
+  },
   cardBrand: async (number: string) => fake.cardBrand(number),
-  payWithNetworkToken: async (input: Parameters<typeof real.payWithNetworkToken>[0]) =>
-    fake.answer(input),
+  payWithNetworkToken: async (input: Parameters<typeof real.payWithNetworkToken>[0]) => {
+    const settle = fake.settle;
+    fake.settle = undefined;
+    await settle?.();
+    return fake.answer(input);
+  },
   createSession: async (input: Parameters<typeof real.createSession>[0]) => {
     fake.sessions.push(input);
     return { id: `CS_${input.reference}`, sessionData: "fake" };

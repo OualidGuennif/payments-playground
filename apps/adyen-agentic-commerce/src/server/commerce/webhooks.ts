@@ -4,6 +4,7 @@ import { findBy, get, put } from "../core/db";
 import * as adyen from "../payments/adyen";
 import { type Checkout, now, type Order, type PaymentRecord } from "./model";
 import { saveCheckout } from "./checkouts";
+import { refusalReopens } from "./lock";
 import { holdMismatch, holdReservation, placePaidOrder, releaseReservation } from "./payment";
 
 export function applyNotification(item: adyen.NotificationItem): string {
@@ -39,19 +40,23 @@ export function applyNotification(item: adyen.NotificationItem): string {
     put("orders", placed.id, { ...placed, webhook: stamp });
     return "order placed from webhook";
   }
-  // Only a refusal of the attempt in progress reopens the checkout: a late refusal of an earlier
-  // attempt must not reopen it while a newer one is pending, nor give back budget never reserved.
+  // Only a refusal of the attempt in progress gives back budget: a late refusal of an earlier
+  // attempt never reserved it. It reopens the checkout only when nothing else may still pay it.
   const current = [`${checkout.id}-a${checkout.attempts}`, `${checkout.id}-s${checkout.attempts}`];
   // A refused Drop-in payment no longer holds the checkout; another payment's hold stays.
   const paying = checkout.paying?.reference === record.reference ? undefined : checkout.paying;
-  if (checkout.phase === "complete_in_progress" && current.includes(record.reference)) {
-    // The agent's budget was reserved when the payment was sent; a refusal gives it back once.
-    if (record.purpose === "agent") releaseReservation(record, checkout.grantId);
+  const waited = checkout.pendingWeb === record.reference;
+  const inProgress = checkout.phase === "complete_in_progress";
+  // The agent's budget was reserved when the payment was sent; a refusal gives it back once.
+  if (inProgress && current.includes(record.reference) && record.purpose === "agent")
+    releaseReservation(record, checkout.grantId);
+  if (refusalReopens(checkout, record.reference)) {
     // The refused payment was the last one on this bag, so it has no payer any more.
     saveCheckout({
       ...checkout,
       paying,
       payerId: undefined,
+      pendingWeb: undefined,
       phase: "open",
       lastMessage: {
         type: "error",
@@ -60,6 +65,13 @@ export function applyNotification(item: adyen.NotificationItem): string {
         severity: "requires_buyer_review",
       },
     });
-  } else if (paying !== checkout.paying) saveCheckout({ ...checkout, paying, payerId: undefined });
+  } else if (paying !== checkout.paying || waited) {
+    saveCheckout({
+      ...checkout,
+      paying,
+      payerId: undefined,
+      pendingWeb: waited ? undefined : checkout.pendingWeb,
+    });
+  }
   return "refusal recorded";
 }

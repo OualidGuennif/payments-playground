@@ -110,6 +110,8 @@ export async function finishShopperSession(
     detail: result,
   });
   if (checkout.phase === "completed") return checkout;
+  // A held amount mismatch waits for a person: no result turns it into an order or reopens it.
+  if (checkout.lastMessage?.code === "amount_mismatch") return loadCheckout(checkout.id, "browser");
   if (result.status === "completed" && authorised) {
     const placed = placePaidOrder(checkout, record, authorised.pspReference, authorised.amount);
     if (typeof placed === "string") holdMismatch(checkout, placed);
@@ -118,11 +120,10 @@ export async function finishShopperSession(
   } else if (
     FAILED.has(result.status) &&
     checkout.phase === "complete_in_progress" &&
-    checkout.lastMessage?.code !== "amount_mismatch" &&
     record.reference === `${checkout.id}-s${checkout.attempts}`
   ) {
     // This attempt's pending payment failed after all: Adyen's answer reopens the checkout as its
-    // refusal webhook would, which a local run never receives. A mismatch stays held.
+    // refusal webhook would, which a local run never receives.
     saveCheckout({
       ...checkout,
       phase: "open",
@@ -134,8 +135,9 @@ export async function finishShopperSession(
         severity: "requires_buyer_review",
       },
     });
-  } else {
-    // Refused, canceled or expired: this payment no longer holds the checkout.
+  } else if (FAILED.has(result.status) || result.status === "completed" || result.payments.length) {
+    // The payment ended without paying (or an attempt was refused in a session still open for a
+    // retry): it no longer holds the checkout. A session under way with no payment keeps it.
     releasePayment(checkout.id, record.reference);
   }
   return loadCheckout(checkout.id, "browser");

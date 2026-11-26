@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T01:50:00Z
+  at: 2026-11-26T02:00:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -437,7 +437,7 @@ before, every deploy or restart emptied orders, agents and grants.
    is claimed before the call with nothing awaited in between, so two completes at once send one
    payment; the idempotency key is `agent-pay-<checkout id>-a<attempt>`; a refusal opens a new
    attempt, a network error retries the same key; a completed checkout is immutable. A Drop-in
-   result is likewise re-read after Adyen answers, so a repeated result places one order.
+   result is likewise re-read after Adyen answers: a repeated one places one order, none over a mismatch.
    One payment at a time across channels: a pay-intent holds the checkout 15 min; meanwhile an
    agent's complete sends nothing (`payment_in_progress`), edits and cancels refuse, a new Drop-in
    session (another tab) refuses so the held attempt stays current, and an agent's claim refuses

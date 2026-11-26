@@ -262,6 +262,30 @@ describe("payment lock", () => {
     expect(held(later.id)?.payerId).toBe("cus_signed_in");
   });
 
+  test("a Drop-in result never turns an amount mismatch into an order", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id);
+    mismatchDuring(checkout.id)();
+    fake.session = {
+      status: "completed",
+      payments: [{ resultCode: "Authorised", pspReference: "PSPWEB" }],
+    };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(held(checkout.id)?.lastMessage?.code).toBe("amount_mismatch");
+    expect(list<commerce.Order>("orders")).toHaveLength(0);
+  });
+
+  test("a Drop-in session still under way keeps its hold; a refused attempt in it frees it", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id);
+    fake.session = { status: "active", payments: [] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(commerce.payingNow(reload(checkout.id))).toBeDefined();
+    fake.session = { status: "active", payments: [{ resultCode: "Refused" }] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(commerce.payingNow(reload(checkout.id))).toBeUndefined();
+  });
+
   test("a pending Drop-in payment still active, or held as a mismatch, is not reopened", async () => {
     const { checkout, session } = await openedOnTheWeb();
     commerce.claimWebPayment(checkout.id, session.id);

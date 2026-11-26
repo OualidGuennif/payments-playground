@@ -66,6 +66,13 @@ function picture(path: string) {
 const theme = (): "light" | "dark" =>
   window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 
+// An opaque-origin frame can only be addressed with "*". This frame only ever holds the store's own
+// widget (no link, form, HTML sink or navigation in it, CSP default-src 'none', spec invariant 17),
+// so what is posted (its own data and theme, never a secret) cannot reach another document.
+const postTo = (frame: HTMLIFrameElement | null, message: Record<string, unknown>) =>
+  // nosemgrep: javascript.browser.security.wildcard-postmessage-configuration.wildcard-postmessage-configuration
+  frame?.contentWindow?.postMessage(message, "*");
+
 // The conversation's one widget (spec Panel): each data in `feed` it has not had yet is sent in
 // order, its pictures inlined; a tap's answer is handed back through `onResult` so the panel keeps
 // it when the widget moves under a newer message.
@@ -101,10 +108,11 @@ export function WidgetFrame({
       sent.current.add(fedKey(item));
       queue.current = queue.current.then(async () => {
         const structuredContent = await inlineImages(item.structuredContent, store, picture);
-        ref.current?.contentWindow?.postMessage(
-          { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: { structuredContent } },
-          "*",
-        );
+        postTo(ref.current, {
+          jsonrpc: "2.0",
+          method: "ui/notifications/tool-result",
+          params: { structuredContent },
+        });
       });
     }
   }, []);
@@ -125,10 +133,7 @@ export function WidgetFrame({
     const target = ref.current;
     if (!frame || !target) return;
     origin.current = frame.storeOrigin;
-    // An opaque-origin frame can only be addressed with "*"; what is posted is the widget's own
-    // data and theme, never a secret.
-    const post = (message: Record<string, unknown>) =>
-      target.contentWindow?.postMessage(message, "*");
+    const post = (message: Record<string, unknown>) => postTo(target, message);
     const origins = [window.location.origin, frame.storeOrigin];
     const onMessage = (event: MessageEvent) => {
       if (event.source !== target.contentWindow) return;

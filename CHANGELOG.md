@@ -7,6 +7,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [0.8.0] - 2026-11-26
 
+- Post to the Ask panel's widget frame through one helper: its `"*"` target, the only name an
+  opaque-origin frame has, carries Semgrep's annotation as the widget's own bridge does, since the
+  frame only ever holds the store's widget (no link, form, HTML sink or navigation).
 - Fix the findings of the release's security review of the payment lock. An agent's refused or
   failed payment no longer reopens a checkout whose order, or amount mismatch, a webhook recorded
   while the call was in flight, nor one the shopper's Drop-in has claimed since, and a pending

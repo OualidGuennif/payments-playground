@@ -57,9 +57,6 @@ export type Checkout = {
   // account (a guest bag, or another account's): its other payments wait too, until that payment
   // is released or refused or an agent pays instead (lock.ts).
   payerId?: string;
-  // A Drop-in payment Adyen answered as pending: the checkout waits for it to settle even when an
-  // agent's later attempt fails meanwhile (lock.ts refusalReopens).
-  pendingWeb?: string;
   createdAt: string;
   updatedAt: string;
   expiresAt: string;

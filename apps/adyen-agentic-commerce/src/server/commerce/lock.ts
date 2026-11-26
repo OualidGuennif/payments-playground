@@ -17,8 +17,9 @@ import {
 import { price } from "./pricing";
 import { assess, saveCheckout } from "./checkouts";
 
-// Adyen's answers that paid, or may still pay.
-const UNSETTLED = new Set(["Authorised", "Pending", "Received"]);
+// Adyen's answers after which a payment has paid, or may still pay (a Drop-in session reports
+// `paymentPending`, a /payments answer `Pending` or `Received`).
+const MAY_PAY = new Set(["Authorised", "Pending", "Received", "paymentPending"]);
 
 const sameLines = (a: Line[] | undefined, b: Line[]) =>
   a !== undefined &&
@@ -105,19 +106,30 @@ export function claimWebPayment(
 }
 
 /**
- * Whether a refusal of this payment reopens the checkout. It must be the attempt in progress with
- * no Drop-in payment still pending beside it, or that pending Drop-in payment once the agent's
- * later attempt has failed too: a checkout reopens only when nothing of it may still be paid.
+ * Whether a payment on this checkout other than this one may still pay it: an agent's call still
+ * in flight, or any payment Adyen answered as authorised or pending. The checkout waits for it.
+ * An agent's retry after a network error reuses its reference, which Adyen treats as one payment.
+ */
+export function anotherMayPay(checkout: Checkout, reference: string): boolean {
+  return findBy<PaymentRecord>("payments", "checkoutId", checkout.id).some((p) => {
+    if (p.reference === reference || p.purpose === "card-save") return false;
+    if (p.resultCode === undefined) return p.purpose === "agent";
+    return MAY_PAY.has(p.resultCode);
+  });
+}
+
+/**
+ * Whether a refusal of this payment reopens the checkout: only one in progress, with no order or
+ * held amount mismatch, and no other payment that may still pay it, so a checkout reopens only
+ * when nothing of it may still be paid, whichever payment fails last.
  */
 export function refusalReopens(checkout: Checkout, reference: string): boolean {
-  if (checkout.phase !== "complete_in_progress") return false;
-  const { id, attempts } = checkout;
-  if (reference === `${id}-a${attempts}` || reference === `${id}-s${attempts}`)
-    return checkout.pendingWeb === undefined || checkout.pendingWeb === reference;
-  if (reference !== checkout.pendingWeb) return false;
-  // The agent's attempt has ended without paying once Adyen answered anything but a payment.
-  const agent = findBy<PaymentRecord>("payments", "reference", `${id}-a${attempts}`)[0];
-  return agent?.resultCode !== undefined && !UNSETTLED.has(agent.resultCode);
+  return (
+    checkout.phase === "complete_in_progress" &&
+    !checkout.orderId &&
+    checkout.lastMessage?.code !== "amount_mismatch" &&
+    !anotherMayPay(checkout, reference)
+  );
 }
 
 /** Frees a checkout held by this payment, and its payer; a hold by another payment stays. */

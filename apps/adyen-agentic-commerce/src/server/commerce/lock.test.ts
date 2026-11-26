@@ -363,6 +363,55 @@ describe("payment lock", () => {
     expect(held(checkout.id)?.phase).toBe("open");
   });
 
+  test("an agent's refusal webhook never reopens an amount mismatch held during its call", async () => {
+    const { checkout } = await openedOnTheWeb();
+    fake.during = mismatchDuring(checkout.id);
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    commerce.applyNotification(refusal(`${checkout.id}-a2`));
+    expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+    expect(held(checkout.id)?.lastMessage?.code).toBe("amount_mismatch");
+  });
+
+  for (const via of ["session result", "webhook"] as const) {
+    test(`a pending payment of an older Drop-in session that fails reopens the checkout (${via})`, async () => {
+      const { checkout, session } = await openedOnTheWeb();
+      // Another tab opened the form after this one's hold ran out.
+      await commerce.startShopperSession(reload(checkout.id));
+      expect(held(checkout.id)?.attempts).toBe(2);
+      fake.session = { status: "paymentPending", payments: [] };
+      await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+      expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+      if (via === "webhook") commerce.applyNotification(refusal(`${checkout.id}-s1`));
+      else {
+        fake.session = { status: "refused", payments: [{ resultCode: "Refused" }] };
+        await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+      }
+      expect(held(checkout.id)?.phase).toBe("open");
+    });
+  }
+
+  test("a session answer older than the refusal webhook leaves the checkout open", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id);
+    fake.settle = async () => commerce.applyNotification(refusal(`${checkout.id}-s1`));
+    fake.session = { status: "paymentPending", payments: [] };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    expect(held(checkout.id)?.phase).toBe("open");
+  });
+
+  test("an agent's pending answer never makes a payment its webhook refused pending again", async () => {
+    const { checkout } = await openedOnTheWeb();
+    fake.during = () => commerce.applyNotification(refusal(`${checkout.id}-a2`));
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    const record = list<{ reference: string; resultCode?: string }>("payments").find(
+      (p) => p.reference === `${checkout.id}-a2`,
+    );
+    expect(record?.resultCode).toBe("Refused");
+    expect(held(checkout.id)?.phase).toBe("open");
+  });
+
   test("a hold past its time holds nothing", async () => {
     const { checkout, session } = await openedOnTheWeb();
     const at = Date.now();
@@ -465,6 +514,28 @@ describe("one payment at a time per account", () => {
     expect(codeOf(() => commerce.claimWebPayment(own.id, ownSession.id))).toBe(
       "payment_in_progress",
     );
+  });
+
+  test("a refused agent payment gives its budget back when the shopper's payment placed the order", async () => {
+    agent.ip = randomIp();
+    await agent.signIn();
+    const auth = authenticate(`Bearer ${agent.accessToken}`, "/mcp") as Auth;
+    const customer = customerById(grants()[0]!.customerId)!;
+    const theirs = commerce.createCheckout({ line_items: items(SOCKS) }, auth);
+    await commerce.startShopperSession(theirs, customer);
+    fake.during = () =>
+      commerce.applyNotification({
+        eventCode: "AUTHORISATION",
+        success: "true",
+        merchantReference: `${theirs.id}-s1`,
+        pspReference: "PSPWEB",
+      } as never);
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
+    await commerce.completeCheckout(commerce.loadCheckout(theirs.id, auth), savedCard, auth);
+    expect(grants()[0]!.spent).toBe(1695);
+    commerce.applyNotification(refusal(`${theirs.id}-a2`));
+    expect(list<commerce.Order>("orders")).toHaveLength(1);
+    expect(grants()[0]!.spent).toBe(0);
   });
 
   test("a payer whose hold has ended is not held by a later payment on that bag", async () => {

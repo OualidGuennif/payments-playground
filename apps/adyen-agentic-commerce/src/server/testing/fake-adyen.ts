@@ -36,7 +36,8 @@ export const fake = {
   // The numbers sent to /cardDetails, and the brand (or failure) it answers.
   brandLookups: [] as string[],
   brand: "visa" as string | undefined | Error,
-  // Runs while the next payment call is in flight, before it answers; `settle` is awaited there.
+  // Run while the next payment call is in flight, before it answers; `settle` is awaited there,
+  // and in the next session result call.
   during: undefined as (() => void) | undefined,
   settle: undefined as (() => Promise<unknown>) | undefined,
   reset() {

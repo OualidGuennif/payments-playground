@@ -67,8 +67,9 @@ A checkout's id is its link: whoever holds `continue_url` may pay it, and pressi
 payment form there holds the checkout, and its account's other payments, for up to 15 minutes, so
 a holder of that link can also delay the account that way. A form that fails in the browser before Adyen
 answers does not tell the store; its hold simply runs out. A 3-D Secure challenge that outlasts
-the hold lets an agent pay meanwhile: the checkout reopens only once neither payment may still pay,
-and when both are authorised the second is cancelled by hand, as above. A signed-in shopper who opens the
+the hold lets an agent, or the form in another tab, pay meanwhile: the checkout reopens only once
+no payment on it may still pay, and when two are authorised the second is cancelled by hand, as
+above. A signed-in shopper who opens the
 payment form of a checkout no account holds becomes that checkout's account, and a checkout an
 agent created without a token stays open to any agent that has its id.
 

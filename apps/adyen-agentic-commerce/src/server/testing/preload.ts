@@ -40,7 +40,12 @@ mock.module("../payments/adyen", () => ({
     fake.sessions.push(input);
     return { id: `CS_${input.reference}`, sessionData: "fake" };
   },
-  sessionResult: async () => fake.session,
+  sessionResult: async () => {
+    const settle = fake.settle;
+    fake.settle = undefined;
+    await settle?.();
+    return fake.session;
+  },
   forgetCard: async (id: string) => {
     fake.cards = fake.cards.filter((c) => c.storedPaymentMethodId !== id);
   },

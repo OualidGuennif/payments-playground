@@ -19,7 +19,7 @@ import {
   type PaymentRecord,
   paymentInProgress,
 } from "./model";
-import { accountPaying } from "./lock";
+import { accountPaying, refusalReopens } from "./lock";
 import { price } from "./pricing";
 import { savedCards } from "./saved-cards";
 import { assess, buyerOf, loadCheckout, saveCheckout } from "./checkouts";
@@ -259,11 +259,7 @@ export function chosenInstrument(body: Record<string, unknown>): Instrument | un
 // or Adyen may have left a Drop-in payment pending, which the checkout then waits for.
 function stillClaimed(id: string, attempt: number): Checkout | undefined {
   const current = get<Checkout>("checkouts", id);
-  return current?.phase === "complete_in_progress" &&
-    current.attempts === attempt &&
-    !current.orderId &&
-    current.lastMessage?.code !== "amount_mismatch" &&
-    current.pendingWeb === undefined
+  return current?.attempts === attempt && refusalReopens(current, `${id}-a${attempt}`)
     ? current
     : undefined;
 }
@@ -407,10 +403,13 @@ export async function completeCheckout(
       },
     });
   }
-  // Re-read: a webhook may have settled this payment while the call was in flight.
+  // Re-read: a webhook may have settled this payment while the call was in flight, and its
+  // answer stands over this one (a pending answer must not make a refused payment pending again).
+  const stored = get<PaymentRecord>("payments", record.id) ?? record;
   const answered = put("payments", record.id, {
-    ...(get<PaymentRecord>("payments", record.id) ?? record),
+    ...stored,
     ...result,
+    resultCode: stored.resultCode ?? result.resultCode,
     updatedAt: now(),
   });
   trace({

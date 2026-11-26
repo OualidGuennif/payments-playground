@@ -94,10 +94,17 @@ export async function finishShopperSession(
   const checkout = get<Checkout>("checkouts", loaded.id) ?? loaded;
   const record = get<PaymentRecord>("payments", known.id) ?? known;
   const authorised = result.payments.find((p) => p.resultCode === "Authorised");
+  // A refusal webhook may have settled this payment during the await: an answer that names no
+  // newer payment is older than it and must not mark the payment pending again.
+  const newer = result.payments.some(
+    (p) => p.pspReference !== undefined && p.pspReference !== record.pspReference,
+  );
+  const settled = !authorised && !newer && record.resultCode === "Refused";
   put("payments", record.id, {
     ...record,
-    resultCode: authorised ? "Authorised" : result.status,
-    pspReference: authorised?.pspReference ?? result.payments[0]?.pspReference,
+    resultCode: authorised ? "Authorised" : settled ? record.resultCode : result.status,
+    pspReference:
+      authorised?.pspReference ?? result.payments[0]?.pspReference ?? record.pspReference,
     updatedAt: now(),
   });
   trace({
@@ -115,13 +122,8 @@ export async function finishShopperSession(
   if (result.status === "completed" && authorised) {
     const placed = placePaidOrder(checkout, record, authorised.pspReference, authorised.amount);
     if (typeof placed === "string") holdMismatch(checkout, placed);
-  } else if (result.status === "paymentPending") {
-    saveCheckout({
-      ...checkout,
-      phase: "complete_in_progress",
-      paying: undefined,
-      pendingWeb: record.reference,
-    });
+  } else if (result.status === "paymentPending" && !settled) {
+    saveCheckout({ ...checkout, phase: "complete_in_progress", paying: undefined });
   } else if (FAILED.has(result.status) && refusalReopens(checkout, record.reference)) {
     // This attempt's pending payment failed after all: Adyen's answer reopens the checkout as its
     // refusal webhook would, which a local run never receives.
@@ -129,7 +131,6 @@ export async function finishShopperSession(
       ...checkout,
       phase: "open",
       payerId: undefined,
-      pendingWeb: undefined,
       lastMessage: {
         type: "error",
         code: "payment_refused",
@@ -137,9 +138,6 @@ export async function finishShopperSession(
         severity: "requires_buyer_review",
       },
     });
-  } else if (FAILED.has(result.status) && checkout.pendingWeb === record.reference) {
-    // The pending payment failed while an agent's attempt is still in flight: that attempt decides.
-    saveCheckout({ ...checkout, payerId: undefined, pendingWeb: undefined });
   } else if (FAILED.has(result.status) || result.status === "completed" || result.payments.length) {
     // The payment ended without paying (or an attempt was refused in a session still open for a
     // retry): it no longer holds the checkout. A session under way with no payment keeps it.

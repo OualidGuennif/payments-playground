@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T02:20:00Z
+  at: 2026-11-26T02:35:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -429,10 +429,10 @@ before, every deploy or restart emptied orders, agents and grants.
    none of them; otherwise `requires_escalation`. The grant is re-read after the card lookup and the total is reserved on it
    when the checkout is claimed, with nothing awaited in between, so completes on several checkouts
    at once cannot together pass the limit. Each payment's reservation is settled once: the first of
-   the synchronous refusal, a network error or a refusal webhook gives it back, and a success
-   webhook for a payment whose reservation was given back charges it again before the order. The
-   synchronous answer re-reads the payment and the checkout first: when a webhook already placed
-   the order or held a mismatch during the call, it neither places a second order nor releases.
+   the synchronous refusal, a network error or a refusal webhook (even after another payment placed
+   the order) gives it back, and a success webhook for a payment whose reservation was given back
+   charges it again before the order. The synchronous answer re-reads the payment and the checkout
+   first: after a webhook placed the order or held a mismatch during the call, it places no other.
 4. A checkout is paid at most once: it is re-read after the card lookup and `complete_in_progress`
    is claimed before the call with nothing awaited in between, so two completes at once send one
    payment; the idempotency key is `agent-pay-<checkout id>-a<attempt>`; a refusal opens a new
@@ -445,11 +445,11 @@ before, every deploy or restart emptied orders, agents and grants.
    another checkout of the account refuses with `payment_in_progress` while one is held or in
    progress, for 15 min at most; a hold its signed-in browser claimed on a guest's or another
    account's checkout counts too, until that payment is released or refused or an agent pays the
-   checkout); an agent's failed payment reopens the checkout only while its claim stands, never
-   over an order, a mismatch or a Drop-in payment left pending meanwhile; a pending Drop-in payment
-   Adyen fails reopens it once no agent payment may still pay; a session priced before an edit gets
-   `checkout_changed`; the result or refusal webhook ends it (`commerce/lock.test.ts`; a browser
-   skipping `beforeSubmit`: `docs/KNOWN_LIMITS.md`).
+   checkout); a failed payment reopens the checkout only with no order or held mismatch and no
+   other payment on it that may still pay (an agent's call in flight, a payment Adyen left pending),
+   whichever fails last, and an answer older than a refusal webhook never makes it pending again; a
+   session priced before an edit gets `checkout_changed`; the result or refusal webhook ends the
+   hold (`commerce/lock.test.ts`; a browser skipping `beforeSubmit`: `docs/KNOWN_LIMITS.md`).
 5. Every PAP MUST that applies to the merchant side maps to a test (matrix in the app's
    `src/server/pap/conformance.test.ts`).
 6. No secret, token, client assertion or stored payment method id appears in the trace, logs or

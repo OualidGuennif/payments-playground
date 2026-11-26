@@ -239,8 +239,11 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
    (normal ≥ 70, strict 40–69, locked < 40; a regular, signed in with a paid order, an account
    at least 7 days old and no lock in 30 days, gets thresholds 10 lower). A second injection
    refusal in one session (stage 1 `injection_signature` or stage 3 `injection`) locks it,
-   whatever the score. In strict mode a
-   saved-card payment is refused at the call and connect is refused. Test: `ask/context.test.ts`.
+   whatever the score. A locked conversation stays paused until its cookie lapses: a message
+   and a new session (`POST /api/ask/session`, the panel's or voice's) both answer
+   `session_locked` 423. In strict mode a
+   saved-card payment is refused at the call and connect is refused. Test: `ask/context.test.ts`;
+   `ask/api.test.ts` "a locked session answers 423".
 6. **Stage 3 (LLM guard)** answers only through one `verdict` call (`allow`, `off_topic`,
    `injection`, `abuse`, reason ≤ 200 characters). Its fixed prompt names the twelve attack
    families of the defense skill (override, role, authority, framing, extraction, indirect,

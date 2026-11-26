@@ -331,6 +331,9 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
   .post("/session", ({ request }) => {
     if (foreign(request)) return forbidden();
     const h = here(request);
+    // A locked conversation stays paused until its cookie lapses: as a message cannot, a new
+    // session (the panel's or voice's) cannot reopen it either.
+    if (h.session?.state === "locked") return endedAnswer(h.session, "locked");
     const started = begin(request, h);
     if (started instanceof Response) return started;
     return json(200, sessionView({ ...h, session: started.session, ended: undefined }), {

@@ -197,6 +197,11 @@ describe("a message", () => {
     save({ ...session, score: 0 });
     const response = await browser.call("POST", "/api/ask/messages", { text: "hello" });
     expect(response.status).toBe(423);
+    // The lock holds: a new conversation is refused too, so neither voice nor a second tab
+    // reopens one.
+    expect((await browser.call("POST", "/api/ask/session")).status).toBe(423);
+    expect((await browser.view()).state).toBe("locked");
+    expect(recentSessions(5).filter((s) => s.state === "active")).toEqual([]);
   });
 
   test("a body that is not JSON with a text is invalid", async () => {

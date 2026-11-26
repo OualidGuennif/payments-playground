@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T05:30:00Z
+  at: 2026-11-26T05:40:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -421,7 +421,7 @@ before, every deploy or restart emptied orders, agents and grants.
    Drop-in session is open. When Adyen reports an amount other than the one sent, no order is
    placed and the checkout is held with `amount_mismatch`. Payments are found by reference or
    session id, never inside a window of recent rows. A late refusal of an earlier attempt neither
-   reopens the checkout nor gives budget back.
+   reopens the checkout, gives budget back nor undoes a later authorisation.
 3. An agent pays with a saved card only with a valid access token carrying the checkout and pay
    scopes (a token without the checkout scope cannot complete at all: 403), a grant that is not
    revoked, a card of the grant's account, and a total at or under the grant's remaining limit;
@@ -430,9 +430,9 @@ before, every deploy or restart emptied orders, agents and grants.
    when the checkout is claimed, with nothing awaited in between, so completes on several checkouts
    at once cannot together pass the limit. Each reservation is settled once, on its own grant: the
    first of the synchronous refusal, a network error or a refusal webhook (even after another
-   payment placed the order) gives it back, and a success webhook after that charges it again before
-   the order. The synchronous answer re-reads the payment and the checkout first: after a webhook
-   placed the order or held a mismatch during the call, it places no other.
+   payment's order) gives it back, and a success webhook after that charges it again, whichever
+   payment placed the order. The synchronous answer re-reads the payment and the checkout first:
+   after a webhook placed the order or held a mismatch during the call, it places no other.
 4. A checkout is paid at most once: it is re-read after the card lookup and `complete_in_progress`
    is claimed before the call with nothing awaited in between, so two completes at once send one
    payment; the idempotency key is `agent-pay-<checkout id>-a<attempt>`; a refusal opens a new

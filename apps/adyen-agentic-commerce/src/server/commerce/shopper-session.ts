@@ -152,9 +152,15 @@ export async function finishShopperSession(
         severity: "requires_buyer_review",
       },
     });
-  } else if (FAILED.has(result.status) || result.status === "completed" || result.payments.length) {
+  } else if (
+    FAILED.has(result.status) ||
+    result.status === "completed" ||
+    (result.status === "active" && result.payments.length)
+  ) {
     // The payment ended without paying (or an attempt was refused in a session still open for a
-    // retry): it no longer holds the checkout. A session under way with no payment keeps it.
+    // retry): it no longer holds the checkout. A session under way with no payment keeps it, and so
+    // does a pending answer about a payment already settled: it may be a retry in the same form,
+    // which its hold covers until it runs out.
     releasePayment(checkout.id, record.reference);
   }
   return loadCheckout(checkout.id, "browser");

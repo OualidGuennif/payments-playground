@@ -13,6 +13,10 @@ export function applyNotification(item: adyen.NotificationItem): string {
   if (!record) return "no matching payment";
   const success = item.success === "true";
   if (item.eventCode !== "AUTHORISATION") return "recorded";
+  // A late refusal of an earlier card in the same form (another PSP reference) never undoes the
+  // attempt Adyen authorised after it.
+  if (!success && record.resultCode === "Authorised" && record.pspReference !== item.pspReference)
+    return "refusal of an earlier attempt";
   put("payments", record.id, {
     ...record,
     resultCode: success ? "Authorised" : "Refused",
@@ -25,21 +29,20 @@ export function applyNotification(item: adyen.NotificationItem): string {
   if (!checkout) return "checkout missing";
   const stamp = { eventCode: item.eventCode, success, at: now() };
   const order = checkout.orderId ? get<Order>("orders", checkout.orderId) : undefined;
-  // A refused agent payment gives its budget back, once, even when another payment placed the
+  // A refused agent payment gives its budget back, and an authorised one whose reservation an
+  // unknown outcome gave back charges it again, once each, even when another payment placed the
   // order meanwhile; the reservation is settled at most once whichever path learns first.
-  if (
-    !success &&
-    record.purpose === "agent" &&
-    (!order || order.pspReference !== item.pspReference)
-  )
-    releaseReservation(record, checkout.grantId);
+  if (record.purpose === "agent") {
+    if (success) holdReservation(record, checkout.grantId);
+    else if (!order || order.pspReference !== item.pspReference)
+      releaseReservation(record, checkout.grantId);
+  }
   if (checkout.orderId) {
     if (order && order.pspReference === item.pspReference)
       put("orders", order.id, { ...order, webhook: stamp });
     return "order confirmed";
   }
   if (success) {
-    if (record.purpose === "agent") holdReservation(record, checkout.grantId);
     // A held amount mismatch waits for a person: no payment turns it into an order.
     if (checkout.lastMessage?.code === "amount_mismatch") return "amount mismatch held, no order";
     const placed = placePaidOrder(checkout, record, item.pspReference, item.amount?.value);

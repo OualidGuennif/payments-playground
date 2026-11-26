@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T05:40:00Z
+  at: 2026-11-26T06:00:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -420,8 +420,8 @@ before, every deploy or restart emptied orders, agents and grants.
    and the order is placed from those lines, not from the checkout, which stays editable while a
    Drop-in session is open. When Adyen reports an amount other than the one sent, no order is
    placed and the checkout is held with `amount_mismatch`. Payments are found by reference or
-   session id, never inside a window of recent rows. A late refusal of an earlier attempt neither
-   reopens the checkout, gives budget back nor undoes a later authorisation.
+   session id, never inside a window of recent rows. A late refusal of an earlier attempt (another
+   PSP reference) neither reopens the checkout, gives budget back nor undoes a later payment.
 3. An agent pays with a saved card only with a valid access token carrying the checkout and pay
    scopes (a token without the checkout scope cannot complete at all: 403), a grant that is not
    revoked, a card of the grant's account, and a total at or under the grant's remaining limit;

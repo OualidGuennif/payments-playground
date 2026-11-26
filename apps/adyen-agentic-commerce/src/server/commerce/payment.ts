@@ -327,6 +327,7 @@ export async function completeCheckout(
   const resent = (p: PaymentRecord | undefined) =>
     p?.purpose === "agent" &&
     p.resultCode === "Error" &&
+    p.outcomeUnknown === true &&
     p.amount === assessment.total &&
     sameLines(p.lines, checkout.lines) &&
     p.instrumentKey === instrumentKey;
@@ -408,6 +409,7 @@ export async function completeCheckout(
     put("payments", record.id, {
       ...released,
       resultCode: released.resultCode === "Refused" ? "Refused" : "Error",
+      outcomeUnknown: released.resultCode !== "Refused",
       refusalReason:
         released.resultCode === "Refused"
           ? released.refusalReason

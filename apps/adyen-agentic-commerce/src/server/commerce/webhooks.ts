@@ -4,7 +4,7 @@ import { findBy, get, put } from "../core/db";
 import * as adyen from "../payments/adyen";
 import { type Checkout, now, type Order, type PaymentRecord } from "./model";
 import { saveCheckout } from "./checkouts";
-import { refusalReopens } from "./lock";
+import { mayPay, refusalReopens } from "./lock";
 import { holdMismatch, holdReservation, placePaidOrder, releaseReservation } from "./payment";
 
 export function applyNotification(item: adyen.NotificationItem): string {
@@ -13,9 +13,15 @@ export function applyNotification(item: adyen.NotificationItem): string {
   if (!record) return "no matching payment";
   const success = item.success === "true";
   if (item.eventCode !== "AUTHORISATION") return "recorded";
-  // A late refusal of an earlier card in the same form (another PSP reference) never undoes the
-  // attempt Adyen authorised after it.
-  if (!success && record.resultCode === "Authorised" && record.pspReference !== item.pspReference)
+  // A refusal names one payment: when the record already follows another that has paid or may
+  // still pay (a later card in the same form), it is a late refusal of an earlier attempt and
+  // changes nothing.
+  if (
+    !success &&
+    record.pspReference !== undefined &&
+    record.pspReference !== item.pspReference &&
+    mayPay(record.resultCode)
+  )
     return "refusal of an earlier attempt";
   put("payments", record.id, {
     ...record,

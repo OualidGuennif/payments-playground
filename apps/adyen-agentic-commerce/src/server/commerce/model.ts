@@ -105,6 +105,9 @@ export type PaymentRecord = {
   // on the grant it was made on, whatever grant the checkout names by then.
   reservation?: "held" | "released";
   grantId?: string;
+  // A network error left Adyen's answer unknown: only such a payment is resent under its key, since
+  // Adyen answers a key it already answered (an "Error" result included) with the same answer.
+  outcomeUnknown?: boolean;
   sessionId?: string;
   resultCode?: string;
   pspReference?: string;

@@ -45,12 +45,13 @@ async function openedOnTheWeb() {
 }
 
 const reload = (id: string) => commerce.loadCheckout(id, "browser");
-const refusal = (merchantReference: string) =>
+// Adyen's refusal names the payment it refuses: pass its PSP reference once Adyen gave one.
+const refusal = (merchantReference: string, pspReference = "PSPREFUSED") =>
   ({
     eventCode: "AUTHORISATION",
     success: "false",
     merchantReference,
-    pspReference: "PSPREFUSED",
+    pspReference,
   }) as never;
 const codeOf = (fn: () => unknown) => {
   try {
@@ -344,7 +345,7 @@ describe("payment lock", () => {
       resultCode: "Pending",
       pspReference: "PSPAGENT",
     });
-    commerce.applyNotification(refusal(`${checkout.id}-a2`));
+    commerce.applyNotification(refusal(`${checkout.id}-a2`, "PSPAGENT"));
     expect(held(checkout.id)?.phase).toBe("complete_in_progress");
     fake.session = { status: "refused", payments: [{ resultCode: "Refused" }] };
     await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
@@ -359,7 +360,7 @@ describe("payment lock", () => {
     fake.session = { status: "refused", payments: [{ resultCode: "Refused" }] };
     await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
     expect(held(checkout.id)?.phase).toBe("complete_in_progress");
-    commerce.applyNotification(refusal(`${checkout.id}-a2`));
+    commerce.applyNotification(refusal(`${checkout.id}-a2`, "PSPAGENT"));
     expect(held(checkout.id)?.phase).toBe("open");
   });
 
@@ -662,6 +663,31 @@ describe("payment lock", () => {
     expect(list<commerce.Order>("orders")).toHaveLength(1);
   });
 
+  test("a late refusal of an earlier card leaves a retry Adyen left pending in progress", async () => {
+    const { checkout, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(checkout.id, session.id);
+    // The first card is refused in the form and its webhook is still on its way; the retry is
+    // left pending.
+    commerce.claimWebPayment(checkout.id, session.id);
+    fake.session = {
+      status: "paymentPending",
+      payments: [{ resultCode: "Pending", pspReference: "PSP2" }],
+    };
+    await commerce.finishShopperSession(reload(checkout.id), session.id, "r");
+    commerce.applyNotification(refusal(`${checkout.id}-s1`, "PSP1"));
+    expect(held(checkout.id)?.phase).toBe("complete_in_progress");
+    expect(codeAt(`${checkout.id}-s1`)).toBe("paymentPending");
+  });
+
+  test("an agent payment Adyen answered with Error is not resent under its key", async () => {
+    const { checkout } = await openedOnTheWeb();
+    fake.answers.push({ resultCode: "Error", refusalReason: "Internal error" });
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
+    await commerce.completeCheckout(reload(checkout.id), agentPays);
+    expect(sentReferences()).toEqual([`${checkout.id}-a2`, `${checkout.id}-a3`]);
+  });
+
   test("a hold past its time holds nothing", async () => {
     const { checkout, session } = await openedOnTheWeb();
     const at = Date.now();
@@ -783,7 +809,7 @@ describe("one payment at a time per account", () => {
     fake.answers.push({ resultCode: "Pending", pspReference: "PSPAGENT" });
     await commerce.completeCheckout(commerce.loadCheckout(theirs.id, auth), savedCard, auth);
     expect(grants()[0]!.spent).toBe(1695);
-    commerce.applyNotification(refusal(`${theirs.id}-a2`));
+    commerce.applyNotification(refusal(`${theirs.id}-a2`, "PSPAGENT"));
     expect(list<commerce.Order>("orders")).toHaveLength(1);
     expect(grants()[0]!.spent).toBe(0);
   });

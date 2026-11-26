@@ -20,11 +20,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   the number) and until a webhook refuses it; a refused agent payment gives its budget back, and one
   authorised after an unknown outcome charges it again, even when the shopper's payment placed the
   order, always on the grant it was reserved on; a late refusal of an earlier card in the form never
-  undoes the authorised one; a pending answer after a refusal keeps the form's hold for a retry; a
-  pending answer of one form leaves another tab's hold. No Drop-in result or webhook turns a held
-  mismatch into an order, and a session still under way keeps its hold. The same payment form
-  claiming again keeps the payer its first claim named, or names the shopper who signed in since.
-  `docs/KNOWN_LIMITS.md` now says what a checkout's link lets its holder do.
+  undoes a later payment that paid or may still pay; an agent payment Adyen answered with Error is a
+  new attempt, only an unknown outcome is resent; a pending answer after a refusal keeps the form's
+  hold for a retry; a pending answer of one form leaves another tab's hold. No Drop-in result or
+  webhook turns a held mismatch into an order, and a session still under way keeps its hold. The
+  same payment form claiming again keeps the payer its first claim named, or names the shopper who
+  signed in since. `docs/KNOWN_LIMITS.md` now says what a checkout's link lets its holder do.
 
 - Run the Ask agent's MCP client on `@modelcontextprotocol/client` 2.3.1 instead of the 2.0.0
   that Flue 2.3.1 pins, through a root `overrides` entry: 2.0.0 carries GHSA-6prh-2h8m-c8cw

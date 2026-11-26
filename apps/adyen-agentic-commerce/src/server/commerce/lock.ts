@@ -20,6 +20,7 @@ import { assess, saveCheckout } from "./checkouts";
 // Adyen's answers after which a payment has paid, or may still pay (a Drop-in session reports
 // `paymentPending`, a /payments answer `Pending` or `Received`).
 const MAY_PAY = new Set(["Authorised", "Pending", "Received", "paymentPending"]);
+export const mayPay = (resultCode: string | undefined) => MAY_PAY.has(resultCode ?? "");
 
 /** Whether two bags hold the same variants in the same quantities, in the same order. */
 export const sameLines = (a: Line[] | undefined, b: Line[]) =>
@@ -115,7 +116,7 @@ export function anotherMayPay(checkout: Checkout, reference: string): boolean {
   return findBy<PaymentRecord>("payments", "checkoutId", checkout.id).some((p) => {
     if (p.reference === reference || p.purpose === "card-save") return false;
     if (p.resultCode === undefined) return p.purpose === "agent";
-    return MAY_PAY.has(p.resultCode);
+    return mayPay(p.resultCode);
   });
 }
 

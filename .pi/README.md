@@ -22,7 +22,9 @@ stop (`continue: false`) settles at once with its reason shown, never as another
 Pi 1.6's `codemode` tool (off unless `defaultTools` adds `+codemode`) runs a script that calls the
 other tools. The script arrives as `{ code }`; each `tools.<name>()` call it makes reaches `tool_call`
 and `tool_result` with `parentToolCallId`, so the same guards refuse it, and edit feedback on such a
-call goes back to the script, not the model. Checked on Pi 1.6.1 by `tools/agents/tests/test_pi.mjs`.
+call goes back to the script, not the model. `tools/agents/tests/test_pi.mjs` checks the guards on
+calls shaped as Pi 1.6.1 sends them (the outer `{ code }`, nested `bash` and `read`); it does not
+run `pi`, nor the `tool_result` path.
 
 ## Headless runs
 

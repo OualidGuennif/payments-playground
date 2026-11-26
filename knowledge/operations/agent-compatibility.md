@@ -57,7 +57,7 @@ sources:
     title: "OpenCode integration and its live note"
 generated:
   by: aeion-template/1.6
-  at: 2026-11-06
+  at: 2026-11-26
 verified:
   - at: 2026-11-06
     what: "tools/agents/tests/test_hooks.py: 65 passed; the gate reads signals.json contextTokensUsed, and a large usage.json ledger does not latch"
@@ -101,7 +101,8 @@ copying a directory does not establish loaded hooks or identical runtime guarant
   `powershell` are Bash, `read`/`edit`/`write`/`grep` name their file in `path`, `find` and `ls` are
   Glob and LS, and an unknown tool carrying a `command` string is a shell call. A Pi 1.6 `codemode`
   script passes as `{ code }`; each call it makes carries `parentToolCallId` and meets the same
-  guards, and its feedback reaches the script only (checked on Pi 1.6.1).
+  guards, and its feedback reaches the script only (read from Pi 1.6.1; `test_pi.mjs` checks the
+  guards on such calls without running `pi`).
   `tools/agents/run pi` requires 1.4.0+. Its compaction aborts the running turn, so once it is done
   the extension sends a message that resumes the task from the handover. `tools/agents/run pi rpc`
   starts the template's headless RPC runner instead (`tools/agents/pi-rpc`): one `pi --mode rpc`

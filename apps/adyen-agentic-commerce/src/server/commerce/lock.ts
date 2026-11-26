@@ -98,8 +98,9 @@ export function claimWebPayment(
   });
 }
 
-/** Frees a checkout held by this payment; a hold by another payment stays. */
+/** Frees a checkout held by this payment, and its payer; a hold by another payment stays. */
 export function releasePayment(checkoutId: string, reference: string): void {
   const checkout = get<Checkout>("checkouts", checkoutId);
-  if (checkout?.paying?.reference === reference) saveCheckout({ ...checkout, paying: undefined });
+  if (checkout?.paying?.reference === reference)
+    saveCheckout({ ...checkout, paying: undefined, payerId: undefined });
 }

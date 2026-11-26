@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import * as commerce from "./commerce";
 import { customerById } from "../accounts/customers";
 import { handle } from "../api";
-import { list } from "../core/db";
+import { get, list } from "../core/db";
 import { type Auth, authenticate, grants } from "../oauth/oauth";
 import { freshStore, ORIGIN, randomIp, signUpCustomer, TestAgent } from "../testing/agent";
 import { fake } from "../testing/fake-adyen";
@@ -45,6 +45,13 @@ async function openedOnTheWeb() {
 }
 
 const reload = (id: string) => commerce.loadCheckout(id, "browser");
+const refusal = (merchantReference: string) =>
+  ({
+    eventCode: "AUTHORISATION",
+    success: "false",
+    merchantReference,
+    pspReference: "PSPREFUSED",
+  }) as never;
 const codeOf = (fn: () => unknown) => {
   try {
     fn();
@@ -284,6 +291,44 @@ describe("one payment at a time per account", () => {
     expect(codeOf(() => commerce.claimWebPayment(own.id, ownSession.id))).toBe(
       "payment_in_progress",
     );
+  });
+
+  test("a payer whose hold has ended is not held by a later payment on that bag", async () => {
+    agent.ip = randomIp();
+    await agent.signIn();
+    const customer = customerById(grants()[0]!.customerId)!;
+    const own = commerce.createCheckout({ line_items: items(OXFORD) }, undefined, { customer });
+    const ownSession = await commerce.startShopperSession(own, customer);
+    // The shopper's hold on a guest bag runs out; a guest agent then pays that bag, still pending.
+    const { checkout: guest, session } = await openedOnTheWeb();
+    const expired = Date.now() - commerce.PAYING_MS - 1;
+    commerce.claimWebPayment(guest.id, session.id, expired, customer.id);
+    fake.answers.push({ resultCode: "Pending", pspReference: "PSPPENDING" });
+    await commerce.completeCheckout(reload(guest.id), agentPays);
+    expect(reload(guest.id).phase).toBe("complete_in_progress");
+    expect(commerce.accountPaying(customer.id, own.id)).toBe(false);
+    expect(codeOf(() => commerce.claimWebPayment(own.id, ownSession.id))).toBe("passed");
+  });
+
+  test("a released or refused Drop-in payment leaves no payer on the bag", async () => {
+    agent.ip = randomIp();
+    await agent.signIn();
+    const customer = customerById(grants()[0]!.customerId)!;
+    const payerOf = (id: string) => get<commerce.Checkout>("checkouts", id)?.payerId;
+    const { checkout: released, session } = await openedOnTheWeb();
+    commerce.claimWebPayment(released.id, session.id, Date.now(), customer.id);
+    expect(payerOf(released.id)).toBe(customer.id);
+    commerce.releasePayment(released.id, `${released.id}-s1`);
+    expect(payerOf(released.id)).toBeUndefined();
+    // Adyen keeps a second bag's payment pending, then its webhook refuses it.
+    const { checkout: refused, session: second } = await openedOnTheWeb();
+    commerce.claimWebPayment(refused.id, second.id, Date.now(), customer.id);
+    fake.session = { status: "paymentPending", payments: [] };
+    await commerce.finishShopperSession(reload(refused.id), second.id, "r");
+    expect(payerOf(refused.id)).toBe(customer.id);
+    commerce.applyNotification(refusal(`${refused.id}-s1`));
+    expect(reload(refused.id).phase).toBe("open");
+    expect(payerOf(refused.id)).toBeUndefined();
   });
 
   test("an agent paying for the account stops a Drop-in claim on another checkout", async () => {

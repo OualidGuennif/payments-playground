@@ -54,7 +54,8 @@ export type Checkout = {
   // The shopper's Drop-in payment that holds this checkout until `until` (lock.ts).
   paying?: { channel: Channel; reference: string; until: string };
   // The signed-in account whose browser claimed that hold, when it is not the checkout's own
-  // account (a guest bag, or another account's): its other payments wait too (lock.ts).
+  // account (a guest bag, or another account's): its other payments wait too, until that payment
+  // is released or refused or an agent pays instead (lock.ts).
   payerId?: string;
   createdAt: string;
   updatedAt: string;

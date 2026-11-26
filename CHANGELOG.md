@@ -13,7 +13,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   look-alikes now meet the injection signatures. A second tab can no longer open a payment form while
   another tab's payment holds the checkout, which kept that payment's refusal from reopening it.
   A signed-in shopper paying a guest bag now also holds their account's other payments, until
-  Adyen settles that payment.
+  Adyen settles that payment; once it is released or refused, or an agent pays that bag instead,
+  the shopper's account is free again.
 - Add a ten-minute demo to the agentic `/docs` overview: eight stops, each saying what to do and
   what to point out. The local PAP agent script ends an over-budget run by printing the shopper's
   link instead of a stack trace.

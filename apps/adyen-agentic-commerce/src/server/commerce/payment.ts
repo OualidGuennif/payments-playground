@@ -298,8 +298,10 @@ export async function completeCheckout(
   // Claimed and the budget reserved synchronously before the network call, so a parallel complete
   // sees the checkout in progress and the grant already charged; a refusal or an error gives it back.
   const attempt = checkout.attempts + 1;
+  // The agent's payment is not the browser's: an earlier Drop-in payer no longer pays this bag.
   const claimed = saveCheckout({
     ...checkout,
+    payerId: undefined,
     phase: "complete_in_progress",
     attempts: attempt,
     channel: checkout.channel ?? "agent",

@@ -47,9 +47,11 @@ export function applyNotification(item: adyen.NotificationItem): string {
   if (checkout.phase === "complete_in_progress" && current.includes(record.reference)) {
     // The agent's budget was reserved when the payment was sent; a refusal gives it back once.
     if (record.purpose === "agent") releaseReservation(record, checkout.grantId);
+    // The refused payment was the last one on this bag, so it has no payer any more.
     saveCheckout({
       ...checkout,
       paying,
+      payerId: undefined,
       phase: "open",
       lastMessage: {
         type: "error",
@@ -58,6 +60,6 @@ export function applyNotification(item: adyen.NotificationItem): string {
         severity: "requires_buyer_review",
       },
     });
-  } else if (paying !== checkout.paying) saveCheckout({ ...checkout, paying });
+  } else if (paying !== checkout.paying) saveCheckout({ ...checkout, paying, payerId: undefined });
   return "refusal recorded";
 }

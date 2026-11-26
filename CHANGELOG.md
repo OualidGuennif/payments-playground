@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-26
+
 - The agentic store answers its pages under one name only: a page asked under Render's own
   `.onrender.com` name moves (308) to the same path on `PUBLIC_ORIGIN`. There the passkey failed
   ("RP ID invalid for this domain") and the session cookie belonged to the other host, so an

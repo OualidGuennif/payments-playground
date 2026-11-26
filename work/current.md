@@ -5,16 +5,16 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Ask agent on the agentic store, a PAP agent — ACTIVE
+## Ask agent on the agentic store, a PAP agent — WAITING-OWNER
 
 - Owner decision: 2026-11-25, in chat: guest-or-signed-in chat sidebar, Flue agent, server-only
   keys, password-protected `/console`, 3-stage gate and a score per session; plan first.
-- State: v0.9.0 on develop (reviewed OK, pushed); release PR #21 open; its first CI run failed
-  doc-links L3 (Pi pin and `render.yaml` without doc updates), fixed by a Docs-Checked commit.
-- Next: fix PR CI, merge (owner's yes 11-26), tag, prod review of the whole site (who: agent);
-  sign in to prod `/console` and unlock voice there (who: owner); Pi exemption ends 12-02.
+- State: v0.9.0 released (PR #21, main `0744e23`, tag, CI green) and live on Render; prod review
+  of the four services clean (pages, console errors, chat, open_page, minimise, voice offered).
+- Next: sign in to prod `/console`, unlock voice and try a voice call (who: owner); drop Pi's
+  `minimumReleaseAgeExcludes` entry after 2026-12-02 (who: agent).
 - Blocker: none.
-- Evidence: work/handovers/94e4267a-bf92-4a2a-87d6-a4fe6b39647b.md.
+- Evidence: knowledge/current/digital-status.md (v0.9.0 deploy row); GitHub release v0.9.0.
 
 ## v0.7.1: ChatGPT widget fixes, card-save return, MCP stylist & ZIP — WAITING-OWNER
 

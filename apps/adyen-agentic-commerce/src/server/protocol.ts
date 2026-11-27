@@ -35,23 +35,24 @@ const LIMIT = 240;
 // A caller can still hold many addresses (an IPv6 prefix, or any header on a run without
 // Cloudflare); the map must not grow with them.
 const BUCKETS_MAX = 10_000;
-const buckets = new Map<string, { start: number; count: number }>();
+const buckets = new Map<string, { start: number; count: number; window: number }>();
 
-// One map for every per-address limit; a caller prefixes its key so each limit counts apart.
-export function rateLimited(key: string, limit = LIMIT): number | undefined {
+// One map for every per-address limit; a caller prefixes its key so each limit counts apart. A
+// limit may count over a longer window (the email check's 15 minutes); a minute is the default.
+export function rateLimited(key: string, limit = LIMIT, windowMs = WINDOW_MS): number | undefined {
   const now = Date.now();
   const bucket = buckets.get(key);
-  if (!bucket || now - bucket.start > WINDOW_MS) {
+  if (!bucket || now - bucket.start > bucket.window) {
     if (!bucket && buckets.size >= BUCKETS_MAX) {
-      for (const [k, b] of buckets) if (now - b.start > WINDOW_MS) buckets.delete(k);
+      for (const [k, b] of buckets) if (now - b.start > b.window) buckets.delete(k);
       // Still full: every address is inside its window, so the oldest one is dropped.
       if (buckets.size >= BUCKETS_MAX) buckets.delete(buckets.keys().next().value!);
     }
-    buckets.set(key, { start: now, count: 1 });
+    buckets.set(key, { start: now, count: 1, window: windowMs });
     return undefined;
   }
   bucket.count += 1;
-  return bucket.count > limit ? Math.ceil((bucket.start + WINDOW_MS - now) / 1000) : undefined;
+  return bucket.count > limit ? Math.ceil((bucket.start + bucket.window - now) / 1000) : undefined;
 }
 
 export const trackedRateAddresses = () => buckets.size;

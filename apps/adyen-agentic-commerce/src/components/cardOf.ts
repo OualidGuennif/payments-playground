@@ -13,6 +13,9 @@ export const cardOf = (p: Product): CardProduct => ({
   badge: p.badge,
   colours: p.colours,
   firstVariant: variantsOf(p)[0]?.id ?? "",
+  colourVariants: Object.fromEntries(
+    p.colours.map((c) => [c.id, variantsOf(p).find((v) => v.colour.id === c.id)?.id ?? ""]),
+  ),
 });
 
 // The searchable words match the server's search (catalog.ts searchProducts).

@@ -267,7 +267,7 @@ export function ShopBrowser({
             <button
               type="button"
               aria-label="Close the filters"
-              className="absolute inset-0 bg-ink/40"
+              className="absolute inset-0 bg-scrim/40"
               onClick={() => setDrawer(false)}
             />
             <div

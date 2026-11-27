@@ -5,7 +5,7 @@ description: "One architecture decision record per durable choice."
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T13:31:04Z
+  at: 2026-11-27T08:00:00Z
 ---
 
 # Decisions
@@ -34,3 +34,4 @@ Each ADR states its context, the decision and its consequences. Supersede an ADR
 | [ADR-017: MCP Apps UI on the UCP MCP server](ADR-017-mcp-apps-ui-on-the-ucp-server.md) | stable | 2026-11-18               |
 | [ADR-018: Ask agent, Flue in-process on the store's own MCP](ADR-018-ask-agent-flue-in-process.md) | stable | 2026-11-25               |
 | [ADR-019: Flagship storefront, product feed, GSAP, Personal Shopper](ADR-019-flagship-storefront.md) | stable | 2026-11-27               |
+| [ADR-020: Pay email step, first-order welcome offer, seasons](ADR-020-pay-identity-welcome-offer-and-seasons.md) | stable | 2026-11-27               |

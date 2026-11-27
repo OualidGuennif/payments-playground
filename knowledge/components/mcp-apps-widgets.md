@@ -7,7 +7,7 @@ status: draft
 scope: component-mcp-apps-widgets
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T00:50:00Z
+  at: 2026-11-27T08:55:00Z
 sources:
   - id: store
     resource: ./adyen-agentic-commerce.md
@@ -51,17 +51,23 @@ hold no token, no card data and no authority the agent does not already have.
   the host shows the product carousel or the bag inside the conversation. Its buttons call the UCP
   tools through the host themselves (search, next page, add to bag, quantities, checkout, pay with
   a listed saved card); it never writes to the assistant. The carousel is compact (about two cards
-  across the Ask panel, 44 px hit areas) and each card's "Show details" opens the product's page,
+  across the Ask panel, each as tall as its content, 44 px hit areas) and each card's "View product
+  details" opens the product's page,
   `/products/<id>?variant=<id>` on `PUBLIC_ORIGIN`, through the host's link opening (`ui/open-link`,
   else `openExternal`); the Ask panel opens it as its own page. Every call is the host's `tools/call` on
   the shopper's grant; the widget holds no token and no card data, and from the host's first
   message on it posts to the host's origin only (keeping `"*"` for the handshake and for an opaque
   `"null"` host origin). It shows the store's refusals in its own plain words for the codes it
-  knows ("The store needs an email for the receipt." for `missing_buyer_email`, which the store's
-  checkout page or the Ask panel asks for), and for any other code, or none, a general sentence
+  knows, says nothing more where its pay area already says it (`missing_buyer_email`,
+  `spend_limit_exceeded`), and for any other code, or none, a general sentence
   ("The store needs a change to this bag before payment."): the store's own text, written for
   agents, never reaches the shopper, in the bag or after a refused tap (`src/widgets/logic.test.ts`
-  "no store message reaches the shopper in the store's own words").
+  "no store message reaches the shopper in the store's own words"). A missing email reads "Add
+  your email to continue to payment." and never sits beside "Checkout ready."; in the store's own
+  panel (`veluneHost` in the host context) Pay opens `#velune-pay-email?checkoutId=` there, in any
+  other host `continue_url`. A welcome offer ([ADR-020](../decisions/ADR-020-pay-identity-welcome-offer-and-seasons.md))
+  shows as a "Welcome offer (-5%)" row and the tote as a line with no stepper, never sent back in
+  an update (`src/widgets/logic.test.ts` "the welcome offer").
 
 ## Outputs
 

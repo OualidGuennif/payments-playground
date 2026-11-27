@@ -18,10 +18,11 @@ import {
 import { AskConnect } from "./AskConnect";
 import { Icon } from "./AskIcon";
 import { AskDelivery } from "./AskDelivery";
-import { AskReceipt } from "./AskReceipt";
 import { AskText } from "./AskText";
 import { MuteButton, useVoice, VoiceButton, VoicePanel } from "./AskVoice";
 import { SESSION_EVENT } from "@/components/AccountMenu";
+import { PayIdentityModal, type PayResolved } from "@/components/PayIdentityModal";
+import { closeHeaderMenus } from "@/components/useHeaderMenu";
 import { followBag, readCart, useCart } from "@/lib/client";
 import { openablePage } from "@/lib/storePages";
 import {
@@ -44,8 +45,9 @@ import {
   oneWidget,
   pageHelp,
   preview,
+  BAG_URI,
   deliveryCheckout,
-  receiptNeeded,
+  payEmailCheckout,
   type SessionView,
   shortcutNext,
   shownMessages,
@@ -80,7 +82,7 @@ export function AskLauncher() {
     <button
       type="button"
       id="ask-launcher"
-      className="btn-ghost w-11 gap-1.5 px-0 py-1.5 sm:w-auto sm:px-3"
+      className="btn-ghost w-11 shrink-0 gap-1.5 px-0 py-1.5 sm:w-auto sm:px-3"
       aria-expanded={state === "open"}
       aria-controls="ask-panel"
       aria-keyshortcuts="Meta+K Control+K"
@@ -88,7 +90,9 @@ export function AskLauncher() {
       onClick={() => setAskState(launcherNext(state))}
     >
       <Icon d={SPARK} />
-      <span className="sr-only whitespace-nowrap sm:not-sr-only">Personal Shopper</span>
+      <span className="header-launcher-label sr-only whitespace-nowrap sm:not-sr-only">
+        Personal Shopper
+      </span>
     </button>
   );
 }
@@ -241,6 +245,8 @@ export function AskPanel() {
   useEffect(() => {
     if (minimised) restore.current?.focus();
     if (!open) return;
+    // The open panel never sits over an open header menu (storefront spec, Layers).
+    closeHeaderMenus();
     if (window.matchMedia(DOCKS).matches) input.current?.focus();
     else panel.current?.focus();
   }, [open, minimised]);
@@ -279,6 +285,40 @@ export function AskPanel() {
     },
     [showPage],
   );
+
+  // The widget's Pay when the checkout lacks an email (ADR-020): a signed-in shopper's checkout
+  // becomes the account's at once; a guest gets the Pay email modal over the panel. Either way the
+  // widget re-reads the checkout and the checkout page opens.
+  const [payFor, setPayFor] = useState<string>();
+  const fedBag = useCallback(
+    (result: unknown) => {
+      const r = result as { structuredContent?: unknown } | null | undefined;
+      if (typeof r !== "object" || r === null || r.structuredContent === undefined) return false;
+      onResult({ resourceUri: BAG_URI, structuredContent: r.structuredContent, at: Date.now() });
+      return true;
+    },
+    [onResult],
+  );
+  const fromWidget = useCallback(
+    async (path: string) => {
+      const checkoutId = payEmailCheckout(path);
+      if (!checkoutId) return showPage(path);
+      if (!viewNow.current?.signedIn) return setPayFor(checkoutId);
+      const answer = await askCall<{ result: unknown }>("/checkout-claim", {
+        checkoutId,
+        applyWelcomeOffer: true,
+      });
+      if (fedBag(answer.data?.result)) showPage(`/checkout/${checkoutId}`);
+      else setNotice(answer.message ?? "The store could not take this checkout. Try again.");
+    },
+    [showPage, fedBag],
+  );
+  const paid = (checkoutId: string, { data }: PayResolved) => {
+    setPayFor(undefined);
+    fedBag((data as { result?: unknown } | undefined)?.result);
+    void load(false);
+    showPage(`/checkout/${checkoutId}`);
+  };
 
   const startNew = useCallback(async (): Promise<string | undefined> => {
     const answer = await askCall<SessionView>("/session", {});
@@ -436,7 +476,6 @@ export function AskPanel() {
 
   const visible = shownMessages(messages);
   const one = oneWidget(visible, taps);
-  const receipt = one && view?.state === "active" ? receiptNeeded(one.feed) : undefined;
   const delivery = one && view?.state === "active" ? deliveryCheckout(one.feed) : undefined;
   const unavailable = view !== undefined && !view.available;
   const locked = view?.state === "locked";
@@ -473,7 +512,7 @@ export function AskPanel() {
           type="button"
           aria-label="Close your Personal Shopper"
           tabIndex={-1}
-          className="fixed inset-0 z-30 bg-ink/30 lg:hidden"
+          className="fixed inset-0 z-[45] bg-scrim/30 lg:hidden"
           onClick={close}
         />
       )}
@@ -483,7 +522,7 @@ export function AskPanel() {
         tabIndex={-1}
         aria-labelledby="ask-title"
         onKeyDown={(event) => event.key === "Escape" && open && minimise()}
-        className={`fixed z-40 flex flex-col bg-paper shadow-2xl outline-none ${
+        className={`fixed ${minimised ? "z-30" : "z-50"} flex flex-col bg-paper shadow-2xl outline-none ${
           wide
             ? "inset-x-0 bottom-0 h-[92dvh] rounded-t-3xl border-t border-line lg:inset-0 lg:h-auto lg:rounded-none lg:border-0"
             : minimised
@@ -591,7 +630,7 @@ export function AskPanel() {
               </div>
             )}
             {visible.length === 0 && (
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3 pt-3">
                 <p className="eyebrow">Your Personal Shopper</p>
                 <p className="font-serif text-2xl leading-snug">
                   Find a piece, check a size, fill your bag.
@@ -610,28 +649,19 @@ export function AskPanel() {
                   message={message}
                   widget={
                     one?.home === index ? (
-                      // One commerce card: the store's widget, then delivery and the receipt.
+                      // One commerce card: the store's widget, then its delivery line.
                       <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-card">
                         <WidgetFrame
                           uri={one.uri}
                           feed={one.feed}
                           onResult={onResult}
-                          onOpen={showPage}
+                          onOpen={(path) => void fromWidget(path)}
                         />
                         {delivery && (
                           <AskDelivery
                             key={`delivery:${delivery.id}:${delivery.subtotal ?? ""}`}
                             checkoutId={delivery.id}
                             onResult={onResult}
-                          />
-                        )}
-                        {receipt && (
-                          <AskReceipt
-                            key={receipt}
-                            checkoutId={receipt}
-                            accountEmail={view?.accountEmail}
-                            onResult={onResult}
-                            onSignedIn={() => void load(false)}
                           />
                         )}
                       </div>
@@ -725,6 +755,16 @@ export function AskPanel() {
           </div>
         </footer>
       </aside>
+      {payFor ? (
+        <PayIdentityModal
+          checkoutId={payFor}
+          source="ask"
+          subtotal={delivery?.id === payFor ? (delivery.subtotal ?? 0) : 0}
+          total={delivery?.id === payFor ? (delivery.total ?? 0) : 0}
+          onClose={() => setPayFor(undefined)}
+          onResolved={(resolved) => paid(payFor, resolved)}
+        />
+      ) : null}
     </>
   );
 }

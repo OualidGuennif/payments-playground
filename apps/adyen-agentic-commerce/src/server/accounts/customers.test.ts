@@ -50,6 +50,89 @@ const signIn = (email: string, password: string, ip?: string) =>
 
 beforeEach(() => freshStore());
 
+const CHECK = "/api/session/check-email";
+const STORE_PAGE = { "x-velune-check": "1", "sec-fetch-site": "same-origin", origin: ORIGIN };
+const check = (email: unknown, ip?: string, headers: Record<string, string> = STORE_PAGE) =>
+  call("POST", CHECK, { body: { email }, ip, headers });
+
+describe("the email check (ADR-020)", () => {
+  test("the email check answers only whether an account exists, never fast", async () => {
+    await signUpCustomer("ada@example.com");
+    const started = performance.now();
+    const unknown = await check("nobody@example.com");
+    expect(performance.now() - started).toBeGreaterThanOrEqual(44);
+    expect(unknown.status).toBe(200);
+    expect(unknown.body).toEqual({ exists: false });
+    expect(Object.keys(unknown.body)).toEqual(["exists"]);
+    expect(unknown.headers.get("cache-control")).toBe("no-store");
+    const known = await check("  Ada@Example.COM ");
+    expect(known.status).toBe(200);
+    expect(known.body).toEqual({ exists: true });
+    expect(Object.keys(known.body)).toEqual(["exists"]);
+    // Sign-in still tells nothing: the same refusal for an unknown email and a wrong password.
+    const wrong = await signIn("ada@example.com", "wrong password here");
+    const missing = await signIn("nobody@example.com", "wrong password here");
+    expect([wrong.status, wrong.body]).toEqual([missing.status, missing.body]);
+  });
+
+  test("the email check refuses another site and a request without its header", async () => {
+    await signUpCustomer("ada@example.com");
+    const refused: Record<string, string>[] = [
+      {},
+      { "x-velune-check": "0", "sec-fetch-site": "same-origin" },
+      { "x-velune-check": "1", "sec-fetch-site": "cross-site" },
+      { "x-velune-check": "1", "sec-fetch-site": "same-site" },
+      { "x-velune-check": "1", origin: "https://attacker.example" },
+    ];
+    for (const headers of refused) {
+      const answer = await check("ada@example.com", undefined, headers);
+      expect([answer.status, answer.body.error]).toEqual([403, "forbidden"]);
+      expect(answer.body.exists).toBeUndefined();
+    }
+    expect((await check("ada@example.com")).body).toEqual({ exists: true });
+  });
+
+  test("the email check refuses a malformed email or body with 400 invalid_email", async () => {
+    for (const email of ["", "   ", "not-an-email", "a@b", 42, null, `${"a".repeat(250)}@x.io`]) {
+      const answer = await check(email);
+      expect([answer.status, answer.body.error]).toEqual([400, "invalid_email"]);
+    }
+    const extra = await call("POST", CHECK, {
+      body: { email: "ada@example.com", name: "Ada" },
+      headers: STORE_PAGE,
+    });
+    expect(extra.status).toBe(400);
+    const notJson = await handle(
+      new Request(`${ORIGIN}${CHECK}`, {
+        method: "POST",
+        headers: { ...STORE_PAGE, "content-type": "text/plain", "x-forwarded-for": randomIp() },
+        body: "ada@example.com",
+      }),
+    );
+    expect(notJson.status).toBe(400);
+  });
+
+  test("the email check allows 15 per address per 15 minutes and keeps the email masked", async () => {
+    await signUpCustomer("ada@example.com");
+    const ip = randomIp();
+    for (let i = 0; i < 15; i++) {
+      // Malformed bodies count too: the allowance is spent before the body is read.
+      const answer = await check(i % 2 ? "ada@example.com" : "bad", ip);
+      expect([200, 400]).toContain(answer.status);
+    }
+    const limited = await check("ada@example.com", ip);
+    expect([limited.status, limited.body.error]).toEqual([429, "rate_limited"]);
+    const retry = Number(limited.headers.get("retry-after"));
+    expect(retry).toBeGreaterThan(14 * 60);
+    expect(retry).toBeLessThanOrEqual(15 * 60);
+    expect((await check("ada@example.com")).status).toBe(200);
+    const trace = JSON.stringify(database().query("select * from trace").all());
+    expect(trace).toContain("/api/session/check-email");
+    expect(trace).not.toContain("ada@example.com");
+    expect(trace).toContain("a•••@example.com");
+  });
+});
+
 describe("accounts", () => {
   test("sign-up starts a session: HttpOnly, SameSite=Lax, 7 days, stored only as its SHA-256", async () => {
     const created = await call("POST", "/api/customers", {

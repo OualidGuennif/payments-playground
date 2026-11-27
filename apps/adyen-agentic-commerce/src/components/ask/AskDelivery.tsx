@@ -1,12 +1,13 @@
 "use client";
 // Spec: knowledge/components/ask-agent.md
-// The bag's delivery, chosen in the panel itself: standard, express or a pickup point from the
-// store's own lists, preselected. It goes to the checkout's own route, never through the
-// assistant, and the widget then shows the store's new total.
+// The bag's delivery, chosen in the panel itself: one line (method, price, place) with Edit, which
+// unfolds standard, express or a pickup point from the store's own lists, preselected. It goes to
+// the checkout's own route, never through the assistant, and the widget then shows the new total.
 import { useEffect, useState } from "react";
 import { DeliveryPicker } from "@/components/DeliveryPicker";
 import { api } from "@/lib/client";
-import type { Delivery } from "@/lib/delivery";
+import { type Delivery, METHODS, placesFor, placeText } from "@/lib/delivery";
+import { money } from "@/lib/money";
 import { shopperWords } from "@/lib/shopper-words";
 import type { checkoutView } from "@/server/api";
 import { askCall } from "./askClient";
@@ -15,14 +16,14 @@ import { BAG_URI, type Fed } from "./askLogic";
 const record = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-type Shown = { delivery: Delivery; subtotal: number };
+type Shown = { delivery: Delivery; subtotal: number; fulfillment: number };
 
 // Eden narrows this route's answer to never once the error branch is ruled out; the route returns
 // checkoutView's shape, so the read goes through that type.
 function shownOf(data: unknown): Shown | undefined {
   if (!record(data) || "error" in data) return undefined;
   const view = data as ReturnType<typeof checkoutView>;
-  return { delivery: view.delivery, subtotal: view.subtotal };
+  return { delivery: view.delivery, subtotal: view.subtotal, fulfillment: view.fulfillment };
 }
 
 export function AskDelivery({
@@ -35,6 +36,7 @@ export function AskDelivery({
   const [shown, setShown] = useState<Shown>();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string>();
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -82,14 +84,34 @@ export function AskDelivery({
       });
   };
 
+  const method = METHODS.find((m) => m.id === shown.delivery.method);
+  const place = placesFor(shown.delivery.method).find((p) => p.id === shown.delivery.placeId);
   return (
-    <section className="p-3.5 text-sm">
-      <DeliveryPicker
-        value={shown.delivery}
-        subtotal={shown.subtotal}
-        disabled={busy}
-        onChange={(next) => void choose(next)}
-      />
+    <section className="space-y-3 p-3.5 text-sm" aria-label="Delivery">
+      <div className="flex items-center gap-3">
+        <p className="min-w-0 flex-1 truncate">
+          <span className="text-muted">Delivery: </span>
+          {method?.label ?? "Standard"} · {shown.fulfillment ? money(shown.fulfillment) : "Free"}
+          {place ? <span className="text-muted"> · {placeText(place)}</span> : null}
+        </p>
+        <button
+          type="button"
+          className="min-h-9 shrink-0 cursor-pointer rounded-full px-3 font-medium underline disabled:opacity-40"
+          aria-expanded={editing}
+          disabled={busy}
+          onClick={() => setEditing(!editing)}
+        >
+          {editing ? "Done" : "Edit"}
+        </button>
+      </div>
+      {editing ? (
+        <DeliveryPicker
+          value={shown.delivery}
+          subtotal={shown.subtotal}
+          disabled={busy}
+          onChange={(next) => void choose(next)}
+        />
+      ) : null}
       {note ? (
         <p role="alert" className="mt-2 text-bad">
           {note}

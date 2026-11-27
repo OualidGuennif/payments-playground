@@ -1,6 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // The records commerce keeps (carts, checkouts, orders, payments), its limits and its error.
 import type { Delivery } from "../../lib/delivery";
+import { type SeasonId, seasonFor } from "../../lib/seasons";
 
 export type { Delivery } from "../../lib/delivery";
 export { FREE_SHIPPING_FROM, STANDARD_FEE as SHIPPING } from "../../lib/delivery";
@@ -38,6 +39,25 @@ export type Cart = {
   updatedAt: string;
 };
 
+// The first-order offer a checkout was granted (ADR-020): kept on the checkout, the payment and
+// the order, so each prices the same lines the same way.
+export type WelcomeOffer = {
+  ratePercent: 5;
+  seasonId: SeasonId;
+  giftVariantId: string;
+  giftTitle: string;
+};
+
+export function welcomeOfferFor(date: Date = new Date()): WelcomeOffer {
+  const season = seasonFor(date);
+  return {
+    ratePercent: 5,
+    seasonId: season.id,
+    giftVariantId: season.giftVariantId,
+    giftTitle: season.giftTitle,
+  };
+}
+
 export type Phase = "open" | "complete_in_progress" | "completed" | "canceled";
 export type Checkout = {
   id: string;
@@ -63,6 +83,8 @@ export type Checkout = {
   // account (a guest bag, or another account's): its other payments wait too, until that payment
   // is released or refused or an agent pays instead (lock.ts).
   payerId?: string;
+  // Granted by a signed-in claim, for an account with no order yet (checkouts.ts).
+  welcomeOffer?: WelcomeOffer;
   createdAt: string;
   updatedAt: string;
   expiresAt: string;
@@ -79,6 +101,8 @@ export type Order = {
   currency: string;
   buyer?: Buyer;
   delivery?: Delivery;
+  discount?: number;
+  welcomeOffer?: WelcomeOffer;
   status: "authorised" | "pending";
   // Where the checkout was made; paidBy says who paid it.
   channel?: Channel;
@@ -108,8 +132,9 @@ export type PaymentRecord = {
   // The lines this amount was priced from: the order is placed from them, not from the checkout,
   // which stays editable while a Drop-in session is open.
   lines?: Line[];
-  // The delivery that amount was priced with, for the same reason.
+  // The delivery and the welcome offer that amount was priced with, for the same reason.
   delivery?: Delivery;
+  welcomeOffer?: WelcomeOffer;
   // An agent payment's hold on the grant's budget: settled once, by whichever path learns first,
   // on the grant it was made on, whatever grant the checkout names by then.
   reservation?: "held" | "released";

@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T01:28:00Z
+  at: 2026-11-27T09:35:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -87,7 +87,13 @@ voice mode (GPT-Live) talks to the same agent through the same gate.
 - **Receipt email** `POST /api/ask/checkout-email` `{ checkoutId, email }` or `{ checkoutId,
   account: true }` (signed in: the account's email, read on the server), for a checkout this
   conversation's widgets showed that has no email yet; answered with the checkout as the widget
-  sees it. No model, transcript or widget data ever holds the address.
+  sees it. No model, transcript or widget data ever holds the address. The Pay email modal's
+  guest choice uses it.
+- **Checkout claim** `POST /api/ask/checkout-claim` `{ checkoutId, applyWelcomeOffer? }` (signed
+  in, else 401 `not_signed_in`; a checkout this conversation showed, else 404 `checkout_unknown`):
+  the store's claim ([storefront spec](agentic-storefront.md), Welcome offer), for the Pay email
+  modal and a shopper who signed in after the bag was made; answered like the receipt email, but
+  the claimed checkout's buyer (the account's) no longer reaches the agent, masked or not.
 - **Widget frame** `GET /api/ask/widget-frame?uri=` (the carousel or the bag): the widget's HTML
   as JSON, never `text/html`, with a Content-Security-Policy meta (no connection, images from
   `PUBLIC_ORIGIN` only); anything else is `invalid_request`.
@@ -150,28 +156,36 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   `srcdoc` frame (`allow-scripts` only, so an opaque origin) as an MCP Apps host: `ui/initialize`
   with the page's theme, `tools/call` sent to `POST /api/ask/widget`, `ui/message` refused,
   `ui/open-link` for the store's pages only (opened as the panel opens a page, below), size
-  changes clamped to 120 to 900 px. The carousel is compact (about two cards across the panel)
-  and each card has "Show details", which opens the product's page; in ChatGPT it opens as a link. Chromium refuses an opaque-origin frame's requests to a loopback address, so the host
+  changes clamped to 120 to 900 px; the theme follows the page's `data-theme` and the system's
+  at once. The carousel is compact (about two cards across the panel, each as tall as its
+  content) and each card has Add to bag and "View product details", which opens the product's
+  page (below 1024 px the panel minimises first, and the page opens without a reload); in ChatGPT
+  it opens as a link. Chromium refuses an opaque-origin frame's requests to a loopback address, so the host
   fetches the store's own images (`PUBLIC_ORIGIN/api/art/*.svg`, at most 64 per data) from the page
   and hands them to the widget as `data:` URLs, in its data and in its tool answers; one it cannot
   fetch keeps its address. The conversation holds one widget, under the newest message that
   showed one: every carousel and bag the agent shows, in order, and every answer to the widget's
   own taps land in it, so it keeps the collection and the bag and shows the newest; an earlier
   message keeps a line ("Collection shown", "Bag shown"). When the bag's checkout lacks a receipt
-  email, a block under the widget asks for it, drawn by the panel itself: signed in, the account's
-  email goes on at once ("Use this email" and "Another email" only after a failure); a guest types one, or
-  taps "I have an account" to sign in inside the block (email prefilled from what was typed,
-  password or passkey, the browser's own autofill offered), and the account's email is then used
-  without leaving the chat (the header's account menu follows); the block opens on that sign-in
-  when this browser signed in here before. Whether an email has an account is never shown (no
-  account enumeration). A bag shown before a reload can be older than its checkout: when the
-  store refuses an email because one is set, the block re-reads the checkout (`get_checkout`)
-  and closes once the bag needs none. While the newest bag's checkout can still change (incomplete,
-  needing review or ready), a delivery block under the widget offers Standard, Express or a pickup
-  point with the store's preset addresses or pickup points, preselected; the choice goes to the
+  email, the widget shows one calm line, "Add your email to continue to payment", and a Pay button
+  (never "Checkout ready." beside a missing email). The panel tells the widget it is the store
+  (`veluneHost` in the host context), so Pay sends `ui/open-link` to `#velune-pay-email?checkoutId=`;
+  in any other host Pay opens `continue_url` as before. On that link a signed-in shopper's checkout
+  is claimed at once (`/checkout-claim`, no question); a guest gets the store's Pay email modal
+  over the panel ([storefront spec](agentic-storefront.md)), which ends on `/checkout-claim` or
+  `/checkout-email`. The panel then re-reads the checkout (`get_checkout`), so the widget shows a
+  welcome offer's discount and tote, and opens `/checkout/<id>` (minimised below 1024 px). When
+  the store refuses an email because one is set, the panel re-reads the checkout too. While the
+  newest bag's checkout can still change (incomplete,
+  needing review or ready), a delivery block under the widget shows one line (method, price,
+  place) with Edit, which unfolds Standard, Express or a pickup point with the store's preset
+  addresses or pickup points, preselected; the choice goes to the
   store's own `POST /api/checkouts/:id/delivery`, never to the model, and the widget then re-reads
   the checkout (`get_checkout`) for the store's new total (`askLogic.test.ts` "site bag").
-  **One bag per browser:** when the widget shows an open bag, the site's bag (header count,
+  **One bag per browser:** the widget's bag starts from the site's: the agent starts its cart from
+  the lines `<shop_context>` names, and the widget's first add with no bag of its own joins the
+  site's lines (quantities summed per variant, at most 10) instead of replacing them
+  (`askLogic.test.ts` "merge"). The welcome tote never joins the site's bag. When the widget shows an open bag, the site's bag (header count,
   `/cart`) takes its lines and the open checkout page hears of it at once; a completed bag empties
   the site's bag. The agent hears the site's bag in `<shop_context>` as `bag:` with catalogue titles
   and ids; on a `/checkout/chk_…` page, that checkout's lines instead (open, and the session's
@@ -388,10 +402,12 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     The block's sign-in posts to the store's own session and passkey routes, like `/sign-in`; the
     conversation only gains the note "Signed in". It counts as signed in only on an answer that
     names the customer, and a passkey picked after the sign-in step was left signs in without
-    setting the email. A signed-in session never needs the block: a guest checkout it starts or
+    setting the email. The Pay email modal (ADR-020) replaced the block; its sign-in and the
+    claim follow the same rules. A signed-in session never needs the block: a guest checkout it starts or
     changes (`create_checkout`, `update_checkout`, from the agent or a widget) gets the account's
     email put in by the in-process door, never by the model, which reads it masked. Test:
-    `ask/api.test.ts` "receipt email"; `ask/agent.test.ts` "a signed-in shopper's receipt email";
+    `ask/api.test.ts` "receipt email" (with "checkout claim"); `ask/agent.test.ts` "a signed-in
+    shopper's receipt email";
     `lib/signIn.test.ts`.
 20. **The bag fact is the store's own words:** `bag:` in `<shop_context>` names only catalogue
     titles, ids and quantities, from lines the server checked (or read from the checkout), never
@@ -444,9 +460,11 @@ store's tools and Adyen, and links and amounts pass stage 5.
 - At 375 and 1440 px, light and dark: minimise during an answer and during a voice call, both
   carry on and the bar shows them; navigate and reload, the bar stays; "take me to my account"
   opens `/account` (the panel minimises at 375 px, stays docked at 1440 px); a link to another
-  site in an answer shows as text; "Show details" on a carousel card opens the product's page; on
-  an iPhone, focusing the composer or the receipt email does not zoom; a guest with an account
-  signs in inside the receipt block and the receipt takes the account's email.
+  site in an answer shows as text; "View product details" on a carousel card opens the product's
+  page (the panel minimises at 390 px); on an iPhone, focusing the composer or the modal's email
+  does not zoom; a guest with an account signs in inside the Pay email modal and the receipt takes
+  the account's email; the site's bag shows in the widget's Bag tab, and a carousel add joins it;
+  the theme switch changes the widget's theme at once.
 
 ## Out of scope
 
@@ -455,6 +473,7 @@ store's tools and Adyen, and links and amounts pass stage 5.
 - Voice on Anthropic, Mistral or DeepSeek conversations; voice without the password.
 - Opening a page the shopper did not ask for (no automatic navigation); opening or linking any
   page of another site.
-- Telling a shopper whether an email has an account.
+- The agent telling a shopper whether an email has an account (only the store's Pay email modal
+  does, ADR-020).
 - LIVE payments; any payment path the store's MCP tools do not already have.
 - Keeping transcripts beyond the store's database (no external tracing or analytics).

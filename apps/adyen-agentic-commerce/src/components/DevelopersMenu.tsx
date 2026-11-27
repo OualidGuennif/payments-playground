@@ -5,12 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { DEVELOPER_LINKS } from "@/lib/developerLinks";
+import { useHeaderMenu } from "./useHeaderMenu";
 
 const ITEM = "flex min-h-11 flex-col justify-center rounded-xl px-3 py-2 hover:bg-line/60";
 
 export function DevelopersMenu() {
   const menu = useRef<HTMLDetailsElement>(null);
   const pathname = usePathname();
+  useHeaderMenu(menu);
   useEffect(() => {
     if (menu.current && pathname) menu.current.open = false;
   }, [pathname]);

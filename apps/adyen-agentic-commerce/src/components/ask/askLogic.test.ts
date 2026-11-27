@@ -36,6 +36,8 @@ import {
   storePath,
   voiceEvent,
   voicePage,
+  joinSiteBag,
+  payEmailCheckout,
 } from "./askLogic";
 
 const CAROUSEL = "ui://widget/product-carousel-v2.html";
@@ -322,6 +324,24 @@ describe("the MCP Apps host", () => {
     });
   });
 
+  test("the store's own panel says so, and its Pay link names the checkout to ask an email for", async () => {
+    const reply = await hostReply(
+      request("ui/initialize", { protocolVersion: "2026-01-26" }),
+      deps(),
+    );
+    expect(reply).toMatchObject({ result: { hostContext: { veluneHost: true } } });
+    expect(payEmailCheckout("/checkout/chk_ab-1#velune-pay-email?checkoutId=chk_ab-1")).toBe(
+      "chk_ab-1",
+    );
+    for (const path of [
+      "/checkout/chk_1",
+      "/checkout/chk_1#velune-pay-email?checkoutId=cart_1",
+      "/checkout/chk_1#velune-pay-email?checkoutId=chk_1&next=//x",
+      "/x#other?checkoutId=chk_1",
+    ])
+      expect(payEmailCheckout(path)).toBeUndefined();
+  });
+
   test("a tool call goes to the panel's route and its answer comes back", async () => {
     const d = deps();
     const reply = await hostReply(
@@ -549,6 +569,38 @@ describe("site bag", () => {
     expect(deliveryCheckout([...older, ...fed({ id: "chk_2", status: "completed" })])).toBe(
       undefined,
     );
+  });
+
+  test("merge: the widget's first cart joins the site's lines, summed and capped at 10", () => {
+    const site = [
+      { variantId: "a", quantity: 2 },
+      { variantId: "b", quantity: 9 },
+    ];
+    expect(joinSiteBag(site, [line("b", 3), line("c", 1)])).toEqual([
+      { item: { id: "a" }, quantity: 2 },
+      { item: { id: "b" }, quantity: 10 },
+      { item: { id: "c" }, quantity: 1 },
+    ]);
+    expect(joinSiteBag([], [line("c", 1)])).toEqual([{ item: { id: "c" }, quantity: 1 }]);
+    // An unknown shape is left to the store, never rewritten.
+    expect(joinSiteBag(site, [{ item: {} }])).toBeUndefined();
+    expect(joinSiteBag(site, "x")).toBeUndefined();
+    // The welcome tote never joins: it is the store's gift, not an item.
+    expect(joinSiteBag([{ variantId: "velune-welcome-tote-winter", quantity: 1 }], [])).toEqual([]);
+  });
+
+  test("the welcome tote on a bag never reaches the site's bag", () => {
+    const bag = siteBagOf(
+      fed({
+        id: "chk_1",
+        status: "incomplete",
+        line_items: [
+          line("a", 1),
+          { id: "li_welcome_gift", ...line("velune-welcome-tote-winter", 1) },
+        ],
+      }),
+    );
+    expect(bag?.lines).toEqual([{ variantId: "a", quantity: 1 }]);
   });
 });
 

@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T23:40:00Z
+  at: 2026-11-27T08:00:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -30,7 +30,7 @@ sources:
     title: "Pages (app/), API (app/api), server modules (server/: api.ts and protocol.ts at the top, one folder per domain: core, payments, catalog, commerce, accounts, oauth, ucp, mcp, pap, back-office, ask; oauth.ts and commerce.ts re-export their folder's files, one per responsibility)"
   - id: widgets
     resource: ../../apps/adyen-agentic-commerce/src/widgets
-    title: "MCP Apps widgets (a compact carousel whose cards open the product page with Show details, the bag), their bridge and logic"
+    title: "MCP Apps widgets (a compact carousel whose cards open the product page with View product details, the bag), their bridge and logic"
   - id: plugin
     resource: ../../apps/adyen-agentic-commerce/plugin/atelier-velune
     title: "The plugin package served as a ZIP"
@@ -81,23 +81,25 @@ before, every deploy or restart emptied orders, agents and grants.
 
 ## Inputs
 
-- **Shopper (browser):** catalogue filters, variant choice, cart edits, delivery choice, Drop-in (Sessions
-  flow), consent decisions, spend limit, agent revocation, card save (zero-value auth). A guest buys without
-  an account; consent, device approval, the account and card save need one. The consent page, where both
-  sign-in flows end, tells the shopper in one sentence to allow only if they just asked this agent to connect
-  (PAP 1.0 §10.8: a link or code can be sent by someone else). It is a short e-commerce screen: the agent's
-  name, the account (email masked), one line per permission, a budget with presets (50, 150, 300, 1000 EUR)
-  and a free amount, Allow and Deny; the client's host and where the browser returns sit in a folded "Details".
+- **Shopper (browser):** catalogue filters, variant choice, cart edits, delivery choice, Drop-in
+  (Sessions flow), consent decisions, spend limit, agent revocation, card save (zero-value auth). A guest
+  buys without an account; consent, device approval, the account and card save need one. The consent
+  page, where both sign-in flows end, tells the shopper in one sentence to allow only if they just asked
+  this agent to connect (PAP 1.0 §10.8: a link or code can be sent by someone else). It is a short
+  e-commerce screen: the agent's name, the account (email masked), one line per permission, a budget with
+  presets (50, 150, 300, 1000 EUR) and a free amount, Allow and Deny; the client's host and where the
+  browser returns sit in a folded "Details".
 - **Customer account (browser):** sign-up `POST /api/customers` (email, name, a password of 12 to 128
-  characters), sign-in `POST /api/session` (email and password), sign-out `DELETE /api/session`; passkeys:
-  `POST /api/passkeys/register/options` and `/register/verify` while signed in, `POST
-  /api/passkeys/login/options` and `/login/verify` to sign in, `DELETE /api/passkeys/:id`. The session is a
-  cookie, `__Host-velune_session` on https (`velune_session` on a loopback http origin, where browsers keep no
-  `__Host-` cookie), so it holds only on the host that set it: on https every page asked on another host (the
-  service's `.onrender.com` name) is redirected (308) to the same path on `PUBLIC_ORIGIN` (`src/proxy.ts`).
-  Passkeys use the public origin's host as RP ID; WebAuthn takes no IP address, so a loopback run uses
-  `localhost` and passkeys work there only at `http://localhost:<port>`. The browser API reads no bearer
-  token: an agent's token there binds nothing to an account.
+  characters), sign-in `POST /api/session` (email and password), sign-out `DELETE /api/session`; Pay's
+  email check and claim ([storefront](agentic-storefront.md)); passkeys: `POST
+  /api/passkeys/register/options` and `/register/verify` while signed in, `POST
+  /api/passkeys/login/options` and `/login/verify` to sign in, `DELETE /api/passkeys/:id`. The session is
+  a cookie, `__Host-velune_session` on https (`velune_session` on a loopback http origin, where browsers
+  keep no `__Host-` cookie), so it holds only on the host that set it: on https every page asked on
+  another host (the service's `.onrender.com` name) is redirected (308) to the same path on
+  `PUBLIC_ORIGIN` (`src/proxy.ts`). Passkeys use the public origin's host as RP ID; WebAuthn takes no IP
+  address, so a loopback run uses `localhost` and passkeys work there only at `http://localhost:<port>`.
+  The browser API reads no bearer token: an agent's token there binds nothing to an account.
 - **Agent's network token:** `complete_checkout` may carry an instrument with `handler_id`
   `network_token`, `type` `card` and a credential of `type` `network_token`: `number` (13 to 19
   digits), `expiry_month` (1 to 12), `expiry_year` (four digits, not past), optional `name`. No
@@ -155,24 +157,22 @@ before, every deploy or restart emptied orders, agents and grants.
   per URL for its `Cache-Control` `max-age` (at most an hour; 5 minutes without one; never with
   `no-store`), at most 1,000 at once; an entry keeps only the profile's version and the
   capabilities it shares with the store, never the profile itself. Its `ucp.version` must be
-  2026-08-25. The negotiated
-  capabilities are the store's and the profile's with the same name and a common version; an
-  entry whose `schema` host, reversed, does not own its name is left out (UCP authority binding).
-  Each operation belongs to one capability (`OP_CAPABILITY` in `src/server/ucp/ucp.ts`); it runs only
-  when that capability was kept. The cheap checks (route, headers, body, Idempotency-Key) come
-  before the fetch.
-- **Resource indicators (RFC 8707):** `resource` on authorize, device authorization and token
-  requests must be `PUBLIC_ORIGIN` (UCP REST), `${PUBLIC_ORIGIN}/mcp` or `${PUBLIC_ORIGIN}/mcp/code`
-  ([Code Mode](code-mode.md)), compared after RFC 3986
-  normalisation (the origin's trailing slash is the origin; a query, fragment or other path is
-  not), and may repeat; at the token endpoint it must also be one the grant was issued for, and it
-  is checked before a device code or refresh token is spent. A token issued for one resource is
-  accepted only there (401 `invalid_token` elsewhere); a token issued without one is accepted at
-  all three. The refresh token always keeps what the grant gave: the resources named at authorization
-  (none means all) and the approved scopes. A token request (code, device code or refresh) may
-  narrow the access token to fewer resources and scopes, never the refresh token, so a later
-  refresh can ask for the rest (PAP 1.0 §4.5, RFC 6749 §6). `scripts/pap-agent.ts` signs in
-  without `resource`, since a PAP sign-in covers every resource, and names the MCP URL at the
+  2026-08-25. The negotiated capabilities are the store's and the profile's with the same name and
+  a common version; an entry whose `schema` host, reversed, does not own its name is left out (UCP
+  authority binding). Each operation belongs to one capability (`OP_CAPABILITY` in
+  `src/server/ucp/ucp.ts`); it runs only when that capability was kept. The cheap checks (route,
+  headers, body, Idempotency-Key) come before the fetch.
+- **Resource indicators (RFC 8707):** `resource` on authorize, device authorization and token requests
+  must be `PUBLIC_ORIGIN` (UCP REST), `${PUBLIC_ORIGIN}/mcp` or `${PUBLIC_ORIGIN}/mcp/code` ([Code
+  Mode](code-mode.md)), compared after RFC 3986 normalisation (the origin's trailing slash is the
+  origin; a query, fragment or other path is not), and may repeat; at the token endpoint it must also be
+  one the grant was issued for, and it is checked before a device code or refresh token is spent. A
+  token issued for one resource is accepted only there (401 `invalid_token` elsewhere); a token issued
+  without one is accepted at all three. The refresh token always keeps what the grant gave: the
+  resources named at authorization (none means all) and the approved scopes. A token request (code,
+  device code or refresh) may narrow the access token to fewer resources and scopes, never the refresh
+  token, so a later refresh can ask for the rest (PAP 1.0 §4.5, RFC 6749 §6). `scripts/pap-agent.ts`
+  signs in without `resource`, since a PAP sign-in covers every resource, and names the MCP URL at the
   token request.
 - **Scopes:** advertised under their UCP names, each with its PAP 1.0 §4.7 hint.
 
@@ -218,7 +218,8 @@ before, every deploy or restart emptied orders, agents and grants.
 - **Cart to checkout:** a create-checkout request with `cart_id` takes the cart's lines and buyer
   (UCP 2026-08-25 cart extension); its own `line_items`, and its `buyer` when the cart has one, are
   ignored, not parsed (`src/server/ucp/ucp.test.ts` "cart to checkout").
-- **Amounts:** integers in EUR minor units, computed by the server from the catalogue. An agent
+- **Amounts:** integers in EUR minor units, computed by the server from the catalogue and a claimed
+  welcome offer ([ADR-020](../decisions/ADR-020-pay-identity-welcome-offer-and-seasons.md)). An agent
   never sends a price; any client-sent price or total is ignored.
 
 ## Outputs
@@ -250,12 +251,11 @@ before, every deploy or restart emptied orders, agents and grants.
   line `quantity {original, total, fulfilled: 0}` with `status: processing`.
 - **UCP:** Checkout statuses `incomplete`, `requires_escalation` (with `continue_url`),
   `ready_for_complete`, `complete_in_progress`, `completed` (with `order {id, permalink_url}`),
-  `canceled`; `totals` with exactly one `subtotal` and one `total`; `messages` with
-  `type/code/content/severity`.
+  `canceled`; `totals` with exactly one `subtotal` and one `total` (and one negative `discount` and a
+  free tote line under a welcome offer); `messages` with `type/code/content/severity`.
 - **Payment handlers:** the profile and every UCP answer list two, `saved_card`
-  (`com.payments-playground.saved_card`) and `network_token`
-  (`com.payments-playground.network_token`, schema `/ucp/v1/handlers/network_token.json`, a
-  published artifact like the others).
+  (`com.payments-playground.saved_card`) and `network_token` (`com.payments-playground.network_token`,
+  schema `/ucp/v1/handlers/network_token.json`, a published artifact like the others).
 - **Payment:** a signed-in agent with `ucp:pay` within the spend limit pays with one of its
   account's saved cards: `/payments` with `storedPaymentMethodId`, `shopperInteraction: ContAuth`,
   `recurringProcessingModel: UnscheduledCardOnFile`, the account's `shopperReference`. For an

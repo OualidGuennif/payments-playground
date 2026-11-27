@@ -236,6 +236,8 @@ export function AccountView({
                       ? `through ${o.agentName ?? "an agent"}`
                       : "on this site"}
                     {o.paidBy === "agent" ? ", paid by the agent" : ", paid by you"}
+                    {o.discount ? `; welcome offer, ${money(o.discount)} off` : ""}
+                    {o.gift ? ` and the ${o.gift}` : ""}
                   </span>
                 </li>
               ))}

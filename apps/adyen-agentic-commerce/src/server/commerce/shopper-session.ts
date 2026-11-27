@@ -9,7 +9,7 @@ import { newId } from "../core/util";
 import * as adyen from "../payments/adyen";
 import { type Checkout, err, now, type PaymentRecord, paymentInProgress } from "./model";
 import { forgetCardCache } from "./saved-cards";
-import { assess, buyerOf, loadCheckout, saveCheckout } from "./checkouts";
+import { assess, buyerOf, confirmWelcomeOffer, loadCheckout, saveCheckout } from "./checkouts";
 import { refusalReopens, releasePayment } from "./lock";
 import { holdMismatch, placePaidOrder } from "./payment";
 
@@ -18,6 +18,7 @@ import { holdMismatch, placePaidOrder } from "./payment";
 export async function startShopperSession(loaded: Checkout, customer?: Customer) {
   const owner = customer && (!loaded.customerId || loaded.customerId === customer.id);
   const checkout = owner && !loaded.customerId ? { ...loaded, customerId: customer.id } : loaded;
+  confirmWelcomeOffer(checkout);
   const assessment = assess(checkout, undefined, []);
   if (
     checkout.phase !== "open" ||
@@ -56,6 +57,7 @@ export async function startShopperSession(loaded: Checkout, customer?: Customer)
     amount: assessment.total,
     lines: checkout.lines,
     delivery: checkout.delivery,
+    welcomeOffer: checkout.welcomeOffer,
     sessionId: session.id,
     createdAt: now(),
     updatedAt: now(),

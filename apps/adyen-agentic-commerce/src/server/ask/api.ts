@@ -598,4 +598,68 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
     const call = await callStoreTool(live.id, "get_checkout", { id: checkoutId });
     if (!call.result) return problem(409, "store_refused", STORE_REFUSED);
     return json(200, { result: call.result });
+  })
+  // The Pay email modal's sign-in or new account, or a shopper who signed in after the bag was made
+  // (ADR-020): the store's own claim, for a checkout this conversation showed, answered like the
+  // receipt email. The address comes from the account, never from the panel or a model.
+  .post("/checkout-claim", async ({ request }) => {
+    if (foreign(request)) return forbidden();
+    const body = await bodyOf(request);
+    const checkoutId = typeof body?.checkoutId === "string" ? body.checkoutId : undefined;
+    if (
+      !body ||
+      !checkoutId ||
+      (body.applyWelcomeOffer !== undefined && typeof body.applyWelcomeOffer !== "boolean")
+    )
+      return problem(400, "invalid_request", "Send JSON with a checkout id.");
+    const h = here(request);
+    const live = liveSession(h);
+    if (!live)
+      return problem(409, "session_ended", "This conversation has ended.", { reason: h.ended });
+    if (!h.customer) return problem(401, "not_signed_in", "Sign in to use your account.");
+    const retry = rateLimited(`ask-email:${clientIp(request)}`, EMAIL_CALLS_PER_MINUTE);
+    if (retry)
+      return problem(
+        429,
+        "rate_limited",
+        "Please slow down a little.",
+        {},
+        { "retry-after": String(retry) },
+      );
+    const unknown = () =>
+      problem(404, "checkout_unknown", "This checkout is not part of this conversation.");
+    if (!live.checkouts?.includes(checkoutId)) return unknown();
+    let applied = false;
+    try {
+      const claimed = commerce.claimCheckout(
+        commerce.loadCheckout(checkoutId, "browser"),
+        h.customer,
+        { applyWelcomeOffer: body.applyWelcomeOffer === true },
+      );
+      applied = Boolean(claimed.welcomeOffer);
+      trace({
+        channel: commerce.channelOf(claimed),
+        actor: "shopper",
+        method: "POST",
+        path: "/api/ask/checkout-claim",
+        status: 200,
+        ref: claimed.id,
+        detail: { welcomeOffer: claimed.welcomeOffer?.seasonId ?? "none" },
+      });
+    } catch (error) {
+      if (!(error instanceof commerce.CommerceError)) throw error;
+      if (error.status === 404) return unknown();
+      return problem(409, "store_refused", "The store could not take this checkout.");
+    }
+    const now = Date.now();
+    appendMessage(save({ ...live, lastAt: now }), {
+      role: "note",
+      text: applied
+        ? "Checkout joined the account, welcome offer applied"
+        : "Checkout joined the account",
+      at: now,
+    });
+    const call = await callStoreTool(live.id, "get_checkout", { id: checkoutId });
+    if (!call.result) return problem(409, "store_refused", STORE_REFUSED);
+    return json(200, { result: call.result, welcomeOfferApplied: applied });
   });

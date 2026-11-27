@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client";
 import { rememberAccount } from "@/lib/known";
 import { maskEmail } from "@/lib/mask";
+import { useHeaderMenu } from "./useHeaderMenu";
 
 type Who = { email: string; name: string } | null;
 
@@ -42,9 +43,9 @@ function whoIs(path: string): Promise<Who> {
 }
 
 // The header and the Personal Shopper both follow it.
-export const SESSION_EVENT = "velune-session";
+export const SESSION_EVENT = "velune:auth-changed";
 
-/** A sign-in without a page change (the Ask panel's receipt block): the header asks again. */
+/** A sign-in without a page change (the Pay email modal): the header asks again. */
 export function sessionChanged(): void {
   asked = undefined;
   window.dispatchEvent(new Event(SESSION_EVENT));
@@ -81,10 +82,11 @@ async function signOut() {
   window.location.assign("/");
 }
 
-// From md up: "Sign in", or the customer's initial opening their account's sections.
+// On every width: "Sign in", or the customer's initial opening their account's sections.
 export function AccountMenu() {
   const { who, pathname } = useWho();
   const menu = useRef<HTMLDetailsElement>(null);
+  useHeaderMenu(menu, who);
 
   useEffect(() => {
     if (menu.current && pathname) menu.current.open = false;
@@ -106,16 +108,19 @@ export function AccountMenu() {
     };
   }, []);
 
-  if (who === undefined) return <span aria-hidden="true" className="hidden size-11 md:block" />;
+  if (who === undefined) return <span aria-hidden="true" className="block h-11 w-16 shrink-0" />;
   if (!who) {
     return (
-      <Link href={signInHref(pathname)} className="btn-ghost hidden px-3.5 py-1.5 md:inline-flex">
+      <Link
+        href={signInHref(pathname)}
+        className="btn-ghost shrink-0 whitespace-nowrap px-2.5 py-1.5 text-[13px] sm:px-3.5 sm:text-sm"
+      >
         Sign in
       </Link>
     );
   }
   return (
-    <details ref={menu} className="relative hidden md:block">
+    <details ref={menu} className="relative shrink-0">
       <summary
         aria-label={`Account menu, signed in as ${who.name}`}
         className="grid size-11 cursor-pointer list-none place-items-center rounded-full bg-ink text-base font-semibold text-paper hover:opacity-85 [&::-webkit-details-marker]:hidden"
@@ -139,33 +144,5 @@ export function AccountMenu() {
         </button>
       </div>
     </details>
-  );
-}
-
-// The same items inside the phone menu.
-export function AccountMenuItems() {
-  const { who, pathname } = useWho();
-  if (who === undefined) return null;
-  if (!who) {
-    return (
-      <Link href={signInHref(pathname)} className={ITEM}>
-        Sign in
-      </Link>
-    );
-  }
-  return (
-    <>
-      <p className="truncate px-3.5 pt-1 text-xs text-muted">
-        {who.name} · {maskEmail(who.email)}
-      </p>
-      {ACCOUNT_LINKS.map(([href, label]) => (
-        <Link key={href} href={href} className={ITEM}>
-          {label}
-        </Link>
-      ))}
-      <button type="button" className={`${ITEM} text-bad`} onClick={signOut}>
-        Sign out
-      </button>
-    </>
   );
 }

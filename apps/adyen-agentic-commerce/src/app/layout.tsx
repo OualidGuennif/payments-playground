@@ -1,14 +1,16 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AccountMenu, AccountMenuItems } from "@/components/AccountMenu";
+import { AccountMenu } from "@/components/AccountMenu";
 import { AskLauncher, AskPanel } from "@/components/ask/AskPanel";
 import { CartLink } from "@/components/CartLink";
 import { DevelopersMenu } from "@/components/DevelopersMenu";
 import { MobileMenu } from "@/components/MobileMenu";
+import { SeasonalAmbience } from "@/components/motion/SeasonalAmbience";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { WebMcpTools } from "@/components/WebMcpTools";
 import { DEVELOPER_LINKS } from "@/lib/developerLinks";
+import { seasonFor } from "@/lib/seasons";
 import { THEME_SCRIPT } from "@/lib/theme";
 import { CATEGORIES } from "@/server/catalog/catalog";
 import "./globals.css";
@@ -19,6 +21,9 @@ export const metadata: Metadata = {
     "A demo fashion store that any AI agent can shop through UCP and PAP, paid on Adyen TEST.",
 };
 
+// The season shows on every page, so no page may keep the season of its build (ADR-020).
+export const dynamic = "force-dynamic";
+
 // The shop's departments, in the catalogue's order, after the new pieces.
 const NAV: [string, string][] = [
   ["/shop?collection=new", "New"],
@@ -26,6 +31,8 @@ const NAV: [string, string][] = [
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Read per request on the server and handed down, so the browser never computes a second season.
+  const season = seasonFor();
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -39,17 +46,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to content
         </a>
-        <div className="bg-ink py-1 text-center text-[11px] tracking-wide text-paper">
-          Demo store on Adyen <strong>TEST</strong>: no real money moves and nothing ships.
-        </div>
-        <header className="sticky top-0 z-20 border-b border-line bg-paper/90 backdrop-blur">
-          <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2.5 sm:px-6">
+        <SeasonalAmbience seasonId={season.id} />
+        <p className="truncate bg-ink px-4 py-1.5 text-center text-[11px] tracking-[0.08em] text-paper">
+          <span className="hidden sm:inline">{season.bannerTagline}</span>
+          <span className="sm:hidden">{season.bannerCompact}</span>
+        </p>
+        {/* Layers (storefront spec): ambience 10, minimised Shopper 30, header and its menus 40,
+            open Shopper 50, Pay email modal 60. One line on every width: nothing wraps. */}
+        <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur">
+          <div className="mx-auto flex max-w-7xl flex-nowrap items-center gap-2 px-3 py-2.5 sm:px-6">
             <Link
               href="/"
-              className="whitespace-nowrap font-serif text-lg uppercase tracking-[0.22em] sm:text-xl"
+              className="shrink-0 whitespace-nowrap font-serif text-base uppercase tracking-[0.22em] sm:text-xl"
               aria-label="Atelier Velune, home"
             >
-              <span className="hidden sm:inline">Atelier </span>Velune
+              <span className="header-wordmark-long hidden sm:inline">Atelier </span>Velune
             </Link>
             <nav
               aria-label="Departments"
@@ -65,7 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Link>
               ))}
             </nav>
-            <div className="header-actions ml-auto flex items-center gap-1.5 sm:gap-2 xl:ml-0">
+            <div className="header-actions ml-auto flex shrink-0 flex-nowrap items-center gap-1 sm:gap-2 xl:ml-0">
               <AskLauncher />
               <DevelopersMenu />
               <div className="hidden sm:block">
@@ -75,7 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <AccountMenu />
               <MobileMenu>
                 <summary
-                  className="btn-ghost min-h-11 list-none px-3.5 py-1.5 text-sm [&::-webkit-details-marker]:hidden"
+                  className="btn-ghost min-h-11 list-none whitespace-nowrap px-2.5 py-1.5 text-[13px] sm:px-3.5 sm:text-sm [&::-webkit-details-marker]:hidden"
                   aria-label="Open menu"
                 >
                   Menu
@@ -109,8 +120,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     Theme
                     <ThemeSwitch />
                   </div>
-                  <hr className="my-1 border-line" />
-                  <AccountMenuItems />
                 </nav>
               </MobileMenu>
             </div>
@@ -124,6 +133,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="border-t border-line py-8 text-xs text-muted">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 sm:px-6">
             <span>Atelier Velune is a fictional brand. Drawings are original.</span>
+            <span>
+              Demo store on Adyen <strong>TEST</strong>: no real money moves and nothing ships.
+            </span>
             <a
               href="/api/feeds/openai.json"
               className="inline-flex min-h-11 items-center underline"

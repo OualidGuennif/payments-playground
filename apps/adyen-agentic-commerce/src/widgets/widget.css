@@ -161,8 +161,10 @@ input:focus-visible {
   opacity: 0.45;
   cursor: not-allowed;
 }
+/* Each card is as tall as its own content: a short title never stretches to its neighbour's. */
 .rail {
   display: flex;
+  align-items: flex-start;
   gap: 8px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
@@ -191,7 +193,7 @@ input:focus-visible {
   object-fit: cover;
 }
 .card .btn {
-  margin-top: auto;
+  margin-top: 4px;
 }
 .price {
   color: var(--muted);
@@ -293,6 +295,10 @@ input:focus-visible {
 .row.strong {
   font-weight: 700;
 }
+.row.ok,
+.muted.ok {
+  color: var(--ok);
+}
 .problems {
   color: var(--bad);
   padding-left: 18px;
@@ -356,10 +362,8 @@ input:focus-visible {
 .details {
   position: relative;
 }
-.details {
-  align-self: flex-start;
-  min-height: 36px;
-  padding: 0;
+.card .details {
+  margin-top: 0;
   font-size: 13px;
 }
 /* Safari on a phone zooms into a field under 16 px; the frame's search must not. */

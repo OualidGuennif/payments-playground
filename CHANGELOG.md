@@ -5,6 +5,58 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-27
+
+- The agentic store's welcome offer is checked again at the payment form's last step, so a form
+  opened before another checkout of the account was paid reloads at the full price instead of
+  paying with the offer, and an agent pays with it only on the account's own grant (any other
+  agent is refused and the offer stays). Once an account claims an agent's checkout, its email and
+  name reach no agent without that account's grant. The email check stays outside the playground's
+  basic auth, so a guest on a public checkout can still pay. The Pay email modal keeps Escape and
+  Tab working after a refused sign-in.
+- The Personal Shopper's widget says a missing email once, "Add your email to continue to
+  payment" beside its Pay, without a red line above repeating it.
+- The agentic store's backdrops (the Pay email modal, the shop's filters sheet, the Personal
+  Shopper's sheet) darken the page in dark mode too, through a scrim colour that stays black there.
+- The agentic store's header: Sign in (or the account's initial) shows on every width and leaves
+  the Menu, the header stays on one line on a phone and beside the docked Personal Shopper, and
+  its menus sit above the minimised Personal Shopper (opening the Personal Shopper closes them; a
+  menu opened on a phone minimises it). An open product page fold no longer widens the page, and
+  a shop card says "1 colour" and its swatches show and open each colour.
+- The Personal Shopper's widget on the agentic store: cards are as tall as their content and each
+  has "View product details" (below 1024 px the panel steps aside and the page opens in place); a
+  bag without an email reads "Add your email to continue to payment" and its Pay opens the Pay
+  email modal over the panel (a signed-in shopper's checkout joins the account at once), which
+  replaces the receipt block; the welcome offer shows as a discount row and a tote line with no
+  stepper; the widget's first cart joins the site's bag instead of replacing it; the widget follows
+  the header's theme switch at once; delivery folds into one line with Edit.
+- The agentic store's Pay asks for the email in one modal, "Add your email address": an email
+  with an account signs in there (password or passkey) and the checkout becomes the account's; a
+  new email can create an account with 5 % off and the seasonal tote, or pay as a guest. The
+  checkout's summary, the order page and the account's orders show the offer, a signed-in first
+  order applies it in one tap, `/sign-up` with a taken email offers "Sign in as", and an autofilled
+  field stays readable in dark mode.
+- The agentic store's server side of the Pay email step and the welcome offer.
+  `POST /api/session/check-email` answers only `{ "exists": boolean }`, to the store's own pages
+  with `X-Velune-Check: 1`, 15 times per address per 15 minutes, never faster than 45 ms, with the
+  email masked in the trace. `POST /api/checkouts/:id/claim` (and `/api/ask/checkout-claim` for
+  the Personal Shopper) binds an open checkout to the signed-in shopper and, when asked, gives an
+  account with no order 5 % off the items and the season's tote at €0.00. The payment session
+  checks again (409 `welcome_offer_ineligible`), Adyen TEST is sent the discounted total, and the
+  payment, the order, UCP answers (a negative `discount` total, the tote line), the account and
+  the Back Office keep the offer. Checkouts without it keep their prices and three totals.
+- The agentic store follows the season, a month early: winter from 21 November, spring from 21
+  February, summer from 21 May, autumn from 21 August (UTC). The top bar now reads, for example,
+  "Winter Edition · Agentic Commerce Sandbox · 5% off & free Winter Tote on your first order" (the
+  Adyen TEST notice moves to the footer), a faint ambience of at most 16 particles drifts behind
+  nothing clickable and disappears under reduced motion, and each season has its own tote drawing
+  at `/api/art/velune-welcome-tote-<season>.svg`.
+- ADR-020 and the specs for the agentic store's next release: one Pay email modal that tells an
+  account from a new shopper through a hardened email check, an opt-in first-order welcome offer
+  (5 % off and a free seasonal tote, priced on the server), seasons that start on the 21st of the
+  month before, Sign in in the header on every width, and the Personal Shopper's bag that starts
+  from the site's.
+
 ## [0.10.1] - 2026-11-27
 
 - The agentic store's image builds again. v0.10.0 never reached Render: a test in the app imported

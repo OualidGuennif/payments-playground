@@ -2,6 +2,7 @@
 // The panel's pure parts, tested without a browser: reading the answer stream, the words shown
 // while it runs, which messages and widgets are drawn, and the MCP Apps host's replies to a widget.
 
+import { isWelcomeGiftVariantId } from "../../lib/seasons";
 import { openablePage } from "../../lib/storePages";
 
 type Json = Record<string, unknown>;
@@ -162,14 +163,18 @@ const CHANGEABLE = new Set(["incomplete", "requires_escalation", "ready_for_comp
 
 // The newest bag's checkout while its delivery can still change: the panel's delivery block, with
 // the bag's subtotal so the block reads the fees again when the lines change (free from 100 EUR).
-export function deliveryCheckout(feed: Widget[]): { id: string; subtotal?: number } | undefined {
+export function deliveryCheckout(
+  feed: Widget[],
+): { id: string; subtotal?: number; total?: number } | undefined {
   const bag = feed.filter((w) => w.resourceUri === BAG_URI).at(-1)?.structuredContent;
   if (!record(bag) || typeof bag.id !== "string" || !bag.id.startsWith("chk_")) return undefined;
   if (typeof bag.status !== "string" || !CHANGEABLE.has(bag.status)) return undefined;
   const totals = Array.isArray(bag.totals) ? bag.totals : [];
-  const line = totals.find((t) => record(t) && t.type === "subtotal");
-  const subtotal = record(line) && typeof line.amount === "number" ? line.amount : undefined;
-  return { id: bag.id, subtotal };
+  const amount = (type: string) => {
+    const line = totals.find((t) => record(t) && t.type === type);
+    return record(line) && typeof line.amount === "number" ? line.amount : undefined;
+  };
+  return { id: bag.id, subtotal: amount("subtotal"), total: amount("total") };
 }
 
 export type BagLine = { variantId: string; quantity: number };
@@ -188,6 +193,8 @@ export function siteBagOf(feed: Widget[]): SiteBag | undefined {
         record(l) &&
         record(l.item) &&
         typeof l.item.id === "string" &&
+        // The welcome offer's tote is the store's gift, never a line the site's bag can order.
+        !isWelcomeGiftVariantId(l.item.id) &&
         Number.isInteger(l.quantity) &&
         (l.quantity as number) > 0
           ? [{ variantId: l.item.id, quantity: l.quantity as number }]
@@ -195,6 +202,29 @@ export function siteBagOf(feed: Widget[]): SiteBag | undefined {
       );
   return { lines, checkoutId, paid, key: JSON.stringify([bag.id, paid, lines]) };
 }
+
+// One bag per browser: the widget's first cart (it had no bag of its own) joins the site's lines,
+// quantities summed per variant, at most 10 a line. Line items of another shape are left alone.
+export function joinSiteBag(site: BagLine[], lineItems: unknown): Json[] | undefined {
+  if (!Array.isArray(lineItems)) return undefined;
+  const joined = new Map<string, number>();
+  const add = (id: string, quantity: number) =>
+    joined.set(id, Math.min(10, (joined.get(id) ?? 0) + quantity));
+  for (const l of site)
+    if (Number.isInteger(l.quantity) && l.quantity > 0 && !isWelcomeGiftVariantId(l.variantId))
+      add(l.variantId, l.quantity);
+  for (const raw of lineItems) {
+    if (!record(raw) || !record(raw.item) || typeof raw.item.id !== "string") return undefined;
+    if (!Number.isInteger(raw.quantity) || (raw.quantity as number) < 1) return undefined;
+    add(raw.item.id, raw.quantity as number);
+  }
+  return [...joined].map(([id, quantity]) => ({ item: { id }, quantity }));
+}
+
+// The widget's Pay in the store's own panel (ADR-020) opens `#velune-pay-email?checkoutId=`: the
+// panel asks for the email itself. Any other path is a page.
+const PAY_EMAIL = /#velune-pay-email\?checkoutId=(chk_[\w-]{1,80})$/;
+export const payEmailCheckout = (path: string): string | undefined => PAY_EMAIL.exec(path)?.[1];
 
 export const sameLines = (a: BagLine[], b: BagLine[]) =>
   a.length === b.length &&
@@ -387,7 +417,13 @@ export async function hostReply(message: unknown, deps: HostDeps): Promise<Json 
         protocolVersion: HOST_PROTOCOL,
         hostInfo: { name: "atelier-velune-ask", version: "1.0.0" },
         hostCapabilities: { openLinks: {}, serverTools: {} },
-        hostContext: { theme: deps.theme(), displayMode: "inline", platform: "web" },
+        // veluneHost: the widget runs in the store's own panel, so Pay asks for the email here.
+        hostContext: {
+          theme: deps.theme(),
+          displayMode: "inline",
+          platform: "web",
+          veluneHost: true,
+        },
       });
     case "tools/call": {
       const name = params.name;
@@ -531,7 +567,7 @@ export function pageHelp(path: string): { context: string; chips: string[] } {
       chips: ["What's new?", "A gift under €100", "Something for a summer wedding"],
     };
   return {
-    context: "Your stylist and shop assistant",
+    context: "Stylist & shop assistant",
     chips: [
       "Show me the collection",
       "What goes with the wide-leg wool trousers?",

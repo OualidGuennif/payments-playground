@@ -8,7 +8,7 @@ export function CartLink() {
   return (
     <Link
       href="/cart"
-      className="btn-ghost px-3 py-1.5"
+      className="btn-ghost shrink-0 whitespace-nowrap px-2.5 py-1.5 text-[13px] sm:px-3 sm:text-sm"
       aria-label={`Bag, ${count} item${count === 1 ? "" : "s"}`}
     >
       Bag <span className="tabular-nums">{count}</span>

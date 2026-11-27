@@ -1,24 +1,22 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 "use client";
 import Link from "next/link";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { checkoutView } from "@/server/api";
 import { DeliveryPicker } from "@/components/DeliveryPicker";
 import { DropinPanel, type SessionInfo } from "@/components/DropinPanel";
 import { FreeShippingGauge } from "@/components/FreeShippingGauge";
-import { shake } from "@/components/motion/GsapSheet";
+import { PayIdentityModal, type PayResolved } from "@/components/PayIdentityModal";
 import { StatusPill } from "@/components/StatusPill";
 import { TestCardList } from "@/components/TestCardList";
 import { api, BAG_EVENT, type BagChange } from "@/lib/client";
 import { type Delivery, METHODS, placesFor, placeText } from "@/lib/delivery";
-import { signInHere, useKnownAccount } from "@/lib/known";
 import { money } from "@/lib/money";
+import { seasonFor } from "@/lib/seasons";
 import { shopperWords } from "@/lib/shopper-words";
 
 type View = ReturnType<typeof checkoutView>;
 
-// A shape check only; the server decides what it accepts and its refusal is shown on the field.
-const EMAIL_SHAPE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 const UPDATED = "Your bag was updated, here or in the chat. Check the new total, then pay.";
 const NOTICE_KEY = "velune-checkout-notice";
 function reloadWith(why?: string) {
@@ -138,6 +136,12 @@ export function CheckoutPay({
         reloadWith(why);
         return why;
       }
+      // The account ordered since this form opened: the offer is gone and the total with it.
+      if (code === "welcome_offer_ineligible") {
+        const why = shopperWords(code);
+        reloadWith(why);
+        return why;
+      }
       return shopperWords(code === "payment_in_progress" ? code : "payment_unavailable");
     },
     [view.id],
@@ -160,22 +164,19 @@ export function CheckoutPay({
     [view.id, show],
   );
 
-  const [email, setEmail] = useState("");
-  const known = useKnownAccount();
   const [savingEmail, setSavingEmail] = useState(false);
-  const [emailProblem, setEmailProblem] = useState<string>();
-  const emailRef = useRef<HTMLInputElement>(null);
   const paymentRef = useRef<HTMLDivElement>(null);
   const [openForm, setOpenForm] = useState(false);
   // A checkout made from the bag, or one an agent handed over as a guest, may lack only the
-  // receipt's email: it is asked for here, beside Pay.
+  // receipt's email: Pay asks for it in the Pay email modal (ADR-020).
   const needsEmailOnly =
     view.phase === "open" &&
     view.status === "incomplete" &&
     view.messages.length > 0 &&
     view.messages.every((m) => m.code === "missing_buyer_email");
+  const [payModal, setPayModal] = useState(false);
 
-  // Saves the receipt's email once; answers the refusal in words, or nothing when it was taken.
+  // Saves the account's email on the receipt once; answers the refusal in words.
   const postEmail = useCallback(
     async (address: string): Promise<string | undefined> => {
       setSavingEmail(true);
@@ -191,30 +192,44 @@ export function CheckoutPay({
     },
     [view.id, show],
   );
-  // Pay with no email, or one that cannot be right, takes the shopper to the field: marked, in
-  // view, focused and shaken (still under reduced motion). A valid one is saved and the card form
-  // opens in its place.
-  const flagEmail = (problem: string) => {
-    setEmailProblem(problem);
-    const field = emailRef.current;
-    if (!field) return;
-    const smooth = window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
-    field.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" });
-    field.focus({ preventScroll: true });
-    shake(field);
-  };
-  const payWithEmail = async (event?: FormEvent) => {
-    event?.preventDefault();
-    const address = email.trim();
-    if (!address) return flagEmail("Enter the email for your receipt, then pay.");
-    if (address.length > 254 || !EMAIL_SHAPE.test(address)) {
-      return flagEmail("This email does not look right. Check it, then pay.");
-    }
-    const refused = await postEmail(address);
-    if (refused) return flagEmail(refused);
-    setEmailProblem(undefined);
+  // The modal resolved before any card form was on the page, so the new view (the account's
+  // checkout, maybe with the welcome offer, or a guest's email) shows without a reload; then the
+  // card form opens and comes into view.
+  const resolved = ({ data }: PayResolved) => {
+    setPayModal(false);
+    const next = data as View & { welcomeOfferApplied?: boolean };
+    shown.current = next;
+    setView(next);
+    setError(undefined);
+    setNotice(
+      next.welcomeOfferApplied
+        ? "Welcome offer applied: 5% off and your tote are in the summary."
+        : undefined,
+    );
     setOpenForm(true);
   };
+  // A signed-in owner with no order yet asks for the welcome offer in one tap. A card form already
+  // priced from the old total reloads with the new one.
+  const [applying, setApplying] = useState(false);
+  const applyOffer = async () => {
+    setApplying(true);
+    const { data, error } = await api()
+      .checkouts({ id: view.id })
+      .claim.post({ applyWelcomeOffer: true });
+    setApplying(false);
+    if (error || !data || "error" in data) {
+      const value = error?.value as { error?: unknown } | undefined;
+      setError(typeof value?.error === "string" ? value.error : shopperWords("invalid_request"));
+      return;
+    }
+    const claimed = data as View & { welcomeOfferApplied?: boolean };
+    const why = claimed.welcomeOfferApplied
+      ? "Welcome offer applied. Check the new total, then pay."
+      : "The welcome offer is for a first order only.";
+    show(claimed, why);
+    setNotice(why);
+  };
+  const season = seasonFor();
   // A signed-in shopper is never asked for an email the store already knows: the account's goes on
   // the receipt at once, and the field shows only when that fails.
   const autoEmail = useRef(false);
@@ -309,12 +324,34 @@ export function CheckoutPay({
                 <span className="tabular-nums">{money(l.amount)}</span>
               </li>
             ))}
+            {view.gift ? (
+              <li className="flex items-center gap-3 py-2.5">
+                {/* eslint-disable-next-line @next/next/no-img-element -- local SVG drawings need no optimiser */}
+                <img
+                  src={view.gift.image}
+                  alt=""
+                  width={48}
+                  height={60}
+                  className="aspect-[4/5] w-12 shrink-0 rounded-lg border border-line object-cover"
+                />
+                <span className="min-w-0 flex-1">
+                  {view.gift.title} <span className="text-muted">× 1</span>
+                </span>
+                <span className="text-ok">Free</span>
+              </li>
+            ) : null}
           </ul>
           <dl className="space-y-1.5 border-t border-line pt-3 text-sm">
             <div className="flex justify-between">
               <dt>Subtotal</dt>
               <dd className="tabular-nums">{money(view.subtotal)}</dd>
             </div>
+            {view.discount > 0 ? (
+              <div className="flex justify-between text-ok">
+                <dt>Welcome offer (-5%)</dt>
+                <dd className="tabular-nums">-{money(view.discount)}</dd>
+              </div>
+            ) : null}
             <div className="flex justify-between">
               <dt>{method ? `${method.label} delivery` : "Delivery"}</dt>
               <dd className="tabular-nums">
@@ -340,44 +377,44 @@ export function CheckoutPay({
                 ) : null}
               </p>
             ) : askEmail ? (
-              <form onSubmit={(event) => void payWithEmail(event)} noValidate className="space-y-2">
-                {known && !view.signedIn ? (
-                  <p className="text-sm">
-                    Welcome back.{" "}
-                    <a href={signInHere()} className="font-medium underline">
-                      Sign in
-                    </a>{" "}
-                    to use your account&apos;s email, or type one below.
-                  </p>
-                ) : null}
-                <label htmlFor="checkout-email" className="block text-sm text-muted">
-                  Email for the receipt
-                </label>
-                <input
-                  ref={emailRef}
-                  id="checkout-email"
-                  type="email"
-                  autoComplete="email"
-                  inputMode="email"
-                  maxLength={254}
-                  aria-invalid={emailProblem ? true : undefined}
-                  aria-describedby={emailProblem ? "checkout-email-problem" : undefined}
-                  className="field min-h-11"
-                  value={email}
-                  onChange={(event) => {
-                    setEmail(event.target.value);
-                    if (emailProblem) setEmailProblem(undefined);
-                  }}
-                />
-                {emailProblem ? (
-                  <p id="checkout-email-problem" className="text-sm text-bad">
-                    {emailProblem}
-                  </p>
-                ) : null}
-              </form>
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="min-w-0 flex-1 text-sm">
+                  Guest or account: we ask for your email when you pay.
+                </p>
+                <button
+                  type="button"
+                  className="btn-ghost min-h-10 px-4 py-1.5"
+                  onClick={() => setPayModal(true)}
+                >
+                  Add email now
+                </button>
+              </div>
             ) : (
               <p className="text-sm text-muted">The receipt goes to the email on the order.</p>
             )}
+            {view.welcomeOfferAvailable && !view.order ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line p-3 text-sm">
+                {/* eslint-disable-next-line @next/next/no-img-element -- local SVG drawings need no optimiser */}
+                <img
+                  src={season.giftImage}
+                  alt=""
+                  width={40}
+                  height={50}
+                  className="aspect-[4/5] w-10 shrink-0 rounded-lg border border-line object-cover"
+                />
+                <p className="min-w-0 flex-1">
+                  Your first order: 5% off and the {season.giftTitle}, free.
+                </p>
+                <button
+                  type="button"
+                  className="btn min-h-10 px-4 py-1.5"
+                  disabled={applying || payingHere || Boolean(pendingRedirect)}
+                  onClick={() => void applyOffer()}
+                >
+                  {applying ? "Applying…" : "Apply welcome offer"}
+                </button>
+              </div>
+            ) : null}
           </Step>
           <Step n={2} title="Delivery">
             {deliveryOpen ? (
@@ -431,12 +468,13 @@ export function CheckoutPay({
                     type="button"
                     className="btn w-full"
                     disabled={savingEmail}
-                    onClick={() => void payWithEmail()}
+                    onClick={() => setPayModal(true)}
                   >
-                    {savingEmail ? "Saving your email…" : `Pay ${money(view.total)}`}
+                    {`Pay ${money(view.total)}`}
                   </button>
                   <p className="text-xs text-muted">
-                    The card form opens here once your email is in. Adyen TEST: no real money moves.
+                    Your email first, then the card form opens here. Adyen TEST: no real money
+                    moves.
                   </p>
                   <TestCardList />
                 </>
@@ -470,6 +508,16 @@ export function CheckoutPay({
           </Step>
         </div>
       </div>
+      {payModal && askEmail ? (
+        <PayIdentityModal
+          checkoutId={view.id}
+          source="checkout"
+          subtotal={view.subtotal}
+          total={view.total}
+          onClose={() => setPayModal(false)}
+          onResolved={resolved}
+        />
+      ) : null}
     </div>
   );
 }

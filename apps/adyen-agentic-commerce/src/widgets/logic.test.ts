@@ -116,6 +116,27 @@ describe("views of UCP answers", () => {
     expect(bagView({ id: "x", products: [] })).toBeUndefined();
   });
 
+  test("the welcome offer: the tote is a line apart, never stepped or sent back, and the saving shows", () => {
+    const bag = checkout("incomplete", {
+      line_items: [line("socks", 1, 1200), line("velune-welcome-tote-winter", 1, 0)],
+      totals: [
+        { type: "subtotal", amount: 1200 },
+        { type: "discount", amount: -60 },
+        { type: "fulfillment", amount: 495 },
+        { type: "total", amount: 1635 },
+      ],
+    })!;
+    expect(bag.lines.map((l) => l.variantId)).toEqual(["socks"]);
+    expect(bag.gift).toMatchObject({ variantId: "velune-welcome-tote-winter", amount: 0 });
+    expect([bag.discount, bag.total]).toEqual([60, 1635]);
+    expect(quantityCall(bag, "socks", 2, KEY)?.arguments).toMatchObject({
+      checkout: { line_items: [{ item: { id: "socks" }, quantity: 2 }] },
+    });
+    expect(JSON.stringify(addCall(bag, "scarf", KEY))).not.toContain("velune-welcome-tote");
+    // Without the offer, no gift and no saving.
+    expect([checkout()?.gift, checkout()?.discount]).toEqual([undefined, undefined]);
+  });
+
   test("only saved_card instruments become choices; nothing else of a card is read", () => {
     const bag = checkout("ready_for_complete", {
       payment: {
@@ -159,7 +180,9 @@ describe("views of UCP answers", () => {
         { type: "error", content: "A message with no code" },
       ],
     });
-    expect(bag.problems).toEqual(["The store needs an email for the receipt.", GENERAL_PROBLEM]);
+    // The pay area says "Add your email to continue to payment." itself: no red line repeats it.
+    expect(bag.problems).toEqual([GENERAL_PROBLEM]);
+    expect(shopperNote("missing_buyer_email")).toBeNull();
     expect(shopperNote("spend_limit_exceeded")).toBeNull();
     expect(shopperNote(undefined)).toBe(GENERAL_PROBLEM);
   });

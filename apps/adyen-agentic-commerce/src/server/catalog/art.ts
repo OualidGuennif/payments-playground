@@ -1,5 +1,6 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // Original flat product drawings, so the demo ships no photographs or third-party images.
+import type { SeasonId } from "../../lib/seasons";
 import type { Colour, Shape } from "./catalog";
 
 const SHAPES: Record<Shape, (fill: string, line: string) => string> = {
@@ -128,5 +129,55 @@ export function productSvg(shape: Shape, colour: Colour): string {
   <rect width="240" height="240" fill="#f4f1ec"/>
   <ellipse cx="120" cy="214" rx="80" ry="8" fill="#000" fill-opacity=".06"/>
   ${SHAPES[shape](colour.hex, line)}
+</svg>`;
+}
+
+// The first-order gift (ADR-020): one canvas tote per season with its own stitched emblem. Only
+// the four season ids reach this function, so nothing a caller sends is written into the SVG.
+const TOTES: Record<SeasonId, { canvas: string; stitch: string; word: string; emblem: string }> = {
+  winter: {
+    canvas: "#34474f",
+    stitch: "#f1ece2",
+    word: "WINTER",
+    emblem: `<g stroke="#f1ece2" stroke-width="2.5" stroke-linecap="round">
+       <path d="M120 122 V170 M99 134 L141 158 M99 158 L141 134"/>
+       <path d="M114 126 L120 132 L126 126 M114 166 L120 160 L126 166"/>
+     </g>`,
+  },
+  spring: {
+    canvas: "#ccd2b8",
+    stitch: "#5f6e4c",
+    word: "SPRING",
+    emblem: `<path d="M120 172 Q118 146 128 122" fill="none" stroke="#5f6e4c" stroke-width="2.5"/>
+     <ellipse cx="111" cy="148" rx="9" ry="4.5" fill="#5f6e4c" transform="rotate(-30 111 148)"/>
+     <ellipse cx="132" cy="140" rx="9" ry="4.5" fill="#5f6e4c" transform="rotate(25 132 140)"/>
+     <circle cx="129" cy="121" r="5" fill="#d9a5a0"/>`,
+  },
+  summer: {
+    canvas: "#eadcc0",
+    stitch: "#a8822f",
+    word: "SUMMER",
+    emblem: `<circle cx="120" cy="140" r="13" fill="none" stroke="#c9a24a" stroke-width="3"/>
+     <path d="M70 164 H170 M76 172 H164" stroke="#c9a24a" stroke-width="3" stroke-linecap="round"/>`,
+  },
+  autumn: {
+    canvas: "#b5673f",
+    stitch: "#f3dcb0",
+    word: "AUTUMN",
+    emblem: `<path d="M120 122 Q142 132 136 156 Q126 170 120 172 Q114 170 104 156 Q98 132 120 122 Z" fill="#e2b05a"/>
+     <path d="M120 128 V176" stroke="#7a3f22" stroke-width="2"/>`,
+  },
+};
+
+export function welcomeToteSvg(season: SeasonId): string {
+  const t = TOTES[season];
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="480" height="480" role="img" aria-label="${t.word.toLowerCase()} tote bag edition">
+  <rect width="240" height="240" fill="#f4f1ec"/>
+  <ellipse cx="120" cy="214" rx="80" ry="8" fill="#000" fill-opacity=".06"/>
+  <path d="M88 96 Q88 40 120 40 Q152 40 152 96" fill="none" stroke="#1d1d1f" stroke-width="6"/>
+  <path d="M52 96 H188 L178 206 H62 Z" fill="${t.canvas}" stroke="#1d1d1f" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M58 106 H182 L173 198 H67 Z" fill="none" stroke="${t.stitch}" stroke-width="1.5" stroke-dasharray="4 4"/>
+  ${t.emblem}
+  <text x="120" y="192" text-anchor="middle" font-family="Georgia, serif" font-size="10" letter-spacing="4" fill="${t.stitch}">${t.word}</text>
 </svg>`;
 }

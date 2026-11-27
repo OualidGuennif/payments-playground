@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-v6-styling
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T13:00:00Z
+  at: 2026-11-28T09:00:00Z
 sources:
   - id: app
     resource: ../../apps/adyen-v6-styling
@@ -153,7 +153,10 @@ blob from an older build is restored over the current defaults, never instead of
 | `/disclaimer` | The shared TEST disclaimer, with its own back link and theme switch because this app has no shared shell      |
 
 The toolbar is four glass blocks at the top of the preview column, sharing the checkout's edges. The
-TEST pill and Adyen Web version sit in the footer. The panel has three tabs: **Field styles**,
+TEST pill and Adyen Web version sit in the footer. The preview, the panel and the footer stand in
+one centred frame of at most 1440 px (`--page-max-workbench`, UI policy page width), so a wider
+window adds margin on both sides and the panel keeps 340 to 400 px from 1180 px up: the test data
+and the Drop-in stay side by side from about 1375 px. The panel has three tabs: **Field styles**,
 **Components** and **Theme**; **Reset** asks first and clears the persisted blob. Dark mode darkens
 the tool around the preview but the Drop-in column keeps the light tokens (`.keep-light`,
 `color-scheme: light`, ADR-010); a dark checkout is the **Dark** theme preset, chosen by hand.

@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-27T21:15:00Z
+  at: 2026-11-28T09:00:00Z
 sources:
   - resource: ../../apps/adyen-digital
     title: "The Next.js app: pages, Elysia API, client components"
@@ -153,7 +153,7 @@ browser's same-host `Origin`
 
 | Page                                                          | What it renders                                                                                                                                                                                                  |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                                                           | only the flow tiles, grouped as checkout and beyond checkout; width and type scale with the viewport up to a cap, centred between header and footer                                                              |
+| `/`                                                           | only the flow tiles, grouped as checkout and beyond checkout, on the page column (1140 px at most, UI policy page width), centred between header and footer                                                      |
 | `/sessions`, `/advanced`, `/api-only`, `/mit`, `/pay-by-link` | `src/app/[flow]/page.tsx` answers the bootstrap in-process; `FlowWorkbench` renders in the browser only, its first market coming from the browser                                                               |
 | `/back-office`                                                | orders in plain words, search and filters, detail with capture/cancel/refund and the reason an action is refused                                                                                                 |
 | `/settings`                                                   | the Connection card (profile, merchant account, client key, webhook HMAC key set or not, webhook URL to copy) and the TEST profiles                                                                              |
@@ -163,7 +163,9 @@ browser's same-host `Origin`
 
 `FlowWorkbench` is one row on top: the flow as a rounded badge (the page's `h1`) and a scenario chip
 (flag, market, amount, integration) that opens the configuration sheet; then the checkout, with the
-inspector beside it (under it on a phone). Switching flow goes through Home. It holds the state and
+inspector beside it (under it on a phone). While the inspector shows, the whole page (header groups,
+column, footer) takes the wide column, 1240 px at most; every other page keeps the 1140 px column,
+whose edges the header groups and the footer share. Switching flow goes through Home. It holds the state and
 mounts Drop-in, a single Component or the API-only Custom Card; what each flow sends lives in one
 module per flow in `src/checkout` (`sessions.ts`, `advanced.ts` with the partial-payment callbacks,
 `api-only.ts`, `pay-by-link.ts`, `mit.ts`), and the Pay by Link and MIT forms are their own

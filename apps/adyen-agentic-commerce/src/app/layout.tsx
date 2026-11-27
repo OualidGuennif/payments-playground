@@ -55,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Layers (storefront spec): ambience 10, minimised Shopper 30, header and its menus 40,
             open Shopper 50, Pay email modal 60. One line on every width: nothing wraps. */}
         <header className="velune-glass sticky top-0 z-40 border-b border-line">
-          <div className="mx-auto flex max-w-7xl flex-nowrap items-center gap-2 px-3 py-2.5 sm:px-6">
+          <div className="header-frame flex flex-nowrap items-center gap-2 px-3 py-2.5 sm:px-6">
             <Link
               href="/"
               className="shrink-0 whitespace-nowrap font-serif text-base uppercase tracking-[0.22em] sm:text-xl"
@@ -126,7 +126,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
         </header>
-        <main id="main-content" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
+        <main id="main-content" className="page-frame py-8 sm:py-10">
           {children}
         </main>
         <WebMcpTools />

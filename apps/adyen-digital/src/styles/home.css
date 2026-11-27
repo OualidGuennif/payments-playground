@@ -1,13 +1,12 @@
 /* ---------- Home ---------- */
 
-/* The home page is only the flow tiles. Their width and type follow the
-   viewport up to a cap, their height follows their content, and the block is
-   centred in the space between header and footer. */
+/* The home page is only the flow tiles. Their width follows the page column
+   (UI policy, page width), their height follows their content, and the block
+   is centred in the space between header and footer. */
 main:has(> .home) {
   display: flex;
-  width: min(1480px, 100%);
   flex-direction: column;
-  padding: clamp(16px, 3vh, 32px) clamp(16px, 3vw, 32px);
+  padding-block: clamp(16px, 3vh, 32px);
 }
 
 .home {

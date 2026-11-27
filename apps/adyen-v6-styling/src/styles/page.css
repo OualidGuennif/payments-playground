@@ -16,9 +16,13 @@
   animation: button-success-flash 0.7s ease-in-out 3;
 }
 
+/* The workbench and its footer in one centred frame (UI policy, page width):
+   on a wide window the options stay within reach of the checkout instead of
+   on the far edge. The page's glows still fill the window. */
 .styling-main {
-  width: 100%;
+  width: min(100%, var(--page-max-workbench));
   max-width: none;
+  margin: 0 auto;
   padding: 0;
 }
 

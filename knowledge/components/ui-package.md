@@ -7,7 +7,7 @@ scope: component-ui
 tags: [component, ui, adyen-web]
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-27T06:57:00Z
+  at: 2026-11-28T09:00:00Z
 sources:
   - resource: ../../packages/ui
     title: "The package: modules and stylesheet"
@@ -47,7 +47,8 @@ Two boundaries define the package.
 - **Design tokens.** Colours and surfaces exist once, as token sets in `styles.css`: light under
   `:root`, dark under `[data-theme="dark"]`, selected by one attribute on `<html>`
   ([ADR-010](../decisions/ADR-010-one-theme-attribute-and-token-sets.md)). Apps layer their own CSS
-  on top; they do not define a second palette.
+  on top; they do not define a second palette. The page width tokens live here too (`--page-max`,
+  `--page-max-wide`, `--page-max-workbench`, `--page-gutter`, `--measure`; UI policy).
 - **Adyen Web.** This package configures Adyen Web and never wraps it: card fields are rendered by
   Adyen inside its own iframes, so no PAN or CVC enters this code or the DOM around it. The SDK
   version is pinned exactly in every `package.json` and hoisted once into the root `node_modules`,
@@ -101,7 +102,9 @@ on anything but `GET`/`HEAD`, and `X-Profile-Id` when a profile id is given, alw
   toggle, settings, and a menu on mobile) and a one-line footer (Adyen Web and Checkout API
   versions, Wiki, Adyen docs, Disclaimer, and the TEST pill when the header has none). With
   `minimal`, as in digital, the header is only the theme toggle and settings, plus Home and Back
-  Office on inner pages. The page content sits in `<main id="main-content">`.
+  Office on inner pages. The page content sits in `<main id="main-content">`. The header, `<main>`
+  and the footer share one centred column, `--page-max` wide (1140 px) inside `--page-gutter`
+  margins; a page widens all three at once by setting `--page-max` on `body`.
 - **Other page pieces.** `PageHeader` (eyebrow, title, description, actions), `StatusPill`,
   `EmptyState`, `Field`, `ColorField`, `Callout`, the `TestDataAndTools` menu (which hides the
   Chrome extension link on touch and narrow screens), the playground wordmark (deliberately not an

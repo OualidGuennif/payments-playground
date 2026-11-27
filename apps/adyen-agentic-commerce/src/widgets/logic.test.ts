@@ -394,11 +394,13 @@ describe("the checkout card in the store's own panel (ADR-021)", () => {
     // Saved cards the checkout has not listed yet are read again, never called missing.
     expect(payStep(bag(), signedIn)).toBe("refresh");
     expect(payStep(bag({ status: "incomplete" }), signedIn)).toBe("fix");
-    // Something else to fix comes before the budget, whoever counted it.
-    const blocked = { status: "incomplete", instruments: [card], total: 20000 } as const;
-    expect(payStep(bag(blocked), signedIn)).toBe("fix");
+    // Something else to fix comes before the panel's own count of the budget.
+    const over = { instruments: [card], total: 20000 };
+    expect(payStep(bag({ ...over, status: "incomplete", codes: ["out_of_stock"] }), signedIn)).toBe(
+      "fix",
+    );
     expect(
-      payStep(bag({ ...blocked, codes: ["spend_limit_exceeded", "out_of_stock"] }), signedIn),
+      payStep(bag({ ...over, status: "requires_escalation", codes: ["shopper_pays"] }), signedIn),
     ).toBe("fix");
   });
 

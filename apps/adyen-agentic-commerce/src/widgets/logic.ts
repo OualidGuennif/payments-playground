@@ -475,13 +475,10 @@ export type PayStep =
 export function payStep(bag: BagView, v: Velune): PayStep {
   if (bag.codes.includes("missing_buyer_email")) return "email";
   const ready = bag.status === "ready_for_complete";
-  // A budget leads only when it is all that stands in the way: the store's own code with no other
-  // code beside it, or the panel's own count on a checkout that is otherwise ready.
-  const storeOver =
-    bag.codes.includes("spend_limit_exceeded") &&
-    (ready || bag.codes.every((c) => c === "spend_limit_exceeded"));
+  // A budget leads only when it is all that stands in the way: the store sends its code only for a
+  // checkout with nothing else to fix, and the panel's own count counts only on a ready one.
   const over =
-    storeOver ||
+    bag.codes.includes("spend_limit_exceeded") ||
     (ready && v.connected && v.grantRemaining !== undefined && bag.total > v.grantRemaining);
   if (!ready && !over) return "fix";
   if (!v.signedIn) return "create-account";

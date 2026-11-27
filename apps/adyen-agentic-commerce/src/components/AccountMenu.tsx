@@ -127,7 +127,7 @@ export function AccountMenu() {
       >
         {initialOf(who)}
       </summary>
-      <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-64 rounded-2xl border border-line bg-card p-2 shadow-lg">
+      <div className="absolute right-0 top-[calc(100%+8px)] z-30 velune-glass-card w-64 rounded-2xl border border-line p-2 shadow-lg">
         <p className="px-3.5 py-2 text-sm">
           <span className="block truncate font-medium">{who.name}</span>
           <span className="block truncate text-xs text-muted">{maskEmail(who.email)}</span>

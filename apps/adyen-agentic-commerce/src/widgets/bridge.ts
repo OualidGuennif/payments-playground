@@ -38,8 +38,9 @@ function snapshot(v: unknown): string | undefined {
 export function connect(on: {
   result(data: unknown): void;
   theme(theme: Theme): void;
-  // The host is the store's own panel (hostContext.veluneHost): Pay asks for the email there.
-  store?(): void;
+  // The host is the store's own panel (hostContext.veluneHost): Pay asks for the email there,
+  // and `velune` says who is shopping (ADR-021); it comes again on every change.
+  store?(velune?: unknown): void;
 }): Host {
   const openai = (): OpenAi | undefined => (window as unknown as { openai?: OpenAi }).openai;
   let standard = false;
@@ -101,6 +102,7 @@ export function connect(on: {
     if (m.method === "ui/notifications/host-context-changed") {
       const theme = themeOf(params.theme);
       if (theme) on.theme(theme);
+      if (record(params.velune)) on.store?.(params.velune);
     }
   });
 
@@ -137,7 +139,7 @@ export function connect(on: {
         const context = record(result) && record(result.hostContext) ? result.hostContext : {};
         const theme = themeOf(context.theme);
         if (theme) on.theme(theme);
-        if (context.veluneHost === true) on.store?.();
+        if (context.veluneHost === true) on.store?.(context.velune);
       })
       .catch(() => {
         // No MCP Apps host answered: window.openai, if any, carries every call.

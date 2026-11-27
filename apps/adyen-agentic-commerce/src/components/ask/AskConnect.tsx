@@ -21,11 +21,18 @@ const STOPPED: Partial<Record<State, string>> = {
     "Another account approved it, so it was refused. Sign in with that account instead.",
 };
 
-export function AskConnect({ onConnected }: { onConnected: () => void }) {
+export function AskConnect({
+  onConnected,
+  onCancel,
+}: {
+  onConnected: () => void;
+  // In the chat's budget overlay: the budget shows at once and Cancel closes the overlay.
+  onCancel?: () => void;
+}) {
   const [start, setStart] = useState<Start>();
   const [note, setNote] = useState<string>();
   const [busy, setBusy] = useState(false);
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState(onCancel !== undefined);
   const [budget, setBudget] = useState(15000);
   const [custom, setCustom] = useState("");
 
@@ -112,13 +119,13 @@ export function AskConnect({ onConnected }: { onConnected: () => void }) {
               href={start.verificationUri}
               target="_blank"
               rel="noopener"
-              className="btn min-h-10 px-4 py-1.5"
+              className="btn min-h-11 px-4 py-1.5"
             >
               Open the approval page
             </a>
             <button
               type="button"
-              className="btn-ghost min-h-10 px-4 py-1.5"
+              className="btn-ghost min-h-11 px-4 py-1.5"
               onClick={() => setStart(undefined)}
             >
               Cancel
@@ -148,7 +155,7 @@ export function AskConnect({ onConnected }: { onConnected: () => void }) {
                   key={amount}
                   type="button"
                   aria-pressed={!custom.trim() && budget === amount}
-                  className="chip min-h-10 justify-center tabular-nums"
+                  className="chip min-h-11 justify-center tabular-nums"
                   onClick={() => {
                     setBudget(amount);
                     setCustom("");
@@ -162,7 +169,7 @@ export function AskConnect({ onConnected }: { onConnected: () => void }) {
               Another amount (€)
               <input
                 inputMode="decimal"
-                className="field min-h-10 w-24 text-base sm:text-sm"
+                className="field min-h-11 w-24 text-base sm:text-sm"
                 value={custom}
                 onChange={(event) => setCustom(event.target.value)}
                 aria-invalid={custom.trim() !== "" && !chosenValid}
@@ -170,13 +177,13 @@ export function AskConnect({ onConnected }: { onConnected: () => void }) {
             </label>
           </fieldset>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="submit" className="btn min-h-10 px-4 py-1.5" disabled={busy}>
+            <button type="submit" className="btn min-h-11 px-4 py-1.5" disabled={busy}>
               {busy ? "Allowing…" : `Allow up to ${chosenValid ? euros(chosen) : "…"}`}
             </button>
             <button
               type="button"
-              className="btn-ghost min-h-10 px-4 py-1.5"
-              onClick={() => setPicking(false)}
+              className="btn-ghost min-h-11 px-4 py-1.5"
+              onClick={() => (onCancel ? onCancel() : setPicking(false))}
             >
               Cancel
             </button>
@@ -204,7 +211,7 @@ export function AskConnect({ onConnected }: { onConnected: () => void }) {
           </p>
           <button
             type="button"
-            className="btn-ghost min-h-10 px-4 py-1.5"
+            className="btn-ghost min-h-11 px-4 py-1.5"
             disabled={busy}
             onClick={() => {
               setNote(undefined);

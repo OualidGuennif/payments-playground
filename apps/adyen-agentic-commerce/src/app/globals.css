@@ -104,6 +104,46 @@
   .field {
     @apply w-full rounded-xl border border-line bg-card text-ink px-3 py-2 text-sm outline-none focus:border-ink aria-[invalid=true]:border-bad aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-bad;
   }
+  /* A restrained glass (ADR-021) for the sticky header, the Personal Shopper, the overlays and the
+     header menus: the paper, mostly opaque, over a blur. Opaque without blur support or when the
+     shopper asks for less transparency, so text keeps its contrast. */
+  .velune-glass,
+  .velune-glass-card,
+  .velune-glass-pill {
+    -webkit-backdrop-filter: saturate(1.4) blur(18px);
+    backdrop-filter: saturate(1.4) blur(18px);
+  }
+  .velune-glass {
+    background: color-mix(in oklab, var(--color-paper) 84%, transparent);
+  }
+  .velune-glass-card {
+    background: color-mix(in oklab, var(--color-paper) 92%, transparent);
+  }
+  .velune-glass-pill {
+    background: color-mix(in oklab, var(--color-card) 80%, transparent);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .velune-glass,
+    .velune-glass-card {
+      background: var(--color-paper);
+    }
+    .velune-glass-pill {
+      background: var(--color-card);
+    }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .velune-glass,
+    .velune-glass-card {
+      background: var(--color-paper);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    .velune-glass-pill {
+      background: var(--color-card);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
   /* A bar towards a threshold (free delivery): the bar in the accent, the rest in the line colour. */
   .gauge {
     @apply block h-1.5 w-full appearance-none overflow-hidden rounded-full border-0 bg-line;

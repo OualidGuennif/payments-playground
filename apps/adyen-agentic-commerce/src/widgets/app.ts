@@ -16,6 +16,7 @@ import {
   type Choice,
   capabilityOf,
   catalogView,
+  chatLink,
   checkoutCall,
   choose,
   coloursOf,
@@ -27,6 +28,8 @@ import {
   type PayAttempt,
   offered,
   payCall,
+  type PayStep,
+  payStep,
   productPage,
   quantityCall,
   refreshCheckoutCall,
@@ -34,7 +37,9 @@ import {
   shopperNote,
   sizesOf,
   type UcpProduct,
+  type Velune,
   variantFor,
+  veluneContext,
 } from "./logic";
 
 type State = {
@@ -49,6 +54,8 @@ type State = {
   note?: { tone: "ok" | "bad" | "info"; text: string };
   // In the store's own panel, Pay asks for a missing email there (ADR-020).
   store?: boolean;
+  // And says who is shopping, so the checkout card leads with one action (ADR-021).
+  velune?: Velune;
 };
 
 const STORE = document.querySelector('meta[name="store-origin"]')?.getAttribute("content") ?? "";
@@ -460,6 +467,88 @@ function totals(bag: BagView) {
   );
 }
 
+// The store's own panel: one primary action in the owner's order, then "Continue on website
+// checkout", quieter and last. Every action but paying opens an overlay above the chat.
+const LEAD: Record<PayStep, string> = {
+  email: "Add your email to continue to payment.",
+  pay: "Pay with a card saved in your account",
+  raise: "This is over your Personal Shopper's budget.",
+  connect: "Let your Personal Shopper pay with your saved card, within a budget you set.",
+  "save-card": "No card is saved on your account yet.",
+  "create-account": "Create an account to save a card and pay here, with 5% off a first order.",
+  refresh: "Your saved cards are on their way to this checkout.",
+  fix: "Fix what the store asks for above, then pay.",
+};
+const ACTION: Partial<Record<PayStep, string>> = {
+  raise: "Raise budget & pay in chat",
+  connect: "Allow & pay in chat",
+  "save-card": "Save a card & pay in chat",
+  "create-account": "Save a card & pay in chat",
+};
+function storeActions(bag: BagView, v: Velune) {
+  const total = money(bag.total, bag.currency);
+  const step = payStep(bag, v);
+  const chosen = bag.instruments.find((i) => i.id === state.instrument) ?? bag.instruments[0];
+  const button = (label: string, onclick: () => void) =>
+    h("button", { type: "button", class: "btn", disabled: !!state.busy, onclick }, label);
+  const link = chatLink(STORE, step, bag.id);
+  let primary: HTMLElement | null = null;
+  if (step === "pay" && chosen)
+    primary = button(`Pay ${total} in chat`, () => {
+      act(
+        choose("Paying on Adyen TEST", () => {
+          state.attempt = attemptFor(state.attempt, bag.id, chosen.id);
+          return payCall(bag, chosen.id, state.attempt.key);
+        }),
+      );
+    });
+  else if (step === "refresh")
+    primary = button("Show my saved cards", () => {
+      act(choose("Checking saved cards", () => refreshCheckoutCall(bag.id)));
+    });
+  else if (link) primary = button(ACTION[step] ?? `Pay ${total}`, () => void open(link));
+  const left =
+    step === "raise" && v.grantRemaining !== undefined
+      ? ` ${money(v.grantRemaining, bag.currency)} left of ${money(v.grantLimit ?? v.grantRemaining, bag.currency)}.`
+      : "";
+  return h(
+    "div",
+    { class: "actions" },
+    step === "pay"
+      ? h(
+          "fieldset",
+          { class: "cards" },
+          h("legend", {}, LEAD.pay),
+          ...bag.instruments.map((i) =>
+            h(
+              "label",
+              { class: "radio" },
+              h("input", {
+                type: "radio",
+                name: "instrument",
+                value: i.id,
+                checked: i.id === chosen?.id,
+                onchange: () => {
+                  state.instrument = i.id;
+                  render();
+                },
+              }),
+              i.label,
+            ),
+          ),
+        )
+      : h("p", { class: "muted" }, `${LEAD[step]}${left}`),
+    primary,
+    onStore(bag.continueUrl)
+      ? h(
+          "button",
+          { type: "button", class: "link quiet", onclick: () => void open(bag.continueUrl) },
+          "Continue on website checkout",
+        )
+      : null,
+  );
+}
+
 function payArea(bag: BagView) {
   const total = money(bag.total, bag.currency);
   if (bag.order)
@@ -492,6 +581,7 @@ function payArea(bag: BagView) {
       ),
     );
   if (!isOpen(bag)) return null;
+  if (state.store && state.velune) return storeActions(bag, state.velune);
   const over = bag.codes.includes("spend_limit_exceeded");
   const ready = bag.status === "ready_for_complete" && bag.instruments.length > 0;
   const chosen = bag.instruments.find((i) => i.id === state.instrument) ?? bag.instruments[0];
@@ -665,8 +755,9 @@ function setTheme(theme: Theme) {
 host = connect({
   result: show,
   theme: setTheme,
-  store: () => {
+  store: (velune) => {
     state.store = true;
+    state.velune = veluneContext(velune) ?? state.velune;
     render();
   },
 });

@@ -120,8 +120,9 @@ export function houseGrantInfo(sessionId: string, now = Date.now()) {
   const token = houseToken(sessionId, now);
   const auth = token ? peekAuth(`Bearer ${token}`, "/mcp") : undefined;
   if (!auth || auth === "invalid") return undefined;
-  const { spendLimit, spent } = auth.grant;
-  return { spendLimit, spent, remaining: Math.max(0, spendLimit - spent) };
+  // The id lets the panel raise this grant through the account's own route and step-up.
+  const { id, spendLimit, spent } = auth.grant;
+  return { id, spendLimit, spent, remaining: Math.max(0, spendLimit - spent) };
 }
 
 export const noteProof = (sessionId: string, provenUntilMs: number) =>

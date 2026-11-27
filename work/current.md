@@ -9,9 +9,10 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-27, in chat: the pasted v0.13.0 plan (durable Ask grant, 60-minute
   step-up for in-chat pay, no redirect out of chat), the Safari fixes, and "jusqu'en production".
-- State: Safari email gate and order redirect done and checked locally (TEST order Authorised);
-  slices 0 to 6 next.
-- Next: slices 0 to 6, review, release v0.13.0 (agent).
+- State: Safari fix, ADR-021, durable grant and chat-pay proof, and the chat's front (overlays,
+  widget actions A to F, 88 % sheet, glass) committed on develop, not pushed; local QA at 375 px
+  paid a TEST order in the chat after the step-up.
+- Next: full checks, review, release v0.13.0 to prod (agent).
 - Blocker: none.
 - Evidence: this session's handover; the owner's iPhone screenshots of 2026-11-27.
 

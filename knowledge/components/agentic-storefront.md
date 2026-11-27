@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T16:00:00Z
+  at: 2026-11-27T14:57:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -254,7 +254,8 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   session as soon as it changes and steps aside on a phone when a product or checkout page opens
   ([Ask spec](ask-agent.md), Panel; ADR-021).
 - **Glass** (`.velune-glass`, `.velune-glass-pill`, ADR-021): the sticky header, the Personal
-  Shopper's rail, sheet and minimised bar, the overlays and the header menus are translucent and
+  Shopper's rail, sheet and minimised bar, the overlays and the header menus (Menu, Developers,
+  account) are translucent and
   blurred in both themes, opaque under `prefers-reduced-transparency: reduce`; Drop-in keeps an
   opaque card and text keeps AA contrast.
 

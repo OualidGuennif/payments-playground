@@ -14,9 +14,12 @@ export function StepUp({
   hasPasskey,
   onConfirm,
   onCancel,
+  bare = false,
 }: {
   prompt: string;
   hasPasskey: boolean;
+  // Inside an overlay card, which already frames it.
+  bare?: boolean;
   onConfirm: (confirm: Confirm) => Promise<string | undefined>;
   onCancel: () => void;
 }) {
@@ -57,17 +60,18 @@ export function StepUp({
   return (
     <form
       onSubmit={withPassword}
-      className="space-y-2 rounded-xl border border-accent p-3"
+      className={bare ? "space-y-3" : "space-y-2 rounded-xl border border-accent p-3"}
       aria-label="Confirm it is you"
     >
       <p className="text-xs">{prompt} Confirm it is you.</p>
       <label className="block text-xs">
         <span className="block text-xs font-medium text-muted">Your password</span>
         <input
+          data-autofocus
           type="password"
           name="password"
           autoComplete="current-password"
-          className="field mt-1 w-full"
+          className="field mt-1 min-h-11 w-full"
         />
       </label>
       <div className="flex flex-wrap gap-2">

@@ -7,7 +7,7 @@ status: draft
 scope: component-mcp-apps-widgets
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T08:55:00Z
+  at: 2026-11-27T14:57:00Z
 sources:
   - id: store
     resource: ./adyen-agentic-commerce.md
@@ -51,7 +51,8 @@ hold no token, no card data and no authority the agent does not already have.
   the host shows the product carousel or the bag inside the conversation. Its buttons call the UCP
   tools through the host themselves (search, next page, add to bag, quantities, checkout, pay with
   a listed saved card); it never writes to the assistant. The carousel is compact (about two cards
-  across the Ask panel, each as tall as its content, 44 px hit areas) and each card's "View product
+  across the Ask panel, one height per row, 4:3 pictures, two-line titles, actions at the bottom,
+  44 px hit areas) and each card's "View product
   details" opens the product's page,
   `/products/<id>?variant=<id>` on `PUBLIC_ORIGIN`, through the host's link opening (`ui/open-link`,
   else `openExternal`); the Ask panel opens it as its own page. Every call is the host's `tools/call` on
@@ -65,7 +66,14 @@ hold no token, no card data and no authority the agent does not already have.
   "no store message reaches the shopper in the store's own words"). A missing email reads "Add
   your email to continue to payment." and never sits beside "Checkout ready."; in the store's own
   panel (`veluneHost` in the host context) Pay opens `#velune-pay-email?checkoutId=` there, in any
-  other host `continue_url`. A welcome offer ([ADR-020](../decisions/ADR-020-pay-identity-welcome-offer-and-seasons.md))
+  other host `continue_url`. When that panel also says who is shopping (`velune` in the host
+  context and in `host-context-changed`: signed in, connected, saved-card count, budget left;
+  [ADR-021](../decisions/ADR-021-durable-ask-grant-step-up-and-in-chat-checkout.md)), an open
+  checkout leads with one action: Pay (email), Pay in chat (a listed saved card), Raise budget &
+  pay in chat, Allow & pay in chat, Save a card & pay in chat (signed in, or through a new account
+  for a guest with an email), or "Show my saved cards" when the checkout was read before the
+  connection; each but paying opens `#velune-…?checkoutId=` in the panel, and "Continue on website
+  checkout" comes last (`src/widgets/logic.test.ts` "one action leads"). A welcome offer ([ADR-020](../decisions/ADR-020-pay-identity-welcome-offer-and-seasons.md))
   shows as a "Welcome offer (-5%)" row and the tote as a line with no stepper, never sent back in
   an update (`src/widgets/logic.test.ts` "the welcome offer").
 

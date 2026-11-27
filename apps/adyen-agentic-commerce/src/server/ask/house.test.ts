@@ -151,6 +151,7 @@ describe("a durable house grant", () => {
     forgetHouseConnections();
     expect(resumeHouseConnection("ask_session_a2", owner.id)).toBe(true);
     expect(houseGrantInfo("ask_session_a2")).toEqual({
+      id: grant?.id ?? "",
       spendLimit: 15_000,
       spent: 0,
       remaining: 15_000,

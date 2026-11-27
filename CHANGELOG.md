@@ -5,6 +5,14 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The Personal Shopper's checkout stays in the chat (ADR-021): its card leads with one action (Pay,
+  Pay in chat, Raise budget, Allow, Save a card, or a new account), each opening an overlay above
+  the chat (the Pay email modal, a Drop-in card save, a budget to allow or raise, the chat-pay
+  confirmation, which then sends the same payment again), and "Continue on website checkout" comes
+  last. Every overlay is held to the top of the visual viewport on a phone, so the iOS keyboard no
+  longer covers it. The sheet opens at 88 % (96 % enlarged) with only the composer in its footer,
+  the closing time and "€X left" in its header, aligned product cards, and a restrained glass on
+  the header, menus, panel and overlays.
 - The Personal Shopper's account grant is durable (ADR-021): a new conversation, a sign-in or a
   deploy resumes the account's one active Atelier Velune Ask grant with a token minted for it, a
   normal end keeps it and only a lock or Disconnect ends it; connecting again reuses it. Paying in

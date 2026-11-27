@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T16:00:00Z
+  at: 2026-11-27T14:57:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -142,10 +142,11 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   one `error` `{ error }`; `page` is a store path the panel opens after the answer (invariant 21). A refused message is a normal `final` answer with a fixed polite text,
   never the model's. Verdicts and score changes go to the transcript the console reads.
 - **Session view:** `{ available, state: active | ended | locked | none, reason, endsAt, mode:
-  normal | strict, signedIn, accountEmail?, connected, cardCount, grant: { spendLimit, spent,
+  normal | strict, signedIn, accountEmail?, connected, cardCount, grant: { id, spendLimit, spent,
   remaining } | null, stepUpRequired, webauthn, voice: { available, unlocked }, messages:
   [{ role, text, widgets, page?, at }] }`; `cardCount` counts the account's saved cards (0 signed
-  out), `grant` is the live house grant's budget (connected only), `stepUpRequired` says a chat
+  out), `grant` is the live house grant (connected only), whose id the budget overlay raises
+  through `/api/account/grants/:id`, `stepUpRequired` says a chat
   payment would ask for the password or a passkey first, `webauthn` that the account has a
   passkey to answer with; counts, amounts and booleans only, never
   a card's digits or alias. An ended session shows no messages; `page` is the store
@@ -162,7 +163,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   "Make it bigger", which is full screen from 1024 px (ADR-021). Below 1024 px a product or
   checkout page the shopper opens minimises it (`askLogic.test.ts` "below 1024 px a product or
   checkout page"). Its header names the page's help ("Here to help with this piece" and so on) and,
-  in its subtitle, the closing time and, when connected, "Connected · €X left"; three questions
+  in its subtitle, the closing time ("Until 16:20") and, when connected, "Connected · €X left" (the
+  budget alone on a phone, re-read after a payment in the chat); three questions
   fit the page as chips on the empty conversation only; the footer holds the composer alone (the
   budget card lives in the checkout card's overlays); a bar shows the site bag's count
   with "View bag", and the widget, the delivery block and the receipt block read as one card.
@@ -174,7 +176,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   with the page's theme, `tools/call` sent to `POST /api/ask/widget`, `ui/message` refused,
   `ui/open-link` for the store's pages only (opened as the panel opens a page, below), size
   changes clamped to 120 to 900 px; the theme follows the page's `data-theme` and the system's
-  at once. The carousel is compact (about two cards across the panel, each as tall as its
+  at once. The carousel is compact and aligned (about two cards across the panel, one height per row,
+  4:3 pictures, two-line titles, actions at the bottom, as tall as the tallest
   content) and each card has Add to bag and "View product details", which opens the product's
   page (below 1024 px the panel minimises first, and the page opens without a reload); in ChatGPT
   it opens as a link. Chromium refuses an opaque-origin frame's requests to a loopback address, so the host
@@ -204,7 +207,7 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   (`#velune-create-account`). Each `#velune-…?checkoutId=` link opens its overlay above the chat:
   a card save in Drop-in (`/api/account/card-session`, `/api/account/card-result`), a budget to
   allow (`/api/ask/connect/inline`) or to raise (`/api/account/grants/:id` with the step-up), the
-  Pay email modal on its new-account step. "Continue on website checkout" comes last, quieter,
+  Pay email modal, whose new email leads to a new account with the welcome offer. "Continue on website checkout" comes last, quieter,
   and opens `/checkout/<id>` like any store page; it is the only way the panel leaves the chat
   for the checkout. "No card is saved" shows only when the store, read with the account's token,
   lists none. A paying tap answered 401 `step_up_required` opens the chat-pay confirmation over

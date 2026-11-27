@@ -5,7 +5,7 @@ import { calculateJwkThumbprint } from "jose";
 import { findBy, get, list, put } from "../core/db";
 import { trace } from "../core/trace";
 import { secret, sha256, sha256b64url } from "../core/util";
-import { type Scope } from "./scopes";
+import type { Scope } from "./scopes";
 import {
   ACCESS_TTL,
   type Auth,
@@ -192,6 +192,20 @@ export function authenticate(
   header: string | null,
   path: ResourcePath,
 ): Auth | undefined | "invalid" {
+  const auth = peekAuth(header, path);
+  if (!auth || auth === "invalid") return auth;
+  const at = new Date().toISOString();
+  put("grants", auth.grant.id, {
+    ...auth.grant,
+    firstUsedAt: auth.grant.firstUsedAt ?? at,
+    lastUsedAt: at,
+  });
+  return auth;
+}
+
+// The same checks without marking the grant used: for a holder (the Ask session) asking whether
+// its token still works, a revoked grant included, without making the agent look active.
+export function peekAuth(header: string | null, path: ResourcePath): Auth | undefined | "invalid" {
   if (!header) return undefined;
   const match = /^Bearer\s+(\S+)$/i.exec(header);
   if (!match) return "invalid";
@@ -201,8 +215,6 @@ export function authenticate(
   if (token.resources && !token.resources.includes(`${issuer()}${path}`)) return "invalid";
   const grant = get<Grant>("grants", token.grantId);
   if (!grant || grant.revoked || !grant.customerId) return "invalid";
-  const at = new Date().toISOString();
-  put("grants", grant.id, { ...grant, firstUsedAt: grant.firstUsedAt ?? at, lastUsedAt: at });
   return { token, grant, accessToken: match[1]! };
 }
 

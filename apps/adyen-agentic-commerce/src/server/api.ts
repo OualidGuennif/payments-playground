@@ -7,6 +7,7 @@ import { askApi } from "./ask/api";
 import { consoleApi } from "./ask/console-api";
 import { voiceApi } from "./ask/voice-api";
 import { productSvg } from "./catalog/art";
+import { feedJsonl, openAiFeed } from "./catalog/openai-feed";
 import * as adyen from "./payments/adyen";
 import * as backOffice from "./back-office/back-office";
 import { productById, searchProducts, variantById, variantsOf } from "./catalog/catalog";
@@ -111,6 +112,8 @@ async function redirectFromAdyen(request: Request): Promise<Response> {
   });
 }
 
+const FEED_CACHE = "public, max-age=300";
+
 const browserApi = new Elysia({ prefix: "/api" })
   .get("/return", ({ request }) => redirectFromAdyen(request))
   .post("/return", ({ request }) => redirectFromAdyen(request))
@@ -122,6 +125,24 @@ const browserApi = new Elysia({ prefix: "/api" })
       headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=86400" },
     });
   })
+  // The OpenAI product feed, public like the shop pages; built per request from the origin.
+  .get(
+    "/feeds/openai.json",
+    () =>
+      new Response(JSON.stringify({ items: openAiFeed(config().publicOrigin) }), {
+        headers: { "content-type": "application/json", "cache-control": FEED_CACHE },
+      }),
+  )
+  .get(
+    "/feeds/openai.jsonl",
+    () =>
+      new Response(feedJsonl(openAiFeed(config().publicOrigin)), {
+        headers: {
+          "content-type": "application/jsonl; charset=utf-8",
+          "cache-control": FEED_CACHE,
+        },
+      }),
+  )
   // Read-only and public, the same facts as the shop pages: what the page's WebMCP tools search.
   .get("/catalog", ({ query }) => {
     const max = Number(query.max_price);

@@ -61,6 +61,65 @@ const SHAPES: Record<Shape, (fill: string, line: string) => string> = {
      <path d="M116 120 Q120 110 124 120" fill="none" stroke="${l}" stroke-width="5"/>
      <path d="M42 120 L24 104 M198 120 L216 104" stroke="${l}" stroke-width="5" stroke-linecap="round"/>
      <path d="M62 112 Q72 102 84 104" fill="none" stroke="#ffffff" stroke-opacity=".5" stroke-width="4"/>`,
+  blazer: (f, l) =>
+    `<path d="M90 40 L120 52 L150 40 L188 62 L200 152 L178 156 L172 106 L172 206 L68 206 L68 106 L62 156 L40 152 L52 62 Z" fill="${f}" stroke="${l}" stroke-width="3" stroke-linejoin="round"/>
+     <path d="M90 40 L104 96 L120 150 L136 96 L150 40" fill="none" stroke="${l}" stroke-width="2.5" stroke-linejoin="round"/>
+     <path d="M104 96 L94 84 M136 96 L146 84" stroke="${l}" stroke-width="2.5"/>
+     <path d="M80 168 H104 M136 168 H160" stroke="${l}" stroke-width="2.5"/>
+     <circle cx="120" cy="164" r="3.5" fill="${l}"/>`,
+  dress: (f, l) =>
+    `<path d="M96 36 Q120 50 144 36 L150 96 Q152 104 146 110 L196 208 H44 L94 110 Q88 104 90 96 Z" fill="${f}" stroke="${l}" stroke-width="3" stroke-linejoin="round"/>
+     <path d="M90 108 Q120 120 150 108" fill="none" stroke="${l}" stroke-width="2.5"/>
+     <path d="M104 116 L84 206 M120 118 V208 M136 116 L156 206 M112 117 L100 207 M128 117 L140 207" stroke="${l}" stroke-width="1.5" stroke-opacity=".7"/>`,
+  parka: (f, l) =>
+    `<path d="M96 30 Q120 18 144 30 L152 54 L190 70 L202 160 L180 164 L174 112 L172 210 L68 210 L66 112 L60 164 L38 160 L50 70 L88 54 Z" fill="${f}" stroke="${l}" stroke-width="3" stroke-linejoin="round"/>
+     <path d="M96 30 Q120 46 144 30 M88 54 Q120 76 152 54" fill="none" stroke="${l}" stroke-width="2.5"/>
+     <path d="M120 66 V210" stroke="${l}" stroke-width="2.5"/>
+     <rect x="80" y="138" width="28" height="22" rx="3" fill="none" stroke="${l}" stroke-width="2"/>
+     <rect x="132" y="138" width="28" height="22" rx="3" fill="none" stroke="${l}" stroke-width="2"/>`,
+  sneaker: (f, l) =>
+    `<path d="M34 150 Q36 112 70 104 L112 92 Q126 88 134 100 L150 122 Q190 128 206 146 Q212 160 200 166 H40 Q32 162 34 150 Z" fill="${f}" stroke="${l}" stroke-width="3" stroke-linejoin="round"/>
+     <path d="M36 158 H204" stroke="${l}" stroke-width="2.5"/>
+     <rect x="34" y="160" width="172" height="14" rx="6" fill="#f4f1ec" stroke="${l}" stroke-width="3"/>
+     <path d="M104 100 L116 124 M116 96 L128 118 M92 106 L104 128" stroke="${l}" stroke-width="2"/>`,
+  boot: (f, l) =>
+    `<path d="M84 44 H140 V138 Q178 142 196 156 Q204 166 196 174 H70 Q62 172 64 160 L74 140 Q80 120 82 96 Z" fill="${f}" stroke="${l}" stroke-width="3" stroke-linejoin="round"/>
+     <path d="M100 60 Q112 92 100 124 M124 60 Q112 92 124 124" fill="none" stroke="${l}" stroke-width="2" stroke-dasharray="4 4"/>
+     <rect x="62" y="172" width="138" height="14" rx="4" fill="${l}"/>
+     <path d="M84 44 L80 30 H92 L96 44" fill="none" stroke="${l}" stroke-width="2.5"/>`,
+  loafer: (f, l) =>
+    `<path d="M36 146 Q38 120 72 114 L126 106 Q150 104 170 118 Q204 132 206 154 Q206 168 190 170 H48 Q34 166 36 146 Z" fill="${f}" stroke="${l}" stroke-width="3" stroke-linejoin="round"/>
+     <path d="M110 112 Q150 108 176 128" fill="none" stroke="${l}" stroke-width="2.5"/>
+     <rect x="124" y="118" width="34" height="10" rx="3" fill="none" stroke="${l}" stroke-width="2.5" transform="rotate(10 141 123)"/>
+     <rect x="38" y="168" width="168" height="10" rx="4" fill="${l}"/>`,
+  backpack: (f, l) =>
+    `<path d="M92 56 Q92 32 120 32 Q148 32 148 56" fill="none" stroke="${l}" stroke-width="6"/>
+     <rect x="62" y="52" width="116" height="156" rx="26" fill="${f}" stroke="${l}" stroke-width="3"/>
+     <path d="M62 92 Q120 114 178 92" fill="none" stroke="${l}" stroke-width="2.5"/>
+     <rect x="84" y="138" width="72" height="46" rx="10" fill="none" stroke="${l}" stroke-width="2.5"/>
+     <path d="M92 150 H148" stroke="${l}" stroke-width="2"/>`,
+  bucket: (f, l) =>
+    `<path d="M70 100 L120 36 L170 100" fill="none" stroke="${l}" stroke-width="4"/>
+     <path d="M66 96 H174 L166 196 Q120 208 74 196 Z" fill="${f}" stroke="${l}" stroke-width="3" stroke-linejoin="round"/>
+     <path d="M66 110 Q120 124 174 110" fill="none" stroke="${l}" stroke-width="2.5" stroke-dasharray="5 4"/>
+     <path d="M120 112 L110 140 M120 112 L130 140" stroke="${l}" stroke-width="2.5"/>
+     <circle cx="110" cy="144" r="4" fill="${l}"/><circle cx="130" cy="144" r="4" fill="${l}"/>`,
+  sling: (f, l) =>
+    `<path d="M40 70 Q120 40 200 130" fill="none" stroke="${l}" stroke-width="6"/>
+     <path d="M58 112 Q120 84 182 112 Q196 150 176 178 Q120 196 64 178 Q44 150 58 112 Z" fill="${f}" stroke="${l}" stroke-width="3" stroke-linejoin="round"/>
+     <path d="M66 128 Q120 108 174 128" fill="none" stroke="${l}" stroke-width="2.5"/>
+     <path d="M84 156 Q120 166 156 156" fill="none" stroke="${l}" stroke-width="2"/>`,
+  tee: (f, l) =>
+    `<path d="M96 44 Q120 58 144 44 L190 66 L178 100 L162 94 L162 204 L78 204 L78 94 L62 100 L50 66 Z" fill="${f}" stroke="${l}" stroke-width="3" stroke-linejoin="round"/>
+     <path d="M96 44 Q120 66 144 44" fill="none" stroke="${l}" stroke-width="3"/>
+     <path d="M78 194 H162" stroke="${l}" stroke-width="2" stroke-dasharray="3 3"/>`,
+  kit: (f, l) =>
+    `<rect x="40" y="112" width="160" height="88" rx="14" fill="${f}" stroke="${l}" stroke-width="3"/>
+     <rect x="62" y="56" width="44" height="72" rx="10" fill="#9a6b42" stroke="${l}" stroke-width="3"/>
+     <path d="M66 128 V146 M74 128 V146 M82 128 V146 M90 128 V146 M98 128 V146" stroke="${l}" stroke-width="2"/>
+     <rect x="128" y="74" width="22" height="54" rx="3" fill="#b5653f" stroke="${l}" stroke-width="2.5"/>
+     <rect x="156" y="82" width="22" height="46" rx="3" fill="#b5653f" stroke="${l}" stroke-width="2.5"/>
+     <path d="M40 150 H200" stroke="${l}" stroke-width="2" stroke-dasharray="5 4"/>`,
 };
 
 export function productSvg(shape: Shape, colour: Colour): string {

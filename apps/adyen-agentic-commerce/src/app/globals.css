@@ -18,8 +18,27 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* Dark follows the system unless the header's switch chose light or dark (data-theme on <html>). */
+:root {
+  color-scheme: light dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-ink: #f2efe9;
+  --color-muted: #b4ada3;
+  --color-paper: #161514;
+  --color-card: #201f1d;
+  --color-line: #3a3733;
+  --color-accent: #e0a070;
+  --color-ok: #7cc48b;
+  --color-warn: #e0b057;
+  --color-bad: #f08a7a;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --color-ink: #f2efe9;
     --color-muted: #b4ada3;
     --color-paper: #161514;
@@ -82,7 +101,22 @@
     @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium;
   }
   .field {
-    @apply w-full rounded-xl border border-line bg-card text-ink px-3 py-2 text-sm outline-none focus:border-ink;
+    @apply w-full rounded-xl border border-line bg-card text-ink px-3 py-2 text-sm outline-none focus:border-ink aria-[invalid=true]:border-bad aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-bad;
+  }
+  /* A bar towards a threshold (free delivery): the bar in the accent, the rest in the line colour. */
+  .gauge {
+    @apply block h-1.5 w-full appearance-none overflow-hidden rounded-full border-0 bg-line;
+  }
+  .gauge::-webkit-progress-bar {
+    background: var(--color-line);
+  }
+  .gauge::-webkit-progress-value {
+    background: var(--color-accent);
+    border-radius: 9999px;
+  }
+  .gauge::-moz-progress-bar {
+    background: var(--color-accent);
+    border-radius: 9999px;
   }
   /* iOS Safari zooms the page into a field whose text is under 16 px. */
   @media (pointer: coarse) {
@@ -96,12 +130,31 @@
   .code {
     @apply rounded-md bg-line/60 px-1.5 py-0.5 font-mono text-[0.8em];
   }
+  /* A choice among several: filters, sizes, budgets. Pressed reads as filled. */
+  .chip {
+    @apply inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-card px-3 py-1.5 text-sm text-ink transition hover:border-ink disabled:cursor-not-allowed disabled:opacity-40 aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-paper;
+  }
 }
 
-/* The Ask panel docks on the right of a wide screen: the page makes room rather than hide under it. */
+/* The Personal Shopper docks on the right of a wide screen: the page makes room rather than hide
+   under it. */
 @media (min-width: 1024px) {
   html[data-ask="docked"] body {
-    padding-right: 420px;
+    padding-right: 440px;
+  }
+}
+/* Docked beside a page under 1280 px wide (a screen under 1720 px), the header hands the
+   departments and the Developers links to its Menu. */
+@media (min-width: 1024px) and (max-width: 1719px) {
+  html[data-ask="docked"] .header-departments,
+  html[data-ask="docked"] .header-developers {
+    display: none;
+  }
+  html[data-ask="docked"] .header-menu {
+    display: block;
+  }
+  html[data-ask="docked"] .header-actions {
+    margin-left: auto;
   }
 }
 

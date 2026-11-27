@@ -5,16 +5,26 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
+## Flagship storefront on the agentic store (ADR-019) — ACTIVE
+
+- Owner decision: 2026-11-27, in chat: implement the six-slice flagship plan and ship it to prod.
+- State: six slices plus the revoked-grant fix (4392c50, b61ae5d) on develop, Gemini Review OK,
+  `bun run check` exit 0 (831 app tests); release 0.10.0 cut, not yet pushed or merged.
+- Next: push develop, release PR v0.10.0, merge, tag, deploy, prod check (who: agent); visual yes
+  on prod and a signed-in check (who: owner).
+- Blocker: none.
+- Evidence: knowledge/components/agentic-storefront.md; ADR-019.
+
 ## Ask agent on the agentic store, a PAP agent — WAITING-OWNER
 
 - Owner decision: 2026-11-26, v0.9.1 released; same day "fixe tout": canonical host, account email
   on the receipt when signed in, delivery standard/express/pickup point with preset places, test live.
-- State: v0.9.1 live; release 0.9.3 on develop (delivery, account receipt, onrender host 308). The
+- State: v0.9.3 live (delivery, account receipt, onrender host 308; guest flows checked live). The
   voice password's value is in ask-agent.md, config.test.ts and CHANGELOG.md, repository public.
-- Next: ship v0.9.3, live test with the owner's throwaway account (who: agent and owner);
+- Next: signed-in receipt and delivery with the owner's throwaway account (who: owner, then agent);
   rotate `VOICE_MODE_PASSWORD` on Render (who: owner); Pi exemption ends 12-02.
 - Blocker: none.
-- Evidence: knowledge/current/digital-status.md (v0.9.1 deploy row); GitHub release v0.9.1.
+- Evidence: knowledge/current/digital-status.md (v0.9.3 deploy row); GitHub release v0.9.3.
 
 ## v0.7.1: ChatGPT widget fixes, card-save return, MCP stylist & ZIP — WAITING-OWNER
 

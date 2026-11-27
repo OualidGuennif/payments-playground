@@ -214,6 +214,53 @@ describe("the five stages", () => {
   });
 });
 
+describe("the shop context", () => {
+  const contextOf = (input: Partial<Parameters<typeof admit>[0]>) => {
+    const admission = admit({
+      session: askSession("cus_ctx").session,
+      text: "is this warm enough?",
+      via: "text",
+      limits: askLimits(),
+      regular: false,
+      address: randomIp(),
+      storeHost: HOST,
+      ...input,
+    });
+    if (admission.kind !== "admitted") throw new Error(admission.kind);
+    return /<shop_context>(.*)<\/shop_context>/.exec(admission.text)?.[1] ?? "";
+  };
+
+  test("names the piece viewed, the account and what the agent may pay", () => {
+    const shown = contextOf({
+      page: "/products/velune-trench",
+      account: { remaining: 12_345, pay: true, cards: 2 },
+    });
+    expect(shown).toContain("viewing: Linen-blend trench coat (velune-trench)");
+    expect(shown).toContain("signed in: yes");
+    expect(shown).toContain("account connected: yes");
+    expect(shown).toContain("autonomous pay: yes");
+    expect(shown).toContain("budget left: €123.45");
+    expect(shown).toContain("saved cards: 2");
+  });
+
+  test("no grant, a spent budget or a product that does not exist add nothing", () => {
+    const none = contextOf({ page: "/products/velune-nothing" });
+    expect(none).not.toContain("viewing:");
+    expect(none).toContain("autonomous pay: no");
+    expect(none).not.toContain("budget left");
+    const spent = contextOf({ account: { remaining: 0, pay: true } });
+    expect(spent).toContain("autonomous pay: no");
+    expect(spent).toContain("budget left: €0.00");
+  });
+
+  test("a grant revoked since the session connected reads as not connected", () => {
+    const flagged = { ...askSession("cus_ctx").session, connected: { at: Date.now() } };
+    const shown = contextOf({ session: flagged });
+    expect(shown).toContain("account connected: no");
+    expect(shown).toContain("autonomous pay: no");
+  });
+});
+
 describe("after the agent", () => {
   test("the canary in an answer locks the session", async () => {
     faux.setResponses([verdict("allow")]);

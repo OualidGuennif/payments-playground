@@ -432,6 +432,39 @@ export function voiceEvent(raw: unknown): VoiceEvent | undefined {
   return undefined;
 }
 
+export type MicrophonePermission = "granted" | "denied" | "prompt" | undefined;
+
+// Why the microphone did not start, in words the shopper can act on. Each getUserMedia error
+// name is one cause; "blocked for this site" is said only when the browser reports the site's
+// permission as denied, so a system setting or a missing or busy microphone is never sent to the
+// site's settings. `capable` is false where the page has no microphone API at all (an insecure
+// page or an in-app browser).
+export function microphoneProblem(
+  error: string | undefined,
+  permission: MicrophonePermission,
+  capable: boolean,
+): string {
+  if (!capable)
+    return "This browser gives the page no microphone. Open the store in Safari, Chrome, Firefox or Edge, then try again.";
+  switch (error) {
+    case "NotAllowedError":
+    case "SecurityError":
+      if (permission === "denied")
+        return "The microphone is blocked for this site. Allow it in the site's settings in your browser, then try again.";
+      if (permission === "granted")
+        return "Your system keeps the browser from the microphone. Allow the browser in the system's privacy settings, then try again.";
+      return "The microphone was not allowed. Try again and allow it when the browser asks; if it does not ask, allow the browser in the system's privacy settings.";
+    case "NotFoundError":
+    case "OverconstrainedError":
+      return "No microphone was found. Connect one, then try again.";
+    case "NotReadableError":
+    case "AbortError":
+      return "The microphone could not start; another app may be using it. Close that app, then try again.";
+    default:
+      return "The microphone could not start. Check the browser's and the system's microphone settings, then try again.";
+  }
+}
+
 export type Caption = { who: "you" | "assistant"; text: string };
 const CAPTION_MAX = 180;
 
@@ -459,6 +492,53 @@ export const launcherNext = (state: PanelState): PanelState =>
 // px it is docked beside the page and stays.
 export const afterPage = (state: PanelState, docks: boolean): PanelState =>
   state === "open" && !docks ? "minimised" : state;
+
+// Below 1024 px a product or checkout page the shopper opens shows whole: the sheet steps aside
+// to its minimised pill. From 1024 px the rail sits beside the page and stays open.
+export const afterNavigation = (state: PanelState, docks: boolean, path: string): PanelState =>
+  state === "open" && !docks && /^\/(products|checkout)\//.test(path) ? "minimised" : state;
+
+// Cmd+K or Ctrl+K: a closed or minimised panel opens on the composer; an open one takes the
+// composer's focus first, and minimises when the composer already had it.
+export function shortcutNext(
+  state: PanelState,
+  composerFocused: boolean,
+): { state: PanelState; focus: boolean } {
+  if (state !== "open") return { state: "open", focus: true };
+  return composerFocused ? { state: "minimised", focus: false } : { state: "open", focus: true };
+}
+
+// What the page is, in the panel's header, and the questions worth one tap there.
+export function pageHelp(path: string): { context: string; chips: string[] } {
+  if (path.startsWith("/products/"))
+    return {
+      context: "Here to help with this piece",
+      chips: ["Does it run true to size?", "What goes with it?", "Show me the other colours"],
+    };
+  if (path.startsWith("/checkout/"))
+    return {
+      context: "Questions on delivery or payment?",
+      chips: ["Which delivery is fastest?", "Can I return it?", "Is the payment real?"],
+    };
+  if (path === "/cart")
+    return {
+      context: "Let's finish your bag",
+      chips: ["What goes with my bag?", "How far from free delivery?", "Check out my bag"],
+    };
+  if (path === "/shop")
+    return {
+      context: "Ask for a style, a size or a budget",
+      chips: ["What's new?", "A gift under €100", "Something for a summer wedding"],
+    };
+  return {
+    context: "Your stylist and shop assistant",
+    chips: [
+      "Show me the collection",
+      "What goes with the wide-leg wool trousers?",
+      "Find me a gift for a weekend away",
+    ],
+  };
+}
 
 export const savedState = (value: string | null): PanelState =>
   value === "1" ? "open" : value === "min" ? "minimised" : "closed";

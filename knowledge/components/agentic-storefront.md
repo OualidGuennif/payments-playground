@@ -1,0 +1,172 @@
+---
+type: Component
+title: "Agentic storefront: the flagship pages, the 30-piece catalogue, its OpenAI product feed and the Personal Shopper's place on the page"
+description: "The human face of the agentic store: catalogue data, product feed, header and Developers menu, GSAP motion, cart and unified checkout, and the Personal Shopper rail and sheet (ADR-019)."
+tags: [component, agentic, storefront, catalog, feed, gsap, checkout]
+status: draft
+scope: component-agentic-storefront
+generated:
+  by: claude-code/opus-5.5
+  at: 2026-11-27T00:50:00Z
+sources:
+  - id: adr
+    resource: ../decisions/ADR-019-flagship-storefront.md
+    title: "ADR-019: why the flagship storefront, the feed, GSAP and the inline Personal Shopper"
+  - id: store
+    resource: ./adyen-agentic-commerce.md
+    title: "The store's spec: UCP, MCP, PAP, accounts, payments (unchanged by this doc)"
+  - id: ask
+    resource: ./ask-agent.md
+    title: "The Ask agent's spec: the chat behind the Personal Shopper"
+  - id: catalog
+    resource: ../../apps/adyen-agentic-commerce/src/server/catalog
+    title: "The catalogue data (products.ts: 30 products, colours, sizes, feed attributes) and the OpenAI feed (openai-feed.ts)"
+  - id: pages
+    resource: ../../apps/adyen-agentic-commerce/src/app/page.tsx
+    title: "The home page"
+  - id: shop
+    resource: ../../apps/adyen-agentic-commerce/src/app/shop
+    title: "The shop page (filters in components/shop/ShopBrowser.tsx)"
+  - id: product
+    resource: ../../apps/adyen-agentic-commerce/src/app/products
+    title: "The product page"
+  - id: components
+    resource: ../../apps/adyen-agentic-commerce/src/components
+    title: "Storefront components: ProductCard, VariantPicker, DevelopersMenu, ThemeSwitch, shop/, motion/ (GSAP)"
+  - id: developer-links
+    resource: ../../apps/adyen-agentic-commerce/src/lib/developerLinks.ts
+    title: "The Developers menu's links, shared by the header and the mobile menu"
+  - id: theme
+    resource: ../../apps/adyen-agentic-commerce/src/lib/theme.ts
+    title: "The theme's storage key and the head script that applies it before first paint"
+  - id: test-cards
+    resource: ../../apps/adyen-agentic-commerce/src/lib/testCards.ts
+    title: "The Adyen TEST cards shown beside Drop-in on the checkout"
+  - id: openai-feed
+    resource: https://developers.openai.com/commerce/specs/feed
+    title: "OpenAI: product feed schema (read 2026-11-27)"
+---
+
+# Agentic storefront
+
+## Intent
+
+The store a person sees at `agentic.payments-playground.com`: a modern editorial fashion
+storefront where a shopper browses, asks the Personal Shopper, and pays on Adyen TEST without
+being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as before
+([store spec](adyen-agentic-commerce.md)); they get the richer catalogue for free. Owner decision
+2026-11-27 ([ADR-019](../decisions/ADR-019-flagship-storefront.md)).
+
+## Data sources
+
+| Source                                  | What is read                                                | Owner | Freshness          |
+| --------------------------------------- | ----------------------------------------------------------- | ----- | ------------------ |
+| `src/server/catalog/products.ts`        | 30 products: ids, colours, sizes, prices, feed attributes   | Repo  | Shipped with build |
+| `src/server/catalog/art.ts`             | One original SVG drawing per product shape and colour       | Repo  | Shipped with build |
+| The site session and the Ask session    | Signed in or not, the account email, an agent connection    | App   | Per request        |
+
+## Inputs
+
+- **Shopper:** category, search and filter choices; colour and size; bag edits; delivery choice;
+  an email when paying as a guest; Drop-in; the Personal Shopper's messages and one-click budget.
+- **Feed reader:** `GET /api/feeds/openai.json` and `GET /api/feeds/openai.jsonl`, no credentials.
+
+## Outputs and refusals
+
+- **Catalogue:** five categories in this order: clothing, footwear, bags, accessories, essentials
+  (9, 5, 6, 6 and 4 pieces). Every product has a subtitle, a description of two or three
+  sentences, material, care, fit, origin, three highlights, gender, weight in grams, packed
+  dimensions in centimetres and a demo rating with a review count, shown as demo data. A markdown
+  keeps the paid price in `price` and the earlier one in `compareAt`. Pictures are the SVG drawings
+  at `/api/art/<variant>.svg`.
+- **Product feed:** one row per variant with the spec's current names: `item_id` (the variant id),
+  `group_id` (the product id), `listing_has_variations`, `variant_dict` (colour and size), `title`,
+  `description`, `url`, `brand`, `seller_name`, `seller_url`, `image_url` (the SVG drawing; the
+  spec's examples are JPEG and PNG, so a reader that wants a photograph gets none), `availability`
+  (`in_stock` or `out_of_stock`), `price` as "amount EUR" (the price before a markdown when there is
+  one, with `sale_price` the paid price), `gtin` (a valid EAN-13 in GS1's 200 to 299 in-store
+  range, stable per variant id), `mpn`, `condition`, `product_category`, `color`, `size`,
+  `size_system` (EU, absent for one size), `gender`, `age_group`, `material`, `pattern`, `weight`
+  with `item_weight_unit` (g), `dimensions` (cm), `target_countries` and `store_country` (FR),
+  `shipping_price` (standard delivery, free from 100 EUR), `accepts_returns`,
+  `return_deadline_in_days` (30), `return_policy` (`/legal#returns`), `review_count`,
+  `star_rating`, `is_eligible_search`, `is_eligible_checkout`, `seller_privacy_policy` and
+  `seller_tos`. No `additional_image_urls`: each variant has one drawing. JSON answers
+  `{ "items": [...] }`; JSONL one row per line. Both are public and cacheable for 300 s.
+- **Header:** a thin TEST bar; the wordmark (ATELIER VELUNE, VELUNE under 640 px); New and the
+  five departments from 1280 px; on the right the Personal Shopper, a Developers menu from 1024 px
+  (Connect an agent, Technical docs, Back Office, OpenAI product feed, Agent console), the theme
+  switch (system, light, dark, kept in `localStorage` and applied by a head script before the
+  first paint), the bag with its count and the account. Below 1280 px the Menu holds the
+  departments, the Developers links, the theme and the account.
+- **Home:** a hero (GSAP), five department tiles, New and trending (badged pieces, New first), a
+  Personal Shopper section whose prompts open the panel with the question in its composer (never
+  sent by itself), and a "Built for humans and AI agents" band (MCP address, feed links).
+- **Shop:** every filter applies in the browser as the shopper taps or types (department, New in,
+  for women or men, price band, on sale, colour, size; sort featured, new, price, rating) and the
+  address follows (`/shop?category=…&q=…` and the rest), so links and the Personal Shopper's
+  `open_page` open the same view; 2 columns, 3 from 768 px, 4 from 1280 px; under 1024 px the
+  filters are a bottom sheet.
+- **Product page:** sticky picture with colour thumbnails, badge, demo rating labelled "(demo
+  data)", price with the struck earlier price on a markdown, colour swatches, a size grid, Add to
+  bag, "Ask your Personal Shopper about this piece", folds (details, material and care, fit,
+  delivery and returns), an "OpenAI feed & UCP data" fold with the variant's UCP id and feed row,
+  and Complete the look (the best-rated piece of up to four other departments that suits the same
+  shopper).
+- **Bag:** two columns from 1024 px (lines, then a sticky summary); each line has its drawing,
+  colour and size, a quantity stepper (1 to 10) and Remove; the summary shows how far the bag is
+  from free standard delivery (`FREE_SHIPPING_FROM`, the server's own threshold), the subtotal and
+  an estimated total with standard delivery. It asks for no email and sends none.
+- **Checkout:** the title, then two columns from 1024 px: the steps Contact, Delivery and Payment,
+  and a sticky order summary (above the steps on a phone). A signed-in shopper's receipt goes to
+  their account email, labelled "Your account", and they are never asked for one. A guest types
+  one beside a "Pay €X" button: Pay with an empty or malformed email marks the field (red border,
+  message tied to it), scrolls it into view, focuses it and shakes it (no shake under reduced
+  motion); a valid one is saved (`POST /api/checkouts/:id/email`, whose refusal shows on the field
+  the same way) and Drop-in opens in its place and scrolls into view. Below Drop-in, four Adyen
+  TEST cards (`src/lib/testCards.ts`, the values of `packages/ui/testData.ts`) copy without spaces.
+- **Personal Shopper:** the Ask panel under its new name: a 440 px rail from 1024 px, a sheet of
+  55 or 92 % of the screen below, Cmd/Ctrl+K, a header line and three questions per kind of page,
+  the bag's count, and the widget with its delivery and receipt blocks as one card; it reads the
+  site session as soon as it changes and steps aside on a phone when a product or checkout page
+  opens ([Ask spec](ask-agent.md), Panel).
+
+## Invariants
+
+1. The 13 product ids and their variant ids that existed before ADR-019 stay. Test:
+   `src/server/ucp/ucp-shapes.test.ts` "search pages ten by default and its cursor walks the rest
+   once" (every product listed once across pages).
+2. Category filters on MCP, UCP REST and WebMCP accept the five categories. Tests:
+   `src/server/ucp/identity.test.ts` "search reads UCP's categories (any of) and price range; the
+   old category still works"; `src/lib/webmcp.test.ts` "search returns compact products within
+   1.5K, filtered like the shop".
+3. Motion never runs under `prefers-reduced-motion: reduce`.
+4. A signed-in shopper is never asked to sign in or for an email by the cart, the checkout or the
+   Personal Shopper. Tests: `src/server/ask/agent.test.ts` "a signed-in shopper is never sent to a
+   sign-in form", "a signed-in shopper's receipt email"; `src/server/ask/api.test.ts` "a signed-in
+   shopper's checkout carries their account email from the start, masked".
+5. Ratings and review counts are labelled demo data wherever a person reads them.
+6. The feed has one row per variant, unique ids, valid and unique EAN-13s in the 200 range, the
+   spec's names and money format, and the same rows in JSON and JSONL. Tests:
+   `src/server/catalog/openai-feed.test.ts` (six tests).
+7. The shop's filters keep only matching pieces, split prices into bands that cover every piece
+   once, read a plural search word as its singular and sort without reordering the catalogue.
+   Tests: `src/components/shop/filter.test.ts` (seven tests).
+8. The checkout's test cards are Adyen's published TEST numbers, the same values as the suite's
+   shared list. Test: `src/lib/testCards.test.ts`.
+
+## Determinism
+
+The catalogue and the feed are pure functions of the build and `PUBLIC_ORIGIN`.
+
+## Acceptance checks
+
+- `bun run check` green; the invariants' tests pass.
+- In a browser at 375 and 1440 px, light and dark: home, shop, a product page, cart and checkout
+  read cleanly; a guest pressing Pay with no email is taken to the field; a signed-in shopper is
+  never asked who they are.
+
+## Out of scope
+
+Photographs (the SVG drawings stay until real pictures exist); `apps/adyen-digital`,
+`apps/adyen-v6-styling` and `apps/landing`; any change to the agent protocols' contracts.

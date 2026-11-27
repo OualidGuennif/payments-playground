@@ -1,7 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // Adyen's HMAC-checked notifications, which settle payments and orders.
 import { findBy, get, put } from "../core/db";
-import * as adyen from "../payments/adyen";
+import type * as adyen from "../payments/adyen";
 import { type Checkout, now, type Order, type PaymentRecord } from "./model";
 import { saveCheckout } from "./checkouts";
 import { mayPay, refusalReopens } from "./lock";

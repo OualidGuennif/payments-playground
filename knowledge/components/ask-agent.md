@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T16:30:00Z
+  at: 2026-11-27T01:28:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -76,7 +76,11 @@ voice mode (GPT-Live) talks to the same agent through the same gate.
   one, ending the current); `POST /api/ask/session/end`.
 - **Connect** `POST /api/ask/connect` (signed in only) starts a device sign-in for the house
   client and returns the store's `/device` URL with the user code filled in; `GET /api/ask/connect`
-  polls it. Tokens never leave the server.
+  polls it. Tokens never leave the server. **One click** `POST /api/ask/connect/inline`
+  `{ spendLimit }` (EUR minor units, an integer from 100 to 100,000; else `invalid_budget` 400),
+  same checks as connect: the house client's device request is approved at once for the session's
+  signed-in shopper with that budget (`decide`, traced as a consent on this path) and redeemed, so
+  the grant is a real one the account page lists and revokes; answered `{ state }`.
 - **Widget action** `POST /api/ask/widget` `{ name, arguments }` from a widget in the panel: a
   shopper's tap, forwarded to `/mcp` as the session's identity, allowlist below. A widget's
   `ui/message` is refused: a widget never writes to the agent.
@@ -129,10 +133,17 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   signed-in account's email masked (first letter and domain, `b•••@example.com`), for the receipt
   block only.
   A shopper never sees scores, verdicts, models, costs or other sessions.
-- **Panel:** an "Ask" button in the header (icon only under 640 px) opens a right sidebar of
-  420 px; from 1024 px the page makes room for it, from 768 px it overlays, below it is a sheet
-  over a dimmed page; full screen on demand; Escape minimises it; it reopens, open or minimised,
-  after a reload in the same tab. It is absent on `/console`, `/back-office`, `/consent`,
+- **Panel:** the Personal Shopper (ADR-019). A "Personal Shopper" button in the header (icon only
+  under 640 px) or Cmd/Ctrl+K opens it on the composer (the shortcut minimises it from the
+  composer; `askLogic.test.ts` "Cmd or Ctrl+K"). From 1024 px it is a 440 px rail and the page makes
+  room for it (the header then hands its departments and Developers links to the Menu below a
+  1720 px screen); below, a sheet of 55 % of the screen over a dimmed page, 92 % with "Make it
+  bigger", which is full screen from 1024 px. Below 1024 px a product or checkout page the shopper
+  opens minimises it (`askLogic.test.ts` "below 1024 px a product or checkout page"). Its header
+  names the page's help ("Here to help with this piece" and so on), three questions fit the page
+  as chips (empty conversation, and above the composer after), a bar shows the site bag's count
+  with "View bag", and the widget, the delivery block and the receipt block read as one card.
+  Escape minimises it; it reopens, open or minimised, after a reload in the same tab. It is absent on `/console`, `/back-office`, `/consent`,
   `/device` and `/oauth`. Answers are light Markdown parsed to data and drawn by React (no HTML;
   a link opens in place only to a page `open_page` may open, the list of invariant 21; any other
   address, the owner's pages and a path whose dot segments collapse into `//` show as plain text). Each widget runs in a sandboxed
@@ -164,18 +175,26 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   `/cart`) takes its lines and the open checkout page hears of it at once; a completed bag empties
   the site's bag. The agent hears the site's bag in `<shop_context>` as `bag:` with catalogue titles
   and ids; on a `/checkout/chk_…` page, that checkout's lines instead (open, and the session's
-  account's or no account's).
+  account's or no account's). It also hears `viewing:` (a product page's title, id and subtitle),
+  `signed in`, `account connected` (a live grant read at that message, like the console's
+  `connected`), `autonomous pay` (yes only with a live grant that may pay, budget
+  left and normal mode), `budget left` and `saved cards` (counted, for a connected session only);
+  the prompt (agent `ask-5`, "Personal Shopper") never asks a signed-in shopper to sign in or for an
+  email (`ask/pipeline.test.ts` "the shop context").
   When voice is offered, a round icon of five bars beside Send shows from the panel's first
   opening, before any message; it asks for the password (unlocking starts the conversation when
   none runs), then starts a
-  call (microphone, WebRTC to OpenAI with the server's answer, a data channel that only listens);
-  while the call runs its bars move (still with reduced motion) and it hangs up, a microphone
+  call (microphone, WebRTC to OpenAI with the server's answer, a data channel that only listens).
+  A microphone that does not start names its cause: blocked for the site only when the browser
+  reports the site's permission as denied, else the system's privacy settings, an unanswered
+  prompt, no microphone, one busy in another app, or a browser that gives the page none
+  (`askLogic.test.ts` "microphone problems"). While the call runs its bars move (still with reduced motion) and it hangs up, a microphone
   button on its left mutes and unmutes the shopper (the call and its minutes go on), and a bar
   above the composer shows the countdown, the last caption and End; the composer waits and the
   conversation refreshes every 3 s. Closing the panel, a page without it, an inactive session or
   voice no longer offered (out of normal mode) hangs up. A call's end is a note "Voice call ended".
-  **Minimised:** the header's "Minimise" button, Escape, or the site header's Ask button while the
-  panel is open shrinks it to a bar at the bottom right (full width under 768 px) that hides the
+  **Minimised:** the header's "Minimise" button, Escape, or the site header's Personal Shopper
+  button while the panel is open shrinks it to a bar at the bottom right (full width under 1024 px) that hides the
   conversation and keeps everything else running: an answer being written, a voice call, the
   widget, a device sign-in. The bar shows the title, what the assistant is doing or the start of
   its last answer (two lines), the voice bar with its countdown and End while a call runs, and the
@@ -232,7 +251,12 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
    handing the checkout to the shopper always passes; the door reads the instruments where the
    store does (`checkout.payment`), and a top-level `payment` too. Beside them it has one house
    tool, `open_page` (invariant 21), which calls nothing and only names a store page. The house client's tokens live in the
-   process's memory only; ending a session revokes its grant. Test: `ask/agent.test.ts` "guest
+   process's memory only, so a restart forgets a connection and the shopper connects again (the
+   storefront plan's SQLite link would have stored them: not done); ending a session revokes its
+   grant, and a grant the shopper disconnects on the account page ends the chat's connection at
+   its next read (the session then reads as not connected and may connect again; the check never
+   marks the agent used). Test: `ask/api.test.ts` "one click in the chat connects with the budget
+   picked". Test: `ask/agent.test.ts` "guest
    has no token", "pay tools only when connected and normal", "no tool runs outside a shopper
    message"; `ask/house.test.ts`.
 3. **Five stages, in order, every message,** typed or voiced. A
@@ -364,7 +388,11 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     The block's sign-in posts to the store's own session and passkey routes, like `/sign-in`; the
     conversation only gains the note "Signed in". It counts as signed in only on an answer that
     names the customer, and a passkey picked after the sign-in step was left signs in without
-    setting the email. Test: `ask/api.test.ts` "receipt email"; `lib/signIn.test.ts`.
+    setting the email. A signed-in session never needs the block: a guest checkout it starts or
+    changes (`create_checkout`, `update_checkout`, from the agent or a widget) gets the account's
+    email put in by the in-process door, never by the model, which reads it masked. Test:
+    `ask/api.test.ts` "receipt email"; `ask/agent.test.ts` "a signed-in shopper's receipt email";
+    `lib/signIn.test.ts`.
 20. **The bag fact is the store's own words:** `bag:` in `<shop_context>` names only catalogue
     titles, ids and quantities, from lines the server checked (or read from the checkout), never
     the shopper's text; a checkout of another account adds nothing. Test: `ask/context.test.ts`
@@ -372,7 +400,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
 21. **The agent opens only this store's pages:** `open_page { path }` takes a path, or an address
     on `PUBLIC_ORIGIN`, matching `/`, `/shop` (query `category`, `q`), `/products/<id>` (query
     `variant`), `/cart`, `/checkout/<id>`, `/orders/<id>`, `/account`, `/agents`, `/docs`,
-    `/docs/<topic>`, `/legal`, `/sign-in` or `/sign-up`, with at most a `#section`; any other
+    `/docs/<topic>`, `/legal`, `/sign-in` or `/sign-up` (these two never for a signed-in session:
+    "already signed in"), with at most a `#section`; any other
     path, query parameter or origin is refused with a sentence the model reads, so `/consent`,
     `/device`, `/oauth`, `/console`, `/back-office`, `/api` and `/mcp` never open. It opens
     nothing itself: a message's last accepted page rides on its `final` event only when stage 5

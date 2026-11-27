@@ -11,6 +11,7 @@ import {
   choose,
   contextDataFor,
   contextFor,
+  GENERAL_PROBLEM,
   inlineImage,
   offered,
   payCall,
@@ -18,6 +19,7 @@ import {
   quantityCall,
   refreshCheckoutCall,
   searchCall,
+  shopperNote,
   type UcpProduct,
   variantFor,
 } from "./logic";
@@ -142,10 +144,24 @@ describe("views of UCP answers", () => {
       ],
     });
     expect(bag.codes).toContain("spend_limit_exceeded");
+    // A code the widget has no words for gets a general sentence, never the store's own text.
     expect(bag.problems).toEqual([
       "Something in your bag has just sold out. Remove it to go on.",
-      "A message the widget has no words for",
+      GENERAL_PROBLEM,
     ]);
+    expect(bag.problems.join(" ")).not.toContain("trench-sand");
+  });
+
+  test("no store message reaches the shopper in the store's own words", () => {
+    const bag = checkout("incomplete", {
+      messages: [
+        { type: "error", code: "missing_buyer_email", content: "buyer.email is required" },
+        { type: "error", content: "A message with no code" },
+      ],
+    });
+    expect(bag.problems).toEqual(["The store needs an email for the receipt.", GENERAL_PROBLEM]);
+    expect(shopperNote("spend_limit_exceeded")).toBeNull();
+    expect(shopperNote(undefined)).toBe(GENERAL_PROBLEM);
   });
 
   test("a payment already running reads in words, though UCP sends it as info", () => {

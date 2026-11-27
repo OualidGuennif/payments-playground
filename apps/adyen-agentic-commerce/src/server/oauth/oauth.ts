@@ -48,6 +48,7 @@ export {
   grants,
   jwkThumbprint,
   liveAuth,
+  peekAuth,
   revokeEndpoint,
   tokenEndpoint,
   updateGrant,

@@ -83,7 +83,7 @@ export function AskDelivery({
   };
 
   return (
-    <section className="rounded-2xl border border-line bg-card p-3.5 text-sm">
+    <section className="p-3.5 text-sm">
       <DeliveryPicker
         value={shown.delivery}
         subtotal={shown.subtotal}

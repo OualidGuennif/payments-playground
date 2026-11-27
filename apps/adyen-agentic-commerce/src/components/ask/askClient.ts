@@ -93,6 +93,14 @@ export function setAskState(next: PanelState) {
   for (const listener of listeners) listener();
 }
 
+// A page's button that asks the Personal Shopper about something: the panel opens with the
+// question in its composer, for the shopper to send or change. Nothing is sent by itself.
+export const ASK_ABOUT_EVENT = "velune-ask-about";
+export function askAbout(text: string) {
+  setAskState("open");
+  window.dispatchEvent(new CustomEvent<string>(ASK_ABOUT_EVENT, { detail: text }));
+}
+
 // The state now, held in memory: it stays right when storage is refused.
 export const askState = () => state;
 

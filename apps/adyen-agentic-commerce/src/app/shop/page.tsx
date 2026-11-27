@@ -1,61 +1,43 @@
-// Spec: knowledge/components/adyen-agentic-commerce.md
-import Link from "next/link";
-import { ProductCard } from "@/components/ProductCard";
-import { searchProducts } from "@/server/catalog/catalog";
+// Spec: knowledge/components/agentic-storefront.md
+import { shopItemOf } from "@/components/cardOf";
+import { ShopBrowser } from "@/components/shop/ShopBrowser";
+import type { ShopItem, ShopQuery } from "@/components/shop/filter";
+import { CATEGORIES, PRODUCTS } from "@/server/catalog/catalog";
 
 export const metadata = { title: "Shop" };
 
-const CATEGORIES = [
-  ["", "All"],
-  ["clothing", "Clothing"],
-  ["bags", "Bags"],
-  ["accessories", "Accessories"],
+const KEYS = [
+  "category",
+  "q",
+  "collection",
+  "gender",
+  "price",
+  "colour",
+  "size",
+  "sale",
+  "sort",
 ] as const;
+
+const ITEMS: ShopItem[] = PRODUCTS.map(shopItemOf);
 
 export default async function Shop({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; q?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { category = "", q = "" } = await searchParams;
-  const products = searchProducts(q, { category: category || undefined });
+  const params = await searchParams;
+  const initial: ShopQuery = {};
+  for (const key of KEYS) {
+    const value = params[key];
+    if (typeof value === "string" && value.length <= 120) initial[key] = value;
+  }
+  // Keyed by the address: a header link to another department starts from its own filters.
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl">The collection</h1>
-      <div className="flex flex-wrap items-center gap-2">
-        {CATEGORIES.map(([id, label]) => (
-          <Link
-            key={id}
-            href={id ? `/shop?category=${id}` : "/shop"}
-            aria-current={category === id ? "page" : undefined}
-            className={category === id ? "btn px-4 py-1.5" : "btn-ghost px-4 py-1.5"}
-          >
-            {label}
-          </Link>
-        ))}
-        <form className="ml-auto w-full sm:w-64" action="/shop">
-          {category ? <input type="hidden" name="category" value={category} /> : null}
-          <label className="sr-only" htmlFor="q">
-            Search
-          </label>
-          <input
-            id="q"
-            name="q"
-            defaultValue={q}
-            placeholder="Search: wool, leather…"
-            className="field"
-          />
-        </form>
-      </div>
-      {products.length ? (
-        <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} heading="h2" />
-          ))}
-        </div>
-      ) : (
-        <p className="text-muted">Nothing matches. Try another word.</p>
-      )}
-    </div>
+    <ShopBrowser
+      key={JSON.stringify(initial)}
+      items={ITEMS}
+      categories={CATEGORIES}
+      initial={initial}
+    />
   );
 }

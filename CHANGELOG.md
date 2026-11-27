@@ -5,6 +5,45 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-27
+
+- The agentic store's Ask panel is now the Personal Shopper everywhere. From 1024 px it is a 440 px
+  rail beside the page (Cmd/Ctrl+K opens it on the composer); on a phone it is a sheet of 55 % of
+  the screen, 92 % on demand, that steps aside when a product or checkout page opens. Its header
+  and three suggested questions follow the page, a bar shows the bag's count, and the store's
+  widget, delivery and receipt blocks read as one card. The widget never shows the store's
+  agent-facing messages: every code gets plain words, and an unknown one a general sentence.
+- The agentic store's bag and checkout are redone. The bag no longer prefills a demo email, shows
+  how far it is from free standard delivery and gets a quantity stepper. The checkout puts Contact,
+  Delivery and Payment beside a sticky order summary, labels a signed-in shopper's account email,
+  and lists Adyen TEST cards that copy in one tap. A guest who presses Pay without a valid email
+  is taken to the field, marked and focused; once it is valid, Drop-in opens in place.
+- The agentic store gets a new storefront: a header with New, the five departments, a Developers
+  menu and a light, dark or system theme; a home page with a hero, department tiles, New and
+  trending and a Personal Shopper section; a shop whose filters (department, price, colour, size,
+  sale, sort, search) apply as the shopper taps and keep the address in step; and a product page
+  with a sticky picture, swatches, a size grid, folds, the variant's feed row and Complete the
+  look. GSAP motion stays off under reduced motion.
+- The agentic store's assistant becomes the Personal Shopper and follows the site's session: it
+  reads the session again on a sign-in or sign-out (this page or another tab), never asks a
+  signed-in shopper to sign in or for an email, and puts the account's email on the receipt of
+  every checkout it starts. A signed-in shopper lets it pay with one click and a budget (€50,
+  €150, €300, €500 or another amount) in the chat: a real grant, traced as a consent and
+  revocable on the account page. The agent hears the piece viewed, whether it may pay on its own,
+  the budget left and the number of saved cards.
+- The agentic store publishes its catalogue as an OpenAI product feed at `/api/feeds/openai.json`
+  and `/api/feeds/openai.jsonl`: one row per variant with the spec's current field names, stable
+  EAN-13s in GS1's in-store range, shipping and returns. The terms page gains a Returns section.
+- The agentic store's catalogue grows from 13 to 30 products in five categories (clothing,
+  footwear, bags, accessories, essentials), each with material, care, fit, origin, highlights,
+  weight, parcel size and demo ratings; the 13 earlier ids and variants are unchanged and new
+  drawings cover the new shapes. MCP, UCP REST and WebMCP filters take the five categories.
+  `gsap` 3.15.1 and `@gsap/react` 2.1.2 join the store's dependencies (ADR-019).
+- The Ask agent's voice call names why the microphone did not start. Every failure used to read
+  "The microphone is blocked. Allow it for this site", even when the site was allowed and the
+  system's privacy settings, a missing microphone or another app held it; now "blocked for this
+  site" shows only when the browser reports that site permission as denied.
+
 ## [0.9.3] - 2026-11-26
 
 - The agentic store answers its pages under one name only: a page asked under Render's own

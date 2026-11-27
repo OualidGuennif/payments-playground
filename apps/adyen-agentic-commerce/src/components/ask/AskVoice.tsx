@@ -229,7 +229,7 @@ export function VoiceButton({ voice }: { voice: Voice }) {
   const label = voice.calling
     ? "End the voice call"
     : voice.unlocked
-      ? "Talk with the assistant"
+      ? "Talk with your Personal Shopper"
       : "Voice: unlock with the demo password";
   return (
     <button

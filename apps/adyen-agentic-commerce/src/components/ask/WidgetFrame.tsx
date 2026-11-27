@@ -198,11 +198,11 @@ export function WidgetFrame({
   }, [feed, push]);
 
   const title = widgetName(feed.at(-1)?.resourceUri ?? uri);
-  if (failed) return <p className="text-xs text-muted">{title} could not be shown here.</p>;
+  if (failed) return <p className="p-3.5 text-xs text-muted">{title} could not be shown here.</p>;
   if (!frame)
     return (
       <div
-        className="h-40 animate-pulse rounded-xl border border-line bg-line/40 motion-reduce:animate-none"
+        className="h-40 animate-pulse bg-line/40 motion-reduce:animate-none"
         role="status"
         aria-label={`Loading ${title.toLowerCase()}`}
       />
@@ -214,7 +214,7 @@ export function WidgetFrame({
       sandbox="allow-scripts"
       srcDoc={frame.html}
       height={height}
-      className="block w-full rounded-xl border border-line bg-card"
+      className="block w-full bg-card"
     />
   );
 }

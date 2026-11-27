@@ -17,11 +17,15 @@ import {
   receiptNeeded,
   widgetOfTool,
   MAX_INLINE_IMAGES,
+  microphoneProblem,
   nextCaption,
   parseEvents,
   linkPath,
   launcherNext,
   afterPage,
+  afterNavigation,
+  pageHelp,
+  shortcutNext,
   type SessionView,
   voiceShown,
   savedState,
@@ -238,6 +242,29 @@ describe("the panel's states", () => {
     expect(afterPage("minimised", true)).toBe("minimised");
   });
 
+  test("below 1024 px a product or checkout page the shopper opens minimises the sheet", () => {
+    expect(afterNavigation("open", false, "/products/velune-trench")).toBe("minimised");
+    expect(afterNavigation("open", false, "/checkout/chk_1")).toBe("minimised");
+    expect(afterNavigation("open", false, "/shop")).toBe("open");
+    expect(afterNavigation("open", true, "/products/velune-trench")).toBe("open");
+    expect(afterNavigation("closed", false, "/checkout/chk_1")).toBe("closed");
+  });
+
+  test("Cmd or Ctrl+K opens on the composer, then minimises from it", () => {
+    expect(shortcutNext("closed", false)).toEqual({ state: "open", focus: true });
+    expect(shortcutNext("minimised", false)).toEqual({ state: "open", focus: true });
+    expect(shortcutNext("open", false)).toEqual({ state: "open", focus: true });
+    expect(shortcutNext("open", true)).toEqual({ state: "minimised", focus: false });
+  });
+
+  test("each kind of page has its own header line and three questions", () => {
+    const paths = ["/products/velune-trench", "/checkout/chk_1", "/cart", "/shop", "/", "/account"];
+    const helps = paths.map(pageHelp);
+    for (const help of helps) expect(help.chips).toHaveLength(3);
+    expect(new Set(helps.slice(0, 5).map((h) => h.context)).size).toBe(5);
+    expect(pageHelp("/account")).toEqual(pageHelp("/"));
+  });
+
   test("a reload restores the panel as it was", () => {
     expect(savedState("1")).toBe("open");
     expect(savedState("min")).toBe("minimised");
@@ -440,6 +467,28 @@ describe("the voice call's captions", () => {
     expect(nextCaption(undefined, "you", "x".repeat(400)).text.length).toBeLessThanOrEqual(181);
     expect(clockText(272.4)).toBe("4:32");
     expect(clockText(-3)).toBe("0:00");
+  });
+});
+
+describe("microphone problems", () => {
+  test("blocked for this site only when the browser says the site's permission is denied", () => {
+    expect(microphoneProblem("NotAllowedError", "denied", true)).toMatch(/blocked for this site/);
+    for (const permission of ["granted", "prompt", undefined] as const)
+      expect(microphoneProblem("NotAllowedError", permission, true)).not.toMatch(/blocked/);
+    expect(microphoneProblem("NotAllowedError", "granted", true)).toMatch(/system's privacy/);
+    expect(microphoneProblem("SecurityError", "prompt", true)).toMatch(/allow it when the browser/);
+  });
+
+  test("a missing, busy or unknown microphone and a browser without one each name their cause", () => {
+    expect(microphoneProblem("NotFoundError", "granted", true)).toMatch(/No microphone was found/);
+    expect(microphoneProblem("OverconstrainedError", undefined, true)).toMatch(/No microphone/);
+    expect(microphoneProblem("NotReadableError", "granted", true)).toMatch(/another app/);
+    expect(microphoneProblem("AbortError", "prompt", true)).toMatch(/another app/);
+    expect(microphoneProblem("TypeError", undefined, false)).toMatch(
+      /gives the page no microphone/,
+    );
+    expect(microphoneProblem("NotAllowedError", "denied", false)).toMatch(/no microphone/);
+    expect(microphoneProblem(undefined, undefined, true)).toMatch(/could not start/);
   });
 });
 

@@ -2,6 +2,7 @@
 // UCP 2026-08-25 shopping service: one operation table served over REST and over MCP.
 import {
   type Product,
+  CATEGORIES,
   productById,
   searchProducts,
   type Variant,
@@ -645,7 +646,7 @@ const HANDLERS: Record<string, Operation> = {
               {
                 type: "info",
                 code: "no_results",
-                content: "No match. Categories: clothing, bags, accessories.",
+                content: `No match. Categories: ${CATEGORIES.map((c) => c.id).join(", ")}.`,
               },
             ],
       },

@@ -18,17 +18,20 @@ export function DeliveryPicker({
   subtotal,
   disabled,
   onChange,
+  quietLegend,
 }: {
   value: Delivery;
   subtotal: number;
   disabled?: boolean;
   onChange: (next: Delivery) => void;
+  /** The caller already titles the choice (the checkout's Delivery step): the legend is read only. */
+  quietLegend?: boolean;
 }) {
   const id = useId();
   const pickup = value.method === "pickup";
   return (
     <fieldset className="min-w-0 space-y-2.5" disabled={disabled}>
-      <legend className="mb-2 text-sm font-medium">Delivery</legend>
+      <legend className={quietLegend ? "sr-only" : "mb-2 text-sm font-medium"}>Delivery</legend>
       <div className="grid gap-2">
         {METHODS.map((method) => {
           const fee = deliveryFee(method.id, subtotal);

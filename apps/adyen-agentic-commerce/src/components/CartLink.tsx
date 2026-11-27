@@ -9,9 +9,9 @@ export function CartLink() {
     <Link
       href="/cart"
       className="btn-ghost px-3 py-1.5"
-      aria-label={`Cart, ${count} item${count === 1 ? "" : "s"}`}
+      aria-label={`Bag, ${count} item${count === 1 ? "" : "s"}`}
     >
-      Cart <span className="tabular-nums">{count}</span>
+      Bag <span className="tabular-nums">{count}</span>
     </Link>
   );
 }

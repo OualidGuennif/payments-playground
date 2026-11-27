@@ -73,3 +73,7 @@ lists its four packages (`pi-ai`, `pi-agent-core`, `pi-schema`, `pi-telemetry`) 
 **Amended 2026-11-26.** On the owner's choice the four Pi packages move to 1.6.1, published
 2026-11-25, so their `minimumReleaseAgeExcludes` entry stays until 2026-12-02. Pi 1.6.1 brings
 `@google/genai` 3.6.1 (a week old), which has no install script: only `protobufjs`'s stays blocked.
+
+**Amended 2026-11-27.** The root `bun.lock` gains `gsap` 3.15.1 and `@gsap/react` 2.1.2 for the
+agentic storefront ([ADR-019](ADR-019-flagship-storefront.md)); both passed the one-week
+release-age rule when installed.

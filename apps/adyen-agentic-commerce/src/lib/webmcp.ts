@@ -61,7 +61,8 @@ const SHOPPER_ONLY = ["/account", "/consent", "/device", "/back-office"];
 export const toolsAllowedOn = (path: string) =>
   !SHOPPER_ONLY.some((p) => path === p || path.startsWith(`${p}/`));
 
-const CATEGORIES = ["clothing", "bags", "accessories"];
+// The catalogue's categories (server/catalog CATEGORIES); copied so the page bundle carries no catalogue.
+const CATEGORIES = ["clothing", "footwear", "bags", "accessories", "essentials"];
 const MAX_QUANTITY = 10;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

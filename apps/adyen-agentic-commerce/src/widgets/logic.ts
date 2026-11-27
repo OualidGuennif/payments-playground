@@ -35,7 +35,7 @@ type UcpMessage = { type?: string; code?: string; content?: string };
 
 // The store writes its messages for the agent (field paths, minor units, URLs to hand on); the
 // shopper reads these instead. null: the pay area already says it, with its buttons. A code
-// missing here keeps the store's own words.
+// missing here gets GENERAL_PROBLEM: the store's own words never reach the shopper.
 const SHOPPER_TEXT: Record<string, string | null> = {
   spend_limit_exceeded: null,
   checkout_expired: "This checkout expired. Check out again from your bag.",
@@ -48,7 +48,20 @@ const SHOPPER_TEXT: Record<string, string | null> = {
   payment_in_progress: "A payment for this bag is already in progress.",
   amount_mismatch:
     "No order was placed: the payment did not match your bag. The store will check it.",
+  checkout_canceled: "This checkout was canceled. Check out again from your bag.",
+  shopper_pays: "This bag was handed to you: pay for it on the store's checkout.",
+  payments_unavailable: "Payments are switched off on the store right now.",
+  invalid_quantity: "Choose a quantity from 1 to 10.",
+  variant_required: "Choose a colour and a size for each piece.",
+  item_not_found: "Something in your bag is no longer available.",
+  invalid_line_items: "Something in your bag is no longer available.",
+  invalid_delivery: "Choose a delivery option from the list.",
 };
+export const GENERAL_PROBLEM = "The store needs a change to this bag before payment.";
+
+/** The shopper's sentence for a store code; null when the pay area already says it. */
+export const shopperNote = (code: string | undefined): string | null =>
+  code && Object.hasOwn(SHOPPER_TEXT, code) ? (SHOPPER_TEXT[code] ?? null) : GENERAL_PROBLEM;
 type UcpInstrument = {
   id?: string;
   handler_id?: string;
@@ -198,9 +211,7 @@ export function bagView(data: unknown): BagView | undefined {
               (m.type === "error" || m.code === "payment_in_progress") &&
               typeof m.content === "string",
           )
-          .map((m: UcpMessage) =>
-            m.code && Object.hasOwn(SHOPPER_TEXT, m.code) ? SHOPPER_TEXT[m.code] : m.content,
-          )
+          .map((m: UcpMessage) => shopperNote(m.code))
           .filter((p): p is string => typeof p === "string"),
       ),
     ],

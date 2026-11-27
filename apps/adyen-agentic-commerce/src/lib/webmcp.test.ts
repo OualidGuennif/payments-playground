@@ -5,6 +5,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { originTrialToken } from "../proxy";
 import { handle } from "../server/api";
+import { PRODUCTS } from "../server/catalog/catalog";
 import { loadCheckout } from "../server/commerce/commerce";
 import { freshStore, ORIGIN } from "../server/testing/agent";
 import { addToCart, clearCart, readCart, setCartQuantity } from "./client";
@@ -261,7 +262,7 @@ describe("the tools", () => {
   test("search returns compact products within 1.5K, filtered like the shop", async () => {
     const all = await run("search_catalog");
     expect(all.products).toHaveLength(8);
-    expect(all.more).toBe(5);
+    expect(all.more).toBe(PRODUCTS.length - 8);
     expect(size(all)).toBeLessThanOrEqual(1500);
     expect(all.products[0]).toEqual({
       product_id: "velune-trench",
@@ -275,6 +276,9 @@ describe("the tools", () => {
       "velune-market-tote",
       "velune-crossbody",
       "velune-weekender",
+      "velune-laptop-backpack",
+      "velune-bucket-bag",
+      "velune-sling-pack",
     ]);
     // The navy weekender is sold out: only what can be bought is offered.
     expect(bags.products[2].colours).not.toContain("Navy");

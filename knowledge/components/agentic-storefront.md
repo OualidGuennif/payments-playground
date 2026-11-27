@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T09:00:00Z
+  at: 2026-11-27T09:15:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -177,8 +177,11 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   offer: 5 % off the item subtotal (rounded to the cent) and a "{Season} Tote Bag Edition" line at
   €0.00; the answer says `welcomeOfferApplied`. `POST /api/checkouts` takes the same flag for a
   signed-in shopper. Free delivery is judged on the subtotal before the discount. The payment
-  session checks again: an account that has ordered since loses the offer and the session is
-  refused (409 `welcome_offer_ineligible`), so the page shows the new total before paying. The
+  session checks again, and so does the form's last step before Adyen (`pay-intent`, for a form
+  opened before another checkout of the account was paid): an account that has ordered since loses
+  the offer and the step is refused (409 `welcome_offer_ineligible`), so the page reloads with the
+  new total before paying. An agent pays with the offer only on that account's own grant; any other
+  agent's complete removes it with the same refusal. The
   payment record and the order keep the offer, and the order's amount check prices with it. The
   checkout, the order page, the account's orders, UCP answers (a negative `discount` total and the
   tote line at 0) and the Back Office show it; `GET /api/account` says `firstOrderEligible`. The
@@ -230,8 +233,9 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
     picks no path on an unclear answer. Tests: `src/server/accounts/customers.test.ts` "the email
     check" (four tests); `src/components/payIdentity.test.ts` (three tests).
 11. The welcome offer is asked for, never applied by itself; it goes to an account with no order,
-    once, priced on the server and checked again before the payment session; the payment's amount
-    is the discounted total. A checkout without it keeps its catalogue prices and three totals.
+    once, priced on the server and checked again before the payment session, at the form's
+    `pay-intent` and before an agent's complete, which needs that account's grant; the payment's
+    amount is the discounted total. A checkout without it keeps its catalogue prices and three totals.
     Tests: `src/server/commerce/welcome-offer.test.ts`; the UCP and checkout price tests unchanged.
 12. A guest's email stays set once: a second `POST /api/checkouts/:id/email` is 409 `email_set`.
     Test: `src/server/accounts/customers.test.ts` "a checkout handed over without an email takes

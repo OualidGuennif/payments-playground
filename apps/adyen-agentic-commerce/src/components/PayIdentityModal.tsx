@@ -3,15 +3,7 @@
 // "Add your email address" (ADR-020): one field, then sign in, a new account with the welcome
 // offer, or Pay as guest. On /checkout it calls the store's own routes; over the Personal Shopper
 // the Ask routes, so the conversation keeps its checkout. The email never reaches the assistant.
-import {
-  type FormEvent,
-  type KeyboardEvent,
-  type ReactNode,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { sessionChanged } from "@/components/AccountMenu";
 import { askCall } from "@/components/ask/askClient";
 import { type Answer, codeOf, messageOf } from "@/lib/answer";
@@ -31,7 +23,8 @@ type Outcome = { data: unknown } | { problem: string };
 
 const CLAIM_FAILED = "The store could not take this checkout. Try again.";
 const EMAIL_FAILED = "The store could not take this email. Try again.";
-const FOCUSABLE = "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden])";
+const FOCUSABLE =
+  "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]):not([hidden])";
 
 // The store's browser routes answer { error: words, code }.
 function wordsOf(error: { value: unknown } | null | undefined, fallback: string): string {
@@ -106,26 +99,41 @@ export function PayIdentityModal({
     first?.focus({ preventScroll: true });
   }, [step]);
 
-  const onKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") {
-      // The Personal Shopper behind closes on Escape too: this one closes alone.
-      event.stopPropagation();
-      if (!busy) onClose();
-      return;
-    }
-    if (event.key !== "Tab" || !dialog.current) return;
-    const items = [...dialog.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
-    const first = items[0];
-    const last = items.at(-1);
-    if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
+  // Keys are read on the document, not on the dialog: a button disabled while busy drops focus to
+  // the page, and Escape and Tab must still close the modal or come back inside it.
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      const box = dialog.current;
+      if (!box) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (!busy) onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = [...box.querySelectorAll<HTMLElement>(FOCUSABLE)];
+      const first = items[0];
+      const last = items.at(-1);
+      const at = document.activeElement;
+      const inside = at instanceof Node && box.contains(at);
+      if (!first || !last) {
+        event.preventDefault();
+        return;
+      }
+      if (!inside || (event.shiftKey && at === first) || (!event.shiftKey && at === last)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [busy, onClose]);
+  // After a refusal (a wrong password, a cancelled passkey) focus goes back to the step's field.
+  useEffect(() => {
+    const box = dialog.current;
+    if (busy || !box || box.contains(document.activeElement)) return;
+    box.querySelector<HTMLElement>("[data-autofocus]")?.focus({ preventScroll: true });
+  }, [busy]);
 
   const go = (next: Step) => {
     setProblem(undefined);
@@ -413,7 +421,6 @@ export function PayIdentityModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        onKeyDown={onKey}
         className="relative max-h-[92dvh] w-full space-y-4 overflow-y-auto rounded-t-3xl border border-line bg-paper p-5 pb-8 text-ink shadow-xl sm:max-w-md sm:rounded-3xl sm:p-7"
       >
         <div className="flex items-start justify-between gap-4">

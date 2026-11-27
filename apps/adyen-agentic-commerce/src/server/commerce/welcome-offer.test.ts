@@ -205,6 +205,57 @@ describe("welcome offer", () => {
     expect((await call("POST", `/api/checkouts/${b}/session`, { cookie })).body.amount).toBe(10000);
   });
 
+  test("a payment form opened before the first order was paid cannot pay with the offer", async () => {
+    const { cookie } = await signUpCustomer();
+    const a = await guestCheckout();
+    const b = await guestCheckout();
+    await claim(a, cookie);
+    await claim(b, cookie);
+    // The second tab's Drop-in opens while the account has no order: its session is discounted.
+    const opened = await call("POST", `/api/checkouts/${b}/session`, { cookie });
+    expect(opened.body.amount).toBe(9500);
+    await pay(a, cookie);
+    const refused = await call("POST", `/api/checkouts/${b}/pay-intent`, {
+      cookie,
+      body: { sessionId: opened.body.id },
+    });
+    expect([refused.status, refused.body.code]).toEqual([409, "welcome_offer_ineligible"]);
+    const view = await call("GET", `/api/checkouts/${b}`, { cookie });
+    expect([view.body.welcomeOffer, view.body.total]).toEqual([undefined, 10000]);
+    expect(list<commerce.Order>("orders")).toHaveLength(1);
+  });
+
+  test("an agent without the account's grant pays the catalogue price, never the account's offer", async () => {
+    const { cookie } = await signUpCustomer();
+    const created = await ucpCreate([{ item: { id: SOCKS[0]!.variantId }, quantity: 1 }]);
+    expect((await claim(created.body.id, cookie)).body.welcomeOfferApplied).toBe(true);
+    const nextYear = new Date().getUTCFullYear() + 1;
+    const token = {
+      payment: {
+        instruments: [
+          {
+            id: "nt_1",
+            handler_id: "network_token",
+            credential: {
+              type: "network_token",
+              number: "4111111111111111",
+              expiry_month: 8,
+              expiry_year: nextYear,
+            },
+          },
+        ],
+      },
+    };
+    const refused = await commerce
+      .completeCheckout(commerce.loadCheckout(created.body.id), token)
+      .then(() => undefined)
+      .catch((error: commerce.CommerceError) => error.msg.code);
+    expect(refused).toBe("welcome_offer_ineligible");
+    expect(get<commerce.Checkout>("checkouts", created.body.id)!.welcomeOffer).toBeUndefined();
+    expect(fake.payments).toHaveLength(0);
+    expect(list<commerce.Order>("orders")).toHaveLength(0);
+  });
+
   test("the claim needs a session, the checkout's own account and a body with the flag only", async () => {
     const ada = await signUpCustomer();
     const bob = await signUpCustomer();

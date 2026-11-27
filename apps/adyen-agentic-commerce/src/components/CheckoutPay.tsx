@@ -136,6 +136,12 @@ export function CheckoutPay({
         reloadWith(why);
         return why;
       }
+      // The account ordered since this form opened: the offer is gone and the total with it.
+      if (code === "welcome_offer_ineligible") {
+        const why = shopperWords(code);
+        reloadWith(why);
+        return why;
+      }
       return shopperWords(code === "payment_in_progress" ? code : "payment_unavailable");
     },
     [view.id],

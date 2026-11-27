@@ -310,7 +310,7 @@ export async function completeCheckout(
   if (auth && !live) return checkout;
   // The shopper is paying another checkout of the account (in Drop-in, or through another agent).
   if (live && accountPaying(live.grant.customerId, checkout.id)) throw paymentInProgress();
-  confirmWelcomeOffer(checkout);
+  confirmWelcomeOffer(checkout, live?.grant.customerId ?? null);
   const assessment = assess(checkout, live, cards);
   if (assessment.status !== "ready_for_complete") return checkout;
   // No instrument is the agent's third choice: the shopper pays at continue_url, in Drop-in.

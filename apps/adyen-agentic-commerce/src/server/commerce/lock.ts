@@ -18,7 +18,7 @@ import {
   payingNow,
 } from "./model";
 import { price } from "./pricing";
-import { assess, saveCheckout } from "./checkouts";
+import { assess, confirmWelcomeOffer, saveCheckout } from "./checkouts";
 
 // Adyen's answers after which a payment has paid, or may still pay (a Drop-in session reports
 // `paymentPending`, a /payments answer `Pending` or `Received`).
@@ -85,6 +85,9 @@ export function claimWebPayment(
     });
     throw paymentInProgress();
   }
+  // A form opened before another checkout of the account was paid still holds a discounted
+  // session: the offer is checked again here, the last step before Adyen is asked.
+  confirmWelcomeOffer(checkout);
   const status = assess({ ...checkout, paying: undefined }, undefined, []).status;
   if (
     record.reference !== `${id}-s${checkout.attempts}` ||

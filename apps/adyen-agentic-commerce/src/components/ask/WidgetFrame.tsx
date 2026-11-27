@@ -5,12 +5,14 @@
 // /api/ask/widget as the session's own identity; the widget never writes to the agent.
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { readCart } from "@/lib/client";
 import { askCall } from "./askClient";
 import {
   type Fed,
   fedKey,
   hostReply,
   inlineImages,
+  joinSiteBag,
   storePath,
   type ToolAnswer,
   widgetName,
@@ -63,8 +65,19 @@ function picture(path: string) {
   return pending;
 }
 
-const theme = (): "light" | "dark" =>
-  window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+// The page's own theme (the header's switch sets data-theme), else the system's.
+const theme = (): "light" | "dark" => {
+  const chosen = document.documentElement.dataset.theme;
+  if (chosen === "light" || chosen === "dark") return chosen;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+};
+
+// One bag per browser: a cart the widget starts with no bag of its own joins the site's lines.
+function withSiteBag(name: string, args: Record<string, unknown>): Record<string, unknown> {
+  if (name !== "create_cart" || !record(args.cart)) return args;
+  const lineItems = joinSiteBag(readCart(), args.cart.line_items);
+  return lineItems ? { ...args, cart: { ...args.cart, line_items: lineItems } } : args;
+}
 
 // An opaque-origin frame can only be addressed with "*". This frame only ever holds the store's own
 // widget (no link, form, HTML sink or navigation in it, CSP default-src 'none', spec invariant 17),
@@ -146,7 +159,10 @@ export function WidgetFrame({
       if (event.source !== target.contentWindow) return;
       void hostReply(event.data, {
         call: async (name, args): Promise<ToolAnswer> => {
-          const answer = await askCall<{ result: unknown }>("/widget", { name, arguments: args });
+          const answer = await askCall<{ result: unknown }>("/widget", {
+            name,
+            arguments: withSiteBag(name, args),
+          });
           if (!answer.data) return { error: answer.message };
           const result = answer.data.result;
           // The frame shows this answer itself; the panel keeps it as the newest of its view.
@@ -183,9 +199,13 @@ export function WidgetFrame({
         method: "ui/notifications/host-context-changed",
         params: { theme: theme() },
       });
+    // The header's theme switch changes data-theme without a reload: the widget follows at once.
+    const chosen = new MutationObserver(onScheme);
+    chosen.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     window.addEventListener("message", onMessage);
     scheme.addEventListener("change", onScheme);
     return () => {
+      chosen.disconnect();
       window.removeEventListener("message", onMessage);
       scheme.removeEventListener("change", onScheme);
     };

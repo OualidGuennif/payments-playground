@@ -35,7 +35,12 @@ function snapshot(v: unknown): string | undefined {
   }
 }
 
-export function connect(on: { result(data: unknown): void; theme(theme: Theme): void }): Host {
+export function connect(on: {
+  result(data: unknown): void;
+  theme(theme: Theme): void;
+  // The host is the store's own panel (hostContext.veluneHost): Pay asks for the email there.
+  store?(): void;
+}): Host {
   const openai = (): OpenAi | undefined => (window as unknown as { openai?: OpenAi }).openai;
   let standard = false;
   let nextId = 1;
@@ -132,6 +137,7 @@ export function connect(on: { result(data: unknown): void; theme(theme: Theme): 
         const context = record(result) && record(result.hostContext) ? result.hostContext : {};
         const theme = themeOf(context.theme);
         if (theme) on.theme(theme);
+        if (context.veluneHost === true) on.store?.();
       })
       .catch(() => {
         // No MCP Apps host answered: window.openai, if any, carries every call.

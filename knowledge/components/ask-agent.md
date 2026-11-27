@@ -181,11 +181,10 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   addresses or pickup points, preselected; the choice goes to the
   store's own `POST /api/checkouts/:id/delivery`, never to the model, and the widget then re-reads
   the checkout (`get_checkout`) for the store's new total (`askLogic.test.ts` "site bag").
-  **One bag per browser:** the widget's bag starts from the site's: when the panel opens, or a
-  new conversation starts, with lines in the site's bag and no bag in the widget, the panel makes
-  one from them (`create_cart`), and the widget's first add or checkout with no bag of its own
-  joins the site's lines (quantities summed per variant, at most 10) instead of replacing them
-  (`askLogic.test.ts` "merge"). When the widget shows an open bag, the site's bag (header count,
+  **One bag per browser:** the widget's bag starts from the site's: the agent starts its cart from
+  the lines `<shop_context>` names, and the widget's first add with no bag of its own joins the
+  site's lines (quantities summed per variant, at most 10) instead of replacing them
+  (`askLogic.test.ts` "merge"). The welcome tote never joins the site's bag. When the widget shows an open bag, the site's bag (header count,
   `/cart`) takes its lines and the open checkout page hears of it at once; a completed bag empties
   the site's bag. The agent hears the site's bag in `<shop_context>` as `bag:` with catalogue titles
   and ids; on a `/checkout/chk_…` page, that checkout's lines instead (open, and the session's

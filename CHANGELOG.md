@@ -5,6 +5,13 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The Personal Shopper's widget on the agentic store: cards are as tall as their content and each
+  has "View product details" (below 1024 px the panel steps aside and the page opens in place); a
+  bag without an email reads "Add your email to continue to payment" and its Pay opens the Pay
+  email modal over the panel (a signed-in shopper's checkout joins the account at once), which
+  replaces the receipt block; the welcome offer shows as a discount row and a tote line with no
+  stepper; the widget's first cart joins the site's bag instead of replacing it; the widget follows
+  the header's theme switch at once; delivery folds into one line with Edit.
 - The agentic store's Pay asks for the email in one modal, "Add your email address": an email
   with an account signs in there (password or passkey) and the checkout becomes the account's; a
   new email can create an account with 5 % off and the seasonal tote, or pay as a guest. The

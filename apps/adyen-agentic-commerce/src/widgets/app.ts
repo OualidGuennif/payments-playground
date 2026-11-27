@@ -47,6 +47,8 @@ type State = {
   attempt?: PayAttempt;
   busy?: string;
   note?: { tone: "ok" | "bad" | "info"; text: string };
+  // In the store's own panel, Pay asks for a missing email there (ADR-020).
+  store?: boolean;
 };
 
 const STORE = document.querySelector('meta[name="store-origin"]')?.getAttribute("content") ?? "";
@@ -129,7 +131,13 @@ async function run(label: string, call: Call | undefined) {
     if (call.name === "complete_checkout") state.attempt = undefined;
     if (result.isError) state.note = { tone: "bad", text: refusal(result.structuredContent) };
     show(result.structuredContent);
-    if (!result.isError && call.name === "create_checkout" && !state.bag?.order)
+    // Never "ready" beside a missing email: the bag's own line asks for it.
+    if (
+      !result.isError &&
+      call.name === "create_checkout" &&
+      !state.bag?.order &&
+      !state.bag?.codes.includes("missing_buyer_email")
+    )
       state.note = { tone: "info", text: "Checkout ready." };
     if (!result.isError && state.bag && call.name !== "search_catalog")
       host.tellModel(contextFor(state.bag), contextDataFor(state.bag));
@@ -277,15 +285,6 @@ function card(p: UcpProduct) {
       : h("div", { class: "noimg", "aria-hidden": "true" }),
     h("h3", {}, p.title),
     price ? h("p", { class: "price" }, money(price.amount, price.currency)) : null,
-    h(
-      "button",
-      {
-        type: "button",
-        class: "link details",
-        onclick: () => void open(productPage(STORE, p.id, variant?.id)),
-      },
-      "Show details",
-    ),
     pills(p, choice, "colour"),
     pills(p, choice, "size"),
     h(
@@ -300,6 +299,15 @@ function card(p: UcpProduct) {
         },
       },
       label,
+    ),
+    h(
+      "button",
+      {
+        type: "button",
+        class: "btn ghost details",
+        onclick: () => void open(productPage(STORE, p.id, variant?.id)),
+      },
+      "View product details",
     ),
   );
 }
@@ -407,6 +415,24 @@ function line(bag: BagView, l: BagLine) {
   );
 }
 
+// The welcome tote: no stepper, no Remove; the store adds and removes it with the offer.
+function giftLine(gift: BagLine) {
+  return h(
+    "li",
+    { class: "line" },
+    pictured(gift.image)
+      ? h("img", { src: gift.image, alt: "", width: "56", height: "56" })
+      : h("div", { class: "noimg small", "aria-hidden": "true" }),
+    h(
+      "div",
+      { class: "what" },
+      h("p", { class: "title" }, gift.title),
+      h("p", { class: "muted ok" }, "Free with your welcome offer"),
+    ),
+    h("span", { class: "muted" }, "× 1"),
+  );
+}
+
 function totals(bag: BagView) {
   const row = (label: string, amount: number | undefined, strong = false) =>
     amount === undefined
@@ -421,6 +447,14 @@ function totals(bag: BagView) {
     "dl",
     { class: "totals" },
     row("Subtotal", bag.subtotal),
+    bag.discount
+      ? h(
+          "div",
+          { class: "row ok" },
+          h("dt", {}, "Welcome offer (-5%)"),
+          h("dd", {}, `-${money(bag.discount, bag.currency)}`),
+        )
+      : null,
     row("Shipping", bag.shipping),
     row("Total", bag.total, true),
   );
@@ -495,7 +529,7 @@ function payArea(bag: BagView) {
             : bag.status === "ready_for_complete"
               ? "No card is saved on your Atelier Velune account yet. Pay on the store checkout, or save a test card in your account and refresh."
               : bag.codes.includes("missing_buyer_email")
-                ? "Give an email for the receipt, then pay."
+                ? "Add your email to continue to payment."
                 : "Fix what the store asks for above, then pay.",
         ),
     ready && chosen
@@ -530,7 +564,13 @@ function payArea(bag: BagView) {
           {
             type: "button",
             class: ready ? "btn ghost" : "btn",
-            onclick: () => void open(bag.continueUrl),
+            // In the store's panel a missing email is asked there, then the checkout opens.
+            onclick: () =>
+              void open(
+                state.store && !over && bag.codes.includes("missing_buyer_email")
+                  ? `${STORE}/checkout/${encodeURIComponent(bag.id)}#velune-pay-email?checkoutId=${encodeURIComponent(bag.id)}`
+                  : bag.continueUrl,
+              ),
           },
           over
             ? "Approve on the store"
@@ -590,7 +630,12 @@ function bagScreen() {
   return h(
     "section",
     { "aria-label": "Bag" },
-    h("ul", { class: "lines" }, ...bag.lines.map((l) => line(bag, l))),
+    h(
+      "ul",
+      { class: "lines" },
+      ...bag.lines.map((l) => line(bag, l)),
+      bag.gift ? giftLine(bag.gift) : null,
+    ),
     totals(bag),
     bag.problems.length && !bag.order
       ? h("ul", { class: "problems" }, ...bag.problems.map((p) => h("li", {}, p)))
@@ -617,5 +662,12 @@ function setTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
 }
 
-host = connect({ result: show, theme: setTheme });
+host = connect({
+  result: show,
+  theme: setTheme,
+  store: () => {
+    state.store = true;
+    render();
+  },
+});
 render();

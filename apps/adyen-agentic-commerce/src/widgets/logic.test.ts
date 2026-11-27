@@ -116,6 +116,27 @@ describe("views of UCP answers", () => {
     expect(bagView({ id: "x", products: [] })).toBeUndefined();
   });
 
+  test("the welcome offer: the tote is a line apart, never stepped or sent back, and the saving shows", () => {
+    const bag = checkout("incomplete", {
+      line_items: [line("socks", 1, 1200), line("velune-welcome-tote-winter", 1, 0)],
+      totals: [
+        { type: "subtotal", amount: 1200 },
+        { type: "discount", amount: -60 },
+        { type: "fulfillment", amount: 495 },
+        { type: "total", amount: 1635 },
+      ],
+    })!;
+    expect(bag.lines.map((l) => l.variantId)).toEqual(["socks"]);
+    expect(bag.gift).toMatchObject({ variantId: "velune-welcome-tote-winter", amount: 0 });
+    expect([bag.discount, bag.total]).toEqual([60, 1635]);
+    expect(quantityCall(bag, "socks", 2, KEY)?.arguments).toMatchObject({
+      checkout: { line_items: [{ item: { id: "socks" }, quantity: 2 }] },
+    });
+    expect(JSON.stringify(addCall(bag, "scarf", KEY))).not.toContain("velune-welcome-tote");
+    // Without the offer, no gift and no saving.
+    expect([checkout()?.gift, checkout()?.discount]).toEqual([undefined, undefined]);
+  });
+
   test("only saved_card instruments become choices; nothing else of a card is read", () => {
     const bag = checkout("ready_for_complete", {
       payment: {

@@ -30,7 +30,7 @@ sources:
     title: "Pages (app/), API (app/api), server modules (server/: api.ts and protocol.ts at the top, one folder per domain: core, payments, catalog, commerce, accounts, oauth, ucp, mcp, pap, back-office, ask; oauth.ts and commerce.ts re-export their folder's files, one per responsibility)"
   - id: widgets
     resource: ../../apps/adyen-agentic-commerce/src/widgets
-    title: "MCP Apps widgets (a compact carousel whose cards open the product page with Show details, the bag), their bridge and logic"
+    title: "MCP Apps widgets (a compact carousel whose cards open the product page with View product details, the bag), their bridge and logic"
   - id: plugin
     resource: ../../apps/adyen-agentic-commerce/plugin/atelier-velune
     title: "The plugin package served as a ZIP"

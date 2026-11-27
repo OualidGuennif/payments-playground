@@ -89,7 +89,10 @@ export type BagView = {
   status: string;
   currency: string;
   lines: BagLine[];
+  // The welcome offer (ADR-020): the free tote, shown without a stepper, and the saving.
+  gift?: BagLine;
   subtotal?: number;
+  discount?: number;
   shipping?: number;
   total: number;
   instruments: Instrument[];
@@ -136,6 +139,10 @@ export function catalogView(data: unknown): CatalogView | undefined {
   };
 }
 
+// The welcome offer's tote: the store's gift line, never one the bag can change or order again.
+const GIFT_ID = /^velune-welcome-tote-(winter|spring|summer|autumn)$/;
+export const isGift = (variantId: string) => GIFT_ID.test(variantId);
+
 const amountOf = (price: unknown) => (record(price) ? whole(price.amount) : whole(price));
 const totalOf = (totals: unknown, type: string) =>
   Array.isArray(totals)
@@ -181,16 +188,21 @@ export function bagView(data: unknown): BagView | undefined {
   const payment = record(data.payment) ? data.payment : {};
   const order = record(data.order) ? data.order : undefined;
   const budget = record(data.agent_budget) ? data.agent_budget : {};
+  const all = (Array.isArray(data.line_items) ? data.line_items : [])
+    .filter(record)
+    .map((l) => lineOf(l as UcpLine))
+    .filter((l): l is BagLine => l !== undefined);
+  // UCP's discount total is negative; the bag shows the saving.
+  const discount = totalOf(data.totals, "discount");
   return {
     kind,
     id: data.id,
     status: text(data.status) ?? "",
     currency: text(data.currency) ?? "EUR",
-    lines: (Array.isArray(data.line_items) ? data.line_items : [])
-      .filter(record)
-      .map((l) => lineOf(l as UcpLine))
-      .filter((l): l is BagLine => l !== undefined),
+    lines: all.filter((l) => !isGift(l.variantId)),
+    gift: all.find((l) => isGift(l.variantId)),
     subtotal: totalOf(data.totals, "subtotal"),
+    discount: discount !== undefined && discount < 0 ? -discount : undefined,
     shipping: totalOf(data.totals, "fulfillment"),
     total: totalOf(data.totals, "total") ?? 0,
     instruments: (Array.isArray(payment.instruments) ? payment.instruments : [])

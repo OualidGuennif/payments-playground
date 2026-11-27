@@ -74,15 +74,17 @@ export const sessionsRoutes = new Elysia()
     if (decision.kind === "refuse") return status(409, { error: decision.error });
     const waiting = { waiting: true, refusals: decision.refusals, limit: SESSION_REFUSAL_LIMIT };
     if (decision.kind === "wait" || !session) return status(202, waiting);
-    // Two requests can both find the renewal due; only the one that claims the session renews it.
-    if (!context.repository.claimSession(session.id, "created", "renewing")) {
-      return status(202, waiting);
-    }
     const idempotencyKey = crypto.randomUUID();
     const origin = requestOrigin(http, context.config.publicOrigin);
     // The new session never outlives its order; the amount and reference are the order's too.
     const expiresAt = order.expiresAt ?? new Date(Date.now() + SESSION_VALIDITY_MS).toISOString();
+    // Built before the claim: a body it refuses (a bad countryCode) must not leave the session
+    // claimed with nobody renewing it.
     const request = buildSessionRequest({ body, secrets, order, origin, expiresAt });
+    // Two requests can both find the renewal due; only the one that claims the session renews it.
+    if (!context.repository.claimSession(session.id, "created", "renewing")) {
+      return status(202, waiting);
+    }
     let result: unknown;
     try {
       result = await recordedCall({

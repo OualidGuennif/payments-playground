@@ -6,7 +6,7 @@ tags: [decision, sessions, webhooks, lifecycle]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T18:00:00Z
+  at: 2026-11-27T21:15:00Z
 sources:
   - id: route
     resource: ../../apps/adyen-digital/src/server/routes/sessions.ts
@@ -16,7 +16,7 @@ sources:
     title: "renewalDecision, the pure rule"
   - id: storage
     resource: ../../packages/platform/storage.ts
-    title: "latestSession, claimSession, setSessionState, sessionRefusals"
+    title: "latestSession, claimSession, sessionRefusals, orderMetadata"
   - id: notes
     resource: ../references/adyen-checkout-api-notes.md
     title: "A session takes 5 refused payments (seen on TEST, 2026-10-16)"

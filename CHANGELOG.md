@@ -10,6 +10,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   new session on the same order only once five HMAC-valid refused AUTHORISATION webhooks name the
   current session's `checkoutSessionId`; until then the result card waits ("n/5"), and after 60 s
   it stops with the reason, never with a session (ADR-022).
+- Digital `/result`: a redirect payment (iDEAL, Klarna, a 3DS redirect) on an order that already
+  holds refused attempts is now submitted to `/payments/details`; only a reload of the same
+  `redirectResult` answers with the stored outcome.
 
 ## [0.14.0] - 2026-11-27
 

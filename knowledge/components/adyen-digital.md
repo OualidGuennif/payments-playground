@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-27T18:00:00Z
+  at: 2026-11-27T21:15:00Z
 sources:
   - resource: ../../apps/adyen-digital
     title: "The Next.js app: pages, Elysia API, client components"
@@ -236,9 +236,11 @@ MIT also an attempt; `/orders` lists each order with its attempts and permission
 `resolution` is the derived `{state, paidValue}` of the order; `session` is Adyen's session object,
 and the order and its session row both expire after 25 minutes (`expiresAt`, owner, 2026-10-16).
 `/payments/details` settles the attempt `/payments` left pending, and `/redirect-result` settles or
-creates one. A redirect return for a Sessions order creates the attempt the session result would
-have created; a reload with nothing waiting answers `alreadySettled` from the stored outcome instead
-of resubmitting. A `GET /payment-links/:orderId` re-derives the order from the link status.
+creates one: the attempt `/payments` left waiting, else the one the payment's webhook already
+stored, else a new one (a Sessions order's attempt comes from the session result, which a redirect
+skips). Only a reload of the same `redirectResult` answers `alreadySettled`, from the stored outcome,
+without resubmitting; the order's older settled attempts (a renewed session's refusals) never answer
+for a new redirect (`src/server/redirect-return.test.ts`). A `GET /payment-links/:orderId` re-derives the order from the link status.
 `/partial-orders` is Advanced's `onOrderRequest`: it creates the server order every payment of the
 split goes into. `/partial-orders/:id/cancel` is Advanced's `onOrderCancel` (Drop-in's "Supprimer"
 on a paid gift card).

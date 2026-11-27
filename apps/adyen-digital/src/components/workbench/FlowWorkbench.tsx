@@ -163,6 +163,9 @@ export default function FlowWorkbench({
   const sessionRefusalsRef = useRef(0);
   const sessionClosedRef = useRef(false);
   const sessionExpiredRef = useRef(false);
+  // A session the server renewed that has not mounted yet: the server already
+  // replaced the old one, so a retry mounts this one instead of asking again.
+  const renewedRef = useRef<Awaited<ReturnType<typeof renewSession>>>(null);
   const remainingRef = useRef<number | null>(null);
   const giftCardBalanceRef = useRef<number | null>(null);
   const inspectorBody = useRef<HTMLDivElement>(null);
@@ -522,20 +525,27 @@ export default function FlowWorkbench({
     setError(null);
     setRenewal({ phase: "waiting", refusals: null, limit: SESSION_REFUSAL_LIMIT });
     try {
-      const data = await renewSession(
-        { profileId, orderId, integration, country, locale, installments, nativeThreeDS },
-        (wait) => setRenewal({ phase: "waiting", refusals: wait.refusals, limit: wait.limit }),
-        stale,
-      );
+      const kept = renewedRef.current?.correlationId === orderId ? renewedRef.current : null;
+      const data =
+        kept ??
+        (await renewSession(
+          { profileId, orderId, integration, country, locale, installments, nativeThreeDS },
+          (wait) => setRenewal({ phase: "waiting", refusals: wait.refusals, limit: wait.limit }),
+          stale,
+        ));
       if (!data || stale()) return;
+      renewedRef.current = data;
+      await mountCheckout(sessionConfiguration(data.correlationId, data.session), stale);
+      if (stale()) return;
+      // Only a mounted session is the one in use: until then the counters
+      // still say "renew", and a retry mounts the session kept above.
+      renewedRef.current = null;
       sessionIdRef.current = data.session.id;
       sessionExpiresAtRef.current = sessionExpiry(data.session);
       sessionRefusalsRef.current = 0;
       sessionClosedRef.current = false;
       sessionExpiredRef.current = false;
       lastPaymentRef.current = {};
-      await mountCheckout(sessionConfiguration(data.correlationId, data.session), stale);
-      if (stale()) return;
       setRenewal(null);
       setOutcome(null);
     } catch (cause) {
@@ -755,6 +765,7 @@ export default function FlowWorkbench({
     sessionRefusalsRef.current = 0;
     sessionClosedRef.current = false;
     sessionExpiredRef.current = false;
+    renewedRef.current = null;
     resetPartialOrder();
     const run = ++runRef.current;
     const stale = () => run !== runRef.current;

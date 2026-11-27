@@ -9,8 +9,7 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-27, in chat: "Oui, vas-y" to the plan; count refusals by the webhook's
   `checkoutSessionId` ("on aura bien l'info").
-- State: on `develop`, not pushed; `bun run check` green; browser-verified locally with the five
-  refusal webhooks inserted by hand (digital-status row of 2026-11-27).
+- State: on `develop` with the four fixes of the review of `f870734`; pushed only after `Review: OK`.
 - Next: on Render, five `DECLINED` in one session, then Try again: confirm each refused
   AUTHORISATION carries `checkoutSessionId` and the new session opens on the same order (who: owner).
 - Blocker: none.

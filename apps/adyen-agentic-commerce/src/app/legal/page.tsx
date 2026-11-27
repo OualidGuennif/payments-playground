@@ -1,5 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
-export const metadata = { title: "Terms and privacy" };
+import { RETURN_DAYS } from "@/server/catalog/openai-feed";
+
+export const metadata = { title: "Terms, privacy and returns" };
 
 export default function Legal() {
   return (
@@ -54,6 +56,19 @@ export default function Legal() {
           <li>
             Anyone who can open this demo can read its Back Office, so do not enter personal data
             you would not publish.
+          </li>
+        </ul>
+      </section>
+      <section id="returns" className="max-w-[68ch] space-y-3 text-sm">
+        <h2 className="text-xl">Returns</h2>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            The store&apos;s product feed offers returns within {RETURN_DAYS} days of delivery, in
+            the original condition, free of charge.
+          </li>
+          <li>
+            On this TEST store nothing ships, so there is never anything to return and no refund to
+            claim.
           </li>
         </ul>
       </section>

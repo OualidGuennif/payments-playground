@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store publishes its catalogue as an OpenAI product feed at `/api/feeds/openai.json`
+  and `/api/feeds/openai.jsonl`: one row per variant with the spec's current field names, stable
+  EAN-13s in GS1's in-store range, shipping and returns. The terms page gains a Returns section.
 - The agentic store's catalogue grows from 13 to 30 products in five categories (clothing,
   footwear, bags, accessories, essentials), each with material, care, fit, origin, highlights,
   weight, parcel size and demo ratings; the 13 earlier ids and variants are unchanged and new

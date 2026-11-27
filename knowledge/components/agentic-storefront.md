@@ -18,9 +18,9 @@ sources:
   - id: ask
     resource: ./ask-agent.md
     title: "The Ask agent's spec: the chat behind the Personal Shopper"
-  - id: products
-    resource: ../../apps/adyen-agentic-commerce/src/server/catalog/products.ts
-    title: "The catalogue data: 30 products, colours, sizes, feed attributes"
+  - id: catalog
+    resource: ../../apps/adyen-agentic-commerce/src/server/catalog
+    title: "The catalogue data (products.ts: 30 products, colours, sizes, feed attributes) and the OpenAI feed (openai-feed.ts)"
   - id: openai-feed
     resource: https://developers.openai.com/commerce/specs/feed
     title: "OpenAI: product feed schema (read 2026-11-27)"
@@ -60,15 +60,18 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   at `/api/art/<variant>.svg`.
 - **Product feed:** one row per variant with the spec's current names: `item_id` (the variant id),
   `group_id` (the product id), `listing_has_variations`, `variant_dict` (colour and size), `title`,
-  `description`, `url`, `brand`, `seller_name`, `seller_url`, `image_url`,
-  `additional_image_urls`, `availability` (`in_stock` or `out_of_stock`), `price` and, for a
-  markdown, `sale_price` as "amount EUR", `gtin` (a valid EAN-13 in the 200 to 299 in-store range),
-  `mpn`, `condition`, `product_category`, `color`, `size`, `size_system` (EU), `gender`,
-  `age_group`, `material`, `pattern`, `weight` with `item_weight_unit`, `dimensions`,
-  `target_countries` and `store_country` (FR), `shipping_price`, `accepts_returns`,
-  `return_deadline_in_days` (30), `return_policy`, `review_count`, `star_rating`,
-  `is_eligible_search`, `is_eligible_checkout`, `seller_privacy_policy` and `seller_tos`.
-  JSON answers `{ "items": [...] }`; JSONL one row per line. Both are public and cacheable for 300 s.
+  `description`, `url`, `brand`, `seller_name`, `seller_url`, `image_url` (the SVG drawing; the
+  spec's examples are JPEG and PNG, so a reader that wants a photograph gets none), `availability`
+  (`in_stock` or `out_of_stock`), `price` as "amount EUR" (the price before a markdown when there is
+  one, with `sale_price` the paid price), `gtin` (a valid EAN-13 in GS1's 200 to 299 in-store
+  range, stable per variant id), `mpn`, `condition`, `product_category`, `color`, `size`,
+  `size_system` (EU, absent for one size), `gender`, `age_group`, `material`, `pattern`, `weight`
+  with `item_weight_unit` (g), `dimensions` (cm), `target_countries` and `store_country` (FR),
+  `shipping_price` (standard delivery, free from 100 EUR), `accepts_returns`,
+  `return_deadline_in_days` (30), `return_policy` (`/legal#returns`), `review_count`,
+  `star_rating`, `is_eligible_search`, `is_eligible_checkout`, `seller_privacy_policy` and
+  `seller_tos`. No `additional_image_urls`: each variant has one drawing. JSON answers
+  `{ "items": [...] }`; JSONL one row per line. Both are public and cacheable for 300 s.
 - **Header:** a thin TEST bar; the wordmark; the categories; on the right the Personal Shopper, a
   Developers menu (Connect an agent, Docs, Back Office, OpenAI product feed, Agent console), the bag
   with its count, the account and the theme switch.
@@ -91,6 +94,9 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
 4. A signed-in shopper is never asked to sign in or for an email by the cart, the checkout or the
    Personal Shopper.
 5. Ratings and review counts are labelled demo data wherever a person reads them.
+6. The feed has one row per variant, unique ids, valid and unique EAN-13s in the 200 range, the
+   spec's names and money format, and the same rows in JSON and JSONL. Tests:
+   `src/server/catalog/openai-feed.test.ts` (six tests).
 
 ## Determinism
 

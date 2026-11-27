@@ -9,10 +9,9 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-27, in chat: the 12 listed methods, card saving, Apple and Google Pay on
   top, Velune styling; MB WAY, Bizum and Pix stay listed though FR/EUR hides them.
-- State: spec 54d5f58 and code committed; local TEST: Google Pay on top, 4 brands, PayPal, Klarna,
-  Wero; guest card Authorised at 375 px; an account sees "Save for my next payment" in dark.
-- Next: check, review, release v0.12.0, prod guest check (who: agent); Apple Pay in Safari once
-  the domain is registered in the Adyen TEST account (who: owner).
+- State: develop 5c9ccf3 pushed (check exit 0, Pi review OK, two lows noted in the receipt); local
+  TEST card Authorised, light and dark, 375 and 1440 px; template 4.1.1 previewed (--check).
+- Next: owner's yes on the 4.1.1 update, then the update commit and release v0.12.0 (agent).
 - Blocker: none.
 - Evidence: knowledge/components/agentic-storefront.md (Drop-in).
 

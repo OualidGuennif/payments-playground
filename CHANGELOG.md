@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-28
+
 - Page width on large screens, all three apps: the content stays in one centred column, 1140 px at
   most (1240 px for Digital's checkout beside its inspector, 1440 px for the Styling workbench),
   with side margins that grow with the window; the header, the page and the footer share its edges

@@ -8,7 +8,7 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 ## Page width on large screens, three apps — WAITING-OWNER
 
 - Owner decision: 2026-11-27, in chat: centre and narrow the content like ElevenLabs and Voyage
-  Privé, from UI/UX guidelines and Apple's principles; 2026-11-28 "Oui, go" to the plan.
+  Privé, from UI/UX guidelines and Apple's principles; 2026-11-28 "Oui, go", then "Oui, release".
 - State: on develop, unreleased: one page column (1140, 1240 beside the inspector, 1440 Styling,
   Velune header row 1240); measured locally at 375 to 1920 px, light and dark.
 - Next: visual yes on the 1710 px screenshots (who: owner); then release v0.16.0 (agent).

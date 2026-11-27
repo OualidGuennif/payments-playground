@@ -197,7 +197,8 @@ export function admit(input: {
     viewing ? `viewing: ${viewing}` : undefined,
     bag ? `bag: ${bag}` : undefined,
     `signed in: ${session.customerId ? "yes" : "no"}`,
-    `account connected: ${session.connected ? "yes" : "no"}`,
+    // From the grant read at this message, not the session's stored flag, which lags a revoke.
+    `account connected: ${account ? "yes" : "no"}`,
     `autonomous pay: ${autonomous ? "yes" : "no"}`,
     account ? `budget left: €${(account.remaining / 100).toFixed(2)}` : undefined,
     account?.cards !== undefined ? `saved cards: ${account.cards}` : undefined,

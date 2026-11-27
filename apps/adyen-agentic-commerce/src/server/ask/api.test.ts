@@ -26,7 +26,8 @@ import { readAskConfig, resetAskConfig } from "./config";
 import { get } from "../core/db";
 import { recentTrace } from "../core/trace";
 import { grants, updateGrant } from "../oauth/tokens";
-import { forgetHouseConnections, HOUSE_CLIENT_NAME, houseToken } from "./house";
+import { sessionSummary } from "./console";
+import { forgetHouseConnections, HOUSE_CLIENT_NAME, houseAccess, houseToken } from "./house";
 import { forgetAskLimits } from "./limits";
 import { useAskModels } from "./runtime";
 import * as agent from "./agent";
@@ -338,20 +339,33 @@ describe("connecting the account", () => {
     expect(grant?.scopes).toContain("ucp:pay");
     const consent = recentTrace(500, grant?.id).find((t) => t.method === "CONSENT");
     expect(consent?.path).toBe("/api/ask/connect/inline");
-    // Reading the session never marks the agent as used on the account page.
+    // Reading the session never marks the agent as used on the account page, a minute later too.
     const used = grants(session?.customerId).find((g) => g.id === grant?.id)?.lastUsedAt;
-    await browser.view();
+    setSystemTime(new Date(Date.now() + 60_000));
+    try {
+      await browser.view();
+    } finally {
+      setSystemTime();
+    }
     expect(grants(session?.customerId).find((g) => g.id === grant?.id)?.lastUsedAt).toBe(used);
 
-    // Disconnected on the account page: the chat forgets the token and may connect again.
+    // Disconnected on the account page: the console and the chat forget the token at once, before
+    // the session's stored flag is cleared, and the shopper may connect again.
     if (!grant || !session?.customerId) throw new Error("no grant");
     updateGrant(grant.id, { revoked: true }, session.customerId);
+    const stored = sessionById(session.id);
+    expect(stored?.connected).toBeTruthy();
+    expect(stored && sessionSummary(stored).connected).toBe(false);
     expect(houseToken(session.id)).toBeUndefined();
     expect((await browser.view()).connected).toBeFalsy();
     const again = await browser.call("POST", "/api/ask/connect/inline", { spendLimit: 5000 });
     expect(((await again.json()) as { state: string }).state).toBe("connected");
     const second = grants(session.customerId).filter((g) => g.clientName === HOUSE_CLIENT_NAME);
-    expect(second.find((g) => !g.revoked)).toMatchObject({ spendLimit: 5000, revoked: false });
+    const live = second.find((g) => !g.revoked);
+    expect(live).toMatchObject({ spendLimit: 5000, revoked: false });
+    expect(houseAccess(session.id)).toMatchObject({ remaining: 5000, pay: true });
+    updateGrant(live?.id ?? "", { revoked: true }, session.customerId);
+    expect(houseAccess(session.id)).toBeUndefined();
   });
 
   test("strict mode refuses connect", async () => {

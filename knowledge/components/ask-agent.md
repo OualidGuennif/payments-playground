@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T00:50:00Z
+  at: 2026-11-27T01:28:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -176,7 +176,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   the site's bag. The agent hears the site's bag in `<shop_context>` as `bag:` with catalogue titles
   and ids; on a `/checkout/chk_…` page, that checkout's lines instead (open, and the session's
   account's or no account's). It also hears `viewing:` (a product page's title, id and subtitle),
-  `signed in`, `account connected`, `autonomous pay` (yes only with a live grant that may pay, budget
+  `signed in`, `account connected` (a live grant read at that message, like the console's
+  `connected`), `autonomous pay` (yes only with a live grant that may pay, budget
   left and normal mode), `budget left` and `saved cards` (counted, for a connected session only);
   the prompt (agent `ask-5`, "Personal Shopper") never asks a signed-in shopper to sign in or for an
   email (`ask/pipeline.test.ts` "the shop context").

@@ -10,7 +10,7 @@ import { AGENT_VERSION, agentCanary, houseAgentRunner } from "./agent";
 import { type AskConfig, PROVIDERS } from "./config";
 import { gate } from "./gate";
 import { runGuard } from "./guard";
-import { disconnect } from "./house";
+import { disconnect, houseToken } from "./house";
 import { admit, answer, type PipelineEvent } from "./pipeline";
 import { askModels } from "./runtime";
 import {
@@ -167,7 +167,8 @@ export function sessionSummary(s: AskSession, now = Date.now()) {
     lastAt: s.lastAt,
     endsAt: s.endsAt,
     customer: customerLabel(s.customerId),
-    connected: Boolean(s.connected),
+    // The stored flag lags a grant revoked on the account page; the live token does not.
+    connected: Boolean(s.connected && houseToken(s.id, now)),
     address: maskAddress(s.address),
     messages: s.messages,
     costUsd: s.costUsd,

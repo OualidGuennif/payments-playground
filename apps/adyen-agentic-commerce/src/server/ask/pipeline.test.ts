@@ -237,6 +237,7 @@ describe("the shop context", () => {
     });
     expect(shown).toContain("viewing: Linen-blend trench coat (velune-trench)");
     expect(shown).toContain("signed in: yes");
+    expect(shown).toContain("account connected: yes");
     expect(shown).toContain("autonomous pay: yes");
     expect(shown).toContain("budget left: €123.45");
     expect(shown).toContain("saved cards: 2");
@@ -250,6 +251,13 @@ describe("the shop context", () => {
     const spent = contextOf({ account: { remaining: 0, pay: true } });
     expect(spent).toContain("autonomous pay: no");
     expect(spent).toContain("budget left: €0.00");
+  });
+
+  test("a grant revoked since the session connected reads as not connected", () => {
+    const flagged = { ...askSession("cus_ctx").session, connected: { at: Date.now() } };
+    const shown = contextOf({ session: flagged });
+    expect(shown).toContain("account connected: no");
+    expect(shown).toContain("autonomous pay: no");
   });
 });
 

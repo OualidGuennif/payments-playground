@@ -207,6 +207,24 @@
   html[data-ask="docked"] .header-actions {
     margin-left: auto;
   }
+  html[data-ask="docked"] .header-wordmark-long {
+    display: none;
+  }
+}
+/* Docked, the panel names itself: the header's button keeps its icon and its accessible name, so
+   the header stays on one line beside the rail. */
+@media (min-width: 1024px) {
+  html[data-ask="docked"] .header-launcher-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
 }
 
 /* The voice icon's bars move like a level meter while a call is live. */

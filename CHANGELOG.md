@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's header: Sign in (or the account's initial) shows on every width and leaves
+  the Menu, the header stays on one line on a phone and beside the docked Personal Shopper, and
+  its menus sit above the minimised Personal Shopper (opening the Personal Shopper closes them; a
+  menu opened on a phone minimises it). An open product page fold no longer widens the page, and
+  a shop card says "1 colour" and its swatches show and open each colour.
 - The Personal Shopper's widget on the agentic store: cards are as tall as their content and each
   has "View product details" (below 1024 px the panel steps aside and the page opens in place); a
   bag without an email reads "Add your email to continue to payment" and its Pay opens the Pay

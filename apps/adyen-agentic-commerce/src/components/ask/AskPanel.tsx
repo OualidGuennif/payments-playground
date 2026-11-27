@@ -22,6 +22,7 @@ import { AskText } from "./AskText";
 import { MuteButton, useVoice, VoiceButton, VoicePanel } from "./AskVoice";
 import { SESSION_EVENT } from "@/components/AccountMenu";
 import { PayIdentityModal, type PayResolved } from "@/components/PayIdentityModal";
+import { closeHeaderMenus } from "@/components/useHeaderMenu";
 import { followBag, readCart, useCart } from "@/lib/client";
 import { openablePage } from "@/lib/storePages";
 import {
@@ -81,7 +82,7 @@ export function AskLauncher() {
     <button
       type="button"
       id="ask-launcher"
-      className="btn-ghost w-11 gap-1.5 px-0 py-1.5 sm:w-auto sm:px-3"
+      className="btn-ghost w-11 shrink-0 gap-1.5 px-0 py-1.5 sm:w-auto sm:px-3"
       aria-expanded={state === "open"}
       aria-controls="ask-panel"
       aria-keyshortcuts="Meta+K Control+K"
@@ -89,7 +90,9 @@ export function AskLauncher() {
       onClick={() => setAskState(launcherNext(state))}
     >
       <Icon d={SPARK} />
-      <span className="sr-only whitespace-nowrap sm:not-sr-only">Personal Shopper</span>
+      <span className="header-launcher-label sr-only whitespace-nowrap sm:not-sr-only">
+        Personal Shopper
+      </span>
     </button>
   );
 }
@@ -242,6 +245,8 @@ export function AskPanel() {
   useEffect(() => {
     if (minimised) restore.current?.focus();
     if (!open) return;
+    // The open panel never sits over an open header menu (storefront spec, Layers).
+    closeHeaderMenus();
     if (window.matchMedia(DOCKS).matches) input.current?.focus();
     else panel.current?.focus();
   }, [open, minimised]);
@@ -507,7 +512,7 @@ export function AskPanel() {
           type="button"
           aria-label="Close your Personal Shopper"
           tabIndex={-1}
-          className="fixed inset-0 z-30 bg-ink/30 lg:hidden"
+          className="fixed inset-0 z-[45] bg-ink/30 lg:hidden"
           onClick={close}
         />
       )}
@@ -517,7 +522,7 @@ export function AskPanel() {
         tabIndex={-1}
         aria-labelledby="ask-title"
         onKeyDown={(event) => event.key === "Escape" && open && minimise()}
-        className={`fixed z-40 flex flex-col bg-paper shadow-2xl outline-none ${
+        className={`fixed ${minimised ? "z-30" : "z-50"} flex flex-col bg-paper shadow-2xl outline-none ${
           wide
             ? "inset-x-0 bottom-0 h-[92dvh] rounded-t-3xl border-t border-line lg:inset-0 lg:h-auto lg:rounded-none lg:border-0"
             : minimised

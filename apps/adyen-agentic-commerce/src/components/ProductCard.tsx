@@ -1,5 +1,7 @@
 // Spec: knowledge/components/agentic-storefront.md
+"use client";
 import Link from "next/link";
+import { useState } from "react";
 import { GsapCard } from "@/components/motion/GsapCard";
 import { money } from "@/lib/money";
 import type { Product } from "@/server/catalog/catalog";
@@ -9,7 +11,11 @@ import type { Product } from "@/server/catalog/catalog";
 export type CardProduct = Pick<
   Product,
   "id" | "title" | "subtitle" | "price" | "compareAt" | "badge" | "colours"
-> & { firstVariant: string };
+> & {
+  firstVariant: string;
+  // Each colour's first variant, so a swatch shows that colour's picture and opens it.
+  colourVariants: Record<string, string>;
+};
 
 export function ProductCard({
   product,
@@ -19,14 +25,21 @@ export function ProductCard({
   heading?: "h2" | "h3";
 }) {
   const Heading = heading;
+  const [colour, setColour] = useState(product.colours[0]?.id);
+  const variant = (colour && product.colourVariants[colour]) || product.firstVariant;
+  const href =
+    variant === product.firstVariant
+      ? `/products/${product.id}`
+      : `/products/${product.id}?variant=${encodeURIComponent(variant)}`;
+  const count = product.colours.length;
   return (
     <GsapCard>
-      <Link href={`/products/${product.id}`} className="group block">
+      <Link href={href} className="group block">
         <div className="relative overflow-hidden rounded-2xl border border-line bg-[#f4f1ec]">
           {/* eslint-disable-next-line @next/next/no-img-element -- local SVG drawings need no optimiser */}
           <img
             data-card="art"
-            src={`/api/art/${product.firstVariant}.svg`}
+            src={`/api/art/${variant}.svg`}
             alt={product.title}
             width={480}
             height={480}
@@ -61,21 +74,49 @@ export function ProductCard({
           </span>
         </div>
         <p className="mt-0.5 text-xs text-muted">{product.subtitle}</p>
-        <ul className="mt-2 flex gap-1.5" aria-label={`${product.colours.length} colours`}>
-          {product.colours.map((c) => (
-            <li key={c.id}>
-              <svg
-                viewBox="0 0 10 10"
-                className="size-3.5 rounded-full border border-line"
-                role="img"
-                aria-label={c.label}
-              >
-                <circle cx="5" cy="5" r="5" fill={c.hex} />
-              </svg>
-            </li>
-          ))}
-        </ul>
       </Link>
+      {/* Outside the link: a swatch is its own control. Tapping or hovering one shows that colour
+          and points the card's link at it. */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-1 gap-y-1">
+        {count > 1 ? (
+          <ul className="flex flex-wrap gap-1" aria-label={`${product.title}: colours`}>
+            {product.colours.map((c) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  aria-pressed={c.id === colour}
+                  aria-label={`Show ${c.label}`}
+                  title={c.label}
+                  className="relative grid size-9 cursor-pointer place-items-center rounded-full after:absolute after:-inset-0.5 hover:bg-line/60 aria-pressed:ring-1 aria-pressed:ring-ink"
+                  onClick={() => setColour(c.id)}
+                  onMouseEnter={() => setColour(c.id)}
+                  onFocus={() => setColour(c.id)}
+                >
+                  <svg
+                    viewBox="0 0 10 10"
+                    className="size-4 rounded-full border border-line"
+                    aria-hidden="true"
+                  >
+                    <circle cx="5" cy="5" r="5" fill={c.hex} />
+                  </svg>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <svg
+            viewBox="0 0 10 10"
+            className="size-4 rounded-full border border-line"
+            role="img"
+            aria-label={product.colours[0]?.label ?? "One colour"}
+          >
+            <circle cx="5" cy="5" r="5" fill={product.colours[0]?.hex ?? "currentColor"} />
+          </svg>
+        )}
+        <span className="pl-1 text-xs text-muted">
+          {count === 1 ? "1 colour" : `${count} colours`}
+        </span>
+      </div>
     </GsapCard>
   );
 }

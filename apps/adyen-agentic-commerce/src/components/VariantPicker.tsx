@@ -87,8 +87,9 @@ export function VariantPicker({
   const oneSize = sizes.length === 1 && sizes[0] === "One size";
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1.15fr_1fr] lg:gap-14">
-      <div className="lg:sticky lg:top-24 lg:self-start">
+    // Both columns may shrink (min-w-0, minmax(0, …)): an open fold never widens the page.
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-14">
+      <div className="min-w-0 lg:sticky lg:top-24 lg:self-start">
         <div className="overflow-hidden rounded-[2rem] border border-line bg-[#f4f1ec]">
           {/* eslint-disable-next-line @next/next/no-img-element -- local SVG drawings need no optimiser */}
           <img
@@ -127,7 +128,7 @@ export function VariantPicker({
           </div>
         ) : null}
       </div>
-      <div className="space-y-7">
+      <div className="min-w-0 space-y-7">
         <div className="space-y-3">
           {product.badge ? <p className="eyebrow text-accent">{product.badge}</p> : null}
           <h1 className="text-4xl leading-tight">{product.title}</h1>
@@ -238,7 +239,7 @@ export function VariantPicker({
             <span className="text-xs text-muted group-open:hidden">For developers</span>
           </summary>
           <div className="space-y-3 border-t border-line px-4 py-3 text-sm">
-            <p>
+            <p className="break-words">
               UCP item id <span className="code">{chosen.id}</span>: an agent buys this colour and
               size by sending it as <span className="code">line_items[].item.id</span>.
             </p>
@@ -249,7 +250,7 @@ export function VariantPicker({
               </a>
               :
             </p>
-            <pre className="max-h-80 overflow-auto rounded-xl bg-paper p-3 font-mono text-xs leading-relaxed">
+            <pre className="max-h-80 max-w-full overflow-auto rounded-xl bg-paper p-3 font-mono text-xs leading-relaxed">
               {JSON.stringify(feed[chosen.id] ?? {}, null, 2)}
             </pre>
           </div>

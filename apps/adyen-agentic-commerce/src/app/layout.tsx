@@ -1,7 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AccountMenu, AccountMenuItems } from "@/components/AccountMenu";
+import { AccountMenu } from "@/components/AccountMenu";
 import { AskLauncher, AskPanel } from "@/components/ask/AskPanel";
 import { CartLink } from "@/components/CartLink";
 import { DevelopersMenu } from "@/components/DevelopersMenu";
@@ -51,14 +51,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <span className="hidden sm:inline">{season.bannerTagline}</span>
           <span className="sm:hidden">{season.bannerCompact}</span>
         </p>
-        <header className="sticky top-0 z-20 border-b border-line bg-paper/90 backdrop-blur">
-          <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2.5 sm:px-6">
+        {/* Layers (storefront spec): ambience 10, minimised Shopper 30, header and its menus 40,
+            open Shopper 50, Pay email modal 60. One line on every width: nothing wraps. */}
+        <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur">
+          <div className="mx-auto flex max-w-7xl flex-nowrap items-center gap-2 px-3 py-2.5 sm:px-6">
             <Link
               href="/"
-              className="whitespace-nowrap font-serif text-lg uppercase tracking-[0.22em] sm:text-xl"
+              className="shrink-0 whitespace-nowrap font-serif text-base uppercase tracking-[0.22em] sm:text-xl"
               aria-label="Atelier Velune, home"
             >
-              <span className="hidden sm:inline">Atelier </span>Velune
+              <span className="header-wordmark-long hidden sm:inline">Atelier </span>Velune
             </Link>
             <nav
               aria-label="Departments"
@@ -74,7 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Link>
               ))}
             </nav>
-            <div className="header-actions ml-auto flex items-center gap-1.5 sm:gap-2 xl:ml-0">
+            <div className="header-actions ml-auto flex shrink-0 flex-nowrap items-center gap-1 sm:gap-2 xl:ml-0">
               <AskLauncher />
               <DevelopersMenu />
               <div className="hidden sm:block">
@@ -84,7 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <AccountMenu />
               <MobileMenu>
                 <summary
-                  className="btn-ghost min-h-11 list-none px-3.5 py-1.5 text-sm [&::-webkit-details-marker]:hidden"
+                  className="btn-ghost min-h-11 list-none whitespace-nowrap px-2.5 py-1.5 text-[13px] sm:px-3.5 sm:text-sm [&::-webkit-details-marker]:hidden"
                   aria-label="Open menu"
                 >
                   Menu
@@ -118,8 +120,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     Theme
                     <ThemeSwitch />
                   </div>
-                  <hr className="my-1 border-line" />
-                  <AccountMenuItems />
                 </nav>
               </MobileMenu>
             </div>

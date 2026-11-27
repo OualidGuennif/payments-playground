@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's Pay asks for the email in one modal, "Add your email address": an email
+  with an account signs in there (password or passkey) and the checkout becomes the account's; a
+  new email can create an account with 5 % off and the seasonal tote, or pay as a guest. The
+  checkout's summary, the order page and the account's orders show the offer, a signed-in first
+  order applies it in one tap, `/sign-up` with a taken email offers "Sign in as", and an autofilled
+  field stays readable in dark mode.
 - The agentic store's server side of the Pay email step and the welcome offer.
   `POST /api/session/check-email` answers only `{ "exists": boolean }`, to the store's own pages
   with `X-Velune-Check: 1`, 15 times per address per 15 minutes, never faster than 45 ms, with the

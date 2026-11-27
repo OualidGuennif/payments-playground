@@ -124,6 +124,16 @@
       font-size: 16px;
     }
   }
+  /* Browsers paint an autofilled field pale yellow, unreadable in dark mode: keep the field's own
+     colours (the inset shadow covers the paint, the long transition keeps it from coming back). */
+  .field:-webkit-autofill,
+  .field:-webkit-autofill:hover,
+  .field:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--color-ink);
+    caret-color: var(--color-ink);
+    box-shadow: 0 0 0 1000px var(--color-card) inset;
+    transition: background-color 600000s 0s;
+  }
   .dropin-surface {
     @apply rounded-2xl border border-line bg-dropin p-3 text-dropin-ink sm:p-4;
   }

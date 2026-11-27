@@ -39,6 +39,30 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             <span className="tabular-nums">{money(l.unitPrice * l.quantity)}</span>
           </li>
         ))}
+        {order.welcomeOffer ? (
+          <li className="flex items-center justify-between gap-3 p-3">
+            <span className="flex min-w-0 items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element -- local SVG drawings need no optimiser */}
+              <img
+                src={`/api/art/${order.welcomeOffer.giftVariantId}.svg`}
+                alt=""
+                width={32}
+                height={40}
+                className="aspect-[4/5] w-8 shrink-0 rounded-md border border-line object-cover"
+              />
+              <span>
+                {order.welcomeOffer.giftTitle} <span className="text-muted">× 1</span>
+              </span>
+            </span>
+            <span className="text-ok">Free</span>
+          </li>
+        ) : null}
+        {order.discount ? (
+          <li className="flex justify-between p-3 text-ok">
+            <span>Welcome offer (-5%)</span>
+            <span className="tabular-nums">-{money(order.discount)}</span>
+          </li>
+        ) : null}
         <li className="flex justify-between p-3">
           <span>Shipping</span>
           <span className="tabular-nums">

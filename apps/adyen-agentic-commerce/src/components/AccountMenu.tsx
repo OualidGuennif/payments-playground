@@ -42,9 +42,9 @@ function whoIs(path: string): Promise<Who> {
 }
 
 // The header and the Personal Shopper both follow it.
-export const SESSION_EVENT = "velune-session";
+export const SESSION_EVENT = "velune:auth-changed";
 
-/** A sign-in without a page change (the Ask panel's receipt block): the header asks again. */
+/** A sign-in without a page change (the Pay email modal): the header asks again. */
 export function sessionChanged(): void {
   asked = undefined;
   window.dispatchEvent(new Event(SESSION_EVENT));

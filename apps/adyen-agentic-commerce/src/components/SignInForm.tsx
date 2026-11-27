@@ -2,14 +2,18 @@
 "use client";
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
-import { type Answer, messageOf } from "@/lib/answer";
+import { type Answer, codeOf, messageOf } from "@/lib/answer";
 import { api } from "@/lib/client";
 import { rememberAccount, useKnownAccount } from "@/lib/known";
 import { type SignIn, signInWithPasskey, signInWithPassword } from "@/lib/signIn";
 
-export function SignInForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: string }) {
+export function SignInForm({ mode: start, next }: { mode: "sign-in" | "sign-up"; next: string }) {
+  const [mode, setMode] = useState(start);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState("");
+  // An email that already has an account turns the sign-up into its sign-in, the email kept.
+  const [taken, setTaken] = useState<string>();
   const signUp = mode === "sign-up";
   const known = useKnownAccount();
 
@@ -23,7 +27,6 @@ export function SignInForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const email = String(form.get("email") ?? "");
     const password = String(form.get("password") ?? "");
     setBusy(true);
     setError(undefined);
@@ -35,7 +38,8 @@ export function SignInForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: 
       });
       const failed = messageOf(answer as Answer, "Something went wrong. Try again.");
       setBusy(false);
-      if (failed) setError(failed);
+      if (codeOf(answer as Answer) === "email_taken") setTaken(email.trim());
+      else if (failed) setError(failed);
       else done();
       return;
     }
@@ -80,6 +84,25 @@ export function SignInForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: 
           </Link>
         </p>
       ) : null}
+      {taken && signUp ? (
+        <div
+          role="status"
+          className="space-y-2 rounded-xl border border-line px-3.5 py-2.5 text-sm"
+        >
+          <p>An account already uses {taken}.</p>
+          <button
+            type="button"
+            className="btn w-full"
+            onClick={() => {
+              setTaken(undefined);
+              setError(undefined);
+              setMode("sign-in");
+            }}
+          >
+            Sign in as {taken}
+          </button>
+        </div>
+      ) : null}
       <form onSubmit={submit} className="space-y-4">
         {signUp ? (
           <label className="block space-y-1 text-sm">
@@ -95,6 +118,11 @@ export function SignInForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: 
             required
             autoComplete={signUp ? "email" : "username webauthn"}
             className="field"
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              setTaken(undefined);
+            }}
           />
         </label>
         <label className="block space-y-1 text-sm">

@@ -222,8 +222,9 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
 9. A season starts on the 21st of November, February, May and August (UTC), leap days included.
    Test: `src/lib/seasons.test.ts` (three tests).
 10. The email check answers `{ "exists": boolean }` only, and only to the store's own pages, with
-    the header, under its limit and with a valid email; its trace never holds the email. Tests:
-    `src/server/accounts/customers.test.ts` "the email check" (four tests).
+    the header, under its limit and with a valid email; its trace never holds the email; the modal
+    picks no path on an unclear answer. Tests: `src/server/accounts/customers.test.ts` "the email
+    check" (four tests); `src/components/payIdentity.test.ts` (three tests).
 11. The welcome offer is asked for, never applied by itself; it goes to an account with no order,
     once, priced on the server and checked again before the payment session; the payment's amount
     is the discounted total. A checkout without it keeps its catalogue prices and three totals.

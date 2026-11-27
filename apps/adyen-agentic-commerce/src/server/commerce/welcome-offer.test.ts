@@ -256,6 +256,8 @@ describe("welcome offer", () => {
     expect(await attempt()).toBe("welcome_offer_account_only");
     expect(get<commerce.Checkout>("checkouts", created.body.id)!.welcomeOffer).toBeDefined();
     expect(fake.payments).toHaveLength(0);
+    // Refused before Adyen is asked anything: the token's number never reaches /cardDetails.
+    expect(fake.brandLookups).toHaveLength(0);
     expect(list<commerce.Order>("orders")).toHaveLength(0);
     // Handing the checkout to the shopper still works, offer and all.
     const handed = await commerce.completeCheckout(commerce.loadCheckout(created.body.id), {});

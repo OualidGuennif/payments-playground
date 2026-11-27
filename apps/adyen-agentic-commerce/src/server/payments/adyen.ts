@@ -2,6 +2,7 @@
 // Every Adyen call of the app. The client is always built for EnvironmentEnum.TEST, and each request
 // lists its fields explicitly: nothing from a browser or an agent is forwarded as is.
 import { CheckoutAPI, Client, EnvironmentEnum, hmacValidator, Types } from "@adyen/api-library";
+import { CARD_BRANDS } from "../../lib/payment-methods";
 import { config, CURRENCY } from "../core/config";
 
 type C = typeof Types.checkout;
@@ -28,40 +29,78 @@ export type SessionRequest = {
   metadata: Record<string, string>;
 };
 
-export async function createSession(input: SessionRequest) {
-  const { checkout, merchantAccount } = api();
+// What an order's Drop-in may offer (owner, 2026-11-27). Adyen shows only those the merchant
+// account has for the session's country and currency: MB WAY, Bizum and Pix stay listed though
+// France in euros hides them.
+export const ORDER_PAYMENT_METHODS = [
+  "scheme",
+  ...CARD_BRANDS,
+  "applepay",
+  "googlepay",
+  "klarna",
+  "klarna_account",
+  "klarna_paynow",
+  "paypal",
+  "wero",
+  "mbway",
+  "bizum",
+  "pix",
+];
+
+type SessionBody = Types.checkout.CreateCheckoutSessionRequest;
+
+export function sessionRequest(input: SessionRequest, merchantAccount: string): SessionBody {
   const S = checkoutTypes.CreateCheckoutSessionRequest;
   const cardSave = input.purpose === "card-save";
   if (cardSave && !input.shopperReference) throw new Error("A card is saved only to an account");
   const account = input.shopperReference !== undefined;
-  const response = await checkout.PaymentsApi.sessions(
-    {
-      merchantAccount,
-      amount: { currency: CURRENCY, value: input.amount },
-      reference: input.reference,
-      returnUrl: input.returnUrl,
-      countryCode: "FR",
-      shopperLocale: "en-US",
-      channel: S.ChannelEnum.Web,
-      shopperReference: input.shopperReference,
-      shopperEmail: input.shopperEmail,
-      shopperInteraction: S.ShopperInteractionEnum.Ecommerce,
-      // A saved card must allow UnscheduledCardOnFile, the model an agent payment uses later.
-      recurringProcessingModel: !account
-        ? undefined
-        : cardSave
-          ? S.RecurringProcessingModelEnum.UnscheduledCardOnFile
-          : S.RecurringProcessingModelEnum.CardOnFile,
-      storePaymentMethodMode: !account
-        ? undefined
-        : cardSave
-          ? S.StorePaymentMethodModeEnum.Enabled
-          : S.StorePaymentMethodModeEnum.AskForConsent,
-      allowedPaymentMethods: cardSave ? ["scheme"] : undefined,
-      metadata: input.metadata,
-    },
-    { idempotencyKey: `session-${input.reference}` },
-  );
+  return {
+    merchantAccount,
+    amount: { currency: CURRENCY, value: input.amount },
+    reference: input.reference,
+    returnUrl: input.returnUrl,
+    countryCode: "FR",
+    shopperLocale: "en-US",
+    channel: S.ChannelEnum.Web,
+    shopperReference: input.shopperReference,
+    shopperEmail: input.shopperEmail,
+    shopperInteraction: S.ShopperInteractionEnum.Ecommerce,
+    // A saved card must allow UnscheduledCardOnFile, the model an agent payment uses later.
+    recurringProcessingModel: !account
+      ? undefined
+      : cardSave
+        ? S.RecurringProcessingModelEnum.UnscheduledCardOnFile
+        : S.RecurringProcessingModelEnum.CardOnFile,
+    storePaymentMethodMode: !account
+      ? undefined
+      : cardSave
+        ? S.StorePaymentMethodModeEnum.Enabled
+        : S.StorePaymentMethodModeEnum.AskForConsent,
+    allowedPaymentMethods: cardSave ? ["scheme"] : [...ORDER_PAYMENT_METHODS],
+    // Adyen offers Klarna only to a session whose line items add up to its amount: one line for
+    // the whole order, VAT included, so the sum always matches whatever the order holds.
+    lineItems: cardSave
+      ? undefined
+      : [
+          {
+            id: input.reference,
+            description: "Atelier Velune order",
+            quantity: 1,
+            amountIncludingTax: input.amount,
+            amountExcludingTax: input.amount,
+            taxAmount: 0,
+            itemCategory: "PHYSICAL_GOODS",
+          },
+        ],
+    metadata: input.metadata,
+  };
+}
+
+export async function createSession(input: SessionRequest) {
+  const { checkout, merchantAccount } = api();
+  const response = await checkout.PaymentsApi.sessions(sessionRequest(input, merchantAccount), {
+    idempotencyKey: `session-${input.reference}`,
+  });
   if (!response.id || !response.sessionData) throw new Error("Adyen returned no session");
   return { id: response.id, sessionData: response.sessionData };
 }

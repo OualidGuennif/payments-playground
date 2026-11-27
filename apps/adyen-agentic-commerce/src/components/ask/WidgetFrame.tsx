@@ -6,6 +6,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { readCart } from "@/lib/client";
+import { onThemeChange, resolvedTheme } from "@/lib/theme";
 import { askCall } from "./askClient";
 import {
   type Fed,
@@ -64,13 +65,6 @@ function picture(path: string) {
   }
   return pending;
 }
-
-// The page's own theme (the header's switch sets data-theme), else the system's.
-const theme = (): "light" | "dark" => {
-  const chosen = document.documentElement.dataset.theme;
-  if (chosen === "light" || chosen === "dark") return chosen;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-};
 
 // One bag per browser: a cart the widget starts with no bag of its own joins the site's lines.
 function withSiteBag(name: string, args: Record<string, unknown>): Record<string, unknown> {
@@ -182,7 +176,7 @@ export function WidgetFrame({
           if (path) (opener.current ?? router.push)(path);
           return Boolean(path);
         },
-        theme,
+        theme: resolvedTheme,
         resize: setHeight,
         initialized: () => {
           ready.current = true;
@@ -192,22 +186,18 @@ export function WidgetFrame({
         if (reply) post(reply);
       });
     };
-    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
-    const onScheme = () =>
+    // The header's theme switch changes data-theme without a reload: the widget follows at once.
+    const stopTheme = onThemeChange(() =>
       post({
         jsonrpc: "2.0",
         method: "ui/notifications/host-context-changed",
-        params: { theme: theme() },
-      });
-    // The header's theme switch changes data-theme without a reload: the widget follows at once.
-    const chosen = new MutationObserver(onScheme);
-    chosen.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+        params: { theme: resolvedTheme() },
+      }),
+    );
     window.addEventListener("message", onMessage);
-    scheme.addEventListener("change", onScheme);
     return () => {
-      chosen.disconnect();
+      stopTheme();
       window.removeEventListener("message", onMessage);
-      scheme.removeEventListener("change", onScheme);
     };
   }, [frame, router, push]);
 

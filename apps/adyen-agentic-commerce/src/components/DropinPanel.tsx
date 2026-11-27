@@ -2,6 +2,47 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import "@adyen/adyen-web/styles/adyen.css";
+import { CARD_BRANDS } from "@/lib/payment-methods";
+import { onThemeChange, resolvedTheme, type Theme } from "@/lib/theme";
+
+// The card fields live in Adyen's frames, out of reach of the page's CSS: they take the theme's
+// text and background here (the same colours as the custom properties on .dropin-surface).
+const FIELDS: Record<Theme, Record<string, Record<string, string>>> = {
+  light: {
+    base: { color: "#1d1d1f", caretColor: "#1d1d1f", background: "#ffffff", fontSize: "16px" },
+    placeholder: { color: "#6b6760" },
+    error: { color: "#a33a2b" },
+    validated: { color: "#1d1d1f" },
+  },
+  dark: {
+    base: { color: "#f2efe9", caretColor: "#f2efe9", background: "#201f1d", fontSize: "16px" },
+    placeholder: { color: "#b4ada3" },
+    error: { color: "#f08a7a" },
+    validated: { color: "#f2efe9" },
+  },
+};
+
+// Apple Pay and Google Pay above the list, in the store's ink: black on light, white on dark,
+// with round ends like the store's buttons (Apple Pay's comes from globals.css).
+function dropinOptions(theme: Theme, showStored: boolean) {
+  const wallet: "white" | "black" = theme === "dark" ? "white" : "black";
+  return {
+    showStoredPaymentMethods: showStored,
+    instantPaymentTypes: ["applepay", "googlepay"] as ("applepay" | "googlepay")[],
+    paymentMethodsConfiguration: {
+      card: { brands: [...CARD_BRANDS], styles: FIELDS[theme] },
+      storedCard: { styles: FIELDS[theme] },
+      applepay: { buttonType: "buy" as const, buttonColor: wallet },
+      googlepay: {
+        buttonType: "buy" as const,
+        buttonColor: wallet,
+        buttonRadius: 24,
+        buttonSizeMode: "fill" as const,
+      },
+      paypal: { style: { color: wallet, shape: "pill" as const } },
+    },
+  };
+}
 
 export type SessionInfo = {
   id: string;
@@ -40,6 +81,11 @@ export function DropinPanel({
   const host = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"loading" | "ready" | "done" | "error">("loading");
   const [error, setError] = useState<string>();
+  // Mounts Drop-in again in the given theme, on the same Adyen checkout and session.
+  const remount = useRef<(theme: Theme) => void>(undefined);
+  // From the moment a payment is sent until Adyen answers, Drop-in may be showing 3-D Secure:
+  // a theme switch then waits rather than unmount it.
+  const paying = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -52,6 +98,7 @@ export function DropinPanel({
           sessionId: string,
           result?: { sessionResult?: string; resultCode?: string },
         ) => {
+          paying.current = false;
           if (!active) return;
           if (!result?.sessionResult) {
             setError(
@@ -102,7 +149,9 @@ export function DropinPanel({
           locale: "en-US",
           // Only resolves or rejects: the payment data goes to Adyen as Drop-in built it, never here.
           beforeSubmit: async (state, _component, actions) => {
+            paying.current = true;
             const refusal = beforePay ? await beforePay(session.id) : undefined;
+            if (!active || refusal) paying.current = false;
             if (!active) return actions.reject();
             if (refusal) {
               setError(refusal);
@@ -116,6 +165,7 @@ export function DropinPanel({
           onPaymentFailed: (data) =>
             finish(session.id, data as { sessionResult?: string; resultCode?: string }),
           onError: (e) => {
+            paying.current = false;
             if (!active || e.name === "CANCEL") return;
             setError(e.message);
             setState("error");
@@ -123,15 +173,25 @@ export function DropinPanel({
         });
         if (!active || !host.current) return;
         const showStored = storedMethods && session.storedCards !== false;
-        const dropin = new Dropin(checkout, { showStoredPaymentMethods: showStored }).mount(
-          host.current,
-        );
-        unmount = () => {
+        const target = host.current;
+        let shown: Theme = resolvedTheme();
+        let dropin = new Dropin(checkout, dropinOptions(shown, showStored)).mount(target);
+        const drop = () => {
           try {
             dropin.unmount();
           } catch {
             // Ignore teardown errors if Drop-in already completed or unmounted itself.
           }
+        };
+        remount.current = (theme) => {
+          if (!active || theme === shown || paying.current) return;
+          drop();
+          shown = theme;
+          dropin = new Dropin(checkout, dropinOptions(theme, showStored)).mount(target);
+        };
+        unmount = () => {
+          remount.current = undefined;
+          drop();
         };
         setState("ready");
       } catch (e) {
@@ -145,6 +205,9 @@ export function DropinPanel({
       unmount?.();
     };
   }, [beforePay, clientKey, createSession, onFinished, redirect, storedMethods]);
+
+  // The header's theme switch: the card fields and wallet buttons cannot follow by CSS alone.
+  useEffect(() => onThemeChange(() => remount.current?.(resolvedTheme())), []);
 
   return (
     <div className="space-y-3">

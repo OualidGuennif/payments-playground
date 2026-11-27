@@ -7,12 +7,12 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 ## Drop-in methods, express wallets and the Velune look — ACTIVE
 
-- Owner decision: 2026-11-27, in chat: list visa, mc, cartebancaire, amex, applepay, googlepay,
-  klarna, paypal, wero, mbway, bizum, pix; card saving; Apple and Google Pay on top; Velune styling.
-  Keep MB WAY, Bizum and Pix listed though FR/EUR hides them (no country picker).
-- State: spec in agentic-storefront.md (Drop-in, invariant 13); code not started.
-- Next: session methods and test, DropinPanel config and theme, CSS tokens, the /cardDetails
-  review fix, QA, review, release v0.12.0 (who: agent).
+- Owner decision: 2026-11-27, in chat: the 12 listed methods, card saving, Apple and Google Pay on
+  top, Velune styling; MB WAY, Bizum and Pix stay listed though FR/EUR hides them.
+- State: spec 54d5f58 and code committed; local TEST: Google Pay on top, 4 brands, PayPal, Klarna,
+  Wero; guest card Authorised at 375 px; an account sees "Save for my next payment" in dark.
+- Next: check, review, release v0.12.0, prod guest check (who: agent); Apple Pay in Safari once
+  the domain is registered in the Adyen TEST account (who: owner).
 - Blocker: none.
 - Evidence: knowledge/components/agentic-storefront.md (Drop-in).
 

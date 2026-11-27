@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T10:24:00Z
+  at: 2026-11-27T10:35:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -48,6 +48,12 @@ sources:
   - id: seasons
     resource: ../../apps/adyen-agentic-commerce/src/lib/seasons.ts
     title: "The season of a UTC date: its tote, its top bar line, its ambience"
+  - id: payment-methods
+    resource: ../../apps/adyen-agentic-commerce/src/lib/payment-methods.ts
+    title: "The four card brands Drop-in's card takes, shared by the session and the browser"
+  - id: payment-session-tests
+    resource: ../../apps/adyen-agentic-commerce/src/server/payments/adyen.test.ts
+    title: "The payment session's tests: the methods, the order line, card keeping per account"
   - id: payment-session
     resource: ../../apps/adyen-agentic-commerce/src/server/payments/adyen.ts
     title: "The Adyen session request: the order's methods, the card save's card, the store mode"
@@ -160,10 +166,13 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   three ways to pay), PayPal, Wero, MB WAY, Bizum and Pix; Drop-in's card takes only those four
   brands. Adyen shows only what the merchant account offers for France in euros, so MB WAY
   (Portugal), Bizum (Spain) and Pix (Brazil, in reais) stay hidden here; the owner keeps them
-  listed. A card save's session lists the card alone. Apple Pay and Google Pay sit above the list
+  listed. The session carries one line item, the whole order at its amount, since Adyen offers
+  Klarna only when the line items add up to it. A card save's session lists the card alone, with no
+  line item. Apple Pay and Google Pay sit above the list
   as express buttons (`instantPaymentTypes`), "Buy with", black on the light theme and white on the
-  dark one, with the store's 12 px corners; Apple Pay shows only in Safari, on a domain registered
-  for it in the Adyen TEST account. An account's session asks before keeping a card ("Save for my
+  dark one, with round ends like the store's buttons (the pay button and PayPal's too; fields keep
+  12 px corners); Apple Pay shows only in Safari, on a domain registered for it in the Adyen TEST
+  account. An account's session asks before keeping a card ("Save for my
   next payment": `askForConsent`, `CardOnFile`) and shows its saved cards; a guest's has neither.
   The form wears the store's colours in both themes through Adyen Web 6's CSS custom properties on
   `.dropin-surface` (surfaces, labels, outlines, the pay button at rest, hover and press, the focus
@@ -264,8 +273,8 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
 12. A guest's email stays set once: a second `POST /api/checkouts/:id/email` is 409 `email_set`.
     Test: `src/server/accounts/customers.test.ts` "a checkout handed over without an email takes
     one at its link, once" (unchanged).
-13. A payment session lists exactly the store's methods: an order's `ORDER_PAYMENT_METHODS`, a
-    card save's the card alone. Only an account's session can keep a card, an order's only once
+13. A payment session lists exactly the store's methods: an order's `ORDER_PAYMENT_METHODS`, with
+    one line item at the order's amount, a card save's the card alone. Only an account's session can keep a card, an order's only once
     the shopper ticks the box; a guest's names no shopper reference and no store mode. Test:
     `src/server/payments/adyen.test.ts`.
 

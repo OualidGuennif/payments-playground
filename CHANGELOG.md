@@ -5,6 +5,14 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's Drop-in lists the store's methods (Visa, Mastercard, Cartes Bancaires,
+  American Express, Apple Pay, Google Pay, Klarna, PayPal, Wero, MB WAY, Bizum, Pix; Adyen shows
+  those the account offers for France in euros), puts Apple Pay and Google Pay above the list as
+  express buttons, carries one order line so Klarna can show, asks an account before keeping a card,
+  and wears the store's colours in both themes, following the header's theme switch.
+- An agent's network token is no longer sent to `/cardDetails` when its checkout carries another
+  account's welcome offer, since that payment is refused anyway.
+
 ## [0.11.0] - 2026-11-27
 
 - The agentic store's welcome offer is checked again at the payment form's last step, so a form

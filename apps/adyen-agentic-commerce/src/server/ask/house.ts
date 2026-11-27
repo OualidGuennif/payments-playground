@@ -1,15 +1,19 @@
 // Spec: knowledge/components/ask-agent.md
 // The house agent's identity at the store (spec invariant 2): one registered public client,
 // "Atelier Velune Ask", that declares only the device grant, like any outside agent could. A
-// signed-in shopper connects a session through the ordinary device sign-in and consent page, or with
-// one click in the chat, which takes the same device grant and consent decision. Its tokens live in
-// this process's memory only: never in the database, a log, the console or a page, so a restart
-// forgets the connection and the shopper connects again.
+// signed-in shopper connects through the ordinary device sign-in and consent page, or with one
+// click in the chat, which takes the same device grant and consent decision. The grant is the
+// account's and outlives a conversation (ADR-021); its access tokens live in this process's memory
+// only (the database keeps their hashes, like every token's), never in a log, the console or a page.
 import { get, put } from "../core/db";
+import { trace } from "../core/trace";
 import {
   authenticate,
   decide,
   DEVICE_GRANT,
+  type Grant,
+  grants,
+  issueAccessTokenForGrant,
   OAuthError,
   peekAuth,
   registerClient,
@@ -17,6 +21,7 @@ import {
   type Scope,
   startDeviceAuthorization,
   tokenEndpoint,
+  updateGrant,
   verifyUserCode,
 } from "../oauth/oauth";
 
@@ -57,10 +62,72 @@ type Connection = {
   refreshToken?: string;
   expiresAt: number;
   customerId: string;
+  grantId: string;
 };
 
 const pending = new Map<string, Pending>();
 const connections = new Map<string, Connection>();
+// Until when (ms) the browser behind each conversation last proved it is the shopper (ADR-021):
+// read from its customer session at every request, so a chat payment can be judged at the call.
+const proofs = new Map<string, number>();
+
+// The account's newest live house grant; one grant may pay, so only grants that can are counted.
+export function findActiveHouseGrant(customerId: string): Grant | undefined {
+  const client = houseClientId();
+  return grants(customerId)
+    .filter((g) => g.clientId === client && !g.revoked && g.scopes.includes("ucp:pay"))
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+}
+
+// A live conversation of a signed-in shopper takes the account's grant back after a new
+// conversation, a sign-in or a restart: a token minted for that grant, never a new or wider grant.
+// Older live house grants of the account (from restarts before ADR-021) are revoked so one stays.
+export function resumeHouseConnection(
+  sessionId: string,
+  customerId: string,
+  now = Date.now(),
+): boolean {
+  if (houseToken(sessionId, now)) return connections.get(sessionId)?.customerId === customerId;
+  const grant = findActiveHouseGrant(customerId);
+  if (!grant) return false;
+  const client = houseClientId();
+  for (const older of grants(customerId)) {
+    if (older.id === grant.id || older.clientId !== client || older.revoked) continue;
+    updateGrant(older.id, { revoked: true }, customerId);
+    trace({
+      channel: "oauth",
+      actor: HOUSE_CLIENT_NAME,
+      method: "POST",
+      path: "/api/ask/session",
+      status: 200,
+      ref: older.id,
+      detail: { revoked: true, supersededBy: grant.id },
+    });
+  }
+  const issued = issueAccessTokenForGrant(client, grant.id);
+  if (!issued) return false;
+  connections.set(sessionId, {
+    accessToken: issued.access_token,
+    expiresAt: now + issued.expires_in * 1000,
+    customerId,
+    grantId: grant.id,
+  });
+  return true;
+}
+
+// The budget of the grant the conversation holds, read live: amounts and a flag, nothing secret.
+export function houseGrantInfo(sessionId: string, now = Date.now()) {
+  const token = houseToken(sessionId, now);
+  const auth = token ? peekAuth(`Bearer ${token}`, "/mcp") : undefined;
+  if (!auth || auth === "invalid") return undefined;
+  const { spendLimit, spent } = auth.grant;
+  return { spendLimit, spent, remaining: Math.max(0, spendLimit - spent) };
+}
+
+export const noteProof = (sessionId: string, provenUntilMs: number) =>
+  proofs.set(sessionId, provenUntilMs);
+
+const proven = (sessionId: string, now: number) => now < (proofs.get(sessionId) ?? 0);
 
 export type ConnectStart = { verificationUri: string; userCode: string; expiresIn: number };
 
@@ -95,6 +162,9 @@ export async function connectInline(
   now = Date.now(),
 ): Promise<ConnectState> {
   if (houseToken(sessionId, now)) return "connected";
+  // One grant per account: an active one is reused at its own limit; a higher one needs the
+  // account's step-up (ADR-021).
+  if (resumeHouseConnection(sessionId, customerId, now)) return "connected";
   const started = await startConnect(sessionId, now);
   const verified = verifyUserCode(started.userCode, `ask:${sessionId}`);
   if ("error" in verified) {
@@ -169,13 +239,14 @@ export async function pollConnect(
     refreshToken: tokens.refresh_token,
     expiresAt: now + tokens.expires_in * 1000,
     customerId,
+    grantId: auth.grant.id,
   });
   return "connected";
 }
 
-// An access token outlives a session (60 min against 30), so none is ever refreshed. A grant the
-// shopper disconnected on the account page ends the connection here too: the session then reads as
-// not connected and may connect again.
+// An access token outlives a session (60 min against 30), so none is ever refreshed; a new
+// conversation resumes the grant instead. A grant the shopper disconnected on the account page ends
+// the connection here too: the session then reads as not connected and may connect again.
 export function houseToken(sessionId: string, now = Date.now()): string | undefined {
   const connection = connections.get(sessionId);
   if (!connection) return undefined;
@@ -190,13 +261,14 @@ export function houseToken(sessionId: string, now = Date.now()): string | undefi
 export function houseAccess(
   sessionId: string,
   now = Date.now(),
-): { remaining: number; pay: boolean } | undefined {
+): { remaining: number; pay: boolean; fresh: boolean } | undefined {
   const token = houseToken(sessionId, now);
   const auth = token ? peekAuth(`Bearer ${token}`, "/mcp") : undefined;
   if (!auth || auth === "invalid") return undefined;
   return {
     remaining: Math.max(0, auth.grant.spendLimit - auth.grant.spent),
     pay: auth.grant.scopes.includes("ucp:pay"),
+    fresh: proven(sessionId, now),
   };
 }
 
@@ -209,15 +281,41 @@ async function revoke(token: string | undefined) {
   }
 }
 
-// Ending a session forgets its sign-in and revokes the grant's tokens it held.
+// A conversation that ends normally forgets its token and revokes that access token only: the
+// grant stays the account's until the shopper disconnects it (ADR-021).
+export async function detachSession(sessionId: string): Promise<void> {
+  pending.delete(sessionId);
+  proofs.delete(sessionId);
+  const connection = connections.get(sessionId);
+  connections.delete(sessionId);
+  await revoke(connection?.accessToken);
+}
+
+// A lock (the guard or the console) revokes the grant the conversation held, fail closed.
 export async function disconnect(sessionId: string): Promise<void> {
   pending.delete(sessionId);
+  proofs.delete(sessionId);
   const connection = connections.get(sessionId);
   connections.delete(sessionId);
   await revoke(connection?.refreshToken);
+  // A resumed connection holds no refresh token: its grant is revoked directly.
+  const grant = connection ? get<Grant>("grants", connection.grantId) : undefined;
+  if (connection && grant && !grant.revoked) {
+    updateGrant(grant.id, { revoked: true }, connection.customerId);
+    trace({
+      channel: "oauth",
+      actor: HOUSE_CLIENT_NAME,
+      method: "POST",
+      path: "/api/ask/session",
+      status: 200,
+      ref: connection.grantId,
+      detail: { revoked: true, locked: true },
+    });
+  }
 }
 
 export const forgetHouseConnections = () => {
   pending.clear();
   connections.clear();
+  proofs.clear();
 };

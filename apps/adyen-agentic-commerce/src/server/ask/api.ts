@@ -5,6 +5,7 @@
 import { Elysia } from "elysia";
 import { maskEmail } from "../../lib/mask";
 import { customerOf } from "../accounts/account-api";
+import * as customers from "../accounts/customers";
 import type { Customer } from "../accounts/customers";
 import * as commerce from "../commerce/commerce";
 import { config } from "../core/config";
@@ -13,10 +14,20 @@ import { isRecord, json } from "../core/util";
 import { BAG, CAROUSEL, widgetHtml } from "../mcp/widgets";
 import { OAuthError, SPEND_LIMIT_MAX } from "../oauth/oauth";
 import { clientIp, rateLimited } from "../protocol";
-import { AGENT_VERSION, callStoreTool, payRefusal } from "./agent";
+import { AGENT_VERSION, callStoreTool, payRefusal, paysWithInstrument } from "./agent";
 import { askConfig } from "./config";
 import { type ContextFailure, costToday, modeFor } from "./context";
-import { connectInline, disconnect, houseToken, pollConnect, startConnect } from "./house";
+import {
+  connectInline,
+  detachSession,
+  disconnect,
+  houseGrantInfo,
+  houseToken,
+  noteProof,
+  pollConnect,
+  resumeHouseConnection,
+  startConnect,
+} from "./house";
 import { newSessions } from "./limits";
 import { mergePrices, pricesIn } from "./output";
 import type { PipelineEvent } from "./pipeline";
@@ -132,8 +143,12 @@ export function here(request: Request): Here {
   const token = tokenFromCookies(request.headers.get("cookie"));
   const resolved = resolveSession(token, customer, settings.limits);
   let session = resolved.session;
-  if (resolved.ended && session) void disconnect(session.id);
-  // A restart forgets the house tokens: the session then stops saying it is connected.
+  // A lock revokes the grant; any other end keeps it for the account's next conversation.
+  if (resolved.ended && session)
+    void (resolved.ended === "locked" ? disconnect(session.id) : detachSession(session.id));
+  if (session?.state === "active" && !resolved.ended && customer)
+    session = attachAccount(session, customer, request);
+  // A revoked grant ends the connection: the session then stops saying it is connected.
   if (session?.state === "active" && session.connected && !houseToken(session.id))
     session = save({ ...session, connected: undefined });
   return {
@@ -144,6 +159,16 @@ export function here(request: Request): Here {
     session,
     ended: resolved.ended,
   };
+}
+
+// A live conversation of a signed-in shopper takes the account's grant back (ADR-021) and learns
+// how recently this browser proved it is the shopper.
+function attachAccount(session: AskSession, customer: Customer, request: Request): AskSession {
+  noteProof(session.id, customers.sessionProvenUntil(request.headers.get("cookie")) * 1000);
+  if (houseToken(session.id) || shownMode(session, customer) !== "normal") return session;
+  if (!resumeHouseConnection(session.id, customer.id)) return session;
+  markConnected(session.id);
+  return sessionById(session.id) ?? session;
 }
 
 export const liveSession = (h: Here) =>
@@ -173,10 +198,12 @@ const voiceForNew = (h: Here) =>
   h.session?.state !== "locked" &&
   Boolean(h.settings.answer?.model.startsWith("openai/"));
 
-// What the panel shows (spec Outputs): never a score, a verdict, a model, a cost or a key.
-export function sessionView(h: Here) {
+// What the panel shows (spec Outputs): never a score, a verdict, a model, a cost or a key, and of
+// the account only counts, amounts and flags (ADR-021).
+export async function sessionView(h: Here, request: Request) {
   const live = liveSession(h);
   const voice = live ? voiceOffered(h, live) : voiceForNew(h);
+  const grant = live ? houseGrantInfo(live.id) : undefined;
   return {
     available: h.available,
     state: h.session?.state ?? "none",
@@ -187,6 +214,11 @@ export function sessionView(h: Here) {
     // Masked: the receipt block names the address without the page ever holding it whole.
     accountEmail: h.customer ? maskEmail(h.customer.email) : undefined,
     connected: Boolean(live && houseToken(live.id)),
+    cardCount: h.customer ? (await commerce.savedCards(h.customer.id)).length : 0,
+    grant: grant ?? null,
+    stepUpRequired: h.customer ? !customers.isSessionFresh(request.headers.get("cookie")) : false,
+    // Whether the account has a passkey to confirm with ("webauthn": the view never names a key).
+    webauthn: h.customer ? customers.passkeysOf(h.customer.id).length > 0 : false,
     voice: { available: voice, unlocked: Boolean(live?.voice.unlocked) },
     messages: live
       ? transcript(live.id).map((m) => ({
@@ -224,7 +256,7 @@ function begin(request: Request, h: Here): { session: AskSession; cookie: string
       },
     );
   if (h.session) {
-    void disconnect(h.session.id);
+    void detachSession(h.session.id);
     endCall(h.session.id, "new_session");
   }
   const { token, session } = startSession({
@@ -251,7 +283,9 @@ function lockedHere(h: Here): AskSession | undefined {
 }
 
 function endedAnswer(session: AskSession, reason: EndReason) {
-  void disconnect(session.id);
+  void (reason === "locked" || session.state === "locked"
+    ? disconnect(session.id)
+    : detachSession(session.id));
   if (reason === "locked" || session.state === "locked")
     return problem(423, "session_locked", "This conversation is closed.");
   return problem(409, "session_ended", "This conversation has ended.", { reason });
@@ -348,7 +382,7 @@ const STREAM_HEADERS = {
 };
 
 export const askApi = new Elysia({ prefix: "/api/ask" })
-  .get("/session", ({ request }) => json(200, sessionView(here(request))))
+  .get("/session", async ({ request }) => json(200, await sessionView(here(request), request)))
   // JSON, never text/html: opened directly, the widget must not run on the store's own origin.
   .get("/widget-frame", ({ request }) => {
     const uri = new URL(request.url).searchParams.get("uri") ?? "";
@@ -356,7 +390,7 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
     if (!html) return problem(400, "invalid_request", "Unknown widget.");
     return json(200, { uri, html, storeOrigin: config().publicOrigin });
   })
-  .post("/session", ({ request }) => {
+  .post("/session", async ({ request }) => {
     if (foreign(request)) return forbidden();
     const h = here(request);
     // A locked conversation stays paused until its cookie lapses: as a message cannot, a new
@@ -365,7 +399,10 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
     if (locked) return endedAnswer(locked, "locked");
     const started = begin(request, h);
     if (started instanceof Response) return started;
-    return json(200, sessionView({ ...h, session: started.session, ended: undefined }), {
+    const session = h.customer
+      ? attachAccount(started.session, h.customer, request)
+      : started.session;
+    return json(200, await sessionView({ ...h, session, ended: undefined }, request), {
       "set-cookie": started.cookie,
     });
   })
@@ -378,7 +415,7 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
     const live = liveSession(h);
     if (live) {
       endSession(live, "ended_by_shopper");
-      void disconnect(live.id);
+      void detachSession(live.id);
       endCall(live.id, "ended_by_shopper");
     }
     return json(200, { state: "ended" }, { "set-cookie": clearedSessionCookie() });
@@ -393,7 +430,10 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
     if (!h.session) {
       const started = begin(request, h);
       if (started instanceof Response) return started;
-      h = { ...h, session: started.session };
+      const session = h.customer
+        ? attachAccount(started.session, h.customer, request)
+        : started.session;
+      h = { ...h, session };
       cookie = started.cookie;
     }
     const session = h.session;
@@ -501,6 +541,21 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
         ? "Paying here needs a connected account; use the checkout link instead."
         : payRefusal(name, args, { mode, widgets: [], prices: [], calls: [] }, connected);
     if (refusal) return problem(403, "widget_tool_refused", refusal);
+    // A saved-card payment in the chat needs a password or passkey proven in the last hour
+    // (ADR-021): nothing reaches the store until the panel's confirmation succeeds.
+    if (
+      name === "complete_checkout" &&
+      paysWithInstrument(args) &&
+      !customers.isSessionFresh(request.headers.get("cookie"))
+    )
+      return problem(
+        401,
+        "step_up_required",
+        "Confirm with your password or passkey to pay in chat.",
+        {
+          hasPasskey: h.customer ? customers.passkeysOf(h.customer.id).length > 0 : false,
+        },
+      );
     const retry = rateLimited(`ask-widget:${clientIp(request)}`, WIDGET_CALLS_PER_MINUTE);
     if (retry)
       return problem(
@@ -617,6 +672,7 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
     if (!live)
       return problem(409, "session_ended", "This conversation has ended.", { reason: h.ended });
     if (!h.customer) return problem(401, "not_signed_in", "Sign in to use your account.");
+    const customer = h.customer;
     const retry = rateLimited(`ask-email:${clientIp(request)}`, EMAIL_CALLS_PER_MINUTE);
     if (retry)
       return problem(
@@ -659,7 +715,54 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
         : "Checkout joined the account",
       at: now,
     });
+    // The account's grant first, so the checkout comes back with its saved cards and budget.
+    const attached = attachAccount(sessionById(live.id) ?? live, customer, request);
     const call = await callStoreTool(live.id, "get_checkout", { id: checkoutId });
     if (!call.result) return problem(409, "store_refused", STORE_REFUSED);
-    return json(200, { result: call.result, welcomeOfferApplied: applied });
+    return json(200, {
+      result: call.result,
+      welcomeOfferApplied: applied,
+      session: await sessionView({ ...h, session: attached, ended: undefined }, request),
+    });
+  })
+  // The chat-pay confirmation (ADR-021, spec invariant 22): the account's own step-up, then the
+  // session counts as proven for the next hour.
+  .post("/confirm-pay", async ({ request }) => {
+    if (foreign(request)) return forbidden();
+    const body = await bodyOf(request);
+    if (!body || !isRecord(body.confirm))
+      return problem(400, "invalid_request", "Send JSON with a confirmation.");
+    const h = here(request);
+    if (!h.customer) return problem(401, "not_signed_in", "Sign in to pay in chat.");
+    const live = liveSession(h);
+    if (!live)
+      return problem(409, "session_ended", "This conversation has ended.", { reason: h.ended });
+    if (shownMode(live, h.customer) !== "normal")
+      return problem(403, "strict_mode", "Paying is paused for this conversation.");
+    let confirmedBy: string;
+    try {
+      confirmedBy = await customers.confirmIdentity(h.customer, body.confirm, clientIp(request));
+    } catch (error) {
+      if (!(error instanceof customers.CustomerError)) throw error;
+      return problem(
+        error.status,
+        error.code,
+        error.message,
+        {},
+        error.retryAfter ? { "retry-after": String(error.retryAfter) } : {},
+      );
+    }
+    const cookie = request.headers.get("cookie");
+    customers.touchSessionConfirmation(cookie);
+    noteProof(live.id, customers.sessionProvenUntil(cookie) * 1000);
+    trace({
+      channel: "web",
+      actor: "shopper",
+      method: "POST",
+      path: "/api/ask/confirm-pay",
+      status: 200,
+      ref: live.id,
+      detail: { confirmedBy },
+    });
+    return json(200, { confirmed: true, stepUpRequired: false });
   });

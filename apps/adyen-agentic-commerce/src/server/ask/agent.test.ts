@@ -250,6 +250,18 @@ describe("paying is decided at the call", () => {
     );
   });
 
+  test("a saved card without a recent proof is refused; handing over still passes", () => {
+    expect(payRefusal("complete_checkout", saved, collector(), "unproven")).toContain(
+      "confirm it is them",
+    );
+    expect(
+      payRefusal("complete_checkout", { id: "chk_1" }, collector(), "unproven"),
+    ).toBeUndefined();
+    expect(payRefusal("complete_checkout", token, collector(), "unproven")).toContain(
+      "never sends",
+    );
+  });
+
   test("handing the checkout to the shopper is always allowed; card data never", () => {
     expect(payRefusal("complete_checkout", { id: "chk_1" }, collector(), false)).toBeUndefined();
     expect(payRefusal("complete_checkout", paying([]), collector(), false)).toBeUndefined();

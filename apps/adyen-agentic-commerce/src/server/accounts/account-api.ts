@@ -194,6 +194,7 @@ export const accountApi = new Elysia({ prefix: "/api" })
       // with the password, or with a passkey already on the account.
       const confirm = isRecord(body) ? body.confirm : undefined;
       await customers.confirmIdentity(customer, confirm, clientIp(request));
+      customers.touchSessionConfirmation(request.headers.get("cookie"));
       return await customers.registrationOptions(customer);
     } catch (error) {
       return customerError(error);
@@ -317,6 +318,7 @@ export const accountApi = new Elysia({ prefix: "/api" })
     if (spendLimit !== undefined && oauth.limitOf(spendLimit) > current.spendLimit) {
       try {
         confirmedBy = await customers.confirmIdentity(customer, input.confirm, clientIp(request));
+        customers.touchSessionConfirmation(request.headers.get("cookie"));
       } catch (error) {
         return customerError(error);
       }

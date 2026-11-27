@@ -12,7 +12,7 @@ import { openablePage } from "../../lib/storePages";
 import { toolUiMeta } from "../mcp/widgets";
 import { handleHouseMcp } from "../protocol";
 import type { Effort } from "./config";
-import { HOUSE_CLIENT_NAME, houseClientId, houseToken } from "./house";
+import { HOUSE_CLIENT_NAME, houseAccess, houseClientId, houseToken } from "./house";
 import { pricesIn } from "./output";
 import type { RunAgent } from "./pipeline";
 import { closeMeter, openMeter, startAskRuntime } from "./runtime";
@@ -130,18 +130,19 @@ const instrumentsOf = (args: Record<string, unknown>): Instrument[] => [
   ...instrumentsIn(args.checkout),
   ...instrumentsIn(args),
 ];
+export const paysWithInstrument = (args: Record<string, unknown>) => instrumentsOf(args).length > 0;
 const carriesCardData = (instrument: Instrument) =>
   instrument.handler_id === "network_token" ||
   (isRecord(instrument.credential) && instrument.credential.type === "network_token");
 
-// Paying is decided here, at the call, from what is true now (spec invariant 2): handing the
-// checkout to the shopper is always allowed; a saved card needs a connected account and normal
-// mode; card data never leaves the house agent.
+// Paying is decided here, at the call, from what is true now (spec invariants 2 and 22): handing
+// the checkout to the shopper is always allowed; a saved card needs a connected account, normal
+// mode and a recent proof ("unproven": connected without one); card data never leaves the agent.
 export function payRefusal(
   name: string,
   args: Record<string, unknown>,
   collector: Collector | undefined,
-  connected: boolean,
+  connected: boolean | "unproven",
 ): string | undefined {
   if (!collector) return "No shopper message is in progress.";
   if (name !== "complete_checkout") return undefined;
@@ -152,6 +153,8 @@ export function payRefusal(
     return "Paying with a saved card needs the shopper to connect their account first. Give them the checkout's continue_url instead.";
   if (instruments.length && collector.mode !== "normal")
     return "Paying is paused for this conversation. Give the shopper the checkout's continue_url.";
+  if (instruments.length && connected === "unproven")
+    return "Paying in the chat needs the shopper to confirm it is them first. Tell them to tap Pay in the bag, where the store asks for their password or passkey.";
   return undefined;
 }
 
@@ -203,7 +206,13 @@ export function houseFetch(sessionId: string): typeof fetch {
     const token = live ? houseToken(sessionId) : undefined;
     if (tool !== undefined) {
       const args = isRecord(params.arguments) ? params.arguments : {};
-      const refusal = payRefusal(tool, args, collector, Boolean(token));
+      const proven = token ? houseAccess(sessionId)?.fresh : false;
+      const refusal = payRefusal(
+        tool,
+        args,
+        collector,
+        !token ? false : proven ? true : "unproven",
+      );
       if (refusal) return rpcError(message?.id, refusal);
       // With a token the grant's account names the buyer already.
       const filled = token

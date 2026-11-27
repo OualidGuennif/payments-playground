@@ -23,7 +23,8 @@ import {
   streamed,
 } from "../testing/ask";
 import { readAskConfig, resetAskConfig } from "./config";
-import { get } from "../core/db";
+import { get, put } from "../core/db";
+import { sha256 } from "../core/util";
 import { recentTrace } from "../core/trace";
 import { grants, updateGrant } from "../oauth/tokens";
 import { sessionSummary } from "./console";
@@ -75,9 +76,30 @@ describe("the session", () => {
     expect(started.status).toBe(200);
     const view = (await started.json()) as Record<string, unknown>;
     expect(Object.keys(view).sort()).toEqual(
-      ["available", "connected", "endsAt", "messages", "mode", "signedIn", "state", "voice"].sort(),
+      [
+        "available",
+        "cardCount",
+        "connected",
+        "endsAt",
+        "grant",
+        "messages",
+        "mode",
+        "signedIn",
+        "state",
+        "stepUpRequired",
+        "voice",
+        "webauthn",
+      ].sort(),
     );
-    expect(view).toMatchObject({ state: "active", mode: "normal", connected: false });
+    expect(view).toMatchObject({
+      state: "active",
+      mode: "normal",
+      connected: false,
+      cardCount: 0,
+      grant: null,
+      stepUpRequired: false,
+      webauthn: false,
+    });
     const serialized = JSON.stringify(view);
     for (const hidden of ["faux", "openai/", "score", "cost", "verdict", "key"])
       expect(serialized).not.toContain(hidden);
@@ -366,6 +388,84 @@ describe("connecting the account", () => {
     expect(houseAccess(session.id)).toMatchObject({ remaining: 5000, pay: true });
     updateGrant(live?.id ?? "", { revoked: true }, session.customerId);
     expect(houseAccess(session.id)).toBeUndefined();
+  });
+
+  // ADR-021: the grant outlives a conversation and a restart; a normal end keeps it.
+  test("a new conversation resumes the account's grant, after a restart too", async () => {
+    const browser = new Browser();
+    await browser.call("POST", "/api/ask/session");
+    await browser.signUp();
+    const inline = await browser.call("POST", "/api/ask/connect/inline", { spendLimit: 15000 });
+    expect(((await inline.json()) as { state: string }).state).toBe("connected");
+    const next = (await (await browser.call("POST", "/api/ask/session")).json()) as Record<
+      string,
+      any
+    >;
+    expect(next).toMatchObject({
+      connected: true,
+      grant: { spendLimit: 15000, spent: 0, remaining: 15000 },
+      stepUpRequired: false,
+    });
+    forgetHouseConnections();
+    expect(await browser.view()).toMatchObject({ connected: true, grant: { remaining: 15000 } });
+    expect((await browser.call("POST", "/api/ask/session/end")).status).toBe(200);
+    const live = recentSessions(10).find((s) => s.customerId)?.customerId ?? "";
+    const house = grants(live).filter((g) => g.clientName === HOUSE_CLIENT_NAME);
+    expect(house.filter((g) => !g.revoked)).toHaveLength(1);
+    // Connecting again in a new conversation reuses it: still one grant.
+    await browser.call("POST", "/api/ask/session");
+    const again = await browser.call("POST", "/api/ask/connect/inline", { spendLimit: 30000 });
+    expect(((await again.json()) as { state: string }).state).toBe("connected");
+    expect(grants(live).filter((g) => g.clientName === HOUSE_CLIENT_NAME)).toHaveLength(1);
+  });
+
+  // ADR-021, invariant 22: an hour after the last proof, a chat payment waits for a new one.
+  test("a chat payment asks for a recent proof; browsing does not", async () => {
+    const browser = new Browser();
+    await browser.call("POST", "/api/ask/session");
+    await browser.signUp();
+    await browser.call("POST", "/api/ask/connect/inline", { spendLimit: 15000 });
+    const sessionCookie = [...browser.cookies].find(([k]) => k.endsWith("velune_session"));
+    const id = sha256(sessionCookie?.[1] ?? "");
+    const stored = get<Record<string, unknown>>("customer_sessions", id);
+    if (!stored) throw new Error("no customer session");
+    const hourAgo = Math.floor(Date.now() / 1000) - 3601;
+    put("customer_sessions", id, { ...stored, createdAt: hourAgo, confirmedAt: hourAgo });
+    expect(await browser.view()).toMatchObject({ connected: true, stepUpRequired: true });
+    const search = await browser.call("POST", "/api/ask/widget", {
+      name: "search_catalog",
+      arguments: { catalog: { query: "dress" } },
+    });
+    expect(search.status).toBe(200);
+    const spy = spyOn(agent, "callStoreTool");
+    try {
+      const pay = {
+        name: "complete_checkout",
+        arguments: {
+          id: "chk_x",
+          checkout: { payment: { instruments: [{ handler_id: "saved_card", id: "card_1" }] } },
+        },
+      };
+      const stale = await browser.call("POST", "/api/ask/widget", pay);
+      expect(stale.status).toBe(401);
+      expect(await stale.json()).toMatchObject({ error: "step_up_required", hasPasskey: false });
+      expect(spy).not.toHaveBeenCalled();
+      const wrong = await browser.call("POST", "/api/ask/confirm-pay", {
+        confirm: { password: "not the password" },
+      });
+      expect(wrong.status).toBe(401);
+      expect(await browser.view()).toMatchObject({ stepUpRequired: true });
+      const right = await browser.call("POST", "/api/ask/confirm-pay", {
+        confirm: { password: "correct horse battery" },
+      });
+      expect(await right.json()).toEqual({ confirmed: true, stepUpRequired: false });
+      expect(await browser.view()).toMatchObject({ stepUpRequired: false });
+      const retried = await browser.call("POST", "/api/ask/widget", pay);
+      expect(retried.status).not.toBe(401);
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   test("strict mode refuses connect", async () => {

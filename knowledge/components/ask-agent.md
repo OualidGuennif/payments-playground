@@ -143,10 +143,11 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   never the model's. Verdicts and score changes go to the transcript the console reads.
 - **Session view:** `{ available, state: active | ended | locked | none, reason, endsAt, mode:
   normal | strict, signedIn, accountEmail?, connected, cardCount, grant: { spendLimit, spent,
-  remaining } | null, stepUpRequired, hasPasskey, voice: { available, unlocked }, messages:
+  remaining } | null, stepUpRequired, webauthn, voice: { available, unlocked }, messages:
   [{ role, text, widgets, page?, at }] }`; `cardCount` counts the account's saved cards (0 signed
   out), `grant` is the live house grant's budget (connected only), `stepUpRequired` says a chat
-  payment would ask for the password or a passkey first; counts, amounts and booleans only, never
+  payment would ask for the password or a passkey first, `webauthn` that the account has a
+  passkey to answer with; counts, amounts and booleans only, never
   a card's digits or alias. An ended session shows no messages; `page` is the store
   path a voiced answer asked to open (stage 5 let it through), so the call can open it; a typed
   answer's page opened from its own stream and is not repeated here. `accountEmail` is the

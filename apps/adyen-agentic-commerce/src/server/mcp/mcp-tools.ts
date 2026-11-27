@@ -1,6 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // MCP tool descriptors for the UCP shopping operations (names and argument keys from UCP's OpenRPC).
 import { toolUiMeta } from "./widgets";
+import { CATEGORIES } from "../catalog/catalog";
 
 const meta = (required: boolean) => ({
   type: "object",
@@ -42,7 +43,7 @@ const filters = {
     categories: {
       type: "array",
       description: "Any of these categories.",
-      items: { enum: ["clothing", "bags", "accessories"] },
+      items: { enum: CATEGORIES.map((c) => c.id) },
     },
     price: {
       type: "object",

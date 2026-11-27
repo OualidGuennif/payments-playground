@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's catalogue grows from 13 to 30 products in five categories (clothing,
+  footwear, bags, accessories, essentials), each with material, care, fit, origin, highlights,
+  weight, parcel size and demo ratings; the 13 earlier ids and variants are unchanged and new
+  drawings cover the new shapes. MCP, UCP REST and WebMCP filters take the five categories.
+  `gsap` 3.15.1 and `@gsap/react` 2.1.2 join the store's dependencies (ADR-019).
 - The Ask agent's voice call names why the microphone did not start. Every failure used to read
   "The microphone is blocked. Allow it for this site", even when the site was allowed and the
   system's privacy settings, a missing microphone or another app held it; now "blocked for this

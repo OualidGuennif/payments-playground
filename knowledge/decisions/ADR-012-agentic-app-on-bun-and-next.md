@@ -53,3 +53,6 @@ customer passkeys: the store pins `@simplewebauthn/server` 14.1.0 and `@simplewe
 store pins `@earendil-works/pi-ai` 1.6.0 and `valibot` 1.5.0, and `@flue/runtime` 2.3.1 joins them,
 all run in the store's own Bun process. **Amended 2026-11-26:** `pi-ai` 1.6.1
 ([ADR-014](ADR-014-every-playground-on-bun-and-next.md)).
+
+**Amended 2026-11-27.** [ADR-019](ADR-019-flagship-storefront.md) adds the flagship storefront's
+motion: the store pins `gsap` 3.15.1 and `@gsap/react` 2.1.2 exactly.

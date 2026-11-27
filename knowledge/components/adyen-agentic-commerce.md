@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T16:30:00Z
+  at: 2026-11-26T23:40:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -43,7 +43,7 @@ sources:
 
 ## Intent
 
-A demo store (clothes, bags, accessories; fictional brand, original SVG product art) that a shopper
+A demo store (30 pieces in five categories, SVG art; pages: [storefront](agentic-storefront.md)) a shopper
 can use directly and that **any MCP-capable LLM** can shop on their behalf from the site address
 alone. It shows merchants the full chain: discovery (PAP 1.0), catalogue, cart and checkout (UCP
 2026-08-25 over REST and MCP), sign-in with a spend limit, and a **real Adyen TEST payment** that
@@ -61,7 +61,7 @@ a guest, or hand the checkout to the shopper, who pays at `continue_url`.
 
 | Source                                    | What is read                                                   | Owner | Freshness           |
 | ----------------------------------------- | -------------------------------------------------------------- | ----- | ------------------- |
-| `src/server/catalog/catalog.ts`                   | Products, variants (colour, size), prices in EUR minor units   | Repo  | Shipped with build  |
+| `src/server/catalog/` (catalog, products) | Products, variants (colour, size), prices in EUR minor units   | Repo  | Shipped with build  |
 | SQLite (`DATABASE_PATH`, `bun:sqlite`)    | Carts, checkouts, orders, OAuth clients/codes/tokens, grants,  | App   | Per request         |
 |                                           | seen JWT ids, idempotency records, protocol trace, webhooks,   |       |                     |
 |                                           | customers, customer sessions, passkeys, WebAuthn challenges,   |       |                     |

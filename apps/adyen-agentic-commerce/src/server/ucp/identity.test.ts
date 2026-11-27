@@ -258,7 +258,9 @@ describe("signals and filters", () => {
 
   test("search reads UCP's categories (any of) and price range; the old category still works", async () => {
     const ids = async (filters: unknown) => {
-      const body = await (await rest("POST", "/catalog/search", { query: "", filters })).json();
+      const body = await (
+        await rest("POST", "/catalog/search", { query: "", filters, pagination: { limit: 50 } })
+      ).json();
       return (body.products as { id: string }[]).map((p) => p.id).sort();
     };
     const of = (pick: (p: (typeof PRODUCTS)[number]) => boolean) =>
@@ -267,7 +269,7 @@ describe("signals and filters", () => {
         .sort();
     expect(await ids({ categories: ["bags"] })).toEqual(of((p) => p.category === "bags"));
     expect(await ids({ categories: ["bags", "accessories"] })).toEqual(
-      of((p) => p.category !== "clothing"),
+      of((p) => p.category === "bags" || p.category === "accessories"),
     );
     expect(await ids({ category: "bags" })).toEqual(of((p) => p.category === "bags"));
     const priced = await ids({ price: { min: 5000, max: 15000 } });

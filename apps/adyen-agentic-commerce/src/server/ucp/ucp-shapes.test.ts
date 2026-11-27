@@ -64,9 +64,17 @@ describe("catalogue", () => {
       cursor: expect.any(String),
       total_count: PRODUCTS.length,
     });
-    const second = (await search({ pagination: { cursor: first.pagination.cursor } })).body;
-    expect(second.pagination).toEqual({ has_next_page: false, total_count: PRODUCTS.length });
-    const ids = [...first.products, ...second.products].map((p: { id: string }) => p.id);
+    const pages = [first];
+    let last = first;
+    while (last.pagination.has_next_page) {
+      last = (await search({ pagination: { cursor: last.pagination.cursor } })).body;
+      expect(last.products.length).toBeLessThanOrEqual(10);
+      pages.push(last);
+    }
+    expect(last.pagination).toEqual({ has_next_page: false, total_count: PRODUCTS.length });
+    expect(pages).toHaveLength(Math.ceil(PRODUCTS.length / 10));
+    const ids = pages.flatMap((page) => page.products.map((p: { id: string }) => p.id));
+    expect(ids).toHaveLength(PRODUCTS.length);
     expect(new Set(ids).size).toBe(PRODUCTS.length);
   });
 

@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's Ask panel is now the Personal Shopper everywhere. From 1024 px it is a 440 px
+  rail beside the page (Cmd/Ctrl+K opens it on the composer); on a phone it is a sheet of 55 % of
+  the screen, 92 % on demand, that steps aside when a product or checkout page opens. Its header
+  and three suggested questions follow the page, a bar shows the bag's count, and the store's
+  widget, delivery and receipt blocks read as one card. The widget never shows the store's
+  agent-facing messages: every code gets plain words, and an unknown one a general sentence.
 - The agentic store's bag and checkout are redone. The bag no longer prefills a demo email, shows
   how far it is from free standard delivery and gets a quantity stepper. The checkout puts Contact,
   Delivery and Payment beside a sticky order summary, labels a signed-in shopper's account email,

@@ -23,6 +23,9 @@ import {
   linkPath,
   launcherNext,
   afterPage,
+  afterNavigation,
+  pageHelp,
+  shortcutNext,
   type SessionView,
   voiceShown,
   savedState,
@@ -237,6 +240,29 @@ describe("the panel's states", () => {
     expect(afterPage("open", false)).toBe("minimised");
     expect(afterPage("open", true)).toBe("open");
     expect(afterPage("minimised", true)).toBe("minimised");
+  });
+
+  test("below 1024 px a product or checkout page the shopper opens minimises the sheet", () => {
+    expect(afterNavigation("open", false, "/products/velune-trench")).toBe("minimised");
+    expect(afterNavigation("open", false, "/checkout/chk_1")).toBe("minimised");
+    expect(afterNavigation("open", false, "/shop")).toBe("open");
+    expect(afterNavigation("open", true, "/products/velune-trench")).toBe("open");
+    expect(afterNavigation("closed", false, "/checkout/chk_1")).toBe("closed");
+  });
+
+  test("Cmd or Ctrl+K opens on the composer, then minimises from it", () => {
+    expect(shortcutNext("closed", false)).toEqual({ state: "open", focus: true });
+    expect(shortcutNext("minimised", false)).toEqual({ state: "open", focus: true });
+    expect(shortcutNext("open", false)).toEqual({ state: "open", focus: true });
+    expect(shortcutNext("open", true)).toEqual({ state: "minimised", focus: false });
+  });
+
+  test("each kind of page has its own header line and three questions", () => {
+    const paths = ["/products/velune-trench", "/checkout/chk_1", "/cart", "/shop", "/", "/account"];
+    const helps = paths.map(pageHelp);
+    for (const help of helps) expect(help.chips).toHaveLength(3);
+    expect(new Set(helps.slice(0, 5).map((h) => h.context)).size).toBe(5);
+    expect(pageHelp("/account")).toEqual(pageHelp("/"));
   });
 
   test("a reload restores the panel as it was", () => {

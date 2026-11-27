@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T00:22:00Z
+  at: 2026-11-27T00:50:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -133,10 +133,17 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   signed-in account's email masked (first letter and domain, `b•••@example.com`), for the receipt
   block only.
   A shopper never sees scores, verdicts, models, costs or other sessions.
-- **Panel:** an "Ask" button in the header (icon only under 640 px) opens a right sidebar of
-  420 px; from 1024 px the page makes room for it, from 768 px it overlays, below it is a sheet
-  over a dimmed page; full screen on demand; Escape minimises it; it reopens, open or minimised,
-  after a reload in the same tab. It is absent on `/console`, `/back-office`, `/consent`,
+- **Panel:** the Personal Shopper (ADR-019). A "Personal Shopper" button in the header (icon only
+  under 640 px) or Cmd/Ctrl+K opens it on the composer (the shortcut minimises it from the
+  composer; `askLogic.test.ts` "Cmd or Ctrl+K"). From 1024 px it is a 440 px rail and the page makes
+  room for it (the header then hands its departments and Developers links to the Menu below a
+  1720 px screen); below, a sheet of 55 % of the screen over a dimmed page, 92 % with "Make it
+  bigger", which is full screen from 1024 px. Below 1024 px a product or checkout page the shopper
+  opens minimises it (`askLogic.test.ts` "below 1024 px a product or checkout page"). Its header
+  names the page's help ("Here to help with this piece" and so on), three questions fit the page
+  as chips (empty conversation, and above the composer after), a bar shows the site bag's count
+  with "View bag", and the widget, the delivery block and the receipt block read as one card.
+  Escape minimises it; it reopens, open or minimised, after a reload in the same tab. It is absent on `/console`, `/back-office`, `/consent`,
   `/device` and `/oauth`. Answers are light Markdown parsed to data and drawn by React (no HTML;
   a link opens in place only to a page `open_page` may open, the list of invariant 21; any other
   address, the owner's pages and a path whose dot segments collapse into `//` show as plain text). Each widget runs in a sandboxed
@@ -185,8 +192,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   above the composer shows the countdown, the last caption and End; the composer waits and the
   conversation refreshes every 3 s. Closing the panel, a page without it, an inactive session or
   voice no longer offered (out of normal mode) hangs up. A call's end is a note "Voice call ended".
-  **Minimised:** the header's "Minimise" button, Escape, or the site header's Ask button while the
-  panel is open shrinks it to a bar at the bottom right (full width under 768 px) that hides the
+  **Minimised:** the header's "Minimise" button, Escape, or the site header's Personal Shopper
+  button while the panel is open shrinks it to a bar at the bottom right (full width under 1024 px) that hides the
   conversation and keeps everything else running: an answer being written, a voice call, the
   widget, a device sign-in. The bar shows the title, what the assistant is doing or the start of
   its last answer (two lines), the voice bar with its countdown and End while a call runs, and the

@@ -53,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Link>
             <nav
               aria-label="Departments"
-              className="mx-auto hidden items-center gap-0.5 text-sm xl:flex"
+              className="header-departments mx-auto hidden items-center gap-0.5 text-sm xl:flex"
             >
               {NAV.map(([href, label]) => (
                 <Link
@@ -65,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Link>
               ))}
             </nav>
-            <div className="ml-auto flex items-center gap-1.5 sm:gap-2 xl:ml-0">
+            <div className="header-actions ml-auto flex items-center gap-1.5 sm:gap-2 xl:ml-0">
               <AskLauncher />
               <DevelopersMenu />
               <div className="hidden sm:block">

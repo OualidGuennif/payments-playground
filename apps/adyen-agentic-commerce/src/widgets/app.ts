@@ -31,6 +31,7 @@ import {
   quantityCall,
   refreshCheckoutCall,
   searchCall,
+  shopperNote,
   sizesOf,
   type UcpProduct,
   variantFor,
@@ -105,15 +106,16 @@ function show(data: unknown) {
   render();
 }
 
+// A refused call in the shopper's words: the store's own text is written for agents.
 function refusal(data: unknown) {
   const messages =
     typeof data === "object" &&
     data !== null &&
     Array.isArray((data as { messages?: unknown }).messages)
-      ? (data as { messages: { content?: unknown }[] }).messages
+      ? (data as { messages: { code?: unknown }[] }).messages
       : [];
-  const first = messages.find((m) => typeof m.content === "string")?.content;
-  return typeof first === "string" ? first : "The store could not do that.";
+  const code = messages.find((m) => typeof m.code === "string")?.code;
+  return shopperNote(typeof code === "string" ? code : undefined) ?? "The store could not do that.";
 }
 
 // A button: the widget calls the tool and shows the answer itself.
@@ -492,7 +494,9 @@ function payArea(bag: BagView) {
             ? "This is over the budget you gave the assistant. Approve it on the store, or raise the budget."
             : bag.status === "ready_for_complete"
               ? "No card is saved on your Atelier Velune account yet. Pay on the store checkout, or save a test card in your account and refresh."
-              : "The store needs something before payment; see above.",
+              : bag.codes.includes("missing_buyer_email")
+                ? "Give an email for the receipt, then pay."
+                : "Fix what the store asks for above, then pay.",
         ),
     ready && chosen
       ? h(

@@ -166,7 +166,7 @@ export function AskReceipt({
   };
 
   return (
-    <section className="rounded-2xl border border-line bg-card p-3.5 text-sm" aria-live="polite">
+    <section className="p-3.5 text-sm" aria-live="polite">
       <p className="font-medium">
         {step === "sign-in" ? "Sign in for your receipt" : "An email for your receipt"}
       </p>
@@ -200,7 +200,7 @@ export function AskReceipt({
       {step === "email" && (
         <form onSubmit={submitEmail} className="mt-2 space-y-2.5">
           <label className="block text-xs text-muted" htmlFor="ask-receipt-email">
-            The store sends the receipt there. The assistant never sees it.
+            The store sends the receipt there. Your Personal Shopper never sees it.
           </label>
           <div className="flex items-center gap-2">
             <input

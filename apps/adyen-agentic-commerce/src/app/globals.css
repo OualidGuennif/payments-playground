@@ -136,10 +136,25 @@
   }
 }
 
-/* The Ask panel docks on the right of a wide screen: the page makes room rather than hide under it. */
+/* The Personal Shopper docks on the right of a wide screen: the page makes room rather than hide
+   under it. */
 @media (min-width: 1024px) {
   html[data-ask="docked"] body {
-    padding-right: 420px;
+    padding-right: 440px;
+  }
+}
+/* Docked beside a page under 1280 px wide (a screen under 1720 px), the header hands the
+   departments and the Developers links to its Menu. */
+@media (min-width: 1024px) and (max-width: 1719px) {
+  html[data-ask="docked"] .header-departments,
+  html[data-ask="docked"] .header-developers {
+    display: none;
+  }
+  html[data-ask="docked"] .header-menu {
+    display: block;
+  }
+  html[data-ask="docked"] .header-actions {
+    margin-left: auto;
   }
 }
 

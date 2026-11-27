@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T00:44:00Z
+  at: 2026-11-27T00:50:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -125,8 +125,11 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   motion); a valid one is saved (`POST /api/checkouts/:id/email`, whose refusal shows on the field
   the same way) and Drop-in opens in its place and scrolls into view. Below Drop-in, four Adyen
   TEST cards (`src/lib/testCards.ts`, the values of `packages/ui/testData.ts`) copy without spaces.
-- **Personal Shopper:** the Ask panel under its new name, a rail at 1024 px and wider, a bottom
-  sheet below; it reads the site session as soon as it changes.
+- **Personal Shopper:** the Ask panel under its new name: a 440 px rail from 1024 px, a sheet of
+  55 or 92 % of the screen below, Cmd/Ctrl+K, a header line and three questions per kind of page,
+  the bag's count, and the widget with its delivery and receipt blocks as one card; it reads the
+  site session as soon as it changes and steps aside on a phone when a product or checkout page
+  opens ([Ask spec](ask-agent.md), Panel).
 
 ## Invariants
 

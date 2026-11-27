@@ -493,6 +493,53 @@ export const launcherNext = (state: PanelState): PanelState =>
 export const afterPage = (state: PanelState, docks: boolean): PanelState =>
   state === "open" && !docks ? "minimised" : state;
 
+// Below 1024 px a product or checkout page the shopper opens shows whole: the sheet steps aside
+// to its minimised pill. From 1024 px the rail sits beside the page and stays open.
+export const afterNavigation = (state: PanelState, docks: boolean, path: string): PanelState =>
+  state === "open" && !docks && /^\/(products|checkout)\//.test(path) ? "minimised" : state;
+
+// Cmd+K or Ctrl+K: a closed or minimised panel opens on the composer; an open one takes the
+// composer's focus first, and minimises when the composer already had it.
+export function shortcutNext(
+  state: PanelState,
+  composerFocused: boolean,
+): { state: PanelState; focus: boolean } {
+  if (state !== "open") return { state: "open", focus: true };
+  return composerFocused ? { state: "minimised", focus: false } : { state: "open", focus: true };
+}
+
+// What the page is, in the panel's header, and the questions worth one tap there.
+export function pageHelp(path: string): { context: string; chips: string[] } {
+  if (path.startsWith("/products/"))
+    return {
+      context: "Here to help with this piece",
+      chips: ["Does it run true to size?", "What goes with it?", "Show me the other colours"],
+    };
+  if (path.startsWith("/checkout/"))
+    return {
+      context: "Questions on delivery or payment?",
+      chips: ["Which delivery is fastest?", "Can I return it?", "Is the payment real?"],
+    };
+  if (path === "/cart")
+    return {
+      context: "Let's finish your bag",
+      chips: ["What goes with my bag?", "How far from free delivery?", "Check out my bag"],
+    };
+  if (path === "/shop")
+    return {
+      context: "Ask for a style, a size or a budget",
+      chips: ["What's new?", "A gift under €100", "Something for a summer wedding"],
+    };
+  return {
+    context: "Your stylist and shop assistant",
+    chips: [
+      "Show me the collection",
+      "What goes with the wide-leg wool trousers?",
+      "Find me a gift for a weekend away",
+    ],
+  };
+}
+
 export const savedState = (value: string | null): PanelState =>
   value === "1" ? "open" : value === "min" ? "minimised" : "closed";
 

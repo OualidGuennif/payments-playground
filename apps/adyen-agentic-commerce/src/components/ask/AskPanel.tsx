@@ -1,9 +1,10 @@
 "use client";
 // Spec: knowledge/components/ask-agent.md
-// The shopper's assistant: a right sidebar on wide screens (the page makes room), a sheet on
-// phones, full screen on demand, or minimised to a bar while the answer, the voice call and the
-// widget keep running. It shows what the server answers and nothing more: no score, verdict,
+// The Personal Shopper: a 440 px rail from 1024 px (the page makes room), a sheet of 55 or 92 % of
+// the screen below, full screen on demand, or minimised to a bar while the answer, the voice call
+// and the widget keep running. Cmd or Ctrl+K opens it on the composer. It shows what the server answers and nothing more: no score, verdict,
 // model or cost ever reaches it.
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   type FormEvent,
@@ -21,7 +22,7 @@ import { AskReceipt } from "./AskReceipt";
 import { AskText } from "./AskText";
 import { MuteButton, useVoice, VoiceButton, VoicePanel } from "./AskVoice";
 import { SESSION_EVENT } from "@/components/AccountMenu";
-import { followBag, readCart } from "@/lib/client";
+import { followBag, readCart, useCart } from "@/lib/client";
 import { openablePage } from "@/lib/storePages";
 import {
   ASK_ABOUT_EVENT,
@@ -33,6 +34,7 @@ import {
   useAskState,
 } from "./askClient";
 import {
+  afterNavigation,
   afterPage,
   type AskMessage,
   distinctWidgets,
@@ -40,10 +42,12 @@ import {
   type Fed,
   launcherNext,
   oneWidget,
+  pageHelp,
   preview,
   deliveryCheckout,
   receiptNeeded,
   type SessionView,
+  shortcutNext,
   shownMessages,
   siteBagOf,
   stageLabel,
@@ -56,11 +60,7 @@ import { WidgetFrame } from "./WidgetFrame";
 const HIDDEN = ["/console", "/back-office", "/consent", "/device", "/oauth"];
 const hiddenOn = (path: string) => HIDDEN.some((p) => path === p || path.startsWith(`${p}/`));
 const MAX_CHARS = 1000;
-const SUGGESTIONS = [
-  "Show me the collection",
-  "What goes with the wide-leg wool trousers?",
-  "Find me a gift for a weekend away",
-];
+const DOCKS = "(min-width: 1024px)";
 
 const SPARK =
   "M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z";
@@ -83,10 +83,12 @@ export function AskLauncher() {
       className="btn-ghost w-11 gap-1.5 px-0 py-1.5 sm:w-auto sm:px-3"
       aria-expanded={state === "open"}
       aria-controls="ask-panel"
+      aria-keyshortcuts="Meta+K Control+K"
+      title="Personal Shopper (Ctrl+K or ⌘K)"
       onClick={() => setAskState(launcherNext(state))}
     >
       <Icon d={SPARK} />
-      <span className="sr-only sm:not-sr-only">Ask</span>
+      <span className="sr-only whitespace-nowrap sm:not-sr-only">Personal Shopper</span>
     </button>
   );
 }
@@ -106,7 +108,7 @@ function Bubble({ message, widget }: { message: AskMessage; widget?: ReactNode }
   return (
     <li className="space-y-3">
       <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-line bg-card px-3.5 py-2.5">
-        <span className="sr-only">Assistant: </span>
+        <span className="sr-only">Personal Shopper: </span>
         <AskText text={message.text} />
       </div>
       {widget ??
@@ -134,6 +136,7 @@ export function AskPanel() {
   const [status, setStatus] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [draft, setDraft] = useState("");
+  const { count: bagCount } = useCart();
   const busy = useRef(false);
   const viewNow = useRef<SessionView>(undefined);
   const panel = useRef<HTMLElement>(null);
@@ -185,6 +188,27 @@ export function AskPanel() {
     return () => window.removeEventListener(ASK_ABOUT_EVENT, fill);
   }, []);
 
+  // Cmd or Ctrl+K, from anywhere the panel may show.
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      if (event.key.toLowerCase() !== "k" || hiddenOn(window.location.pathname)) return;
+      event.preventDefault();
+      const next = shortcutNext(askState(), document.activeElement === input.current);
+      setAskState(next.state);
+      if (next.focus) requestAnimationFrame(() => input.current?.focus());
+      else document.getElementById("ask-launcher")?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Below 1024 px a product or checkout page shows whole: the sheet steps aside to its bar.
+  useEffect(() => {
+    const next = afterNavigation(askState(), window.matchMedia(DOCKS).matches, pathname);
+    if (next !== askState()) setAskState(next);
+  }, [pathname]);
+
   // A sign-in or sign-out on this page (the header, the receipt block) or in another tab: the
   // panel reads the session again, so it never asks a signed-in shopper who they are.
   useEffect(() => {
@@ -217,7 +241,7 @@ export function AskPanel() {
   useEffect(() => {
     if (minimised) restore.current?.focus();
     if (!open) return;
-    if (window.matchMedia("(min-width: 768px)").matches) input.current?.focus();
+    if (window.matchMedia(DOCKS).matches) input.current?.focus();
     else panel.current?.focus();
   }, [open, minimised]);
 
@@ -242,7 +266,7 @@ export function AskPanel() {
   const showPage = useCallback(
     (path: string) => {
       setWide(false);
-      const docks = window.matchMedia("(min-width: 1024px)").matches;
+      const docks = window.matchMedia(DOCKS).matches;
       setAskState(afterPage(askState(), docks));
       router.push(path);
     },
@@ -315,7 +339,7 @@ export function AskPanel() {
     async (raw: string): Promise<string | undefined> => {
       const text = raw.trim().slice(0, MAX_CHARS);
       if (!text) return "Write a message first.";
-      if (busy.current) return "The assistant is still answering.";
+      if (busy.current) return "Your Personal Shopper is still answering.";
       busy.current = true;
       setNotice(undefined);
       if (viewNow.current?.state === "ended") {
@@ -345,7 +369,7 @@ export function AskPanel() {
             if (event.page) openPage(event.page);
           } else if (event.type === "error") {
             settled = true;
-            setNotice("The assistant could not answer this time. Please try again.");
+            setNotice("Your Personal Shopper could not answer this time. Please try again.");
           }
         },
         // The site's bag rides along; the server checks each line against the catalogue.
@@ -369,7 +393,8 @@ export function AskPanel() {
           );
         return answer.message ?? "The message was not sent.";
       }
-      if (!settled) setNotice("The assistant could not answer this time. Please try again.");
+      if (!settled)
+        setNotice("Your Personal Shopper could not answer this time. Please try again.");
       void load(false);
       return undefined;
     },
@@ -423,15 +448,32 @@ export function AskPanel() {
   const canConnect =
     view?.state === "active" && view.signedIn && !view.connected && view.mode === "normal";
   const inner = wide ? "mx-auto w-full max-w-3xl" : "";
+  const help = pageHelp(pathname);
+  const chips = !unavailable && !locked && !ended && !calling && (
+    <ul className="flex flex-wrap gap-2" aria-label="Suggested questions">
+      {help.chips.map((chip) => (
+        <li key={chip}>
+          <button
+            type="button"
+            className="chip text-left"
+            onClick={() => void send(chip)}
+            disabled={status !== undefined}
+          >
+            {chip}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
 
   return (
     <>
       {open && !wide && (
         <button
           type="button"
-          aria-label="Close the assistant"
+          aria-label="Close your Personal Shopper"
           tabIndex={-1}
-          className="fixed inset-0 z-30 bg-ink/30 md:hidden"
+          className="fixed inset-0 z-30 bg-ink/30 lg:hidden"
           onClick={close}
         />
       )}
@@ -443,17 +485,23 @@ export function AskPanel() {
         onKeyDown={(event) => event.key === "Escape" && open && minimise()}
         className={`fixed z-40 flex flex-col bg-paper shadow-2xl outline-none ${
           wide
-            ? "inset-0"
+            ? "inset-x-0 bottom-0 h-[92dvh] rounded-t-3xl border-t border-line lg:inset-0 lg:h-auto lg:rounded-none lg:border-0"
             : minimised
-              ? "inset-x-3 bottom-3 max-h-[60dvh] rounded-2xl border border-line md:inset-x-auto md:right-4 md:bottom-4 md:w-[380px]"
-              : "inset-x-0 bottom-0 h-[88dvh] rounded-t-3xl border-t border-line md:inset-x-auto md:top-0 md:right-0 md:h-dvh md:w-[420px] md:rounded-none md:border-t-0 md:border-l"
+              ? "inset-x-3 bottom-3 max-h-[60dvh] rounded-3xl border border-line lg:inset-x-auto lg:right-4 lg:bottom-4 lg:w-[380px]"
+              : "inset-x-0 bottom-0 h-[55dvh] rounded-t-3xl border-t border-line lg:inset-x-auto lg:top-0 lg:right-0 lg:h-dvh lg:w-[440px] lg:rounded-none lg:border-t-0 lg:border-l"
         }`}
       >
         <header className={`border-b border-line px-4 ${minimised ? "py-2" : "py-3"}`}>
+          {!minimised && (
+            <span
+              aria-hidden="true"
+              className="mx-auto -mt-1 mb-2 block h-1 w-10 rounded-full bg-line lg:hidden"
+            />
+          )}
           <div className={`flex items-center gap-1 ${inner}`}>
             <div className="min-w-0 flex-1">
               <h2 id="ask-title" className="font-serif text-lg leading-tight">
-                Ask Atelier Velune
+                Personal Shopper
                 {minimised && <span className="sr-only"> (minimised)</span>}
               </h2>
               {minimised ? (
@@ -463,7 +511,7 @@ export function AskPanel() {
               ) : (
                 <p className="truncate text-xs text-muted">
                   {view?.connected ? "Connected to your account · " : ""}
-                  {until}
+                  {help.context}
                 </p>
               )}
             </div>
@@ -496,9 +544,9 @@ export function AskPanel() {
                 className="grid size-11 place-items-center rounded-full hover:bg-line/60"
                 onClick={() => setWide(!wide)}
                 aria-pressed={wide}
-                title={wide ? "Leave full screen" : "Full screen"}
+                title={wide ? "Make it smaller" : "Make it bigger"}
               >
-                <Icon d={wide ? COLLAPSE : EXPAND} label="Full screen" />
+                <Icon d={wide ? COLLAPSE : EXPAND} label="Make it bigger" />
               </button>
             )}
             {open && (
@@ -508,7 +556,7 @@ export function AskPanel() {
                 onClick={minimise}
                 title="Minimise"
               >
-                <Icon d={MINIMISE} label="Minimise the assistant" />
+                <Icon d={MINIMISE} label="Minimise your Personal Shopper" />
               </button>
             )}
             <button
@@ -517,7 +565,7 @@ export function AskPanel() {
               onClick={close}
               title="Close"
             >
-              <Icon d={CLOSE} label="Close the assistant" />
+              <Icon d={CLOSE} label="Close your Personal Shopper" />
             </button>
           </div>
         </header>
@@ -529,9 +577,22 @@ export function AskPanel() {
           }
         >
           <div className={`space-y-4 ${inner}`}>
+            {bagCount > 0 && (
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-card px-3.5 py-2 text-sm">
+                <span>
+                  Your bag:{" "}
+                  <span className="font-medium tabular-nums">
+                    {bagCount} piece{bagCount === 1 ? "" : "s"}
+                  </span>
+                </span>
+                <Link href="/cart" className="font-medium underline">
+                  View bag
+                </Link>
+              </div>
+            )}
             {visible.length === 0 && (
               <div className="space-y-3 pt-2">
-                <p className="eyebrow">Your stylist and shop assistant</p>
+                <p className="eyebrow">Your Personal Shopper</p>
                 <p className="font-serif text-2xl leading-snug">
                   Find a piece, check a size, fill your bag.
                 </p>
@@ -539,22 +600,7 @@ export function AskPanel() {
                   It shops this store with you and hands you the checkout to pay; signed in, you may
                   let it pay with a saved card. Adyen TEST: no real money moves.
                 </p>
-                {!unavailable && !locked && (
-                  <ul className="flex flex-wrap gap-2 pt-1">
-                    {SUGGESTIONS.map((s) => (
-                      <li key={s}>
-                        <button
-                          type="button"
-                          className="btn-ghost min-h-10 px-3.5 py-1.5 text-left font-normal"
-                          onClick={() => void send(s)}
-                          disabled={status !== undefined}
-                        >
-                          {s}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div className="pt-1">{chips}</div>
               </div>
             )}
             <ol role="log" aria-live="polite" aria-label="Conversation" className="space-y-4">
@@ -564,7 +610,8 @@ export function AskPanel() {
                   message={message}
                   widget={
                     one?.home === index ? (
-                      <>
+                      // One commerce card: the store's widget, then delivery and the receipt.
+                      <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-card">
                         <WidgetFrame
                           uri={one.uri}
                           feed={one.feed}
@@ -587,7 +634,7 @@ export function AskPanel() {
                             onSignedIn={() => void load(false)}
                           />
                         )}
-                      </>
+                      </div>
                     ) : undefined
                   }
                 />
@@ -612,7 +659,7 @@ export function AskPanel() {
         >
           <div className={`space-y-2.5 ${inner}`}>
             {unavailable && (
-              <p className="text-sm text-bad">The assistant is not available right now.</p>
+              <p className="text-sm text-bad">Your Personal Shopper is not available right now.</p>
             )}
             {locked && <p className="text-sm text-bad">The store paused this conversation.</p>}
             {ended && !unavailable && (
@@ -637,10 +684,15 @@ export function AskPanel() {
                 <AskConnect onConnected={() => void load(false)} />
               </div>
             )}
+            {!minimised && visible.length > 0 && !status && (
+              <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none]">
+                <div className="w-max">{chips}</div>
+              </div>
+            )}
             <VoicePanel voice={voice} />
             <form onSubmit={submit} className="flex items-end gap-2">
               <label className="sr-only" htmlFor="ask-input">
-                Message the assistant
+                Message your Personal Shopper
               </label>
               <textarea
                 id="ask-input"
@@ -664,6 +716,7 @@ export function AskPanel() {
                 <Icon d={SEND} label="Send" />
               </button>
             </form>
+            {!minimised && <p className="text-center text-[11px] text-muted">{until}</p>}
             {draft.length > MAX_CHARS - 200 && (
               <p className="text-right text-xs text-muted tabular-nums">
                 {draft.length} / {MAX_CHARS}

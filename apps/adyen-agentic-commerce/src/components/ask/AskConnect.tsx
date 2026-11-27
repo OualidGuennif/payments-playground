@@ -15,7 +15,7 @@ type State = "none" | "pending" | "connected" | "denied" | "expired" | "other_cu
 
 const STOPPED: Partial<Record<State, string>> = {
   none: "The request was lost. Please try again.",
-  denied: "You did not allow it. The assistant stays signed out.",
+  denied: "You did not allow it. Your Personal Shopper stays signed out.",
   expired: "The request expired. Please try again.",
   other_customer:
     "Another account approved it, so it was refused. Sign in with that account instead.",

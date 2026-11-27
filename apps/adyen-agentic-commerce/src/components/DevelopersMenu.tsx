@@ -33,7 +33,7 @@ export function DevelopersMenu() {
     };
   }, []);
   return (
-    <details ref={menu} className="relative hidden lg:block">
+    <details ref={menu} className="header-developers relative hidden lg:block">
       <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-full px-3 text-sm hover:bg-line/60 [&::-webkit-details-marker]:hidden">
         Developers
         <svg viewBox="0 0 12 12" className="size-3" aria-hidden="true">

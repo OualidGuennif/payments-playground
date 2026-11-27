@@ -223,7 +223,7 @@ export function ShopBrowser({
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-          <label className="relative min-w-0 flex-1 sm:w-72 sm:flex-none">
+          <label className="relative w-full sm:w-72">
             <span className="sr-only">Search the collection</span>
             <input
               type="search"

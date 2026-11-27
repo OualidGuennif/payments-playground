@@ -181,6 +181,11 @@ export function closesSession(failure: unknown): boolean {
   return errorCode === "14_0422" || errorCode === "14_0423";
 }
 
+/** Expired (0423): its order expired with it, so only a new checkout can pay. */
+export function expiredSession(failure: unknown): boolean {
+  return valueAt(failure, "cause.errorCode") === "14_0423";
+}
+
 export function flagEmoji(countryCode: string): string {
   return String.fromCodePoint(
     ...countryCode

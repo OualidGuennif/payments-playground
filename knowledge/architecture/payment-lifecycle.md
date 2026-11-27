@@ -7,7 +7,7 @@ status: stable
 scope: payment-lifecycle
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T10:00:00Z
+  at: 2026-11-27T18:00:00Z
 sources:
   - id: state-machine
     resource: ../../packages/platform/state-machine.ts
@@ -71,7 +71,7 @@ Authorised amounts are summed once per PSP reference.
 
 | Flow               | Outcome source                                                                                                                                                                                                                                                                                                        |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sessions           | Adyen Web runs the payment; the workbench only shows the `resultCode` of `onPaymentCompleted`/`onPaymentFailed`. The AUTHORISATION webhook writes the attempt (a redirect return goes through `/payments/details`). `GET /sessions/{id}` is never called: its status is not updated.                                     |
+| Sessions           | Adyen Web runs the payment; the workbench only shows the `resultCode` of `onPaymentCompleted`/`onPaymentFailed`. The AUTHORISATION webhook writes the attempt (a redirect return goes through `/payments/details`). `GET /sessions/{id}` is never called: its status is not updated. A spent session (five refusal webhooks naming its `checkoutSessionId`) is renewed on the same order by the server only ([ADR-022](../decisions/ADR-022-sessions-renewal-decided-by-the-server.md)). |
 | Advanced           | `/payments` response through `settleAttempt`. If it returns an action (3DS, redirect), `onAdditionalDetails` posts to `/api/digital/payments/details`, whose response settles the attempt that was left pending. A split payment (gift card, then card) puts one attempt per payment into the order `/orders` opened. |
 | API only           | Same as Advanced, after an explicit raw-card-data check, by proxying to `/api/digital/payments`.                                                                                                                                                                                                                      |
 | MIT                | `/payments` with `ContAuth`, through `settleAttempt`.                                                                                                                                                                                                                                                                 |

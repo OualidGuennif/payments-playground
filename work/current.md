@@ -5,6 +5,17 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
+## Digital: the server decides a Sessions renewal (ADR-022) — WAITING-OWNER
+
+- Owner decision: 2026-11-27, in chat: "Oui, vas-y" to the plan; count refusals by the webhook's
+  `checkoutSessionId` ("on aura bien l'info").
+- State: on `develop`, not pushed; `bun run check` green; browser-verified locally with the five
+  refusal webhooks inserted by hand (digital-status row of 2026-11-27).
+- Next: on Render, five `DECLINED` in one session, then Try again: confirm each refused
+  AUTHORISATION carries `checkoutSessionId` and the new session opens on the same order (who: owner).
+- Blocker: none.
+- Evidence: ADR-022; knowledge/components/adyen-digital.md invariant 12.
+
 ## v0.14.0: Personal Shopper tone, chat Add to bag, page transitions — WAITING-OWNER
 
 - Owner decision: 2026-11-27, in chat: "yes GO !!!!" to the v0.14.0 plan; a personal question gets

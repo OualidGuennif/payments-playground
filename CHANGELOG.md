@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Digital Sessions: after five refusals or a `14_0422`, "Try again" no longer creates a new order
+  from the browser's count. It asks `POST /api/digital/orders/:id/sessions`, and the server opens a
+  new session on the same order only once five HMAC-valid refused AUTHORISATION webhooks name the
+  current session's `checkoutSessionId`; until then the result card waits ("n/5"), and after 60 s
+  it stops with the reason, never with a session (ADR-022).
+
 ## [0.14.0] - 2026-11-27
 
 - The Personal Shopper sells like an upbeat boutique salesperson and never talks about itself:

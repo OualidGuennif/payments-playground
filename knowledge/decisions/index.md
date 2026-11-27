@@ -36,3 +36,4 @@ Each ADR states its context, the decision and its consequences. Supersede an ADR
 | [ADR-019: Flagship storefront, product feed, GSAP, Personal Shopper](ADR-019-flagship-storefront.md) | stable | 2026-11-27               |
 | [ADR-020: Pay email step, first-order welcome offer, seasons](ADR-020-pay-identity-welcome-offer-and-seasons.md) | stable | 2026-11-27               |
 | [ADR-021: Durable Personal Shopper grant, chat-pay confirmation, checkout in the chat](ADR-021-durable-ask-grant-step-up-and-in-chat-checkout.md) | stable | 2026-11-27               |
+| [ADR-022: The server decides when a Sessions order gets a new session](ADR-022-sessions-renewal-decided-by-the-server.md) | stable | 2026-11-27               |

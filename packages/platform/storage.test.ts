@@ -173,3 +173,75 @@ test("an order is found from an attempt's PSP reference", () => {
     repository.close();
   }
 });
+
+test("session refusals count only HMAC-valid refused AUTHORISATION webhooks of that session, once per PSP reference", () => {
+  const repository = new Repository(":memory:");
+  try {
+    const webhook = (
+      key: string,
+      payload: Record<string, unknown>,
+      overrides: { eventType?: string; hmacValid?: boolean } = {},
+    ) =>
+      repository.recordWebhook({
+        appId: "digital",
+        dedupeKey: key,
+        correlationId: "order-1",
+        eventType: overrides.eventType ?? "AUTHORISATION",
+        pspReference: String(payload.pspReference),
+        hmacValid: overrides.hmacValid ?? true,
+        payload,
+      });
+    const refused = (psp: string, sessionId?: string) => ({
+      pspReference: psp,
+      success: "false",
+      additionalData: sessionId ? { checkoutSessionId: sessionId } : {},
+    });
+    webhook("a", refused("PSP-1", "CS1"));
+    // The same refusal delivered under another key still counts once.
+    webhook("a-again", refused("PSP-1", "CS1"));
+    webhook("b", { ...refused("PSP-2", "CS1"), success: false });
+    webhook("c", refused("PSP-3", "CS1"), { hmacValid: false });
+    webhook("d", { ...refused("PSP-4", "CS1"), success: "true" });
+    webhook("e", refused("PSP-5", "CS1"), { eventType: "CANCELLATION" });
+    webhook("f", refused("PSP-6", "CS2"));
+    webhook("g", refused("PSP-7"));
+
+    assertEquals(repository.sessionRefusals("CS1"), 2);
+    assertEquals(repository.sessionRefusals("CS2"), 1);
+    assertEquals(repository.sessionRefusals("CS-unknown"), 0);
+  } finally {
+    repository.close();
+  }
+});
+
+test("a session is claimed for renewal once, and the newest session is the one in use", () => {
+  const repository = new Repository(":memory:");
+  try {
+    const order = repository.createOrder({
+      appId: "digital",
+      flow: "sessions-dropin",
+      amount: { value: 1000, currency: "EUR" },
+      metadata: { profileId: "default" },
+    });
+    assertEquals(repository.latestSession(order.id), undefined);
+    const first = repository.createSession({
+      orderId: order.id,
+      kind: "sessions-dropin",
+      adyenSessionId: "CS1",
+    });
+    assertEquals(repository.latestSession(order.id)?.adyenSessionId, "CS1");
+    assertEquals(repository.latestSession(order.id)?.state, "created");
+
+    assertEquals(repository.claimSession(first, "created", "renewing"), true);
+    assertEquals(repository.claimSession(first, "created", "renewing"), false);
+    assertEquals(repository.latestSession(order.id)?.state, "renewing");
+
+    repository.createSession({ orderId: order.id, kind: "sessions-dropin", adyenSessionId: "CS2" });
+    assertEquals(repository.claimSession(first, "renewing", "replaced"), true);
+    assertEquals(repository.latestSession(order.id)?.adyenSessionId, "CS2");
+    assertEquals(repository.orderMetadata(order.id).profileId, "default");
+    assertEquals(repository.orderMetadata("order-unknown"), {});
+  } finally {
+    repository.close();
+  }
+});

@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-25T10:00:00Z
+  at: 2026-11-27T18:00:00Z
 sources:
   - resource: ../../apps/adyen-digital
     title: "The Next.js app: pages, Elysia API, client components"
@@ -79,6 +79,7 @@ in the [README](../../README.md) since 2026-10-10 (commit `8678cc9`); what is ve
 | Route                                                                 | Fields read from the body (or query)                                                                                                   | Calls Adyen                                      |
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | `POST /api/digital/sessions`                                          | `flow` (default `sessions-dropin`), `amount`, `countryCode`, `shopperLocale`, `installments`, `allowedPaymentMethods`, `nativeThreeDS` | `/sessions`                                      |
+| `POST /api/digital/orders/:id/sessions`                               | the same fields but `amount`: the order's amount, reference and expiry are used                                                        | `/sessions`, only when the renewal is due        |
 | `POST /api/digital/payment-methods`                                   | `amount`, `countryCode`, `shopperLocale`, `shopperEmail`, `correlationId`, `shopperConversionId`, `order`                              | `/paymentMethods`                                |
 | `POST /api/digital/payments`                                          | `orderId`, `flow`, `amount`, `countryCode`, `shopperLocale`, `shopperEmail`, `nativeThreeDS`, `paymentMethod`, `browserInfo`, `order`  | `/payments`                                      |
 | `POST /api/digital/payments/details`                                  | `correlationId`, `details`, `paymentData`                                                                                              | `/payments/details`                              |
@@ -177,8 +178,13 @@ the card for the rest (Drop-in shows its own); Advanced also implements `onBalan
 (`checkout/partial.ts`: a gift card pays what its balance covers, the next method the rest). After
 a refused, cancelled or failed payment the result card offers "Try again": it remounts on the same
 AdyenCheckout instance, so the session (with its latest `sessionData`) and any gift card order
-survive; "New payment" starts a new session, and so does a retry after the fifth refusal in a
-session, a `14_0422`/`14_0423` answer, or once the session expired (the card says so). A Sessions
+survive; "New payment" starts a new order and session, and so does a retry once the session expired
+(`14_0423`, or past its expiry; the card says so). After the fifth refusal in a session or a
+`14_0422` answer, "Try again" asks the server for a new session on the same order
+(`POST /api/digital/orders/:id/sessions`, [ADR-022](../decisions/ADR-022-sessions-renewal-decided-by-the-server.md)):
+while it answers 202 the checkout shows "Waiting for Adyen to confirm the refusals (n/5)" and asks
+again every 2 s; a 201 mounts the new session, a 409 shows the server's reason, and after 60 s
+the wait ends with an error that names the missing webhooks, never with a session. A Sessions
 checkout that is part paid survives a reload (`checkout/session-restore.ts`): `onOrderUpdated`
 (Adyen Web 6.48+) hands over the latest `sessionData`, which is kept in the tab's `sessionStorage`
 with the session id, its expiry, the correlation id, what is paid and left, and the settings the
@@ -206,7 +212,7 @@ select and delete TEST profiles. `RedirectReturn` is the `/result` client compon
 
 **JSON responses.**
 
-- `201`: `/sessions` `{correlationId, order, session}`; `/payments`
+- `201`: `/sessions` and `/orders/:id/sessions` `{correlationId, order, session}`; `/payments`
   `{correlationId, attemptId, result, resolution}`; `/payment-links`
   `{correlationId, order, paymentLink}`; `/partial-orders` `{correlationId, order, adyenOrder}`;
   `/mit` `{correlationId, result, resolution}`; `/api-only` proxies the `/payments` answer.
@@ -219,9 +225,11 @@ select and delete TEST profiles. `RedirectReturn` is the `/result` client compon
   `{order, attempts, timeline, ledger, modifications, capabilities, permissions}`; `/config`
   `{countries, paymentMethodRules, capabilities}`; `/webhooks/:correlationId` `{waiting, entries}`.
 - `202`: `/orders/:id/actions/:action` `{actionId, idempotencyKey, result}`; `/webhook`
-  `[accepted]`.
+  `[accepted]`; `/orders/:id/sessions` `{waiting: true, refusals, limit: 5}` while fewer than five
+  refusals of the current session have arrived, or while another request is renewing it.
 
-`/sessions` creates the order and its session row; `/payments` creates an order unless `orderId`
+`/sessions` creates the order and its session row; `/orders/:id/sessions` adds a session row to the
+order and marks the previous one `replaced` (one order, many sessions, one in use); `/payments` creates an order unless `orderId`
 names one, and always an attempt; `/payment-links`, `/partial-orders` and `/mit` create an order,
 MIT also an attempt; `/orders` lists each order with its attempts and permissions.
 
@@ -242,7 +250,9 @@ without Adyen-encrypted values or a token. 401 for a webhook item whose HMAC mat
 whole delivery is refused so Adyen retries). 403 for a CSRF failure or a cross-origin request. 404
 for an unknown order, correlation id or payment link, and for an unknown flow page. 409 for a
 duplicate action still in flight, no authorised payment, a refused permission (the reason is in
-`error`), and a redirect that belongs to another order. 429 above 120 requests per minute. 500 is
+`error`), a redirect that belongs to another order, and a session renewal for an order that is not
+a Sessions order, was made under another profile, has no session, or is paid, pending, part paid,
+cancelled or expired. 429 above 120 requests per minute. 500 is
 `{error, correlationId}` and writes an audit row.
 
 **Persisted rows.** `orders` (reference `digital-<epoch ms>-<id prefix>`), `payment_sessions`,
@@ -312,12 +322,24 @@ the set. Markets are 36 countries with their own currency, locale and default am
 11. **Digital `/sessions`, Advanced `/payments` and `/api-only` send fixed two-key `metadata` and
     omit recipient names from `deliveryAddress`.** `buildSessionRequest` and `buildPaymentRequest`
     in `apps/adyen-digital/src/server/requests.ts`, pinned by `apps/adyen-digital/src/server/api.test.ts`.
+12. **A Sessions order gets a new session only when Adyen's own refusal webhooks for its current
+    session reach five, and never two at once.** `renewalDecision` in
+    `apps/adyen-digital/src/server/session-renewal.ts`, pinned by
+    `apps/adyen-digital/src/server/session-renewal.test.ts` ("four refusals wait, the fifth
+    renews", "a settled or expired order is never renewed", "a session being renewed makes the
+    next request wait", "an order that is not a Sessions order of this profile, or has no session,
+    is refused"); `packages/platform/storage.test.ts` ("session refusals count only HMAC-valid
+    refused AUTHORISATION webhooks of that session, once per PSP reference", "a session is claimed
+    for renewal once, and the newest session is the one in use");
+    `packages/platform/apps.integration.test.ts` ("digital refuses to renew the session of an
+    unknown order"). The browser's wait ends in an error, never a session, after 60 s —
+    `apps/adyen-digital/src/checkout/session-renewal.test.ts` (its three tests).
 
 ## Determinism
 
 `deterministic`. Every page, JSON body, stored row and order state is produced by code from the
 request and the recorded Adyen answers; there is no model and no free text. The pure parts
-(`resolveOrder`, `partial.ts`, `session-restore.ts`, `onChangeDiff.ts`, `curl.ts`, `read.ts`) are pinned by tests, and the
+(`resolveOrder`, `partial.ts`, `session-restore.ts`, `session-renewal.ts` on both sides, `onChangeDiff.ts`, `curl.ts`, `read.ts`) are pinned by tests, and the
 same recorded attempts and webhooks always derive the same state. Adyen's own answer and the moment
 a webhook arrives are external input: a payment whose webhook never arrives stays `open` or
 `payment_pending` until the event does.
@@ -350,4 +372,5 @@ in [current/digital-status.md](../current/digital-status.md).
 - A certified or reference integration: the README disclaimer applies.
 - Chargebacks and disputes: no workflow; the ledger covers capture, cancel and refund events only.
 - `GET /sessions/{id}` polling: never called, because Adyen does not update the status it returns.
+- Renewing the session of an expired or part-paid Sessions order: a new checkout starts instead.
 - User accounts, roles or per-user data: one shared profile set behind optional Basic Auth.

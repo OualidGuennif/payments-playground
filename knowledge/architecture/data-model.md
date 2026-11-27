@@ -7,7 +7,7 @@ status: stable
 scope: data-model
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-27T18:00:00Z
 sources:
   - id: schema
     resource: ../../packages/platform/migrations/001_initial.sql
@@ -35,7 +35,7 @@ directory: `apps/<app>/data/` for the app's dev server, the repository's `data/`
 | -------------------- | ------------------------------------------------------------------ | ---------------------------- |
 | `profiles`           | Extra TEST merchant profiles, encrypted (AES-256-GCM)              | id                           |
 | `orders`             | One per checkout: flow, amount, state, paid value, expiry, link id | `reference`                  |
-| `payment_sessions`   | The Adyen session id a Sessions order was created with             |                              |
+| `payment_sessions`   | The Adyen sessions of a Sessions order: the one in use (`created`, `renewing` while claimed), earlier ones `replaced` ([ADR-022](../decisions/ADR-022-sessions-renewal-decided-by-the-server.md)) |                              |
 | `attempts`           | One per authorisation try, with PSP reference and refusal reason   |                              |
 | `payment_parts`      | One per authorised PSP reference                                   | enforced in code (see below) |
 | `api_calls`          | Every Checkout API request and response, redacted, with duration   |                              |

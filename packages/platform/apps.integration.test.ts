@@ -63,3 +63,18 @@ test("digital refuses a webhook whose HMAC matches no profile", async () => {
   );
   assertEquals(response.status, 401);
 });
+
+test("digital refuses to renew the session of an unknown order", async () => {
+  const response = await digitalHandle(
+    new Request("http://localhost/api/digital/orders/order-unknown/sessions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: "adyen_csrf=renewal-test",
+        "x-csrf-token": "renewal-test",
+      },
+      body: "{}",
+    }),
+  );
+  assertEquals(response.status, 404);
+});

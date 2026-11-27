@@ -8,10 +8,10 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 ## Flagship storefront on the agentic store (ADR-019) — ACTIVE
 
 - Owner decision: 2026-11-27, in chat: implement the six-slice flagship plan and ship it to prod.
-- State: committed on develop (unpushed): catalogue 6696449, feed 8cece44, session sync and
-  one-click budget 584f248; storefront (header, home, shop, product, GSAP) written, uncommitted.
-- Next: commit storefront; cart and checkout; Personal Shopper rail and sheet; browser checks,
-  review, release (who: agent).
+- State: six slices on develop up to 4b452ea, checks green; review NOT OK (revoked grant live in
+  chat), fix UNCOMMITTED (tokens.ts peekAuth, house.ts houseToken, api.test.ts), 830 tests pass.
+- Next: commit fix, re-review, push, release PR v0.10.0, merge, deploy, prod check (who: agent);
+  visual yes on prod and a signed-in check (who: owner).
 - Blocker: none.
 - Evidence: knowledge/components/agentic-storefront.md; ADR-019.
 

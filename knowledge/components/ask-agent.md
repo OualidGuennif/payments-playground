@@ -252,7 +252,10 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
    tool, `open_page` (invariant 21), which calls nothing and only names a store page. The house client's tokens live in the
    process's memory only, so a restart forgets a connection and the shopper connects again (the
    storefront plan's SQLite link would have stored them: not done); ending a session revokes its
-   grant. Test: `ask/api.test.ts` "one click in the chat connects with the budget picked". Test: `ask/agent.test.ts` "guest
+   grant, and a grant the shopper disconnects on the account page ends the chat's connection at
+   its next read (the session then reads as not connected and may connect again; the check never
+   marks the agent used). Test: `ask/api.test.ts` "one click in the chat connects with the budget
+   picked". Test: `ask/agent.test.ts` "guest
    has no token", "pay tools only when connected and normal", "no tool runs outside a shopper
    message"; `ask/house.test.ts`.
 3. **Five stages, in order, every message,** typed or voiced. A

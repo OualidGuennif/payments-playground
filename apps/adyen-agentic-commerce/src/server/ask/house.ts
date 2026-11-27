@@ -11,6 +11,7 @@ import {
   decide,
   DEVICE_GRANT,
   OAuthError,
+  peekAuth,
   registerClient,
   revokeEndpoint,
   type Scope,
@@ -172,11 +173,15 @@ export async function pollConnect(
   return "connected";
 }
 
-// An access token outlives a session (60 min against 30), so none is ever refreshed.
+// An access token outlives a session (60 min against 30), so none is ever refreshed. A grant the
+// shopper disconnected on the account page ends the connection here too: the session then reads as
+// not connected and may connect again.
 export function houseToken(sessionId: string, now = Date.now()): string | undefined {
   const connection = connections.get(sessionId);
   if (!connection) return undefined;
-  if (now < connection.expiresAt) return connection.accessToken;
+  const auth =
+    now < connection.expiresAt ? peekAuth(`Bearer ${connection.accessToken}`, "/mcp") : undefined;
+  if (auth && auth !== "invalid") return connection.accessToken;
   connections.delete(sessionId);
   return undefined;
 }
@@ -187,8 +192,8 @@ export function houseAccess(
   now = Date.now(),
 ): { remaining: number; pay: boolean } | undefined {
   const token = houseToken(sessionId, now);
-  const auth = token ? authenticate(`Bearer ${token}`, "/mcp") : undefined;
-  if (!auth || auth === "invalid" || auth.grant.revoked) return undefined;
+  const auth = token ? peekAuth(`Bearer ${token}`, "/mcp") : undefined;
+  if (!auth || auth === "invalid") return undefined;
   return {
     remaining: Math.max(0, auth.grant.spendLimit - auth.grant.spent),
     pay: auth.grant.scopes.includes("ucp:pay"),

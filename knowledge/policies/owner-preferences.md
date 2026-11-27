@@ -5,7 +5,7 @@ description: "Durable project preferences: Render at the root, TEST only, the fa
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T11:40:00Z
+  at: 2026-11-27T16:00:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "Project rules and owner"
@@ -52,6 +52,16 @@ What the owner asked for that a reviewer should not have to ask again.
   the 21st of the month before the solstice or equinox. Sign in sits in the header on every width,
   and the top bar is a seasonal sandbox line (2026-11-27,
   [ADR-020](../decisions/ADR-020-pay-identity-welcome-offer-and-seasons.md)).
+- On the agentic store, the Personal Shopper remembers an account's grant across conversations,
+  sign-ins and deploys (one active grant per account; Disconnect on `/account#agents` ends it), asks
+  for the password or a passkey only to pay in the chat and only when the last proof is over 60
+  minutes old, never sends the shopper out of the chat on Pay (overlays above it; "Continue on
+  website checkout" is the last, quieter choice), leads with "Pay in chat" or "Save a card & pay in
+  chat", opens at 88 % of the screen on a phone with little chrome, keeps product cards compact and
+  aligned, puts every overlay where the iOS keyboard cannot cover it, and wears a restrained glass
+  finish (2026-11-27, [ADR-021](../decisions/ADR-021-durable-ask-grant-step-up-and-in-chat-checkout.md)).
+- The agentic checkout asks for the email in step 1 before Delivery and Payment open, and a paid
+  order opens its own page at the top (2026-11-27, iPhone Safari).
 - Existing public docs (`README.md`, `docs/SECURITY.md`, `docs/KNOWN_LIMITS.md`) win over factory
   defaults where they differ; record the divergence here.
 

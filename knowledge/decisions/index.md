@@ -5,7 +5,7 @@ description: "One architecture decision record per durable choice."
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T08:00:00Z
+  at: 2026-11-27T16:00:00Z
 ---
 
 # Decisions
@@ -35,3 +35,4 @@ Each ADR states its context, the decision and its consequences. Supersede an ADR
 | [ADR-018: Ask agent, Flue in-process on the store's own MCP](ADR-018-ask-agent-flue-in-process.md) | stable | 2026-11-25               |
 | [ADR-019: Flagship storefront, product feed, GSAP, Personal Shopper](ADR-019-flagship-storefront.md) | stable | 2026-11-27               |
 | [ADR-020: Pay email step, first-order welcome offer, seasons](ADR-020-pay-identity-welcome-offer-and-seasons.md) | stable | 2026-11-27               |
+| [ADR-021: Durable Personal Shopper grant, chat-pay confirmation, checkout in the chat](ADR-021-durable-ask-grant-step-up-and-in-chat-checkout.md) | stable | 2026-11-27               |

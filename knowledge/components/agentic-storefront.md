@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T14:10:00Z
+  at: 2026-11-27T16:00:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -200,8 +200,13 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   account & get 5% off" (name optional, a password of 12 to 128 characters, the saving, the
   seasonal tote's picture and the new total shown) or "Pay as guest" (the standard total, no
   account). A guest email goes through `POST /api/checkouts/:id/email`, set once. When the check
-  answers 429, the modal offers Pay as guest and Sign in. A centred card from 640 px, a bottom
-  sheet below; Escape and the backdrop close it, focus stays inside, 16 px fields on touch screens.
+  answers 429, the modal offers Pay as guest and Sign in. A centred card from 640 px; below, a
+  card held to the top of the visual viewport (`ChatOverlayModal`, which follows
+  `window.visualViewport`), so the iOS keyboard and its toolbar never cover the field or the
+  button (owner's iPhone screenshots, 2026-11-27, ADR-021); fields take focus by themselves only
+  with a fine pointer. Escape and the backdrop close it, focus stays inside, 16 px fields on touch
+  screens. Over the Personal Shopper its buttons say the shopper stays in the chat ("Sign in &
+  return to chat", "Create account & apply 5% off").
   Its backdrop, the filters sheet's and the Personal Shopper sheet's darken the page in both themes
   (`--color-scrim`: the ink in light, black in dark, where the ink turns light).
 - **Email check** `POST /api/session/check-email` `{ email }`: another site (the proxy, then
@@ -237,14 +242,21 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   particles, 10 under 640 px, CSS keyframes only, opacity 0.12 to 0.24, no pointer events, light
   and dark) draws it. Reduced motion hides it.
 - **Layers:** the ambience `z-10`, the minimised Personal Shopper `z-30`, the header and its menus
-  `z-40`, the open Personal Shopper `z-50`, the Pay email modal `z-[60]`. Opening the Personal
+  `z-40`, the open Personal Shopper `z-50`, the Pay email modal and the chat's overlays (card
+  save, budget, chat-pay confirmation) `z-[60]`. Opening the Personal
   Shopper closes the header's menus (`velune:close-menus`); opening the Menu or the account menu on
   a phone minimises an open Personal Shopper.
 - **Personal Shopper:** the Ask panel under its new name: a 440 px rail from 1024 px, a sheet of
-  55 or 92 % of the screen below, Cmd/Ctrl+K, a header line and three questions per kind of page,
-  the bag's count, and the widget with its delivery block as one card; Pay with no email opens the
-  Pay email modal over it; it reads the site session as soon as it changes and steps aside on a
-  phone when a product or checkout page opens ([Ask spec](ask-agent.md), Panel).
+  88 or 96 % of the dynamic viewport below with only the composer in its footer, Cmd/Ctrl+K, a
+  header line and three questions per kind of page (before the first message), the bag's count,
+  and the widget with its delivery block as one card; Pay opens its overlays above it and never
+  leaves the chat unless the shopper taps "Continue on website checkout"; it reads the site
+  session as soon as it changes and steps aside on a phone when a product or checkout page opens
+  ([Ask spec](ask-agent.md), Panel; ADR-021).
+- **Glass** (`.velune-glass`, `.velune-glass-pill`, ADR-021): the sticky header, the Personal
+  Shopper's rail, sheet and minimised bar, the overlays and the header menus are translucent and
+  blurred in both themes, opaque under `prefers-reduced-transparency: reduce`; Drop-in keeps an
+  opaque card and text keeps AA contrast.
 
 ## Invariants
 

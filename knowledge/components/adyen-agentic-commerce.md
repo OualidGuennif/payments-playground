@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T10:24:00Z
+  at: 2026-11-27T16:00:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -483,8 +483,7 @@ before, every deploy or restart emptied orders, agents and grants.
     "client address", `src/server/oauth/device.test.ts` the two forged-entry tests).
 11. A platform profile is fetched only under the guards above, and only after the rate limit and
     the token check; a profile that cannot be fetched, read or negotiated stops the request before
-    any operation runs, and that refusal is never stored under an Idempotency-Key
-    (`src/server/ucp/profile.test.ts`).
+    any operation runs, and that refusal is never stored under an Idempotency-Key (`src/server/ucp/profile.test.ts`).
 12. A token works only at the resource it was issued for; a refresh token keeps every resource and
     scope of its grant, so narrowing one access token never narrows the next; a `resource` the
     store does not serve never yields a code or a token (`src/server/oauth/oauth.test.ts` and
@@ -492,14 +491,16 @@ before, every deploy or restart emptied orders, agents and grants.
 13. A Session is accepted only with its delegation in the JWT header, signed by a key the client
     publishes, unexpired, and only with `aud` equal to the issuer; a delegation in the claims, an
     `aud` array or the MCP URL as `aud` is `invalid_session`. Its `jti` is remembered until its
-    `iat` can no longer pass the 300 s check (`max(now, iat) + 300 s`), so it is accepted once
-    (`src/server/pap/conformance.test.ts`).
+    `iat` can no longer pass the 300 s check (`max(now, iat) + 300 s`), so it is accepted once (`src/server/pap/conformance.test.ts`).
 14. A customer session is 32 random bytes in an HttpOnly, SameSite=Lax cookie (Secure and
-    `__Host-` on https), stored only as its SHA-256, valid 7 days and deleted at sign-out; a
+    `__Host-` on https), stored only as its SHA-256 with its sign-in time and last password or
+    passkey proof (`createdAt`, `confirmedAt`: a chat payment needs one under 60 minutes old,
+    [ADR-021](../decisions/ADR-021-durable-ask-grant-step-up-and-in-chat-checkout.md)), valid 7 days and deleted at sign-out; a
     password is stored only as an argon2id hash; a passkey's challenge is used once within 5
     minutes. A sign-in attempt counts per address and per account before the password is checked,
     and a right password takes its count back, so ten failures, a burst sent at once included,
-    refuse that address or account for 15 minutes (`src/server/accounts/customers.test.ts`).
+    refuse that address or account for 15 minutes (`src/server/accounts/customers.test.ts`,
+    "session freshness" too).
 15. A grant belongs to the customer who approved it, and consent or device approval without a
     signed-in customer grants nothing; a grant without a customer authenticates nothing, so grants
     made before accounts stop working. The account page lists every grant of the account, looked up
@@ -511,8 +512,7 @@ before, every deploy or restart emptied orders, agents and grants.
     the database, so another token is another body (409) or a new payment), and Adyen gets
     `networkToken` with the brand it read, `ContAuth` and `UnscheduledCardOnFile`, with no
     stored-payment field. A bad field, or a checkout not ready to pay, sends the number nowhere;
-    a checkout handed to the shopper takes no instrument from agents
-    (`src/server/payments/network-token.test.ts`).
+    a checkout handed to the shopper takes no instrument from agents (`src/server/payments/network-token.test.ts`).
 17. A signed-in agent's payment, by saved card or network token, is reserved on its grant's limit
     before Adyen is called, as invariant 3 describes; a guest's network-token payment has no limit
     of the store's (`src/server/payments/network-token.test.ts`).

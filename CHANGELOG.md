@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-27
+
 - The agentic store's Ask panel is now the Personal Shopper everywhere. From 1024 px it is a 440 px
   rail beside the page (Cmd/Ctrl+K opens it on the composer); on a phone it is a sheet of 55 % of
   the screen, 92 % on demand, that steps aside when a product or checkout page opens. Its header

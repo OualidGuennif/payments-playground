@@ -134,6 +134,47 @@
   .chip {
     @apply inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-card px-3 py-1.5 text-sm text-ink transition hover:border-ink disabled:cursor-not-allowed disabled:opacity-40 aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-paper;
   }
+  /* The seasonal ambience (ADR-020): in the components layer so each particle's utilities (place,
+     size, timing) win; the colour follows the theme through light-dark(). */
+  .seasonal-ambience {
+    contain: strict;
+    --ambience-colour: light-dark(#94a3b8, #f1f5f9);
+  }
+  .seasonal-ambience[data-season="spring"] {
+    --ambience-colour: light-dark(#9fae86, #d6c8c0);
+  }
+  .seasonal-ambience[data-season="summer"] {
+    --ambience-colour: light-dark(#d4b45c, #ecd9a0);
+  }
+  .seasonal-ambience[data-season="autumn"] {
+    --ambience-colour: light-dark(#c07a3e, #e0a070);
+  }
+  .ambience-particle {
+    position: absolute;
+    top: -4vh;
+    opacity: 0;
+    border-radius: 9999px;
+    background: var(--ambience-colour);
+    animation-name: ambience-fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    will-change: transform, opacity;
+  }
+  .seasonal-ambience[data-season="spring"] .ambience-particle {
+    border-radius: 60% 0;
+    animation-name: ambience-drift;
+  }
+  .seasonal-ambience[data-season="summer"] .ambience-particle {
+    top: auto;
+    bottom: -4vh;
+    background: radial-gradient(circle, var(--ambience-colour), transparent 70%);
+    transform: scale(2);
+    animation-name: ambience-rise;
+  }
+  .seasonal-ambience[data-season="autumn"] .ambience-particle {
+    border-radius: 0 70%;
+    animation-name: ambience-leaf;
+  }
 }
 
 /* The Personal Shopper docks on the right of a wide screen: the page makes room rather than hide
@@ -219,5 +260,75 @@ html[data-ask="minimised"] body {
   .seq-draw,
   .seq-fade {
     animation: none;
+  }
+}
+
+/* Ambience paths: transform and opacity only, so the compositor draws them. --o is a particle's
+   peak opacity (0.12 to 0.24), --dx its sideways sway. */
+@keyframes ambience-fall {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  12%,
+  88% {
+    opacity: var(--o);
+  }
+  50% {
+    transform: translate3d(var(--dx), 54vh, 0);
+  }
+  100% {
+    transform: translate3d(0, 108vh, 0);
+    opacity: 0;
+  }
+}
+@keyframes ambience-drift {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  12%,
+  88% {
+    opacity: var(--o);
+  }
+  100% {
+    transform: translate3d(calc(var(--dx) * 4), 108vh, 0) rotate(160deg);
+    opacity: 0;
+  }
+}
+@keyframes ambience-rise {
+  0% {
+    transform: translate3d(0, 0, 0) scale(2);
+    opacity: 0;
+  }
+  20%,
+  80% {
+    opacity: var(--o);
+  }
+  100% {
+    transform: translate3d(var(--dx), -108vh, 0) scale(2);
+    opacity: 0;
+  }
+}
+@keyframes ambience-leaf {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  12%,
+  88% {
+    opacity: var(--o);
+  }
+  50% {
+    transform: translate3d(var(--dx), 54vh, 0) rotate(150deg);
+  }
+  100% {
+    transform: translate3d(0, 108vh, 0) rotate(300deg);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .seasonal-ambience {
+    display: none;
   }
 }

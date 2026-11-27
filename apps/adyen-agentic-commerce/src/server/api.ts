@@ -6,7 +6,7 @@ import { accountApi, customerOf, sessionLimit } from "./accounts/account-api";
 import { askApi } from "./ask/api";
 import { consoleApi } from "./ask/console-api";
 import { voiceApi } from "./ask/voice-api";
-import { productSvg } from "./catalog/art";
+import { productSvg, welcomeToteSvg } from "./catalog/art";
 import { feedJsonl, openAiFeed } from "./catalog/openai-feed";
 import * as adyen from "./payments/adyen";
 import * as backOffice from "./back-office/back-office";
@@ -25,6 +25,7 @@ import { openApi } from "./ucp/openapi";
 import { isRecord, json, published, safeEqual } from "./core/util";
 import { DEFAULT_DELIVERY, parseDelivery } from "../lib/delivery";
 import { maskEmails } from "../lib/mask";
+import { seasonOfGift } from "../lib/seasons";
 import { shopperWords } from "../lib/shopper-words";
 import { PLUGIN_ZIP_PATH, pluginZip } from "./mcp/widgets";
 
@@ -118,7 +119,14 @@ const browserApi = new Elysia({ prefix: "/api" })
   .get("/return", ({ request }) => redirectFromAdyen(request))
   .post("/return", ({ request }) => redirectFromAdyen(request))
   .get("/art/:file", ({ params }) => {
-    const variant = variantById(params.file.replace(/\.svg$/, ""));
+    const name = params.file.replace(/\.svg$/, "");
+    // The welcome tote is a gift, never a catalogue variant: only its four names are drawn.
+    const season = seasonOfGift(name);
+    if (season)
+      return new Response(welcomeToteSvg(season), {
+        headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=3600" },
+      });
+    const variant = variantById(name);
     const product = variant && productById(variant.productId);
     if (!variant || !product) return status(404, "Not found");
     return new Response(productSvg(product.shape, variant.colour), {

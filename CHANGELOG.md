@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store follows the season, a month early: winter from 21 November, spring from 21
+  February, summer from 21 May, autumn from 21 August (UTC). The top bar now reads, for example,
+  "Winter Edition · Agentic Commerce Sandbox · 5% off & free Winter Tote on your first order" (the
+  Adyen TEST notice moves to the footer), a faint ambience of at most 16 particles drifts behind
+  nothing clickable and disappears under reduced motion, and each season has its own tote drawing
+  at `/api/art/velune-welcome-tote-<season>.svg`.
 - ADR-020 and the specs for the agentic store's next release: one Pay email modal that tells an
   account from a new shopper through a hardened email check, an opt-in first-order welcome offer
   (5 % off and a free seasonal tote, priced on the server), seasons that start on the 21st of the

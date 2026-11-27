@@ -42,6 +42,12 @@ sources:
   - id: theme
     resource: ../../apps/adyen-agentic-commerce/src/lib/theme.ts
     title: "The theme's storage key and the head script that applies it before first paint"
+  - id: welcome-offer-tests
+    resource: ../../apps/adyen-agentic-commerce/src/server/commerce/welcome-offer.test.ts
+    title: "The welcome offer's tests: eligibility, amounts, the claim's refusals, the tote's pictures"
+  - id: seasons
+    resource: ../../apps/adyen-agentic-commerce/src/lib/seasons.ts
+    title: "The season of a UTC date: its tote, its top bar line, its ambience"
   - id: test-cards
     resource: ../../apps/adyen-agentic-commerce/src/lib/testCards.ts
     title: "The Adyen TEST cards shown beside Drop-in on the checkout"

@@ -8,10 +8,11 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 ## v0.11.0: Pay email modal, welcome offer, seasons (ADR-020) — ACTIVE
 
 - Owner decision: 2026-11-27, in chat: execute the v0.11.0 plan (Section 0 decisions approved).
-- State: code inspected, nothing changed yet; plan in the session handover.
-- Next: slices 0 to 6 on develop, checks, browser QA, review, release (who: agent).
+- State: slices 0 to 5 and two QA fixes (dark backdrops, the widget's missing-email line) on
+  develop; `bun run check` green; local QA at 1440, 1024 and 390 px, light and dark; unpushed.
+- Next: independent review receipt, push, release PR, tag v0.11.0, prod check (who: agent).
 - Blocker: none.
-- Evidence: work/handovers (session 94e4267a).
+- Evidence: knowledge/components/agentic-storefront.md (verified 2026-11-27, v0.11.0 local).
 
 ## Flagship storefront on the agentic store (ADR-019) — WAITING-OWNER
 

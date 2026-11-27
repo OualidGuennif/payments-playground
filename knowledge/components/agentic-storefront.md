@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T08:55:00Z
+  at: 2026-11-27T09:00:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -55,6 +55,8 @@ sources:
     resource: https://developers.openai.com/commerce/specs/feed
     title: "OpenAI: product feed schema (read 2026-11-27)"
 verified:
+  - at: 2026-11-27
+    check: "v0.11.0 local (TEST), check green on b866dbc: guest Pay modal opened Drop-in; a new account paid EUR 89.50 with 5 % off and the tote (TEST Visa, Authorised), order and account show both; Shopper widget Pay opened the modal; 1440, 1024 docked, 390 px, light and dark."
   - at: 2026-11-27
     check: "Local (127.0.0.1:8003, TEST): a guest checkout paid with Adyen's TEST Visa, Authorised (WF5LWXPHDFWRSV75); Pay with no email marked, centred and focused the field; rail 440 px with Ctrl+K at 1440, sheet 447/812 px at 375, light and dark, no overflow."
   - at: 2026-11-27

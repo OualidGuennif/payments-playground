@@ -101,6 +101,7 @@ let host: Host;
 // `stay`: a tap on the collection changed the bag, so the collection stays in view; a bag the
 // agent shows, or any other answer, opens the bag.
 function show(data: unknown, stay = false) {
+  dropAdded();
   const capability = capabilityOf(data) ?? "";
   if (capability.startsWith("dev.ucp.shopping.catalog")) {
     const view = catalogView(data);
@@ -133,7 +134,8 @@ function refusal(data: unknown) {
   return shopperNote(typeof code === "string" ? code : undefined) ?? "The store could not do that.";
 }
 
-// "Added to bag" shows on the card that was added, then goes; the next tap clears it at once.
+// "Added to bag" shows on the card that was added, then goes. A redraw would start its animation
+// again, so the next tap, or anything the host shows, ends it at once.
 let addedTimer: ReturnType<typeof setTimeout> | undefined;
 function flashAdded(variantId: string) {
   state.added = variantId;
@@ -144,14 +146,18 @@ function flashAdded(variantId: string) {
   }, 1800);
 }
 
+function dropAdded() {
+  state.added = undefined;
+  clearTimeout(addedTimer);
+}
+
 // A button: the widget calls the tool and shows the answer itself. From the collection's cards
 // (`stay`), the collection stays in view and the card that was added says so.
 async function run(label: string, call: Call | undefined, stay?: { added?: string }) {
   if (!call || state.busy) return;
   state.busy = label;
   state.note = undefined;
-  state.added = undefined;
-  clearTimeout(addedTimer);
+  dropAdded();
   render();
   try {
     const result = await host.call(call.name, call.arguments);
@@ -195,7 +201,8 @@ async function open(url: string | undefined) {
 // --- header -----------------------------------------------------------------------------------
 
 // The count last drawn on the Bag tab: it bumps only when the bag has just grown. A tap draws twice
-// in one task (its answer, then the end of busy), so the bump holds until that task ends.
+// in one go (its answer, then the end of busy), so the bump holds until that code has run and no
+// later draw, even under a host that throttles timers, bumps again.
 let drawnCount = 0;
 let bumping = false;
 
@@ -203,7 +210,7 @@ function header() {
   const count = countOf(state.bag);
   if (count > drawnCount) {
     bumping = true;
-    setTimeout(() => {
+    queueMicrotask(() => {
       bumping = false;
     });
   }
@@ -218,6 +225,7 @@ function header() {
         "aria-current": state.view === view ? "page" : undefined,
         onclick: () => {
           state.view = view;
+          dropAdded();
           render();
         },
       },
@@ -305,6 +313,7 @@ function pills(p: UcpProduct, choice: Choice, name: "colour" | "size") {
           disabled: !offered(p, { ...choice, [name]: undefined }, name, key),
           onclick: () => {
             state.choices[p.id] = { ...state.choices[p.id], [name]: key };
+            dropAdded();
             render();
           },
         },
@@ -821,7 +830,7 @@ function bagScreen() {
 // --- render -----------------------------------------------------------------------------------
 
 // The view last drawn: a change of view slides in from its tab's side, any other render stays put.
-// Like the Bag tab's bump, the slide holds until the task that changed the view ends.
+// Like the Bag tab's bump, the slide holds only while the code that changed the view runs.
 let drawnView = state.view;
 let sliding: string | undefined;
 
@@ -829,7 +838,7 @@ function render() {
   const screen = state.view === "catalog" ? catalogScreen() : bagScreen();
   if (state.view !== drawnView) {
     sliding = state.view === "bag" ? "slide-from-right" : "slide-from-left";
-    setTimeout(() => {
+    queueMicrotask(() => {
       sliding = undefined;
     });
   }

@@ -9,11 +9,7 @@ generated:
   at: 2026-11-27T11:32:00Z
 verified:
   - at: 2026-11-27
-    what: "tools/template-tests PASS after the Droid patch merge; test_budget.py: a commit of verified docs keeps the receipt, closure commits staged docs only, a handover over 32 KiB is refused"
-  - at: 2026-11-27
-    what: "tools/template-tests PASS; test_budget.py covers the 300k notice, closure reads, pruning and a behind handover; work/handovers/ held 20 files before and after the run"
-  - at: 2026-11-24
-    what: "tools/agents/tests/test_hooks.py: 74 passed; a live Droid transcript showed two native compactions at 355k after the 340k alerts while Droid's meter read 338%; a Droid epoch admits 4 image reads"
+    what: "In this repository on the 4.1.1 update (1c7d558): bun run check exit 0 with tools/template-tests PASS (test_budget.py, test_hooks.py); adapter-check PASS, 32 connectors"
 sources:
   - id: budget
     resource: ../../tools/context/budget.py

@@ -133,7 +133,7 @@ function refusal(data: unknown) {
   return shopperNote(typeof code === "string" ? code : undefined) ?? "The store could not do that.";
 }
 
-// "Added to bag" shows on the card that was added, then goes; a later render never replays it.
+// "Added to bag" shows on the card that was added, then goes; the next tap clears it at once.
 let addedTimer: ReturnType<typeof setTimeout> | undefined;
 function flashAdded(variantId: string) {
   state.added = variantId;
@@ -150,6 +150,8 @@ async function run(label: string, call: Call | undefined, stay?: { added?: strin
   if (!call || state.busy) return;
   state.busy = label;
   state.note = undefined;
+  state.added = undefined;
+  clearTimeout(addedTimer);
   render();
   try {
     const result = await host.call(call.name, call.arguments);
@@ -192,13 +194,21 @@ async function open(url: string | undefined) {
 
 // --- header -----------------------------------------------------------------------------------
 
-// The count last drawn on the Bag tab: it bumps only when the bag has just grown.
+// The count last drawn on the Bag tab: it bumps only when the bag has just grown. A tap draws twice
+// in one task (its answer, then the end of busy), so the bump holds until that task ends.
 let drawnCount = 0;
+let bumping = false;
 
 function header() {
   const count = countOf(state.bag);
-  const grew = count > drawnCount;
+  if (count > drawnCount) {
+    bumping = true;
+    setTimeout(() => {
+      bumping = false;
+    });
+  }
   drawnCount = count;
+  const grew = bumping;
   const tab = (view: State["view"], label: string, badge?: HTMLElement) =>
     h(
       "button",
@@ -811,13 +821,20 @@ function bagScreen() {
 // --- render -----------------------------------------------------------------------------------
 
 // The view last drawn: a change of view slides in from its tab's side, any other render stays put.
+// Like the Bag tab's bump, the slide holds until the task that changed the view ends.
 let drawnView = state.view;
+let sliding: string | undefined;
 
 function render() {
   const screen = state.view === "catalog" ? catalogScreen() : bagScreen();
-  if (state.view !== drawnView)
-    screen.classList.add(state.view === "bag" ? "slide-from-right" : "slide-from-left");
+  if (state.view !== drawnView) {
+    sliding = state.view === "bag" ? "slide-from-right" : "slide-from-left";
+    setTimeout(() => {
+      sliding = undefined;
+    });
+  }
   drawnView = state.view;
+  if (sliding) screen.classList.add(sliding);
   root.replaceChildren(
     header(),
     screen,

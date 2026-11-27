@@ -391,9 +391,14 @@ describe("in the bag", () => {
     const paid = cart({ order: { label: "Order ord_1" } });
     expect(inBag(paid, "trench-sand-s")).toBe(0);
     expect(countOf(paid)).toBe(0);
-    expect(inBag(cart({ status: "canceled" }), "trench-sand-s")).toBe(0);
+    const canceled = cart({ status: "canceled" });
+    expect(inBag(canceled, "trench-sand-s")).toBe(0);
+    expect(countOf(canceled)).toBe(0);
     const done = cart({ kind: "checkout", id: "chk_1", status: "completed" });
     expect(inBag(done, "trench-sand-s")).toBe(0);
+    expect(countOf(done)).toBe(0);
+    const dropped = cart({ kind: "checkout", id: "chk_1", status: "canceled" });
+    expect(countOf(dropped)).toBe(0);
   });
 });
 

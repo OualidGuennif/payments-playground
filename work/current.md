@@ -5,15 +5,14 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Flagship storefront on the agentic store (ADR-019) — ACTIVE
+## Flagship storefront on the agentic store (ADR-019) — WAITING-OWNER
 
 - Owner decision: 2026-11-27, in chat: implement the six-slice flagship plan and ship it to prod.
-- State: v0.10.0 merged and tagged (PR #24, main `0417872`), its agentic image failed on Render;
-  fix 0e575d0 (agentic image builds locally), release 0.10.1 cut; agentic prod still v0.9.3.
-- Next: review, release PR v0.10.1, merge, tag, deploy, prod check (who: agent); visual yes on
-  prod and a signed-in check (who: owner).
+- State: v0.10.1 live on Render (main `8a558f6`, tag v0.10.1; v0.10.0's agentic build failed on a
+  test importing packages/ui, fixed); guest flows, feed, rail and sheet checked in prod.
+- Next: visual yes on prod, a signed-in check with the one-click budget and a payment (who: owner).
 - Blocker: none.
-- Evidence: knowledge/components/agentic-storefront.md; ADR-019.
+- Evidence: knowledge/current/digital-status.md (v0.10.1 deploy row); GitHub release v0.10.1.
 
 ## Ask agent on the agentic store, a PAP agent — WAITING-OWNER
 

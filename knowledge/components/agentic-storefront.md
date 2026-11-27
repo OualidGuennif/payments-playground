@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T06:57:00Z
+  at: 2026-11-27T07:20:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -45,6 +45,11 @@ sources:
   - id: openai-feed
     resource: https://developers.openai.com/commerce/specs/feed
     title: "OpenAI: product feed schema (read 2026-11-27)"
+verified:
+  - at: 2026-11-27
+    check: "Local (127.0.0.1:8003, TEST): a guest checkout paid with Adyen's TEST Visa, Authorised (WF5LWXPHDFWRSV75); Pay with no email marked, centred and focused the field; rail 440 px with Ctrl+K at 1440, sheet 447/812 px at 375, light and dark, no overflow."
+  - at: 2026-11-27
+    check: "Prod v0.10.1, signed out: feed 188 JSON rows and JSONL lines; home, shop filter, product page, bag gauge; guest Pay with no email marked and focused the field; rail 440 px with Ctrl+K at 1440; sheet 447/812 px, minimised on a product page, at 375. No payment, no signed-in check."
 ---
 
 # Agentic storefront

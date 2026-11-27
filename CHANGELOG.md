@@ -9,7 +9,7 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   a personal or off-topic question, the guard's off-topic verdict and an injection all get the
   store's one line ("I'm your Atelier Velune Personal Shopper: ..."); agent version `ask-6`.
 - In the chat's collection, Add to bag keeps the collection in view: the card turns into a
-  `−` count `+` stepper with a brief "Added to bag" that the next tap clears, and the Bag tab
+  `−` count `+` stepper with a brief "Added to bag" drawn once and never replayed, and the Bag tab
   shows a round count that bumps and counts only a bag still open; the chat card's views slide in. Each page of the store fades in with a short rise, and a
   product's picture fades on a colour change (none under reduced motion).
 

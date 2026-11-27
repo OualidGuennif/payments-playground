@@ -101,7 +101,6 @@ let host: Host;
 // `stay`: a tap on the collection changed the bag, so the collection stays in view; a bag the
 // agent shows, or any other answer, opens the bag.
 function show(data: unknown, stay = false) {
-  dropAdded();
   const capability = capabilityOf(data) ?? "";
   if (capability.startsWith("dev.ucp.shopping.catalog")) {
     const view = catalogView(data);
@@ -134,21 +133,14 @@ function refusal(data: unknown) {
   return shopperNote(typeof code === "string" ? code : undefined) ?? "The store could not do that.";
 }
 
-// "Added to bag" shows on the card that was added, then goes. A redraw would start its animation
-// again, so the next tap, or anything the host shows, ends it at once.
-let addedTimer: ReturnType<typeof setTimeout> | undefined;
+// "Added to bag" is drawn only by the tap that added (its answer, then the end of busy), and its
+// CSS shows it, then hides it. Any later draw, whatever causes it, leaves it out instead of
+// starting it again, and no timer draws anything afterwards.
 function flashAdded(variantId: string) {
   state.added = variantId;
-  clearTimeout(addedTimer);
-  addedTimer = setTimeout(() => {
+  queueMicrotask(() => {
     state.added = undefined;
-    render();
-  }, 1800);
-}
-
-function dropAdded() {
-  state.added = undefined;
-  clearTimeout(addedTimer);
+  });
 }
 
 // A button: the widget calls the tool and shows the answer itself. From the collection's cards
@@ -157,7 +149,6 @@ async function run(label: string, call: Call | undefined, stay?: { added?: strin
   if (!call || state.busy) return;
   state.busy = label;
   state.note = undefined;
-  dropAdded();
   render();
   try {
     const result = await host.call(call.name, call.arguments);
@@ -225,7 +216,6 @@ function header() {
         "aria-current": state.view === view ? "page" : undefined,
         onclick: () => {
           state.view = view;
-          dropAdded();
           render();
         },
       },
@@ -313,7 +303,6 @@ function pills(p: UcpProduct, choice: Choice, name: "colour" | "size") {
           disabled: !offered(p, { ...choice, [name]: undefined }, name, key),
           onclick: () => {
             state.choices[p.id] = { ...state.choices[p.id], [name]: key };
-            dropAdded();
             render();
           },
         },

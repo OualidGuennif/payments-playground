@@ -205,7 +205,19 @@ input:focus-visible {
   }
   100% {
     opacity: 0;
+    visibility: hidden;
     transform: translate(-50%, 0);
+  }
+}
+/* Under reduced motion it still goes, by opacity alone: the card draws it once and never removes it. */
+@keyframes added-still {
+  0%,
+  78% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
   }
 }
 /* A change of view slides in from its tab's side. */
@@ -464,10 +476,12 @@ input:focus-visible {
     scroll-behavior: auto !important;
   }
   .tally.bump,
-  .added,
   .slide-from-right,
   .slide-from-left {
     animation: none;
+  }
+  .added {
+    animation-name: added-still;
   }
 }
 

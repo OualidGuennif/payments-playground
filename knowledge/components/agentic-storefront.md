@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T10:47:00Z
+  at: 2026-11-27T10:53:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -59,7 +59,7 @@ sources:
     title: "The Adyen session request: the order's methods, the card save's card, the store mode"
   - id: test-cards
     resource: ../../apps/adyen-agentic-commerce/src/lib/testCards.ts
-    title: "The Adyen TEST cards shown beside Drop-in on the checkout"
+    title: "The Adyen TEST cards and the 3-D Secure TEST password shown above Drop-in on the checkout"
   - id: openai-feed
     resource: https://developers.openai.com/commerce/specs/feed
     title: "OpenAI: product feed schema (read 2026-11-27)"
@@ -158,13 +158,14 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   your email when you pay" (with "Add email now") and a "Pay €X" button; Pay with no email opens
   the Pay email modal, and once it resolves Drop-in opens and scrolls into view. The summary shows
   a welcome offer as a green "Welcome offer (-5%)" row and the free tote line with its picture.
-  Below Drop-in, four Adyen TEST cards (`src/lib/testCards.ts`, the values of
-  `packages/ui/testData.ts`) copy without spaces.
+  Above Drop-in (and above Pay before it opens), a folded "Test cards" lists four Adyen TEST cards
+  (`src/lib/testCards.ts`, the values of `packages/ui/testData.ts`) that copy without spaces, and
+  the 3-D Secure challenge's TEST password, `password` (owner, 2026-11-27).
 - **Drop-in** (`DropinPanel`; owner decision 2026-11-27): an order's session lists the store's
   methods in `allowedPaymentMethods` (`ORDER_PAYMENT_METHODS`, `src/server/payments/adyen.ts`):
   cards (Visa, Mastercard, Cartes Bancaires, American Express), Apple Pay, Google Pay, Klarna (its
   three ways to pay), PayPal, Wero, MB WAY, Bizum and Pix; Drop-in's card takes only those four
-  brands. Adyen shows only what the merchant account offers for France in euros, so MB WAY
+  brands and asks for the cardholder's name, optional (owner, 2026-11-27). Adyen shows only what the merchant account offers for France in euros, so MB WAY
   (Portugal), Bizum (Spain) and Pix (Brazil, in reais) stay hidden here; the owner keeps them
   listed. The session carries one line item, the whole order at its amount, since Adyen offers
   Klarna only when the line items add up to it. A card save's session lists the card alone, with no

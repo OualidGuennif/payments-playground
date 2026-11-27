@@ -30,7 +30,8 @@ function dropinOptions(theme: Theme, showStored: boolean) {
     showStoredPaymentMethods: showStored,
     instantPaymentTypes: ["applepay", "googlepay"] as ("applepay" | "googlepay")[],
     paymentMethodsConfiguration: {
-      card: { brands: [...CARD_BRANDS], styles: FIELDS[theme] },
+      // The cardholder's name is asked for, optional (owner, 2026-11-27).
+      card: { brands: [...CARD_BRANDS], hasHolderName: true, styles: FIELDS[theme] },
       storedCard: { styles: FIELDS[theme] },
       applepay: { buttonType: "buy" as const, buttonColor: wallet },
       googlepay: {

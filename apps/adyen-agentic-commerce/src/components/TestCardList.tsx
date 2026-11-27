@@ -1,9 +1,9 @@
 "use client";
 // Spec: knowledge/components/agentic-storefront.md
-// Adyen TEST cards one tap from Drop-in: each number copies without its spaces, so it pastes into
+// Adyen TEST cards one tap above Drop-in: each number copies without its spaces, so it pastes into
 // the card field as one string.
 import { useState } from "react";
-import { ADYEN_TEST_CARDS_DOCS, TEST_CARDS } from "@/lib/testCards";
+import { TEST_CARDS, THREEDS_TEST_PASSWORD } from "@/lib/testCards";
 
 export function TestCardList() {
   const [copied, setCopied] = useState<string>();
@@ -19,7 +19,7 @@ export function TestCardList() {
   return (
     <details className="group rounded-xl border border-line">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-medium">
-        Adyen TEST cards
+        Test cards
         <span className="text-xs text-muted group-open:hidden">Show</span>
         <span className="hidden text-xs text-muted group-open:inline">Hide</span>
       </summary>
@@ -50,11 +50,7 @@ export function TestCardList() {
         ))}
       </ul>
       <p className="border-t border-line px-4 py-2.5 text-xs text-muted">
-        Any name works. These numbers only pay on Adyen TEST;{" "}
-        <a href={ADYEN_TEST_CARDS_DOCS} className="underline" rel="noreferrer" target="_blank">
-          more test cards
-        </a>
-        .
+        3DS Password: <span className="font-mono text-ink">{THREEDS_TEST_PASSWORD}</span>
       </p>
       <p className="sr-only" role="status">
         {copied ? "Number copied" : ""}

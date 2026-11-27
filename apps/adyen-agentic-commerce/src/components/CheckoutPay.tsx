@@ -452,6 +452,7 @@ export function CheckoutPay({
                 </p>
               ) : showForm ? (
                 <>
+                  <TestCardList />
                   <DropinPanel
                     beforePay={beforePay}
                     label="Pay on Adyen TEST"
@@ -460,10 +461,10 @@ export function CheckoutPay({
                     onFinished={onFinished}
                     redirect={pendingRedirect}
                   />
-                  <TestCardList />
                 </>
               ) : askEmail ? (
                 <>
+                  <TestCardList />
                   <button
                     type="button"
                     className="btn w-full"
@@ -476,7 +477,6 @@ export function CheckoutPay({
                     Your email first, then the card form opens here. Adyen TEST: no real money
                     moves.
                   </p>
-                  <TestCardList />
                 </>
               ) : (
                 <p className="text-sm text-muted">

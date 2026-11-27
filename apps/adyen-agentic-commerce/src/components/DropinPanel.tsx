@@ -4,22 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import "@adyen/adyen-web/styles/adyen.css";
 import { onThemeChange, resolvedTheme, type Theme } from "@/lib/theme";
 
-// The card fields live in Adyen's frames, out of reach of the page's CSS: they take the theme's
-// text and background here (the same colours as the custom properties on .dropin-surface).
-const FIELDS: Record<Theme, Record<string, Record<string, string>>> = {
-  light: {
-    base: { color: "#1d1d1f", caretColor: "#1d1d1f", background: "#ffffff", fontSize: "16px" },
-    placeholder: { color: "#6b6760" },
-    error: { color: "#a33a2b" },
-    validated: { color: "#1d1d1f" },
-  },
-  dark: {
-    base: { color: "#f2efe9", caretColor: "#f2efe9", background: "#201f1d", fontSize: "16px" },
-    placeholder: { color: "#b4ada3" },
-    error: { color: "#f08a7a" },
-    validated: { color: "#f2efe9" },
-  },
-};
+// The card fields live in Adyen's frames, out of reach of the page's CSS: they take the store's
+// colour tokens as computed when Drop-in mounts (a theme switch mounts it again), so the frames
+// follow globals.css and no colour is written twice.
+function fieldStyles(): Record<string, Record<string, string>> {
+  const css = getComputedStyle(document.documentElement);
+  const token = (name: string) => css.getPropertyValue(name).trim();
+  const ink = token("--color-ink");
+  return {
+    base: { color: ink, caretColor: ink, background: token("--color-card"), fontSize: "16px" },
+    placeholder: { color: token("--color-muted") },
+    error: { color: token("--color-bad") },
+    validated: { color: ink },
+  };
+}
 
 // Apple Pay and Google Pay above the list, in the store's ink: black on light, white on dark,
 // with round ends like the store's buttons (Apple Pay's comes from globals.css).
@@ -28,6 +26,7 @@ const FIELDS: Record<Theme, Record<string, Record<string, string>>> = {
 // (owner, 2026-11-27).
 function dropinOptions(theme: Theme) {
   const wallet: "white" | "black" = theme === "dark" ? "white" : "black";
+  const styles = fieldStyles();
   return {
     // A session lists saved cards only for the signed-in owner's shopper reference.
     showStoredPaymentMethods: true,
@@ -40,9 +39,9 @@ function dropinOptions(theme: Theme) {
         autoFocus: true,
         keypadFix: true,
         disableIOSArrowKeys: true,
-        styles: FIELDS[theme],
+        styles,
       },
-      storedCard: { keypadFix: true, disableIOSArrowKeys: true, styles: FIELDS[theme] },
+      storedCard: { keypadFix: true, disableIOSArrowKeys: true, styles },
       applepay: { buttonType: "buy" as const, buttonColor: wallet },
       googlepay: {
         buttonType: "buy" as const,

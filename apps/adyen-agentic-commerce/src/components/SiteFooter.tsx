@@ -11,7 +11,10 @@ export function SiteFooter({ departments }: { departments: [string, string][] })
     <footer className="mt-12 border-t border-line">
       <div className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-8 px-4 py-12 sm:grid-cols-[1.6fr_1fr_1fr] sm:px-6">
         <div className="col-span-2 space-y-3 sm:col-span-1">
-          <Link href="/" className="font-serif text-xl uppercase tracking-[0.22em]">
+          <Link
+            href="/"
+            className="inline-flex min-h-11 items-center font-serif text-xl uppercase tracking-[0.22em]"
+          >
             Atelier Velune
           </Link>
           <p className="max-w-xs text-sm text-muted">
@@ -35,9 +38,16 @@ export function SiteFooter({ departments }: { departments: [string, string][] })
           <ul>
             {DEVELOPER_LINKS.map(([href, label]) => (
               <li key={href}>
-                <a href={href} className={LINK}>
-                  {label}
-                </a>
+                {/* The feed is an API response, not a page: a plain link, as in the header. */}
+                {href.startsWith("/api/") ? (
+                  <a href={href} className={LINK}>
+                    {label}
+                  </a>
+                ) : (
+                  <Link href={href} className={LINK}>
+                    {label}
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

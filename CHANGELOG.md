@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic footer's store links open without a full page load and its brand link is a 44 px
+  target; Drop-in's colours and its card fields read the store's tokens instead of copies.
 - The agentic Drop-in reads its card brands from the session, which names the card brands
   (Cartes Bancaires, Visa, Mastercard, Amex, Discover, Diners, UnionPay) instead of `scheme`, for
   the card save too, always shows saved cards, and sets

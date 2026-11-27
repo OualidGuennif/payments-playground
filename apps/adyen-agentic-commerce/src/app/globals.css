@@ -136,11 +136,12 @@
     transition: background-color 600000s 0s;
   }
   /* Drop-in in the store's colours. Adyen Web 6 reads these custom properties (its own values are
-     only fallbacks); light-dark() follows the theme the header chose, like the rest of the page.
-     The card fields' frames get the same colours from DropinPanel. */
+     only fallbacks). Where a store token fits, it is used, so a retuned token reaches Drop-in; the
+     light-dark() pairs left are Drop-in's own shades (hover, press, tinted alerts) and follow the
+     theme the header chose. The card fields' frames read the same tokens in DropinPanel. */
   .dropin-surface {
     @apply rounded-2xl border border-line bg-card p-3 text-ink sm:p-4;
-    --adyen-sdk-color-background-primary: light-dark(#ffffff, #201f1d);
+    --adyen-sdk-color-background-primary: var(--color-card);
     --adyen-sdk-color-background-primary-hover: light-dark(#faf8f4, #262522);
     --adyen-sdk-color-background-secondary: light-dark(#f7f4ef, #1b1a18);
     --adyen-sdk-color-background-secondary-hover: light-dark(#f1ede6, #2a2926);
@@ -150,39 +151,39 @@
     --adyen-sdk-color-background-disabled: light-dark(#f1ede6, #2a2926);
     --adyen-sdk-color-background-highlight-weak: light-dark(#f7efe8, #2b231d);
     --adyen-sdk-color-background-success-weak: light-dark(#eef5ef, #1e2f22);
-    --adyen-sdk-color-background-inverse-primary: light-dark(#1d1d1f, #f2efe9);
+    --adyen-sdk-color-background-inverse-primary: var(--color-ink);
     /* The pay button reads three tokens, at rest, hover and press: all three are set, or it
        flashes Adyen's slate on hover. Ink on paper in light, paper on ink in dark. */
-    --adyen-sdk-color-background-always-dark: light-dark(#1d1d1f, #f2efe9);
+    --adyen-sdk-color-background-always-dark: var(--color-ink);
     --adyen-sdk-color-background-inverse-primary-hover: light-dark(#3a3a3d, #ffffff);
     --adyen-sdk-color-background-always-dark-active: light-dark(#000000, #d9d4cc);
     --adyen-sdk-color-label-on-color: light-dark(#ffffff, #161514);
-    --adyen-sdk-color-label-primary: light-dark(#1d1d1f, #f2efe9);
-    --adyen-sdk-color-label-secondary: light-dark(#6b6760, #b4ada3);
-    --adyen-sdk-color-label-tertiary: light-dark(#6b6760, #b4ada3);
+    --adyen-sdk-color-label-primary: var(--color-ink);
+    --adyen-sdk-color-label-secondary: var(--color-muted);
+    --adyen-sdk-color-label-tertiary: var(--color-muted);
     --adyen-sdk-color-label-disabled: light-dark(#a39d94, #6f6a63);
-    --adyen-sdk-color-label-highlight: light-dark(#8a4b22, #e0a070);
-    --adyen-sdk-color-label-critical: light-dark(#a33a2b, #f08a7a);
-    --adyen-sdk-color-label-success: light-dark(#2f6b3c, #7cc48b);
-    --adyen-sdk-color-label-on-background-highlight-weak: light-dark(#8a4b22, #e0a070);
-    --adyen-sdk-color-label-on-background-success-weak: light-dark(#2f6b3c, #7cc48b);
-    --adyen-sdk-color-outline-primary: light-dark(#e3ddd3, #3a3733);
+    --adyen-sdk-color-label-highlight: var(--color-accent);
+    --adyen-sdk-color-label-critical: var(--color-bad);
+    --adyen-sdk-color-label-success: var(--color-ok);
+    --adyen-sdk-color-label-on-background-highlight-weak: var(--color-accent);
+    --adyen-sdk-color-label-on-background-success-weak: var(--color-ok);
+    --adyen-sdk-color-outline-primary: var(--color-line);
     --adyen-sdk-color-outline-primary-hover: light-dark(#cfc6b8, #4f4b46);
-    --adyen-sdk-color-outline-primary-active: light-dark(#1d1d1f, #f2efe9);
+    --adyen-sdk-color-outline-primary-active: var(--color-ink);
     --adyen-sdk-color-outline-secondary: light-dark(#d8d1c5, #3a3733);
     --adyen-sdk-color-outline-tertiary: light-dark(#8f877b, #6f6a63);
-    --adyen-sdk-color-outline-tertiary-hover: light-dark(#1d1d1f, #f2efe9);
-    --adyen-sdk-color-outline-tertiary-active: light-dark(#1d1d1f, #f2efe9);
-    --adyen-sdk-color-outline-critical: light-dark(#a33a2b, #f08a7a);
+    --adyen-sdk-color-outline-tertiary-hover: var(--color-ink);
+    --adyen-sdk-color-outline-tertiary-active: var(--color-ink);
+    --adyen-sdk-color-outline-critical: var(--color-bad);
     --adyen-sdk-color-outline-disabled: light-dark(#e3ddd3, #2a2926);
-    --adyen-sdk-color-separator-primary: light-dark(#e3ddd3, #3a3733);
+    --adyen-sdk-color-separator-primary: var(--color-line);
     --adyen-sdk-color-separator-secondary: light-dark(#d8d1c5, #3a3733);
     --adyen-sdk-alert-critical-background-color: light-dark(#fbefec, #3a2622);
     --adyen-sdk-alert-warning-background-color: light-dark(#fbf3e6, #3a3022);
     --adyen-sdk-alert-success-background-color: light-dark(#eef5ef, #1e2f22);
     --adyen-sdk-alert-highlight-background-color: light-dark(#f7efe8, #2b231d);
-    --adyen-sdk-button-tertiary-color: light-dark(#1d1d1f, #f2efe9);
-    --adyen-sdk-tooltip-background-color: light-dark(#1d1d1f, #f2efe9);
+    --adyen-sdk-button-tertiary-color: var(--color-ink);
+    --adyen-sdk-tooltip-background-color: var(--color-ink);
     --adyen-sdk-tooltip-color: light-dark(#ffffff, #161514);
     --adyen-sdk-focus-ring-color: light-dark(rgb(138 75 34 / 0.45), rgb(224 160 112 / 0.5));
     --adyen-sdk-border-radius-s: 8px;
@@ -424,8 +425,9 @@ html[data-ask="minimised"] body {
 .dropin-surface apple-pay-button {
   --apple-pay-button-border-radius: 24px;
 }
-/* "All fields are required unless marked otherwise": the optional name is marked, so the line adds
-   nothing (owner, 2026-11-27). Adyen Web 6 types no option for it. */
+/* "All fields are required unless marked otherwise" goes with the rest of the page's clutter (owner,
+   2026-11-27): Adyen marks no field optional here, and the one optional field, the name, may simply
+   be left empty. Adyen Web 6 types no option for it. */
 .dropin-surface .adyen-checkout-form-instruction {
   display: none;
 }

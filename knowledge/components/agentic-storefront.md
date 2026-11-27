@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T11:10:00Z
+  at: 2026-11-27T11:11:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -50,7 +50,7 @@ sources:
     title: "The season of a UTC date: its tote, its top bar line, its ambience"
   - id: payment-methods
     resource: ../../apps/adyen-agentic-commerce/src/lib/payment-methods.ts
-    title: "The four card brands a session names, Cartes Bancaires first"
+    title: "The card brands a session names, Cartes Bancaires first"
   - id: payment-session-tests
     resource: ../../apps/adyen-agentic-commerce/src/server/payments/adyen.test.ts
     title: "The payment session's tests: the methods, the order line, card keeping per account"
@@ -166,14 +166,15 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   the 3-D Secure challenge's TEST password, `password` (owner, 2026-11-27).
 - **Drop-in** (`DropinPanel`; owner decision 2026-11-27): an order's session lists the store's
   methods in `allowedPaymentMethods` (`ORDER_PAYMENT_METHODS`, `src/server/payments/adyen.ts`):
-  cards (Cartes Bancaires first, then Visa, Mastercard, American Express), Apple Pay, Google Pay, Klarna (its
-  three ways to pay), PayPal, Wero, MB WAY, Bizum and Pix; cards are named by those four brands,
+  cards (Cartes Bancaires first, then Visa, Mastercard, American Express, Discover, Diners and
+  UnionPay; TEST in euros shows all but Discover), Apple Pay, Google Pay, Klarna (its
+  three ways to pay), PayPal, Wero, MB WAY, Bizum and Pix; cards are named by those brands,
   never as `scheme` (which lets in every brand the account has), and Drop-in reads them from the
   session (owner, 2026-11-27). The card asks first for the cardholder's name, optional, and sets
   `autoFocus`, `keypadFix` and `disableIOSArrowKeys` for iOS Safari. Adyen shows only what the merchant account offers for France in euros, so MB WAY
   (Portugal), Bizum (Spain) and Pix (Brazil, in reais) stay hidden here; the owner keeps them
   listed. The session carries one line item, the whole order at its amount, since Adyen offers
-  Klarna only when the line items add up to it. A card save's session lists the four brands alone, with no
+  Klarna only when the line items add up to it. A card save's session lists the card brands alone, with no
   line item. Apple Pay and Google Pay sit above the list
   as express buttons (`instantPaymentTypes`), "Buy with", black on the light theme and white on the
   dark one, with round ends like the store's buttons (the pay button and PayPal's too; fields keep
@@ -282,7 +283,7 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
     Test: `src/server/accounts/customers.test.ts` "a checkout handed over without an email takes
     one at its link, once" (unchanged).
 13. A payment session lists exactly the store's methods: an order's `ORDER_PAYMENT_METHODS`, with
-    one line item at the order's amount, a card save's the four brands alone, and none lists `scheme`. Only an account's session can keep a card, an order's only once
+    one line item at the order's amount, a card save's the card brands alone, and none lists `scheme`. Only an account's session can keep a card, an order's only once
     the shopper ticks the box; a guest's names no shopper reference and no store mode. Test:
     `src/server/payments/adyen.test.ts`.
 
@@ -303,7 +304,7 @@ The catalogue and the feed are pure functions of the build and `PUBLIC_ORIGIN`.
   the order, and a second order gets no offer; Pay as guest opens Drop-in at the standard total.
 - `/sign-up` with an email that has an account offers "Sign in as" with the email prefilled; in
   dark mode an autofilled field stays dark.
-- Drop-in on TEST: Google Pay above the list in Chrome, only the four card brands and the listed
+- Drop-in on TEST: Google Pay above the list in Chrome, only the listed card brands and the listed
   methods the account offers for France, the store's pay button and card fields in light and dark
   (and after a theme switch) at 375 and 1440 px, and a card payment Authorised.
 

@@ -19,6 +19,9 @@ describe("the payment session request", () => {
       "visa",
       "mc",
       "amex",
+      "discover",
+      "diners",
+      "cup",
       "applepay",
       "googlepay",
       "klarna",
@@ -30,7 +33,15 @@ describe("the payment session request", () => {
       "bizum",
       "pix",
     ]);
-    expect(CARD_BRANDS).toEqual(["cartebancaire", "visa", "mc", "amex"]);
+    expect(CARD_BRANDS).toEqual([
+      "cartebancaire",
+      "visa",
+      "mc",
+      "amex",
+      "discover",
+      "diners",
+      "cup",
+    ]);
     // "scheme" would let in every card brand the merchant account has.
     expect(body.allowedPaymentMethods).not.toContain("scheme");
     // A copy: a caller changing one request never changes the next one's list.
@@ -56,7 +67,7 @@ describe("the payment session request", () => {
     expect(body.allowedPaymentMethods).toEqual([...ORDER_PAYMENT_METHODS]);
   });
 
-  test("a card save lists the four card brands alone, stores it, and needs an account", () => {
+  test("a card save lists the card brands alone, stores it, and needs an account", () => {
     const save: SessionRequest = { ...order, amount: 0, purpose: "card-save" };
     const body = sessionRequest({ ...save, shopperReference: "cus_1" }, "M");
     expect(body.allowedPaymentMethods).toEqual([...CARD_BRANDS]);

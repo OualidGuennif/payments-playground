@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T10:53:00Z
+  at: 2026-11-27T10:55:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -133,7 +133,8 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   checkout, `/legal` and the footer.
 - **Home:** a hero (GSAP), five department tiles, New and trending (badged pieces, New first), a
   Personal Shopper section whose prompts open the panel with the question in its composer (never
-  sent by itself), and a "Built for humans and AI agents" band (MCP address, feed links).
+  sent by itself), and a dark band that opens straight on the three ways to shop (yourself, your
+  agent at the MCP address, the feed links), with no visible title (owner, 2026-11-27).
 - **Shop:** every filter applies in the browser as the shopper taps or types (department, New in,
   for women or men, price band, on sale, colour, size; sort featured, new, price, rating) and the
   address follows (`/shop?category=…&q=…` and the rest), so links and the Personal Shopper's

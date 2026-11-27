@@ -455,7 +455,6 @@ export function CheckoutPay({
                   <TestCardList />
                   <DropinPanel
                     beforePay={beforePay}
-                    label="Pay on Adyen TEST"
                     clientKey={clientKey}
                     createSession={createSession}
                     onFinished={onFinished}

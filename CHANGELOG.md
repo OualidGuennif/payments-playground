@@ -5,8 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic home's band for humans and agents drops its title and opens on the three ways to
+  shop.
 - The agentic checkout's Drop-in asks for the name on the card (optional), and the folded "Test
-  cards" list sits above it, with the 3-D Secure TEST password instead of the docs link.
+  cards" list sits above it, with the 3-D Secure TEST password instead of the docs link; the
+  "Pay on Adyen TEST" label above the form is gone.
 - The agentic store's Drop-in lists the store's methods (Visa, Mastercard, Cartes Bancaires,
   American Express, Apple Pay, Google Pay, Klarna, PayPal, Wero, MB WAY, Bizum, Pix; Adyen shows
   those the account offers for France in euros), puts Apple Pay and Google Pay above the list as

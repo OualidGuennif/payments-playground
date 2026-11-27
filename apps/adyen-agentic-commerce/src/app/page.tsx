@@ -156,12 +156,8 @@ export default function Home() {
       </GsapReveal>
 
       <GsapReveal as="section" className="space-y-8 rounded-[2rem] bg-ink p-6 text-paper sm:p-10">
-        <div className="max-w-2xl space-y-3">
-          <p className="text-xs font-semibold tracking-[0.14em] uppercase opacity-70">
-            Built for humans &amp; AI agents
-          </p>
-          <h2 className="text-3xl sm:text-4xl">One store, three ways in.</h2>
-        </div>
+        {/* No visible title (owner, 2026-11-27): the band opens on the three ways to shop. */}
+        <h2 className="sr-only">Ways to shop</h2>
         <div className="grid gap-6 md:grid-cols-3">
           <div className="space-y-2">
             <h3 className="text-xl">Shop it yourself</h3>

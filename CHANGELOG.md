@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's bag and checkout are redone. The bag no longer prefills a demo email, shows
+  how far it is from free standard delivery and gets a quantity stepper. The checkout puts Contact,
+  Delivery and Payment beside a sticky order summary, labels a signed-in shopper's account email,
+  and lists Adyen TEST cards that copy in one tap. A guest who presses Pay without a valid email
+  is taken to the field, marked and focused; once it is valid, Drop-in opens in place.
 - The agentic store gets a new storefront: a header with New, the five departments, a Developers
   menu and a light, dark or system theme; a home page with a hero, department tiles, New and
   trending and a Personal Shopper section; a shop whose filters (department, price, colour, size,

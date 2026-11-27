@@ -101,7 +101,22 @@
     @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium;
   }
   .field {
-    @apply w-full rounded-xl border border-line bg-card text-ink px-3 py-2 text-sm outline-none focus:border-ink;
+    @apply w-full rounded-xl border border-line bg-card text-ink px-3 py-2 text-sm outline-none focus:border-ink aria-[invalid=true]:border-bad aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-bad;
+  }
+  /* A bar towards a threshold (free delivery): the bar in the accent, the rest in the line colour. */
+  .gauge {
+    @apply block h-1.5 w-full appearance-none overflow-hidden rounded-full border-0 bg-line;
+  }
+  .gauge::-webkit-progress-bar {
+    background: var(--color-line);
+  }
+  .gauge::-webkit-progress-value {
+    background: var(--color-accent);
+    border-radius: 9999px;
+  }
+  .gauge::-moz-progress-bar {
+    background: var(--color-accent);
+    border-radius: 9999px;
   }
   /* iOS Safari zooms the page into a field whose text is under 16 px. */
   @media (pointer: coarse) {

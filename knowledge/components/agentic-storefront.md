@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T00:36:00Z
+  at: 2026-11-27T00:44:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -39,6 +39,9 @@ sources:
   - id: theme
     resource: ../../apps/adyen-agentic-commerce/src/lib/theme.ts
     title: "The theme's storage key and the head script that applies it before first paint"
+  - id: test-cards
+    resource: ../../apps/adyen-agentic-commerce/src/lib/testCards.ts
+    title: "The Adyen TEST cards shown beside Drop-in on the checkout"
   - id: openai-feed
     resource: https://developers.openai.com/commerce/specs/feed
     title: "OpenAI: product feed schema (read 2026-11-27)"
@@ -110,9 +113,18 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   delivery and returns), an "OpenAI feed & UCP data" fold with the variant's UCP id and feed row,
   and Complete the look (the best-rated piece of up to four other departments that suits the same
   shopper).
-- **Cart and checkout:** no demo email is ever prefilled. Checkout shows contact, delivery and
-  payment together; a signed-in shopper sees their email as verified, a guest types one, and Pay
-  with a missing or invalid email marks the field, focuses it and pays once it is valid.
+- **Bag:** two columns from 1024 px (lines, then a sticky summary); each line has its drawing,
+  colour and size, a quantity stepper (1 to 10) and Remove; the summary shows how far the bag is
+  from free standard delivery (`FREE_SHIPPING_FROM`, the server's own threshold), the subtotal and
+  an estimated total with standard delivery. It asks for no email and sends none.
+- **Checkout:** the title, then two columns from 1024 px: the steps Contact, Delivery and Payment,
+  and a sticky order summary (above the steps on a phone). A signed-in shopper's receipt goes to
+  their account email, labelled "Your account", and they are never asked for one. A guest types
+  one beside a "Pay €X" button: Pay with an empty or malformed email marks the field (red border,
+  message tied to it), scrolls it into view, focuses it and shakes it (no shake under reduced
+  motion); a valid one is saved (`POST /api/checkouts/:id/email`, whose refusal shows on the field
+  the same way) and Drop-in opens in its place and scrolls into view. Below Drop-in, four Adyen
+  TEST cards (`src/lib/testCards.ts`, the values of `packages/ui/testData.ts`) copy without spaces.
 - **Personal Shopper:** the Ask panel under its new name, a rail at 1024 px and wider, a bottom
   sheet below; it reads the site session as soon as it changes.
 
@@ -137,6 +149,8 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
 7. The shop's filters keep only matching pieces, split prices into bands that cover every piece
    once, read a plural search word as its singular and sort without reordering the catalogue.
    Tests: `src/components/shop/filter.test.ts` (seven tests).
+8. The checkout's test cards are Adyen's published TEST numbers, the same values as the suite's
+   shared list. Test: `src/lib/testCards.test.ts`.
 
 ## Determinism
 

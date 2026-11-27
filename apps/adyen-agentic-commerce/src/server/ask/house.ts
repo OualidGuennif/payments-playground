@@ -24,6 +24,7 @@ import {
   updateGrant,
   verifyUserCode,
 } from "../oauth/oauth";
+import { onSessionLocked } from "./sessions";
 
 export const HOUSE_CLIENT_NAME = "Atelier Velune Ask";
 const HOUSE_DOC = "house";
@@ -292,28 +293,38 @@ export async function detachSession(sessionId: string): Promise<void> {
   await revoke(connection?.accessToken);
 }
 
-// A lock (the guard or the console) revokes the grant the conversation held, fail closed.
-export async function disconnect(sessionId: string): Promise<void> {
+// A lock revokes the grant the conversation held and, given the shopper, every live house grant of
+// the account: a later conversation could resume one, and a restart empties this process's memory
+// (ADR-021). The grants are revoked before any await, so the lock has taken them when it returns.
+export async function disconnect(sessionId: string, customerId?: string): Promise<void> {
   pending.delete(sessionId);
   proofs.delete(sessionId);
   const connection = connections.get(sessionId);
   connections.delete(sessionId);
-  await revoke(connection?.refreshToken);
-  // A resumed connection holds no refresh token: its grant is revoked directly.
-  const grant = connection ? get<Grant>("grants", connection.grantId) : undefined;
-  if (connection && grant && !grant.revoked) {
-    updateGrant(grant.id, { revoked: true }, connection.customerId);
+  const ids = new Set(connection ? [connection.grantId] : []);
+  if (customerId) {
+    const client = houseClientId();
+    for (const g of grants(customerId)) if (g.clientId === client && !g.revoked) ids.add(g.id);
+  }
+  for (const id of ids) {
+    const grant = get<Grant>("grants", id);
+    if (!grant || grant.revoked) continue;
+    updateGrant(id, { revoked: true }, grant.customerId);
     trace({
       channel: "oauth",
       actor: HOUSE_CLIENT_NAME,
       method: "POST",
       path: "/api/ask/session",
       status: 200,
-      ref: connection.grantId,
+      ref: id,
       detail: { revoked: true, locked: true },
     });
   }
+  await revoke(connection?.refreshToken);
 }
+
+// Registered once with the module: whichever path locks a conversation reaches the grant.
+onSessionLocked((session) => void disconnect(session.id, session.customerId));
 
 export const forgetHouseConnections = () => {
   pending.clear();

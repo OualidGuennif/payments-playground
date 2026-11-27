@@ -15,7 +15,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   the header, menus, panel and overlays.
 - The Personal Shopper's account grant is durable (ADR-021): a new conversation, a sign-in or a
   deploy resumes the account's one active Atelier Velune Ask grant with a token minted for it, a
-  normal end keeps it and only a lock or Disconnect ends it; connecting again reuses it. Paying in
+  normal end keeps it and only a lock (any path, also after a restart) or Disconnect ends it;
+  connecting again reuses it. Paying in
   the chat with a saved card needs a password or passkey proof under 60 minutes old
   (`POST /api/ask/confirm-pay`, 401 `step_up_required` otherwise; the agent hears
   `autonomous pay: no`), and the session view adds `cardCount`, `grant`, `stepUpRequired` and

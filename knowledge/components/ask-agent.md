@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T14:57:00Z
+  at: 2026-11-27T18:30:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -307,14 +307,16 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
    tool, `open_page` (invariant 21), which calls nothing and only names a store page. The house
    client's access tokens live in the process's memory only (the database keeps their hashes, as
    for every token). The grant is the account's and outlives a conversation (ADR-021): a normal end
-   forgets and revokes the session's access token only, a lock revokes the grant, and a live
+   forgets and revokes the session's access token only, a lock (any path, also after a restart)
+   revokes the account's live house grants, and a live
    normal-mode conversation of a signed-in shopper resumes the account's newest active house
    grant with an access token minted for it, never a new or wider grant; resuming revokes the
    account's older active house grants, so one stays. A grant the shopper disconnects on the
    account page ends the chat's connection at its next read (the session then reads as not
    connected and may connect again; the check never marks the agent used). Test:
    `ask/api.test.ts` "one click in the chat connects with the budget picked", "a new conversation
-   resumes the account's grant"; `ask/house.test.ts` "a resumed grant", "one active grant".
+   resumes the account's grant", "a lock in a message turn revokes the account's grant";
+   `ask/house.test.ts` "a resumed grant", "one active grant".
    Test: `ask/agent.test.ts` "guest
    has no token", "pay tools only when connected and normal", "no tool runs outside a shopper
    message"; `ask/house.test.ts`.

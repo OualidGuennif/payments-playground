@@ -7,7 +7,7 @@ status: draft
 scope: component-mcp-apps-widgets
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T14:57:00Z
+  at: 2026-11-27T18:30:00Z
 sources:
   - id: store
     resource: ./adyen-agentic-commerce.md
@@ -72,8 +72,8 @@ hold no token, no card data and no authority the agent does not already have.
   checkout leads with one action: Pay (email), Pay in chat (a listed saved card), Raise budget &
   pay in chat, Allow & pay in chat, Save a card & pay in chat (signed in, or through a new account
   for a guest with an email), or "Show my saved cards" when the checkout was read before the
-  connection; each but paying opens `#velune-…?checkoutId=` in the panel, and "Continue on website
-  checkout" comes last (`src/widgets/logic.test.ts` "one action leads"). A welcome offer ([ADR-020](../decisions/ADR-020-pay-identity-welcome-offer-and-seasons.md))
+  connection; a budget leads only when nothing else is to fix; each but paying opens
+  `#velune-…?checkoutId=` in the panel, and "Continue on website checkout" comes last (`src/widgets/logic.test.ts` "one action leads"). A welcome offer ([ADR-020](../decisions/ADR-020-pay-identity-welcome-offer-and-seasons.md))
   shows as a "Welcome offer (-5%)" row and the tote as a line with no stepper, never sent back in
   an update (`src/widgets/logic.test.ts` "the welcome offer").
 

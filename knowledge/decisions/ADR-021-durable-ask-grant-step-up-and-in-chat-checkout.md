@@ -6,7 +6,7 @@ tags: [decision, agentic, ask, oauth, security, checkout, mobile]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T16:00:00Z
+  at: 2026-11-27T18:30:00Z
 sources:
   - id: ask
     resource: ../components/ask-agent.md
@@ -43,8 +43,8 @@ about 120 px for the conversation.
 1. **The grant is durable, its token is not.** A conversation that ends normally (time, idle,
    messages, budget, signed out, another customer, a new conversation, ended by the shopper or the
    console) forgets its access token and revokes that access token only; the grant stays until the
-   shopper disconnects it on `/account#agents`. A locked conversation revokes the grant it held, as
-   before.
+   shopper disconnects it on `/account#agents`. A lock, whichever path locks (the gate, the guard's
+   score, the console), revokes every live house grant of the account, also after a restart.
 2. **A signed-in shopper's conversation resumes the grant.** While a conversation is live and in
    normal mode, the store takes the account's newest active Atelier Velune Ask grant and mints an
    access token for it in the process's memory (the database keeps only its hash, like every

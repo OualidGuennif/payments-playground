@@ -422,6 +422,28 @@ function renderLines(lines: commerce.Line[]) {
   }));
 }
 
+// The welcome offer's tote (ADR-020): a line at nothing that names the gift, never a catalogue
+// variant an agent could order; an update that sends it back leaves it as it is.
+function giftLine(offer: commerce.WelcomeOffer | undefined) {
+  if (!offer) return [];
+  return [
+    {
+      id: commerce.GIFT_LINE_ID,
+      item: {
+        id: offer.giftVariantId,
+        title: offer.giftTitle,
+        price: 0,
+        image_url: artUrl(offer.giftVariantId),
+      },
+      quantity: 1,
+      totals: [
+        { type: "subtotal", amount: 0 },
+        { type: "total", amount: 0 },
+      ],
+    },
+  ];
+}
+
 function links() {
   const origin = config().publicOrigin;
   return [
@@ -472,13 +494,13 @@ export async function renderCheckout(checkout: commerce.Checkout, auth?: Auth) {
     ucp: envelope("dev.ucp.shopping.checkout"),
     id: checkout.id,
     status: assessment.status,
-    line_items: renderLines(checkout.lines),
+    line_items: [...renderLines(checkout.lines), ...giftLine(checkout.welcomeOffer)],
     buyer:
       (auth && allows(auth.token.scopes, "profile")) || !checkout.clientId
         ? checkout.buyer
         : undefined,
     currency: CURRENCY,
-    totals: commerce.totals(checkout.lines, checkout.delivery),
+    totals: commerce.totals(checkout.lines, checkout.delivery, checkout.welcomeOffer),
     messages: [...assessment.messages, ...signals],
     links: links(),
     expires_at: checkout.expiresAt,
@@ -531,19 +553,34 @@ export function renderOrder(order: commerce.Order, withBuyer: boolean) {
     permalink_url: `${config().publicOrigin}/orders/${order.id}`,
     currency: order.currency,
     // Nothing ships in this demo: every line stays processing and the fulfilment log is empty.
-    line_items: order.lines.map((l) => ({
-      id: l.variantId,
-      item: { id: l.variantId, title: l.title, price: l.unitPrice, image_url: artUrl(l.variantId) },
-      quantity: { original: l.quantity, total: l.quantity, fulfilled: 0 },
-      totals: [
-        { type: "subtotal", amount: l.unitPrice * l.quantity },
-        { type: "total", amount: l.unitPrice * l.quantity },
-      ],
-      status: "processing",
-    })),
+    line_items: [
+      ...order.lines.map((l) => ({
+        id: l.variantId,
+        item: {
+          id: l.variantId,
+          title: l.title,
+          price: l.unitPrice,
+          image_url: artUrl(l.variantId),
+        },
+        quantity: { original: l.quantity, total: l.quantity, fulfilled: 0 },
+        totals: [
+          { type: "subtotal", amount: l.unitPrice * l.quantity },
+          { type: "total", amount: l.unitPrice * l.quantity },
+        ],
+        status: "processing",
+      })),
+      ...giftLine(order.welcomeOffer).map((g) => ({
+        ...g,
+        quantity: { original: 1, total: 1, fulfilled: 0 },
+        status: "processing",
+      })),
+    ],
     fulfillment: { expectations: [], events: [] },
     totals: [
       { type: "subtotal", amount: order.subtotal },
+      ...(order.discount
+        ? [{ type: "discount", display_text: "Welcome offer (-5%)", amount: -order.discount }]
+        : []),
       { type: "fulfillment", amount: order.fulfillment },
       { type: "total", amount: order.total },
     ],

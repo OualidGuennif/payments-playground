@@ -4,24 +4,63 @@ import { productById, variantById } from "../catalog/catalog";
 import { get } from "../core/db";
 import { isRecord, sha256 } from "../core/util";
 import { DEFAULT_DELIVERY, type Delivery, deliveryFee, shippingText } from "../../lib/delivery";
-import { type Buyer, err, type Line, MAX_LINES, MAX_QUANTITY } from "./model";
+import {
+  type Buyer,
+  type Checkout,
+  err,
+  type Line,
+  MAX_LINES,
+  MAX_QUANTITY,
+  type WelcomeOffer,
+} from "./model";
 
-// Shipping follows the delivery the shopper chose; none chosen is standard, priced as before.
-export function price(lines: Line[], delivery: Delivery = DEFAULT_DELIVERY) {
+// Shipping follows the delivery the shopper chose; none chosen is standard, priced as before. A
+// welcome offer takes its rate off the items and adds its tote at nothing; free delivery is still
+// judged on the items before the discount, so the offer never costs a shopper their free shipping.
+export function price(
+  lines: Line[],
+  delivery: Delivery = DEFAULT_DELIVERY,
+  welcomeOffer?: WelcomeOffer,
+) {
   const items = lines.map((line) => {
     const variant = variantById(line.variantId);
     if (!variant) throw err(400, "item_not_found", `Unknown item ${line.variantId}`);
     return { line, variant, amount: variant.price * line.quantity };
   });
   const subtotal = items.reduce((sum, i) => sum + i.amount, 0);
+  const discount = welcomeOffer ? Math.round((subtotal * welcomeOffer.ratePercent) / 100) : 0;
   const fulfillment = deliveryFee(delivery.method, subtotal);
-  return { items, subtotal, fulfillment, total: subtotal + fulfillment };
+  const gift = welcomeOffer
+    ? {
+        id: GIFT_LINE_ID,
+        variantId: welcomeOffer.giftVariantId,
+        title: welcomeOffer.giftTitle,
+        image: `/api/art/${welcomeOffer.giftVariantId}.svg`,
+        quantity: 1,
+        unitPrice: 0,
+        amount: 0,
+      }
+    : undefined;
+  return { items, gift, subtotal, discount, fulfillment, total: subtotal - discount + fulfillment };
 }
 
-export function totals(lines: Line[], delivery: Delivery = DEFAULT_DELIVERY) {
-  const p = price(lines, delivery);
+export const GIFT_LINE_ID = "li_welcome_gift";
+
+export const checkoutPrice = (c: Pick<Checkout, "lines" | "delivery" | "welcomeOffer">) =>
+  price(c.lines, c.delivery, c.welcomeOffer);
+
+export function totals(
+  lines: Line[],
+  delivery: Delivery = DEFAULT_DELIVERY,
+  welcomeOffer?: WelcomeOffer,
+) {
+  const p = price(lines, delivery, welcomeOffer);
   return [
     { type: "subtotal", display_text: "Subtotal", amount: p.subtotal },
+    // UCP's Total schema wants a discount below zero.
+    ...(p.discount > 0
+      ? [{ type: "discount", display_text: "Welcome offer (-5%)", amount: -p.discount }]
+      : []),
     {
       type: "fulfillment",
       display_text: shippingText(delivery.method, p.fulfillment),

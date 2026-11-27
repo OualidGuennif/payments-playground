@@ -24,8 +24,9 @@ export {
   type Phase,
   type Severity,
   SHIPPING,
+  type WelcomeOffer,
 } from "./model";
-export { parseBuyer, parseLines, price, totals } from "./pricing";
+export { checkoutPrice, GIFT_LINE_ID, parseBuyer, parseLines, price, totals } from "./pricing";
 export { cardAlias, forgetCardCache, savedCards } from "./saved-cards";
 export { cancelCart, createCart, loadCart, updateCart } from "./carts";
 export {
@@ -34,7 +35,10 @@ export {
   type Assessment,
   budgetUrl,
   cancelCheckout,
+  claimCheckout,
+  confirmWelcomeOffer,
   createCheckout,
+  isFirstOrderEligible,
   loadCheckout,
   setDelivery,
   updateCheckout,

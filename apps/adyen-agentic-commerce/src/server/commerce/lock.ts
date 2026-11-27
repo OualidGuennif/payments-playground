@@ -88,7 +88,7 @@ export function claimWebPayment(
   const status = assess({ ...checkout, paying: undefined }, undefined, []).status;
   if (
     record.reference !== `${id}-s${checkout.attempts}` ||
-    record.amount !== price(checkout.lines, checkout.delivery).total ||
+    record.amount !== price(checkout.lines, checkout.delivery, checkout.welcomeOffer).total ||
     !sameLines(record.lines, checkout.lines) ||
     status === "incomplete" ||
     status === "canceled"

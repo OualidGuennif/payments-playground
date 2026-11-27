@@ -3,9 +3,9 @@
 import { variantById } from "../catalog/catalog";
 import { config, CURRENCY, paymentsConfigured } from "../core/config";
 import { type Customer, customerById } from "../accounts/customers";
-import { get, put } from "../core/db";
+import { findBy, get, put } from "../core/db";
 import { allows, type Auth } from "../oauth/oauth";
-import { newId } from "../core/util";
+import { isRecord, newId } from "../core/util";
 import {
   type Buyer,
   type CardAlias,
@@ -16,10 +16,12 @@ import {
   err,
   type Message,
   now,
+  type Order,
   payingNow,
   paymentInProgress,
+  welcomeOfferFor,
 } from "./model";
-import { parseBuyer, parseLines, price } from "./pricing";
+import { checkoutPrice, GIFT_LINE_ID, parseBuyer, parseLines } from "./pricing";
 import { loadCart, ownedBy } from "./carts";
 
 export function createCheckout(
@@ -38,6 +40,11 @@ export function createCheckout(
     phase: "open",
     channel: web ? "web" : "agent",
     customerId: web ? web.customer?.id : auth?.grant.customerId,
+    // Asked for on the store's own checkout only: an agent's request never carries the offer.
+    welcomeOffer:
+      web?.customer && body.applyWelcomeOffer === true && isFirstOrderEligible(web.customer.id)
+        ? welcomeOfferFor()
+        : undefined,
     clientId: auth?.token.clientId,
     grantId: auth?.grant.id,
     agentName: auth?.grant.clientName,
@@ -65,8 +72,13 @@ export function updateCheckout(checkout: Checkout, body: Record<string, unknown>
     throw err(409, "checkout_not_editable", `Checkout is ${checkout.phase}`);
   // The amount being paid must not move under the shopper's Drop-in payment.
   if (payingNow(checkout)) throw paymentInProgress();
-  const lines =
-    body.line_items === undefined ? checkout.lines : parseLines(body.line_items, checkout.lines);
+  // A client that sends back every line it was shown sends the welcome tote too: that line is the
+  // offer's, not an order line, so it is set aside here and the offer stays as it was.
+  const sent =
+    checkout.welcomeOffer && Array.isArray(body.line_items)
+      ? body.line_items.filter((l) => !(isRecord(l) && l.id === GIFT_LINE_ID))
+      : body.line_items;
+  const lines = sent === undefined ? checkout.lines : parseLines(sent, checkout.lines);
   return saveCheckout({
     ...checkout,
     lines,
@@ -90,6 +102,58 @@ export function cancelCheckout(checkout: Checkout): Checkout {
   }
   if (payingNow(checkout)) throw paymentInProgress();
   return saveCheckout({ ...checkout, phase: "canceled" });
+}
+
+// The welcome offer is for an account's first order: the orders collection holds only placed
+// orders, so a refused attempt or an abandoned checkout leaves the account eligible.
+export const isFirstOrderEligible = (customerId: string): boolean =>
+  findBy<Order>("orders", "customerId", customerId).length === 0;
+
+// Binds an open checkout to the signed-in customer (ADR-020): a guest's bag becomes theirs, with
+// their email, and when asked the welcome offer joins it if the account has no order yet. Another
+// account's checkout is not found, never taken over.
+export function claimCheckout(
+  checkout: Checkout,
+  customer: Customer,
+  opts: { applyWelcomeOffer?: boolean } = {},
+): Checkout {
+  if (checkout.customerId && checkout.customerId !== customer.id)
+    throw err(404, "not_found", "Checkout not found");
+  if (checkout.phase !== "open")
+    throw err(409, "checkout_not_editable", `Checkout is ${checkout.phase}`);
+  if (Date.parse(checkout.expiresAt) < Date.now())
+    throw err(409, "checkout_expired", "This checkout expired");
+  if (payingNow(checkout)) throw paymentInProgress();
+  const eligible = isFirstOrderEligible(customer.id);
+  const offer = eligible
+    ? (checkout.welcomeOffer ?? (opts.applyWelcomeOffer ? welcomeOfferFor() : undefined))
+    : undefined;
+  return saveCheckout({
+    ...checkout,
+    customerId: customer.id,
+    buyer: {
+      ...checkout.buyer,
+      email: customer.email,
+      first_name: checkout.buyer?.first_name ?? (customer.name || undefined),
+    },
+    welcomeOffer: offer,
+    lastMessage: undefined,
+  });
+}
+
+// Checked again right before a payment: an account that ordered since the claim (another tab,
+// another checkout) loses the offer here, and the payer sees the new total before paying.
+export function confirmWelcomeOffer(checkout: Checkout): void {
+  if (!checkout.welcomeOffer) return;
+  if (checkout.customerId && isFirstOrderEligible(checkout.customerId)) return;
+  saveCheckout({ ...checkout, welcomeOffer: undefined });
+  throw err(
+    409,
+    "welcome_offer_ineligible",
+    "Welcome offer applies to your first order only. Totals have been updated.",
+    undefined,
+    "requires_buyer_review",
+  );
 }
 
 // The account's name and email stand in for a buyer the checkout did not name.
@@ -121,7 +185,7 @@ export type Assessment = {
 export const budgetUrl = (grantId: string) => `${config().publicOrigin}/account#agent-${grantId}`;
 
 export function assess(checkout: Checkout, auth: Auth | undefined, cards: CardAlias[]): Assessment {
-  const { total } = price(checkout.lines, checkout.delivery);
+  const { total } = checkoutPrice(checkout);
   const messages: Message[] = checkout.lastMessage ? [checkout.lastMessage] : [];
   if (checkout.phase !== "open") {
     const status = checkout.phase === "completed" ? "completed" : checkout.phase;

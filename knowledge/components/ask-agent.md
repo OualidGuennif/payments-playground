@@ -406,7 +406,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     claim follow the same rules. A signed-in session never needs the block: a guest checkout it starts or
     changes (`create_checkout`, `update_checkout`, from the agent or a widget) gets the account's
     email put in by the in-process door, never by the model, which reads it masked. Test:
-    `ask/api.test.ts` "receipt email"; `ask/agent.test.ts` "a signed-in shopper's receipt email";
+    `ask/api.test.ts` "receipt email" (with "checkout claim"); `ask/agent.test.ts` "a signed-in
+    shopper's receipt email";
     `lib/signIn.test.ts`.
 20. **The bag fact is the store's own words:** `bag:` in `<shop_context>` names only catalogue
     titles, ids and quantities, from lines the server checked (or read from the checkout), never

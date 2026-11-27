@@ -5,6 +5,15 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's server side of the Pay email step and the welcome offer.
+  `POST /api/session/check-email` answers only `{ "exists": boolean }`, to the store's own pages
+  with `X-Velune-Check: 1`, 15 times per address per 15 minutes, never faster than 45 ms, with the
+  email masked in the trace. `POST /api/checkouts/:id/claim` (and `/api/ask/checkout-claim` for
+  the Personal Shopper) binds an open checkout to the signed-in shopper and, when asked, gives an
+  account with no order 5 % off the items and the season's tote at €0.00. The payment session
+  checks again (409 `welcome_offer_ineligible`), Adyen TEST is sent the discounted total, and the
+  payment, the order, UCP answers (a negative `discount` total, the tote line), the account and
+  the Back Office keep the offer. Checkouts without it keep their prices and three totals.
 - The agentic store follows the season, a month early: winter from 21 November, spring from 21
   February, summer from 21 May, autumn from 21 August (UTC). The top bar now reads, for example,
   "Winter Edition · Agentic Commerce Sandbox · 5% off & free Winter Tote on your first order" (the

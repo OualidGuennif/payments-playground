@@ -199,6 +199,10 @@ export async function signUp(body: unknown, address: string) {
   return { customer, cookie: startSession(customer) };
 }
 
+// The Pay modal's email check (ADR-020): whether an address has an account, nothing about it.
+export const hasAccount = (email: string): boolean =>
+  findBy<Customer>("customers", "email", email.trim().toLowerCase()).length > 0;
+
 // Unknown emails are checked against this hash too, so both failures take the same time.
 let decoy: Promise<string> | undefined;
 

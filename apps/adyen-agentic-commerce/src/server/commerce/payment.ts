@@ -19,12 +19,13 @@ import {
   type Order,
   type OrderLine,
   type PaymentRecord,
+  type WelcomeOffer,
   paymentInProgress,
 } from "./model";
 import { accountPaying, refusalReopens, sameLines } from "./lock";
 import { price } from "./pricing";
 import { savedCards } from "./saved-cards";
-import { assess, buyerOf, loadCheckout, saveCheckout } from "./checkouts";
+import { assess, buyerOf, confirmWelcomeOffer, loadCheckout, saveCheckout } from "./checkouts";
 
 function snapshot(lines: Line[]): OrderLine[] {
   return lines.map((l) => {
@@ -40,18 +41,21 @@ function placeOrder(
   status: Order["status"],
   paidLines: Line[],
   delivery: Delivery,
+  welcomeOffer: WelcomeOffer | undefined,
 ): Order {
-  const p = price(paidLines, delivery);
+  const p = price(paidLines, delivery, welcomeOffer);
   const order: Order = {
     id: newId("ord"),
     checkoutId: checkout.id,
     lines: snapshot(paidLines),
     subtotal: p.subtotal,
+    discount: p.discount || undefined,
     fulfillment: p.fulfillment,
     total: p.total,
     currency: CURRENCY,
     buyer: buyerOf(checkout),
     delivery,
+    welcomeOffer,
     status,
     channel: checkout.channel,
     customerId: checkout.customerId,
@@ -114,13 +118,15 @@ export function placePaidOrder(
   // A record without a delivery (made before any choice, or before delivery choices existed) was
   // priced as the default; never the checkout's choice made after the payment was sent.
   const delivery = (record.lines ? record.delivery : checkout.delivery) ?? DEFAULT_DELIVERY;
+  // The offer the amount was priced with, like the delivery: never one granted or lost after.
+  const welcomeOffer = record.lines ? record.welcomeOffer : checkout.welcomeOffer;
   if (reportedAmount !== undefined && reportedAmount !== record.amount)
     return `Adyen authorised ${reportedAmount}, the payment was sent for ${record.amount}`;
-  const total = price(lines, delivery).total;
+  const total = price(lines, delivery, welcomeOffer).total;
   if (total !== record.amount)
     return `The lines total ${total}, the payment was sent for ${record.amount}`;
   const paidBy = record.purpose === "agent" ? "agent" : "shopper";
-  return placeOrder(checkout, paidBy, pspReference, "authorised", lines, delivery);
+  return placeOrder(checkout, paidBy, pspReference, "authorised", lines, delivery, welcomeOffer);
 }
 
 /**
@@ -304,6 +310,7 @@ export async function completeCheckout(
   if (auth && !live) return checkout;
   // The shopper is paying another checkout of the account (in Drop-in, or through another agent).
   if (live && accountPaying(live.grant.customerId, checkout.id)) throw paymentInProgress();
+  confirmWelcomeOffer(checkout);
   const assessment = assess(checkout, live, cards);
   if (assessment.status !== "ready_for_complete") return checkout;
   // No instrument is the agent's third choice: the shopper pays at continue_url, in Drop-in.
@@ -377,6 +384,7 @@ export async function completeCheckout(
     amount: assessment.total,
     lines: checkout.lines,
     delivery: checkout.delivery,
+    welcomeOffer: checkout.welcomeOffer,
     reservation: live ? "held" : undefined,
     grantId,
     agentName,

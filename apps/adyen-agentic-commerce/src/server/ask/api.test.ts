@@ -527,6 +527,49 @@ describe("receipt email", () => {
     expect(again.status).toBe(409);
   });
 
+  test("checkout claim: a shopper who signs in mid-chat takes the bag, with the welcome offer once", async () => {
+    const browser = new Browser();
+    await browser.call("POST", "/api/ask/session");
+    const checkoutId = await shownCheckout(browser);
+    const claim = (body: Record<string, unknown>) =>
+      browser.call("POST", "/api/ask/checkout-claim", body);
+    const guest = await claim({ checkoutId, applyWelcomeOffer: true });
+    expect([guest.status, ((await guest.json()) as { error: string }).error]).toEqual([
+      401,
+      "not_signed_in",
+    ]);
+    const { cookie } = await signUpCustomer("dora.new@example.com", browser.ip);
+    browser.keep(cookie);
+    for (const [body, status] of [
+      [{ applyWelcomeOffer: true }, 400],
+      [{ checkoutId, applyWelcomeOffer: "yes" }, 400],
+      [{ checkoutId: "chk_not_shown" }, 404],
+    ] as const)
+      expect((await claim(body)).status).toBe(status);
+    const claimed = await claim({ checkoutId, applyWelcomeOffer: true });
+    expect(claimed.status).toBe(200);
+    const answer = (await claimed.json()) as Shown & { welcomeOfferApplied: boolean };
+    expect(answer.welcomeOfferApplied).toBe(true);
+    const shown = answer.result.structuredContent;
+    expect(JSON.stringify(shown.messages ?? [])).not.toContain("missing_buyer_email");
+    expect(shown.buyer?.email).toBe("d•••@example.com");
+    expect(shown.totals.map((t: { type: string }) => t.type)).toEqual([
+      "subtotal",
+      "discount",
+      "fulfillment",
+      "total",
+    ]);
+    expect(JSON.stringify(shown)).not.toContain("dora.new");
+    const stored = get<{ customerId?: string; welcomeOffer?: unknown }>("checkouts", checkoutId);
+    expect(stored?.customerId).toBeString();
+    expect(stored?.welcomeOffer).toBeDefined();
+    const view = await browser.view();
+    expect(view.messages.map((m: { text: string }) => m.text)).toContain(
+      "Checkout joined the account, welcome offer applied",
+    );
+    expect(JSON.stringify(view)).not.toContain("dora.new");
+  });
+
   test("another session cannot reach a checkout it did not show", async () => {
     const owner = new Browser();
     await owner.call("POST", "/api/ask/session");

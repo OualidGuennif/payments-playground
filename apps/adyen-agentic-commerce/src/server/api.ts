@@ -190,6 +190,7 @@ const browserApi = new Elysia({ prefix: "/api" })
                 last_name: input.lastName ? String(input.lastName) : undefined,
               }
             : undefined,
+          applyWelcomeOffer: input.applyWelcomeOffer === true,
         },
         undefined,
         { customer },
@@ -227,6 +228,44 @@ const browserApi = new Elysia({ prefix: "/api" })
     } catch (error) {
       if (error instanceof commerce.CommerceError) return refusedBy(error);
       return refused(502, "session_failed");
+    }
+  })
+  // The Pay email modal's sign-in or new account (ADR-020): the open checkout becomes the signed-in
+  // shopper's, with the welcome offer when asked for and the account has no order yet.
+  .post("/checkouts/:id/claim", ({ request, params, body }) => {
+    const limited = sessionLimit(request, "payment");
+    if (limited) return limited;
+    const customer = customerOf(request);
+    if (!customer) return refused(401, "sign_in_required");
+    const input = body === undefined || body === null ? {} : body;
+    if (
+      !isRecord(input) ||
+      Object.keys(input).some((k) => k !== "applyWelcomeOffer") ||
+      (input.applyWelcomeOffer !== undefined && typeof input.applyWelcomeOffer !== "boolean")
+    )
+      return refused(400, "invalid_request");
+    try {
+      const claimed = commerce.claimCheckout(
+        commerce.loadCheckout(params.id, "browser"),
+        customer,
+        { applyWelcomeOffer: input.applyWelcomeOffer === true },
+      );
+      trace({
+        channel: commerce.channelOf(claimed),
+        actor: "shopper",
+        method: "POST",
+        path: "/api/checkouts/:id/claim",
+        status: 200,
+        ref: claimed.id,
+        detail: { welcomeOffer: claimed.welcomeOffer?.seasonId ?? "none" },
+      });
+      return {
+        ...checkoutView(claimed, customer),
+        welcomeOfferApplied: Boolean(claimed.welcomeOffer),
+      };
+    } catch (error) {
+      if (error instanceof commerce.CommerceError) return refusedBy(error);
+      throw error;
     }
   })
   // A checkout handed over without an email (an agent shopping as a guest) gets it from the person
@@ -405,7 +444,7 @@ const browserApi = new Elysia({ prefix: "/api" })
 export function checkoutView(checkout: commerce.Checkout, viewer?: Customer) {
   const ownsIt = !checkout.customerId || checkout.customerId === viewer?.id;
   const assessment = commerce.assess(checkout, undefined, []);
-  const priced = commerce.price(checkout.lines, checkout.delivery);
+  const priced = commerce.checkoutPrice(checkout);
   const order = checkout.orderId ? get<commerce.Order>("orders", checkout.orderId) : undefined;
   return {
     id: checkout.id,
@@ -424,7 +463,11 @@ export function checkoutView(checkout: commerce.Checkout, viewer?: Customer) {
       unitPrice: variant.price,
       amount,
     })),
+    // The welcome offer's tote and saving, both from the server's price (ADR-020).
+    gift: priced.gift,
+    welcomeOffer: checkout.welcomeOffer,
     subtotal: priced.subtotal,
+    discount: priced.discount,
     fulfillment: priced.fulfillment,
     total: priced.total,
     delivery: checkout.delivery ?? DEFAULT_DELIVERY,
@@ -433,6 +476,14 @@ export function checkoutView(checkout: commerce.Checkout, viewer?: Customer) {
     // field, and offers sign-in instead when the session has ended.
     signedIn: Boolean(viewer),
     accountEmail: viewer && ownsIt ? viewer.email : undefined,
+    // Whether the signed-in owner may still ask for the welcome offer on this checkout.
+    welcomeOfferAvailable: Boolean(
+      viewer &&
+        ownsIt &&
+        checkout.phase === "open" &&
+        !checkout.welcomeOffer &&
+        commerce.isFirstOrderEligible(viewer.id),
+    ),
     channel: commerce.channelOf(checkout),
     order: order
       ? {
@@ -475,7 +526,8 @@ export function backOfficeView(channel?: commerce.Channel, query: Record<string,
         channel: commerce.channelOf(c),
         customerId: c.customerId,
         agentName: c.agentName,
-        total: commerce.price(c.lines, c.delivery).total,
+        total: commerce.checkoutPrice(c).total,
+        welcomeOffer: c.welcomeOffer?.seasonId,
         attempts: c.attempts,
         orderId: c.orderId,
         createdAt: c.createdAt,

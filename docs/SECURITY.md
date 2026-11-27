@@ -115,6 +115,9 @@ encrypted profile, there is no automatic re-encryption.
 Stated plainly, so you can decide whether it matters for your fork:
 
 - **The rate limiter is per-process.** Multiple replicas do not share counters.
+- **The agentic store's Pay step tells whether an email has an account** (ADR-020): only to its own
+  pages, with a custom header, 15 checks per address per 15 minutes and a timing floor. Someone
+  spreading checks over many addresses can still test more emails.
 - **SQLite and encrypted profiles do not fit multiple replicas** without coordination you would have
   to add yourself.
 - **Platform logs, backups, operator access and DDoS protection are your host's job**, not this

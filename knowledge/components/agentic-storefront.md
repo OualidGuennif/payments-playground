@@ -229,7 +229,8 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
     is the discounted total. A checkout without it keeps its catalogue prices and three totals.
     Tests: `src/server/commerce/welcome-offer.test.ts`; the UCP and checkout price tests unchanged.
 12. A guest's email stays set once: a second `POST /api/checkouts/:id/email` is 409 `email_set`.
-    Test: `src/server/accounts/customers.test.ts` (unchanged).
+    Test: `src/server/accounts/customers.test.ts` "a checkout handed over without an email takes
+    one at its link, once" (unchanged).
 
 ## Determinism
 

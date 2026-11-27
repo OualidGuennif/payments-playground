@@ -142,6 +142,7 @@ export const config = {
     "/api/customers",
     "/api/passkeys/:path*",
     "/api/session",
+    "/api/session/:path*",
     "/oauth/decision",
     "/oauth/device/verify",
   ],

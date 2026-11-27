@@ -33,8 +33,8 @@ export type SessionRequest = {
 // account has for the session's country and currency: MB WAY, Bizum and Pix stay listed though
 // France in euros hides them.
 export const ORDER_PAYMENT_METHODS = [
-  "scheme",
   ...CARD_BRANDS,
+  "scheme",
   "applepay",
   "googlepay",
   "klarna",

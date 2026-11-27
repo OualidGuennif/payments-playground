@@ -473,8 +473,7 @@ export function CheckoutPay({
                     {`Pay ${money(view.total)}`}
                   </button>
                   <p className="text-xs text-muted">
-                    Your email first, then the card form opens here. Adyen TEST: no real money
-                    moves.
+                    Your email first, then the card form opens here.
                   </p>
                 </>
               ) : (

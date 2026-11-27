@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T10:55:00Z
+  at: 2026-11-27T11:00:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -130,7 +130,9 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   and Sign in or the account's initial on every width (it follows `velune:auth-changed` at once).
   Below 1280 px the Menu holds the departments, the Developers links and the theme, never the
   account. Header items never wrap onto a second line. The Adyen TEST notice stays on the
-  checkout, `/legal` and the footer.
+  Pay email modal, `/legal` and the footer. The footer (`SiteFooter`, owner 2026-11-27) shows the
+  brand with one line, the departments, the Developers links, then one quiet row: "A fictional
+  store on Adyen TEST, a sandbox for demos and play." and the terms; no protocol versions.
 - **Home:** a hero (GSAP), five department tiles, New and trending (badged pieces, New first), a
   Personal Shopper section whose prompts open the panel with the question in its composer (never
   sent by itself), and a dark band that opens straight on the three ways to shop (yourself, your
@@ -164,7 +166,7 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   the 3-D Secure challenge's TEST password, `password` (owner, 2026-11-27).
 - **Drop-in** (`DropinPanel`; owner decision 2026-11-27): an order's session lists the store's
   methods in `allowedPaymentMethods` (`ORDER_PAYMENT_METHODS`, `src/server/payments/adyen.ts`):
-  cards (Visa, Mastercard, Cartes Bancaires, American Express), Apple Pay, Google Pay, Klarna (its
+  cards (Cartes Bancaires first, then Visa, Mastercard, American Express), Apple Pay, Google Pay, Klarna (its
   three ways to pay), PayPal, Wero, MB WAY, Bizum and Pix; Drop-in's card takes only those four
   brands and asks for the cardholder's name, optional (owner, 2026-11-27). Adyen shows only what the merchant account offers for France in euros, so MB WAY
   (Portugal), Bizum (Spain) and Pix (Brazil, in reais) stay hidden here; the owner keeps them

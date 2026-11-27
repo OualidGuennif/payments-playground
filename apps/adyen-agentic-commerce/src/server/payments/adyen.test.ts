@@ -12,14 +12,14 @@ const order: SessionRequest = {
 };
 
 describe("the payment session request", () => {
-  test("an order lists exactly the store's methods, the four card brands among them", () => {
+  test("an order lists exactly the store's methods, Cartes Bancaires first", () => {
     const body = sessionRequest(order, "FakeMerchantECOM");
     expect(body.allowedPaymentMethods).toEqual([
-      "scheme",
+      "cartebancaire",
       "visa",
       "mc",
-      "cartebancaire",
       "amex",
+      "scheme",
       "applepay",
       "googlepay",
       "klarna",
@@ -31,7 +31,7 @@ describe("the payment session request", () => {
       "bizum",
       "pix",
     ]);
-    expect(CARD_BRANDS).toEqual(["visa", "mc", "cartebancaire", "amex"]);
+    expect(CARD_BRANDS).toEqual(["cartebancaire", "visa", "mc", "amex"]);
     // A copy: a caller changing one request never changes the next one's list.
     expect(body.allowedPaymentMethods).not.toBe(ORDER_PAYMENT_METHODS);
     expect(body.countryCode).toBe("FR");

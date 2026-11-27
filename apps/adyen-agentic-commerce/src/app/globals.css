@@ -424,3 +424,8 @@ html[data-ask="minimised"] body {
 .dropin-surface apple-pay-button {
   --apple-pay-button-border-radius: 24px;
 }
+/* "All fields are required unless marked otherwise": the optional name is marked, so the line adds
+   nothing (owner, 2026-11-27). Adyen Web 6 types no option for it. */
+.dropin-surface .adyen-checkout-form-instruction {
+  display: none;
+}

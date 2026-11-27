@@ -7,6 +7,7 @@ import { CartLink } from "@/components/CartLink";
 import { DevelopersMenu } from "@/components/DevelopersMenu";
 import { MobileMenu } from "@/components/MobileMenu";
 import { SeasonalAmbience } from "@/components/motion/SeasonalAmbience";
+import { SiteFooter } from "@/components/SiteFooter";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { WebMcpTools } from "@/components/WebMcpTools";
 import { DEVELOPER_LINKS } from "@/lib/developerLinks";
@@ -130,24 +131,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </main>
         <WebMcpTools />
         <AskPanel />
-        <footer className="border-t border-line py-8 text-xs text-muted">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 sm:px-6">
-            <span>Atelier Velune is a fictional brand. Drawings are original.</span>
-            <span>
-              Demo store on Adyen <strong>TEST</strong>: no real money moves and nothing ships.
-            </span>
-            <a
-              href="/api/feeds/openai.json"
-              className="inline-flex min-h-11 items-center underline"
-            >
-              Product feed
-            </a>
-            <span>UCP 2026-08-25 · PAP 1.0 · Adyen Web 6.48.1 · Checkout API v72</span>
-            <Link href="/legal" className="inline-flex min-h-11 items-center underline">
-              Terms, privacy and returns
-            </Link>
-          </div>
-        </footer>
+        <SiteFooter departments={NAV} />
       </body>
     </html>
   );

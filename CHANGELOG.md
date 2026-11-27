@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's footer is redone: brand, departments and developer links, then one line
+  ("A fictional store on Adyen TEST, a sandbox for demos and play.") and the terms; the protocol
+  versions and the repeated "no real money moves" lines are gone, Cartes Bancaires leads the card
+  brands, and Drop-in drops its "All fields are required" line.
 - The agentic home's band for humans and agents drops its title and opens on the three ways to
   shop.
 - The agentic checkout's Drop-in asks for the name on the card (optional), and the folded "Test

@@ -5,14 +5,24 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## v0.11.0: Pay email modal, welcome offer, seasons (ADR-020) — ACTIVE
+## Drop-in methods, express wallets and the Velune look — ACTIVE
 
-- Owner decision: 2026-11-27, in chat: execute the v0.11.0 plan (Section 0 decisions approved).
-- State: slices, QA and both review rounds' fixes committed on develop; unpushed.
-- Next: check, third review and receipt, release v0.11.0; then the owner's Drop-in request, plan
-  first (who: agent).
+- Owner decision: 2026-11-27, in chat: list visa, mc, cartebancaire, amex, applepay, googlepay,
+  klarna, paypal, wero, mbway, bizum, pix; card saving; Apple and Google Pay on top; Velune styling.
+  Keep MB WAY, Bizum and Pix listed though FR/EUR hides them (no country picker).
+- State: spec in agentic-storefront.md (Drop-in, invariant 13); code not started.
+- Next: session methods and test, DropinPanel config and theme, CSS tokens, the /cardDetails
+  review fix, QA, review, release v0.12.0 (who: agent).
 - Blocker: none.
-- Evidence: knowledge/components/agentic-storefront.md (verified 2026-11-27, v0.11.0 local).
+- Evidence: knowledge/components/agentic-storefront.md (Drop-in).
+
+## v0.11.0: Pay email modal, welcome offer, seasons (ADR-020) — WAITING-OWNER
+
+- Owner decision: 2026-11-27, in chat: execute the v0.11.0 plan; "Merge" for prod.
+- State: v0.11.0 live (main `df42173`, tag v0.11.0, CI green); guest modal checked in prod.
+- Next: a signed-in Pay and a new account's welcome offer in prod (who: owner).
+- Blocker: none.
+- Evidence: knowledge/current/digital-status.md (v0.11.0 deploy row); GitHub release v0.11.0.
 
 ## Flagship storefront on the agentic store (ADR-019) — WAITING-OWNER
 

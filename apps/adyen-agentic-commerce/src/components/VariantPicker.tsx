@@ -92,12 +92,14 @@ export function VariantPicker({
       <div className="min-w-0 lg:sticky lg:top-24 lg:self-start">
         <div className="overflow-hidden rounded-[2rem] border border-line bg-[#f4f1ec]">
           {/* eslint-disable-next-line @next/next/no-img-element -- local SVG drawings need no optimiser */}
+          {/* Keyed by colour: a new colour's picture fades in, a size change keeps the drawing. */}
           <img
+            key={chosen.colourId}
             src={`/api/art/${chosen.id}.svg`}
             alt={`${product.title} in ${chosen.colour}`}
             width={720}
             height={720}
-            className="aspect-square w-full"
+            className="picture-in aspect-square w-full"
           />
         </div>
         {colours.length > 1 ? (

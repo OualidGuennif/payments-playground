@@ -367,6 +367,20 @@ export const refreshCheckoutCall = (checkoutId: string): Call => ({
 
 const OPEN = new Set(["incomplete", "requires_escalation", "ready_for_complete"]);
 
+// A bag the shopper can still change. A paid, cancelled or closed one holds nothing to step or
+// count: its lines stay on the Bag view as a record only.
+const changeable = (bag: BagView | undefined): bag is BagView =>
+  !!bag && !bag.order && (bag.kind === "cart" ? bag.status !== "canceled" : OPEN.has(bag.status));
+
+// How many of a variant the bag holds: the collection's card then shows a stepper in place of Add
+// to bag.
+export const inBag = (bag: BagView | undefined, variantId: string): number =>
+  changeable(bag) ? (bag.lines.find((l) => l.variantId === variantId)?.quantity ?? 0) : 0;
+
+// Every piece the bag holds, for the Bag tab's count.
+export const countOf = (bag: BagView | undefined): number =>
+  changeable(bag) ? bag.lines.reduce((n, l) => n + l.quantity, 0) : 0;
+
 // One idempotency key per payment attempt: the same checkout and card reuse it, so a retry after
 // a lost answer pays once; another card or checkout is another attempt with a fresh key (the
 // store refuses a reused key with a different body).

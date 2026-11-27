@@ -5,23 +5,33 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## v0.13.0: Personal Shopper overhaul and Safari checkout fixes — ACTIVE
+## v0.14.0: Personal Shopper tone, chat Add to bag, page transitions — ACTIVE
 
-- Owner decision: 2026-11-27, in chat: the pasted v0.13.0 plan (durable Ask grant, 60-minute
-  step-up for in-chat pay, no redirect out of chat), the Safari fixes, and "jusqu'en production".
-- State: develop `860d8eb` pushed with Review OK (the three findings fixed); release 0.13.0 cut;
-  local QA paid a TEST order in the chat after the step-up.
-- Next: release PR to main, CI, merge, tag, prod check of the Personal Shopper (agent).
+- Owner decision: 2026-11-27, in chat: "yes GO !!!!" to the v0.14.0 plan; a personal question gets
+  only the store's generic line; "Oui, release" after the screenshots.
+- State: on develop at `3016da5` (Gemini review OK in round 4, receipt posted); release 0.14.0
+  in progress; local QA at 375 px: store line, Add to bag stays, stepper, Bag count, pill once.
+- Next: release PR, CI, merge, tag, Render deploy, prod check (agent).
 - Blocker: none.
-- Evidence: this session's handover; the owner's iPhone screenshots of 2026-11-27.
+- Evidence: this session's handover.
+
+## v0.13.0: Personal Shopper checkout in the chat, Safari fixes — WAITING-OWNER
+
+- Owner decision: 2026-11-27, in chat: the pasted v0.13.0 plan and the Safari fixes, "jusqu'en prod".
+- State: v0.13.0 live (main `d0f8bbc`, tag v0.13.0, CI green); signed-out sheet checked in prod;
+  the chat payment with the step-up, the overlays and the Safari email gate paid locally on TEST.
+- Next: on the iPhone, a signed-in chat payment (step-up, budget, card save) and a website
+  checkout with its email step and order page (who: owner).
+- Blocker: none.
+- Evidence: knowledge/current/digital-status.md (v0.13.0 deploy row); GitHub release v0.13.0.
 
 ## v0.12.0: Drop-in methods and look, Æion Template 4.1.1 — WAITING-OWNER
 
 - Owner decision: 2026-11-27, in chat: "Oui, merge" for v0.12.0 (PR #27), template 4.1.1 first.
 - State: v0.12.0 live (main `b1f4589`, tag v0.12.0, CI green); guest checkout, Test cards and
   footer checked in prod; Drop-in itself not opened in prod (needs the email step).
-- Next: open Drop-in in prod (brands, holder name, wallets) and pay a TEST card (who: owner);
-  "Save another card" lists saved cards: hide them there if wanted (who: owner decides).
+- Next: open Drop-in in prod (brands, holder name, wallets) and pay a TEST card (who: owner).
+  "Save another card" keeps listing saved cards (owner, 2026-11-27: "non" to hiding them).
 - Blocker: none.
 - Evidence: knowledge/current/digital-status.md (v0.12.0 deploy row); GitHub release v0.12.0.
 

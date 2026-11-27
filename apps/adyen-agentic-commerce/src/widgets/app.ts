@@ -22,6 +22,8 @@ import {
   coloursOf,
   contextDataFor,
   contextFor,
+  countOf,
+  inBag,
   inlineImage,
   isOpen,
   money,
@@ -52,6 +54,8 @@ type State = {
   attempt?: PayAttempt;
   busy?: string;
   note?: { tone: "ok" | "bad" | "info"; text: string };
+  // The variant a card just added, for its brief "Added to bag".
+  added?: string;
   // In the store's own panel, Pay asks for a missing email there (ADR-020).
   store?: boolean;
   // And says who is shopping, so the checkout card leads with one action (ADR-021).
@@ -94,7 +98,9 @@ const state: State = {
 
 let host: Host;
 
-function show(data: unknown) {
+// `stay`: a tap on the collection changed the bag, so the collection stays in view; a bag the
+// agent shows, or any other answer, opens the bag.
+function show(data: unknown, stay = false) {
   const capability = capabilityOf(data) ?? "";
   if (capability.startsWith("dev.ucp.shopping.catalog")) {
     const view = catalogView(data);
@@ -106,7 +112,7 @@ function show(data: unknown) {
     const bag = bagView(data);
     if (bag) {
       state.bag = bag;
-      state.view = "bag";
+      if (!stay) state.view = "bag";
       if (!bag.instruments.some((i) => i.id === state.instrument))
         state.instrument = bag.instruments[0]?.id;
       if (bag.order) state.note = { tone: "ok", text: `Paid on Adyen TEST. ${bag.order.label}.` };
@@ -127,8 +133,19 @@ function refusal(data: unknown) {
   return shopperNote(typeof code === "string" ? code : undefined) ?? "The store could not do that.";
 }
 
-// A button: the widget calls the tool and shows the answer itself.
-async function run(label: string, call: Call | undefined) {
+// "Added to bag" is drawn only by the tap that added (its answer, then the end of busy), and its
+// CSS shows it, then hides it. Any later draw, whatever causes it, leaves it out instead of
+// starting it again, and no timer draws anything afterwards.
+function flashAdded(variantId: string) {
+  state.added = variantId;
+  queueMicrotask(() => {
+    state.added = undefined;
+  });
+}
+
+// A button: the widget calls the tool and shows the answer itself. From the collection's cards
+// (`stay`), the collection stays in view and the card that was added says so.
+async function run(label: string, call: Call | undefined, stay?: { added?: string }) {
   if (!call || state.busy) return;
   state.busy = label;
   state.note = undefined;
@@ -137,7 +154,8 @@ async function run(label: string, call: Call | undefined) {
     const result = await host.call(call.name, call.arguments);
     if (call.name === "complete_checkout") state.attempt = undefined;
     if (result.isError) state.note = { tone: "bad", text: refusal(result.structuredContent) };
-    show(result.structuredContent);
+    show(result.structuredContent, stay !== undefined);
+    if (!result.isError && stay?.added) flashAdded(stay.added);
     // Never "ready" beside a missing email: the bag's own line asks for it.
     if (
       !result.isError &&
@@ -157,8 +175,8 @@ async function run(label: string, call: Call | undefined) {
   }
 }
 
-function act(action: Action) {
-  if (action.kind === "call") void run(action.label, action.call);
+function act(action: Action, stay?: { added?: string }) {
+  if (action.kind === "call") void run(action.label, action.call, stay);
 }
 
 async function open(url: string | undefined) {
@@ -173,9 +191,23 @@ async function open(url: string | undefined) {
 
 // --- header -----------------------------------------------------------------------------------
 
+// The count last drawn on the Bag tab: it bumps only when the bag has just grown. A tap draws twice
+// in one go (its answer, then the end of busy), so the bump holds until that code has run and no
+// later draw, even under a host that throttles timers, bumps again.
+let drawnCount = 0;
+let bumping = false;
+
 function header() {
-  const count = state.bag?.lines.reduce((n, l) => n + l.quantity, 0) ?? 0;
-  const tab = (view: State["view"], label: string) =>
+  const count = countOf(state.bag);
+  if (count > drawnCount) {
+    bumping = true;
+    queueMicrotask(() => {
+      bumping = false;
+    });
+  }
+  drawnCount = count;
+  const grew = bumping;
+  const tab = (view: State["view"], label: string, badge?: HTMLElement) =>
     h(
       "button",
       {
@@ -188,7 +220,16 @@ function header() {
         },
       },
       label,
+      badge,
     );
+  const badge =
+    count > 0
+      ? h(
+          "span",
+          { class: grew ? "tally bump" : "tally", "aria-label": `${count} in your bag` },
+          String(count),
+        )
+      : undefined;
   return h(
     "header",
     { class: "top" },
@@ -203,7 +244,7 @@ function header() {
       "nav",
       { class: "tabs", "aria-label": "Store" },
       tab("catalog", "Collection"),
-      tab("bag", count ? `Bag (${count})` : "Bag"),
+      tab("bag", "Bag", badge),
     ),
   );
 }
@@ -271,6 +312,36 @@ function pills(p: UcpProduct, choice: Choice, name: "colour" | "size") {
   );
 }
 
+// What the bag holds of a card's variant, stepped where it is: the collection stays in view. The
+// bag's last piece stays, like on the Bag view (only the assistant empties a bag).
+function stepper(bag: BagView, variantId: string, title: string, held: number) {
+  const step = (by: 1 | -1, text: string, name: string) =>
+    h(
+      "button",
+      {
+        type: "button",
+        class: "step",
+        "aria-label": name,
+        disabled: !!state.busy || (by > 0 ? held >= 10 : held === 1 && countOf(bag) === 1),
+        onclick: () =>
+          act(
+            choose("Updating your bag", () => quantityCall(bag, variantId, held + by)),
+            {
+              added: by > 0 ? variantId : undefined,
+            },
+          ),
+      },
+      text,
+    );
+  return h(
+    "div",
+    { class: "stepper", role: "group", "aria-label": `${title} in your bag` },
+    step(-1, "−", `One less ${title}`),
+    h("span", { class: "held", "aria-live": "polite" }, String(held)),
+    step(1, "+", `One more ${title}`),
+  );
+}
+
 function card(p: UcpProduct) {
   const choice = state.choices[p.id] ?? {};
   const variant = variantFor(p, choice);
@@ -278,9 +349,13 @@ function card(p: UcpProduct) {
   const available = variant !== undefined && variant.availability?.available !== false;
   const price = variant?.price ?? p.price_range?.min;
   const label = !available ? "Sold out" : "Add to bag";
+  const held = variant ? inBag(state.bag, variant.id) : 0;
   return h(
     "li",
     { class: "card" },
+    variant && state.added === variant.id
+      ? h("p", { class: "added", role: "status" }, "Added to bag")
+      : null,
     pictured(image)
       ? h("img", {
           src: image,
@@ -294,19 +369,26 @@ function card(p: UcpProduct) {
     price ? h("p", { class: "price" }, money(price.amount, price.currency)) : null,
     pills(p, choice, "colour"),
     pills(p, choice, "size"),
-    h(
-      "button",
-      {
-        type: "button",
-        class: "btn",
-        disabled: !available || !!state.busy,
-        onclick: () => {
-          if (!variant) return;
-          act(choose("Adding to your bag", () => addCall(state.bag, variant.id)));
-        },
-      },
-      label,
-    ),
+    variant && state.bag && held > 0
+      ? stepper(state.bag, variant.id, p.title, held)
+      : h(
+          "button",
+          {
+            type: "button",
+            class: "btn",
+            disabled: !available || !!state.busy,
+            onclick: () => {
+              if (!variant) return;
+              act(
+                choose("Adding to your bag", () => addCall(state.bag, variant.id)),
+                {
+                  added: variant.id,
+                },
+              );
+            },
+          },
+          label,
+        ),
     h(
       "button",
       {
@@ -736,10 +818,24 @@ function bagScreen() {
 
 // --- render -----------------------------------------------------------------------------------
 
+// The view last drawn: a change of view slides in from its tab's side, any other render stays put.
+// Like the Bag tab's bump, the slide holds only while the code that changed the view runs.
+let drawnView = state.view;
+let sliding: string | undefined;
+
 function render() {
+  const screen = state.view === "catalog" ? catalogScreen() : bagScreen();
+  if (state.view !== drawnView) {
+    sliding = state.view === "bag" ? "slide-from-right" : "slide-from-left";
+    queueMicrotask(() => {
+      sliding = undefined;
+    });
+  }
+  drawnView = state.view;
+  if (sliding) screen.classList.add(sliding);
   root.replaceChildren(
     header(),
-    state.view === "catalog" ? catalogScreen() : bagScreen(),
+    screen,
     h(
       "p",
       { class: `note ${state.note?.tone ?? ""}`, role: "status", "aria-live": "polite" },

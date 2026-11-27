@@ -1,7 +1,7 @@
 // Spec: knowledge/components/ask-agent.md
 import { describe, expect, test } from "bun:test";
 import { foreignLinks, gate, MAX_CHARS, redactSecrets, STRONG_DELTA } from "./gate";
-import { languageOf, refusalText } from "./refusals";
+import { languageOf, refusalText, STORE_LINE } from "./refusals";
 
 const HOST = "agentic.payments-playground.com";
 // Built from code points so no invisible character sits in this file.
@@ -153,5 +153,15 @@ describe("refusal texts", () => {
     expect(languageOf("Bonjour, je cherche une robe")).toBe("fr");
     expect(languageOf("Hello, a dress please")).toBe("en");
     expect(refusalText("off_topic", "fr")).toContain("Atelier Velune");
+  });
+
+  // The guard's off-topic verdict, an injection and the agent's own answer to anything off the
+  // shop all read as the store's one line: nothing about the assistant, nothing about a detection.
+  test("the store's line", () => {
+    for (const lang of ["en", "fr"] as const)
+      for (const reason of ["off_topic", "injection_signature", "injection"] as const)
+        expect(refusalText(reason, lang)).toBe(STORE_LINE[lang]);
+    expect(STORE_LINE.en).toContain("Personal Shopper");
+    expect(STORE_LINE.en).not.toMatch(/\b(AI|feelings?|mum|mother)\b/i);
   });
 });

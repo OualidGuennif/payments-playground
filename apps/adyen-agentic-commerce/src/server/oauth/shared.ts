@@ -1,7 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // What every part of the authorization server shares: its records and error, lifetimes, the issuer
 // and the resources it serves, the scopes a request asks for, the spending limit.
-import { type JSONWebKeySet } from "jose";
+import type { JSONWebKeySet } from "jose";
 import { config } from "../core/config";
 import { DEFAULT_SCOPES, isScope, type Scope } from "./scopes";
 

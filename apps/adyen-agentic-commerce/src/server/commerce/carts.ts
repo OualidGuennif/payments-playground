@@ -1,7 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 // Carts: create, load for their owner, update and cancel.
 import { get, put } from "../core/db";
-import { type Auth } from "../oauth/oauth";
+import type { Auth } from "../oauth/oauth";
 import { newId } from "../core/util";
 import { type Cart, err, now } from "./model";
 import { parseBuyer, parseLines } from "./pricing";

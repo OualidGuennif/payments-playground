@@ -23,7 +23,10 @@ import {
   streamed,
 } from "../testing/ask";
 import { readAskConfig, resetAskConfig } from "./config";
-import { forgetHouseConnections } from "./house";
+import { get } from "../core/db";
+import { recentTrace } from "../core/trace";
+import { grants } from "../oauth/tokens";
+import { forgetHouseConnections, HOUSE_CLIENT_NAME } from "./house";
 import { forgetAskLimits } from "./limits";
 import { useAskModels } from "./runtime";
 import * as agent from "./agent";
@@ -307,6 +310,36 @@ describe("connecting the account", () => {
     }
   });
 
+  test("one click in the chat connects with the budget picked, as a real grant", async () => {
+    const browser = new Browser();
+    await browser.call("POST", "/api/ask/session");
+    const guest = await browser.call("POST", "/api/ask/connect/inline", { spendLimit: 15000 });
+    expect(guest.status).toBe(401);
+    await browser.signUp();
+    for (const spendLimit of [0, 99, 100_001, 12.5, "150"]) {
+      const refused = await browser.call("POST", "/api/ask/connect/inline", { spendLimit });
+      expect(refused.status).toBe(400);
+      expect(((await refused.json()) as { error: string }).error).toBe("invalid_budget");
+    }
+    const foreignCall = await browser.call(
+      "POST",
+      "/api/ask/connect/inline",
+      { spendLimit: 15000 },
+      { "sec-fetch-site": "cross-site" },
+    );
+    expect(foreignCall.status).toBe(403);
+    const connected = await browser.call("POST", "/api/ask/connect/inline", { spendLimit: 15000 });
+    expect(connected.status).toBe(200);
+    expect(((await connected.json()) as { state: string }).state).toBe("connected");
+    expect((await browser.view()).connected).toBe(true);
+    const session = recentSessions(1)[0];
+    const grant = grants(session?.customerId).find((g) => g.clientName === HOUSE_CLIENT_NAME);
+    expect(grant).toMatchObject({ spendLimit: 15000, spent: 0, revoked: false });
+    expect(grant?.scopes).toContain("ucp:pay");
+    const consent = recentTrace(500, grant?.id).find((t) => t.method === "CONSENT");
+    expect(consent?.path).toBe("/api/ask/connect/inline");
+  });
+
   test("strict mode refuses connect", async () => {
     const browser = new Browser();
     await browser.call("POST", "/api/ask/session");
@@ -442,7 +475,7 @@ describe("receipt email", () => {
     expect(JSON.stringify(view)).not.toContain("anna.guest");
   });
 
-  test("a signed-in shopper sees their email masked and may use it", async () => {
+  test("a signed-in shopper's checkout carries their account email from the start, masked", async () => {
     const browser = new Browser();
     const { cookie } = await signUpCustomer("claire.signed@example.com", browser.ip);
     browser.keep(cookie);
@@ -450,12 +483,20 @@ describe("receipt email", () => {
     const view = await browser.view();
     expect(view.accountEmail).toBe("c•••@example.com");
     expect(JSON.stringify(view)).not.toContain("claire.signed");
-    const checkoutId = await shownCheckout(browser);
-    const set = await setEmail(browser, { checkoutId, account: true });
-    expect(set.status).toBe(200);
-    expect(((await set.json()) as Shown).result.structuredContent.buyer?.email).toBe(
-      "c•••@example.com",
-    );
+    const created = await browser.call("POST", "/api/ask/widget", {
+      name: "create_checkout",
+      arguments: { checkout: { line_items: [{ item: { id: SOCKS }, quantity: 1 }] } },
+    });
+    expect(created.status).toBe(200);
+    const shown = ((await created.json()) as Shown).result.structuredContent;
+    expect(JSON.stringify(shown.messages ?? [])).not.toContain("missing_buyer_email");
+    expect(shown.buyer?.email).toBe("c•••@example.com");
+    expect(JSON.stringify(shown)).not.toContain("claire.signed");
+    const stored = get<{ buyer?: { email?: string } }>("checkouts", String(shown.id));
+    expect(stored?.buyer?.email).toBe("claire.signed@example.com");
+    // Nothing is left to set, so the block's own route refuses a second email.
+    const again = await setEmail(browser, { checkoutId: String(shown.id), account: true });
+    expect(again.status).toBe(409);
   });
 
   test("another session cannot reach a checkout it did not show", async () => {

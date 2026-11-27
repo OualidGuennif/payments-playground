@@ -98,6 +98,11 @@ export function AskReceipt({
   useEffect(() => {
     latest.current = { signedIn, follow, save };
   });
+  // The session view can arrive after the block, or the shopper signs in elsewhere: an account
+  // known now wins over the sign-in or email step chosen when the block first drew.
+  useEffect(() => {
+    if (accountEmail && !asked.current) setStep("account");
+  }, [accountEmail]);
   // Signed in, the account's email goes on the receipt without a question; the buttons show only
   // when that fails, or to choose another email.
   useEffect(() => {

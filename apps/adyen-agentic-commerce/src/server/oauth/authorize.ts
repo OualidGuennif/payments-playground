@@ -114,6 +114,8 @@ export function decide(input: {
   approve: boolean;
   scopes: string[];
   spendLimit: number;
+  // Where the shopper decided, for the trace: the house agent's one-click connect names its route.
+  via?: string;
 }): string {
   if (!input.customerId) throw new OAuthError("access_denied", "Sign in to approve an agent");
   const request = pendingRequest(input.requestId);
@@ -153,7 +155,7 @@ export function decide(input: {
     channel: "oauth",
     actor: request.clientName,
     method: "CONSENT",
-    path: device ? "/device" : "/oauth/authorize",
+    path: input.via ?? (device ? "/device" : "/oauth/authorize"),
     status: device ? 303 : 302,
     ref: grant.id,
     detail: { scopes, spendLimit: limit, account: input.customerId },

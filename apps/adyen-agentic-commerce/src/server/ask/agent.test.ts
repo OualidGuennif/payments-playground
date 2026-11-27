@@ -4,7 +4,8 @@ import { fauxAssistantMessage, fauxText, fauxToolCall } from "@earendil-works/pi
 import { recentTrace } from "../core/trace";
 import { BAG, CAROUSEL } from "../mcp/widgets";
 import { askSession, faux, startFauxRuntime } from "../testing/ask";
-import { freshStore } from "../testing/agent";
+import { customerFromCookies } from "../accounts/customers";
+import { freshStore, signUpCustomer } from "../testing/agent";
 import {
   agentCanary,
   agentPrompt,
@@ -15,6 +16,7 @@ import {
   payRefusal,
   STORE_TOOLS,
   type ToolEvent,
+  withAccountEmail,
 } from "./agent";
 import { forgetHouseConnections, HOUSE_CLIENT_NAME } from "./house";
 
@@ -30,8 +32,8 @@ beforeEach(() => {
   faux.setResponses([]);
 });
 
-const run = (cap = 6, via: "text" | "voice" | "widget" = "text") => {
-  const { session } = askSession();
+const run = (cap = 6, via: "text" | "voice" | "widget" = "text", customerId?: string) => {
+  const { session } = askSession(customerId);
   const tools: ToolEvent[] = [];
   const go = (message = "<shopper_message>\na summer dress\n</shopper_message>") =>
     houseAgentRunner(cap)({
@@ -89,6 +91,18 @@ describe("open_page: the agent names a store page for the panel (spec invariant 
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expect(outcome.page).toBe("/cart");
+  });
+
+  test("open_page: a signed-in shopper is never sent to a sign-in form", async () => {
+    faux.setResponses([openPage("/sign-in"), openPage("/sign-up"), readResults]);
+    const outcome = await run(6, "text", "cus_signed").go();
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.page).toBeUndefined();
+    expect(toolResults.join(" ")).toContain("already signed in");
+    faux.setResponses([openPage("/sign-in"), readResults]);
+    const guest = await run().go();
+    expect(guest.ok && guest.page).toBe("/sign-in");
   });
 
   test("open_page: a widget's tap opens nothing and is told why", async () => {
@@ -292,6 +306,24 @@ describe("paying is decided at the call", () => {
   });
 });
 
+describe("a signed-in shopper's receipt email", () => {
+  test("a guest checkout from a signed-in session carries the account's email; a guest's not", async () => {
+    const { cookie } = await signUpCustomer("rose.account@example.com");
+    const customer = customerFromCookies(cookie);
+    if (!customer) throw new Error("no customer");
+    const args = { checkout: { line_items: [{ item: { id: "x" }, quantity: 1 }] } };
+    const filled = withAccountEmail("create_checkout", args, customer.id);
+    expect(filled).toMatchObject({ checkout: { buyer: { email: "rose.account@example.com" } } });
+    expect(withAccountEmail("create_checkout", args, undefined)).toBe(args);
+    expect(withAccountEmail("get_checkout", { id: "chk_1" }, customer.id)).toEqual({ id: "chk_1" });
+    // The model may write another address: the account's wins.
+    const typed = { checkout: { buyer: { email: "someone@else.example" } } };
+    expect(withAccountEmail("update_checkout", typed, customer.id)).toMatchObject({
+      checkout: { buyer: { email: "rose.account@example.com" } },
+    });
+  });
+});
+
 describe("the prompt", () => {
   test("is frozen per version, carries the canary and lists no shopper data", () => {
     const canary = agentCanary();
@@ -300,6 +332,10 @@ describe("the prompt", () => {
     const prompt = agentPrompt(canary);
     expect(prompt).toContain(canary);
     expect(prompt).toContain("<shopper_message>");
+    expect(prompt).toContain("Personal Shopper");
+    expect(prompt).toContain("signed in: yes");
+    expect(prompt).toContain("never ask them to sign in");
+    expect(prompt).toContain("autonomous pay: yes");
     expect(STORE_TOOLS).toContain("complete_checkout");
   });
 });

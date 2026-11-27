@@ -20,6 +20,7 @@ import { AskDelivery } from "./AskDelivery";
 import { AskReceipt } from "./AskReceipt";
 import { AskText } from "./AskText";
 import { MuteButton, useVoice, VoiceButton, VoicePanel } from "./AskVoice";
+import { SESSION_EVENT } from "@/components/AccountMenu";
 import { followBag, readCart } from "@/lib/client";
 import { openablePage } from "@/lib/storePages";
 import {
@@ -170,6 +171,24 @@ export function AskPanel() {
   useEffect(() => {
     if (shown && pathname && !busy.current) void load(true);
   }, [shown, pathname, load]);
+
+  // A sign-in or sign-out on this page (the header, the receipt block) or in another tab: the
+  // panel reads the session again, so it never asks a signed-in shopper who they are.
+  useEffect(() => {
+    if (!shown) return;
+    const again = () => {
+      if (!busy.current) void load(false);
+    };
+    const visible = () => {
+      if (document.visibilityState === "visible") again();
+    };
+    window.addEventListener(SESSION_EVENT, again);
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      window.removeEventListener(SESSION_EVENT, again);
+      document.removeEventListener("visibilitychange", visible);
+    };
+  }, [shown, load]);
 
   // The page makes room for the docked panel on wide screens (globals.css).
   useEffect(() => {

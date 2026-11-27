@@ -1,11 +1,14 @@
 // Spec: knowledge/components/ask-agent.md
 // The house agent's identity at the store (spec invariant 2): one registered public client,
 // "Atelier Velune Ask", that declares only the device grant, like any outside agent could. A
-// signed-in shopper connects a session through the ordinary device sign-in and consent page. Its
-// tokens live in this process's memory only: never in the database, a log, the console or a page.
+// signed-in shopper connects a session through the ordinary device sign-in and consent page, or with
+// one click in the chat, which takes the same device grant and consent decision. Its tokens live in
+// this process's memory only: never in the database, a log, the console or a page, so a restart
+// forgets the connection and the shopper connects again.
 import { get, put } from "../core/db";
 import {
   authenticate,
+  decide,
   DEVICE_GRANT,
   OAuthError,
   registerClient,
@@ -13,6 +16,7 @@ import {
   type Scope,
   startDeviceAuthorization,
   tokenEndpoint,
+  verifyUserCode,
 } from "../oauth/oauth";
 
 export const HOUSE_CLIENT_NAME = "Atelier Velune Ask";
@@ -76,6 +80,37 @@ export async function startConnect(sessionId: string, now = Date.now()): Promise
     userCode: answer.user_code,
     expiresIn: answer.expires_in,
   };
+}
+
+export const INLINE_PATH = "/api/ask/connect/inline";
+
+// One click in the chat by the session's signed-in shopper: the device request the house client
+// starts is approved at once for that shopper with the budget they picked, then redeemed like any
+// agent's. The grant, its consent trace and its revocation are an outside agent's.
+export async function connectInline(
+  sessionId: string,
+  customerId: string,
+  spendLimit: number,
+  now = Date.now(),
+): Promise<ConnectState> {
+  if (houseToken(sessionId, now)) return "connected";
+  const started = await startConnect(sessionId, now);
+  const verified = verifyUserCode(started.userCode, `ask:${sessionId}`);
+  if ("error" in verified) {
+    pending.delete(sessionId);
+    return "expired";
+  }
+  decide({
+    requestId: verified.requestId,
+    customerId,
+    approve: true,
+    scopes: SCOPES,
+    spendLimit,
+    via: INLINE_PATH,
+  });
+  const request = pending.get(sessionId);
+  if (request) request.lastPollAt = now - request.intervalMs;
+  return pollConnect(sessionId, customerId, now);
 }
 
 export type ConnectState =
@@ -144,6 +179,20 @@ export function houseToken(sessionId: string, now = Date.now()): string | undefi
   if (now < connection.expiresAt) return connection.accessToken;
   connections.delete(sessionId);
   return undefined;
+}
+
+// What the session's grant still allows: the agent pays on its own only while this is defined.
+export function houseAccess(
+  sessionId: string,
+  now = Date.now(),
+): { remaining: number; pay: boolean } | undefined {
+  const token = houseToken(sessionId, now);
+  const auth = token ? authenticate(`Bearer ${token}`, "/mcp") : undefined;
+  if (!auth || auth === "invalid" || auth.grant.revoked) return undefined;
+  return {
+    remaining: Math.max(0, auth.grant.spendLimit - auth.grant.spent),
+    pay: auth.grant.scopes.includes("ucp:pay"),
+  };
 }
 
 async function revoke(token: string | undefined) {

@@ -1,7 +1,7 @@
 // Spec: knowledge/components/ask-agent.md
 // Stage 2, deterministic context (spec invariant 5), and the session score (invariant 9). Nothing
 // here calls a model: limits, budgets and the mode come from the session's record and the clock.
-import { variantById } from "../catalog/catalog";
+import { productById, variantById } from "../catalog/catalog";
 import type { Checkout } from "../commerce/commerce";
 import { database, get } from "../core/db";
 import type { AskLimits } from "./config";
@@ -95,6 +95,15 @@ export function checkContext(input: {
 export function pageFact(page: unknown): string | undefined {
   if (typeof page !== "string") return undefined;
   return /^\/[a-z0-9/_-]{0,80}$/i.test(page) && !page.includes("//") ? page : undefined;
+}
+
+const PRODUCT_PAGE = /^\/products\/([a-z0-9-]{1,64})$/;
+
+// The piece on screen, in the catalogue's words: a product page's id names nothing else.
+export function productFact(page: string | undefined): string | undefined {
+  const id = page ? PRODUCT_PAGE.exec(page)?.[1] : undefined;
+  const product = id ? productById(id) : undefined;
+  return product ? `${product.title} (${product.id}), ${product.subtitle}` : undefined;
 }
 
 const MAX_BAG_LINES = 20;

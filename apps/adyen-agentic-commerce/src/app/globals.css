@@ -96,6 +96,10 @@
   .code {
     @apply rounded-md bg-line/60 px-1.5 py-0.5 font-mono text-[0.8em];
   }
+  /* A choice among several: filters, sizes, budgets. Pressed reads as filled. */
+  .chip {
+    @apply inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-card px-3 py-1.5 text-sm text-ink transition hover:border-ink disabled:cursor-not-allowed disabled:opacity-40 aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-paper;
+  }
 }
 
 /* The Ask panel docks on the right of a wide screen: the page makes room rather than hide under it. */

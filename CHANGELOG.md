@@ -5,6 +5,13 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's assistant becomes the Personal Shopper and follows the site's session: it
+  reads the session again on a sign-in or sign-out (this page or another tab), never asks a
+  signed-in shopper to sign in or for an email, and puts the account's email on the receipt of
+  every checkout it starts. A signed-in shopper lets it pay with one click and a budget (€50,
+  €150, €300, €500 or another amount) in the chat: a real grant, traced as a consent and
+  revocable on the account page. The agent hears the piece viewed, whether it may pay on its own,
+  the budget left and the number of saved cards.
 - The agentic store publishes its catalogue as an OpenAI product feed at `/api/feeds/openai.json`
   and `/api/feeds/openai.jsonl`: one row per variant with the spec's current field names, stable
   EAN-13s in GS1's in-store range, shipping and returns. The terms page gains a Returns section.

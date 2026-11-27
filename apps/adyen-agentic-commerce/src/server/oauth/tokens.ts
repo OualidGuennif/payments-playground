@@ -5,7 +5,7 @@ import { calculateJwkThumbprint } from "jose";
 import { findBy, get, list, put } from "../core/db";
 import { trace } from "../core/trace";
 import { secret, sha256, sha256b64url } from "../core/util";
-import { type Scope } from "./scopes";
+import type { Scope } from "./scopes";
 import {
   ACCESS_TTL,
   type Auth,

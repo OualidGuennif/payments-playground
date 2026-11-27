@@ -14,6 +14,7 @@ import {
   modeFor,
   bagFact,
   pageFact,
+  productFact,
 } from "./context";
 import { gate, type RefusalReason, redactSecrets } from "./gate";
 import { runGuard } from "./guard";
@@ -129,6 +130,8 @@ export function admit(input: {
   page?: unknown;
   bag?: unknown;
   via: "text" | "voice" | "widget";
+  // The connected grant: its budget left, whether it may pay, the saved cards (when counted).
+  account?: { remaining: number; pay: boolean; cards?: number };
   limits: AskLimits;
   regular: boolean;
   address: string;
@@ -186,11 +189,18 @@ export function admit(input: {
   });
   const page = pageFact(input.page);
   const bag = bagFact(page, input.bag, session.customerId);
+  const viewing = productFact(page);
+  const account = input.account;
+  const autonomous = Boolean(account?.pay && account.remaining > 0 && stage2.mode === "normal");
   const context = [
     page ? `page: ${page}` : undefined,
+    viewing ? `viewing: ${viewing}` : undefined,
     bag ? `bag: ${bag}` : undefined,
     `signed in: ${session.customerId ? "yes" : "no"}`,
     `account connected: ${session.connected ? "yes" : "no"}`,
+    `autonomous pay: ${autonomous ? "yes" : "no"}`,
+    account ? `budget left: €${(account.remaining / 100).toFixed(2)}` : undefined,
+    account?.cards !== undefined ? `saved cards: ${account.cards}` : undefined,
     // Heard, not typed: a microphone also catches words said to someone else nearby.
     input.via === "voice"
       ? "channel: voice transcript, which may hold words meant for someone nearby; answer only what is asked of you"

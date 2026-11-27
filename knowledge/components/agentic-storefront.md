@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T23:40:00Z
+  at: 2026-11-27T00:22:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -92,7 +92,9 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
    1.5K, filtered like the shop".
 3. Motion never runs under `prefers-reduced-motion: reduce`.
 4. A signed-in shopper is never asked to sign in or for an email by the cart, the checkout or the
-   Personal Shopper.
+   Personal Shopper. Tests: `src/server/ask/agent.test.ts` "a signed-in shopper is never sent to a
+   sign-in form", "a signed-in shopper's receipt email"; `src/server/ask/api.test.ts` "a signed-in
+   shopper's checkout carries their account email from the start, masked".
 5. Ratings and review counts are labelled demo data wherever a person reads them.
 6. The feed has one row per variant, unique ids, valid and unique EAN-13s in the 200 range, the
    spec's names and money format, and the same rows in JSON and JSONL. Tests:

@@ -11,12 +11,12 @@ import { config } from "../core/config";
 import { trace } from "../core/trace";
 import { isRecord, json } from "../core/util";
 import { BAG, CAROUSEL, widgetHtml } from "../mcp/widgets";
-import { OAuthError } from "../oauth/oauth";
+import { OAuthError, SPEND_LIMIT_MAX } from "../oauth/oauth";
 import { clientIp, rateLimited } from "../protocol";
 import { AGENT_VERSION, callStoreTool, payRefusal } from "./agent";
 import { askConfig } from "./config";
 import { type ContextFailure, costToday, modeFor } from "./context";
-import { disconnect, houseToken, pollConnect, startConnect } from "./house";
+import { connectInline, disconnect, houseToken, pollConnect, startConnect } from "./house";
 import { newSessions } from "./limits";
 import { mergePrices, pricesIn } from "./output";
 import type { PipelineEvent } from "./pipeline";
@@ -326,6 +326,21 @@ function eventStream(run: (emit: (event: PipelineEvent) => void) => Promise<void
   });
 }
 
+// The one-click connect's smallest budget, €1: a grant that can pay nothing is no grant.
+const INLINE_MIN_LIMIT = 100;
+
+// Written on the record as it is now: an end, a lock or a score change made during the poll stays.
+function markConnected(sessionId: string) {
+  const current = sessionById(sessionId);
+  if (current?.state !== "active" || current.connected) return;
+  const now = Date.now();
+  appendMessage(save({ ...current, connected: { at: now } }), {
+    role: "note",
+    text: "Account connected",
+    at: now,
+  });
+}
+
 const STREAM_HEADERS = {
   "content-type": "text/event-stream; charset=utf-8",
   "cache-control": "no-store",
@@ -386,11 +401,17 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
     if (h.ended || session.state !== "active")
       return endedAnswer(session, h.ended ?? session.endReason ?? "time");
     if (!h.available) return disabled();
+    // Counted only for a connected session, the one that can pay with them; cached a minute.
+    const cards =
+      h.customer && houseToken(session.id)
+        ? (await commerce.savedCards(h.customer.id)).length
+        : undefined;
     const turn = {
       session,
       settings: h.settings,
       regular: isRegular(h.customer),
       address: clientIp(request),
+      cards,
     };
     const admission = admitTurn(turn, body.text, body.page, "text", body.bag);
     if (admission.kind === "busy")
@@ -421,6 +442,36 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
       return problem(error.status, error.code, error.message);
     }
   })
+  // One click in the chat (storefront spec): the session's signed-in shopper approves the house
+  // agent with a budget, without the /device page. Same checks as POST /connect, plus the budget.
+  .post("/connect/inline", async ({ request }) => {
+    if (foreign(request)) return forbidden();
+    const body = await bodyOf(request);
+    const spendLimit = body?.spendLimit;
+    if (
+      typeof spendLimit !== "number" ||
+      !Number.isInteger(spendLimit) ||
+      spendLimit < INLINE_MIN_LIMIT ||
+      spendLimit > SPEND_LIMIT_MAX
+    )
+      return problem(400, "invalid_budget", "Pick a budget between €1 and €1,000.");
+    const h = here(request);
+    if (!h.customer) return problem(401, "not_signed_in", "Sign in to connect your account.");
+    const live = liveSession(h);
+    if (!live)
+      return problem(409, "session_ended", "This conversation has ended.", { reason: h.ended });
+    if (shownMode(live, h.customer) !== "normal")
+      return problem(403, "strict_mode", "Connecting is paused for this conversation.");
+    let state: Awaited<ReturnType<typeof connectInline>>;
+    try {
+      state = await connectInline(live.id, h.customer.id, spendLimit);
+    } catch (error) {
+      if (!(error instanceof OAuthError)) throw error;
+      return problem(error.status, error.code, error.message);
+    }
+    if (state === "connected") markConnected(live.id);
+    return json(200, { state });
+  })
   .get("/connect", async ({ request }) => {
     const h = here(request);
     if (!h.customer) return problem(401, "not_signed_in", "Sign in to connect your account.");
@@ -428,16 +479,7 @@ export const askApi = new Elysia({ prefix: "/api/ask" })
     if (!live)
       return problem(409, "session_ended", "This conversation has ended.", { reason: h.ended });
     const state = await pollConnect(live.id, h.customer.id);
-    // Written on the record as it is now: an end, a lock or a score change made during the poll stays.
-    const current = sessionById(live.id);
-    if (state === "connected" && current?.state === "active" && !current.connected) {
-      const now = Date.now();
-      appendMessage(save({ ...current, connected: { at: now } }), {
-        role: "note",
-        text: "Account connected",
-        at: now,
-      });
-    }
+    if (state === "connected") markConnected(live.id);
     return json(200, { state });
   })
   .post("/widget", async ({ request }) => {

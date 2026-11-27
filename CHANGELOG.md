@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's backdrops (the Pay email modal, the shop's filters sheet, the Personal
+  Shopper's sheet) darken the page in dark mode too, through a scrim colour that stays black there.
 - The agentic store's header: Sign in (or the account's initial) shows on every width and leaves
   the Menu, the header stays on one line on a phone and beside the docked Personal Shopper, and
   its menus sit above the minimised Personal Shopper (opening the Personal Shopper closes them; a

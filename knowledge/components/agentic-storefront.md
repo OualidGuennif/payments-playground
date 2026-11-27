@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T08:00:00Z
+  at: 2026-11-27T08:55:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -160,6 +160,8 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   account). A guest email goes through `POST /api/checkouts/:id/email`, set once. When the check
   answers 429, the modal offers Pay as guest and Sign in. A centred card from 640 px, a bottom
   sheet below; Escape and the backdrop close it, focus stays inside, 16 px fields on touch screens.
+  Its backdrop, the filters sheet's and the Personal Shopper sheet's darken the page in both themes
+  (`--color-scrim`: the ink in light, black in dark, where the ink turns light).
 - **Email check** `POST /api/session/check-email` `{ email }`: another site (the proxy, then
   `Origin` and `Sec-Fetch-Site` read again) or no `X-Velune-Check: 1` gets 403 `forbidden`; 15
   calls per client address per 15 minutes, counted before the body is read (429 `rate_limited`

@@ -512,7 +512,7 @@ export function AskPanel() {
           type="button"
           aria-label="Close your Personal Shopper"
           tabIndex={-1}
-          className="fixed inset-0 z-[45] bg-ink/30 lg:hidden"
+          className="fixed inset-0 z-[45] bg-scrim/30 lg:hidden"
           onClick={close}
         />
       )}

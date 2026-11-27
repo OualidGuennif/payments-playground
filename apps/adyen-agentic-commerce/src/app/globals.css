@@ -10,6 +10,8 @@
   --color-ok: #2f6b3c;
   --color-warn: #9a5b00;
   --color-bad: #a33a2b;
+  /* What a backdrop darkens the page with: ink in light, black in dark (ink turns light there). */
+  --color-scrim: #1d1d1f;
   /* Adyen Web's stylesheet is light only, so Drop-in sits on a light surface in both themes. */
   --color-dropin: #ffffff;
   --color-dropin-ink: #00112c;
@@ -36,6 +38,7 @@
   --color-ok: #7cc48b;
   --color-warn: #e0b057;
   --color-bad: #f08a7a;
+  --color-scrim: #000000;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -48,6 +51,7 @@
     --color-ok: #7cc48b;
     --color-warn: #e0b057;
     --color-bad: #f08a7a;
+    --color-scrim: #000000;
   }
 }
 

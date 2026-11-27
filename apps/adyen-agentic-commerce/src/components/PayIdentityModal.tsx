@@ -405,7 +405,7 @@ export function PayIdentityModal({
         type="button"
         tabIndex={-1}
         aria-label="Close"
-        className="absolute inset-0 cursor-default bg-ink/40"
+        className="absolute inset-0 cursor-default bg-scrim/40"
         onClick={() => !busy && onClose()}
       />
       <div

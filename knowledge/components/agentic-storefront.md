@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T09:35:00Z
+  at: 2026-11-27T11:11:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -48,9 +48,18 @@ sources:
   - id: seasons
     resource: ../../apps/adyen-agentic-commerce/src/lib/seasons.ts
     title: "The season of a UTC date: its tote, its top bar line, its ambience"
+  - id: payment-methods
+    resource: ../../apps/adyen-agentic-commerce/src/lib/payment-methods.ts
+    title: "The card brands a session names, Cartes Bancaires first"
+  - id: payment-session-tests
+    resource: ../../apps/adyen-agentic-commerce/src/server/payments/adyen.test.ts
+    title: "The payment session's tests: the methods, the order line, card keeping per account"
+  - id: payment-session
+    resource: ../../apps/adyen-agentic-commerce/src/server/payments/adyen.ts
+    title: "The Adyen session request: the order's methods, the card save's brands, the store mode"
   - id: test-cards
     resource: ../../apps/adyen-agentic-commerce/src/lib/testCards.ts
-    title: "The Adyen TEST cards shown beside Drop-in on the checkout"
+    title: "The Adyen TEST cards and the 3-D Secure TEST password shown above Drop-in on the checkout"
   - id: openai-feed
     resource: https://developers.openai.com/commerce/specs/feed
     title: "OpenAI: product feed schema (read 2026-11-27)"
@@ -121,10 +130,13 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   and Sign in or the account's initial on every width (it follows `velune:auth-changed` at once).
   Below 1280 px the Menu holds the departments, the Developers links and the theme, never the
   account. Header items never wrap onto a second line. The Adyen TEST notice stays on the
-  checkout, `/legal` and the footer.
+  Pay email modal, `/legal` and the footer. The footer (`SiteFooter`, owner 2026-11-27) shows the
+  brand with one line, the departments, the Developers links, then one quiet row: "A fictional
+  store on Adyen TEST, a sandbox for demos and play." and the terms; no protocol versions.
 - **Home:** a hero (GSAP), five department tiles, New and trending (badged pieces, New first), a
   Personal Shopper section whose prompts open the panel with the question in its composer (never
-  sent by itself), and a "Built for humans and AI agents" band (MCP address, feed links).
+  sent by itself), and a dark band that opens straight on the three ways to shop (yourself, your
+  agent at the MCP address, the feed links), with no visible title (owner, 2026-11-27).
 - **Shop:** every filter applies in the browser as the shopper taps or types (department, New in,
   for women or men, price band, on sale, colour, size; sort featured, new, price, rating) and the
   address follows (`/shop?category=…&q=…` and the rest), so links and the Personal Shopper's
@@ -149,8 +161,33 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   your email when you pay" (with "Add email now") and a "Pay €X" button; Pay with no email opens
   the Pay email modal, and once it resolves Drop-in opens and scrolls into view. The summary shows
   a welcome offer as a green "Welcome offer (-5%)" row and the free tote line with its picture.
-  Below Drop-in, four Adyen TEST cards (`src/lib/testCards.ts`, the values of
-  `packages/ui/testData.ts`) copy without spaces.
+  Above Drop-in (and above Pay before it opens), a folded "Test cards" lists four Adyen TEST cards
+  (`src/lib/testCards.ts`, the values of `packages/ui/testData.ts`) that copy without spaces, and
+  the 3-D Secure challenge's TEST password, `password` (owner, 2026-11-27).
+- **Drop-in** (`DropinPanel`; owner decision 2026-11-27): an order's session lists the store's
+  methods in `allowedPaymentMethods` (`ORDER_PAYMENT_METHODS`, `src/server/payments/adyen.ts`):
+  cards (Cartes Bancaires first, then Visa, Mastercard, American Express, Discover, Diners and
+  UnionPay; TEST in euros shows all but Discover), Apple Pay, Google Pay, Klarna (its
+  three ways to pay), PayPal, Wero, MB WAY, Bizum and Pix; cards are named by those brands,
+  never as `scheme` (which lets in every brand the account has), and Drop-in reads them from the
+  session (owner, 2026-11-27). The card asks first for the cardholder's name, optional, and sets
+  `autoFocus`, `keypadFix` and `disableIOSArrowKeys` for iOS Safari. Adyen shows only what the merchant account offers for France in euros, so MB WAY
+  (Portugal), Bizum (Spain) and Pix (Brazil, in reais) stay hidden here; the owner keeps them
+  listed. The session carries one line item, the whole order at its amount, since Adyen offers
+  Klarna only when the line items add up to it. A card save's session lists the card brands alone, with no
+  line item. Apple Pay and Google Pay sit above the list
+  as express buttons (`instantPaymentTypes`), "Buy with", black on the light theme and white on the
+  dark one, with round ends like the store's buttons (the pay button and PayPal's too; fields keep
+  12 px corners); Apple Pay shows only in Safari, on a domain registered for it in the Adyen TEST
+  account. An account's session asks before keeping a card ("Save for my
+  next payment": `askForConsent`, `CardOnFile`) and shows its saved cards (Drop-in always shows them, and only an owner's session names a shopper);
+  a guest's has neither.
+  The form wears the store's colours in both themes through Adyen Web 6's CSS custom properties on
+  `.dropin-surface` (surfaces, labels, outlines, the pay button at rest, hover and press, the focus
+  ring, corners, type). The card fields, drawn in Adyen's frames, take the theme's text and
+  background when Drop-in mounts; a switch of the header's theme mounts Drop-in again on the same
+  Adyen session, with no new session (a card number typed before the switch is typed again), but
+  never while a payment is in flight or once Adyen has answered it.
 - **Pay email modal** (`PayIdentityModal`, on `/checkout` and over the Personal Shopper): "Add your
   email address", one field and Continue, then the email check below. An account's email shows
   "Welcome back" with the email and Change, a password ("Sign in & continue to payment") or a
@@ -245,6 +282,10 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
 12. A guest's email stays set once: a second `POST /api/checkouts/:id/email` is 409 `email_set`.
     Test: `src/server/accounts/customers.test.ts` "a checkout handed over without an email takes
     one at its link, once" (unchanged).
+13. A payment session lists exactly the store's methods: an order's `ORDER_PAYMENT_METHODS`, with
+    one line item at the order's amount, a card save's the card brands alone, and none lists `scheme`. Only an account's session can keep a card, an order's only once
+    the shopper ticks the box; a guest's names no shopper reference and no store mode. Test:
+    `src/server/payments/adyen.test.ts`.
 
 ## Determinism
 
@@ -263,6 +304,9 @@ The catalogue and the feed are pure functions of the build and `PUBLIC_ORIGIN`.
   the order, and a second order gets no offer; Pay as guest opens Drop-in at the standard total.
 - `/sign-up` with an email that has an account offers "Sign in as" with the email prefilled; in
   dark mode an autofilled field stays dark.
+- Drop-in on TEST: Google Pay above the list in Chrome, only the listed card brands and the listed
+  methods the account offers for France, the store's pay button and card fields in light and dark
+  (and after a theme switch) at 375 and 1440 px, and a card payment Authorised.
 
 ## Out of scope
 

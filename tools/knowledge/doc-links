@@ -8,8 +8,9 @@
 
 Doc to code: a concept's frontmatter `sources: - resource: ../../path`. Code to doc: one header line
 `Spec: knowledge/<doc>.md`, whose doc must list the file (or a folder holding it) in its sources (L4). L3 passes when the doc changed too, or when a commit since BASE says
-`Docs-Checked: knowledge/<doc>.md` (with the reason). Directory sources are checked for existence
-only, so one file changing inside them asks for nothing. Spec: knowledge/policies/specs-first.md.
+`Docs-Checked: knowledge/<doc>.md` (with the reason). A directory source covers every file under it
+for `--for`, so the doc gate names its doc; L3 still asks for nothing when one file inside it changes.
+Spec: knowledge/policies/specs-first.md.
 """
 import argparse
 import re
@@ -137,8 +138,9 @@ def base_coverage(base, changed):
 
 
 def collect():
-    """The broken links, and coverage: file -> the docs that cover it exactly (no directories)."""
-    problems, coverage, declared = [], {}, {}
+    """The broken links, coverage (file -> the docs that list it exactly) and folders (directory -> the docs that
+    list it), which only --for reads."""
+    problems, coverage, declared, folders = [], {}, {}, {}
     for doc in sorted((ROOT / "knowledge").rglob("*.md")):
         rel_doc = doc.relative_to(ROOT).as_posix()
         if rel_doc.startswith(SKIP_PREFIXES):
@@ -150,6 +152,8 @@ def collect():
                 problems.append(f"RULE L2 {rel_doc}:{line} source {rel} does not exist; fix the path or drop the source.")
             elif target.is_file() and not rel.startswith("knowledge/"):
                 coverage.setdefault(rel, set()).add(rel_doc)
+            elif target.is_dir() and rel not in {".", "knowledge"} and not rel.startswith("knowledge/"):
+                folders.setdefault(rel, set()).add(rel_doc)
     for path, text in tracked_headers():
         for m in SPEC_RE.finditer(text):
             line = text[:m.start()].count("\n") + 1
@@ -161,7 +165,7 @@ def collect():
             if not any(path == rel or path.startswith(rel + "/") for rel in declared.get(m.group(1), ())):
                 problems.append(f"RULE L4 {path}:{line} names {m.group(1)} as its spec, but the doc's sources omit it; "
                                 "add it as a `resource:` to that doc's frontmatter.")
-    return problems, coverage
+    return problems, coverage, folders
 
 
 def changed_since(base: str, worktree: bool):
@@ -192,12 +196,17 @@ def main(argv):
     global ROOT
     if args.root:
         ROOT = Path(args.root).resolve()
-    problems, coverage = collect()
+    problems, coverage, folders = collect()
 
-    # The docs covering one file, for the edit hook.
+    # The docs covering one file, for the edit hook. A folder source covers what it holds: an adopter listed
+    # `../../app` and edited every file under it without the gate naming the doc.
     if args.for_file:
         rel = Path(args.for_file).resolve().relative_to(ROOT).as_posix() if Path(args.for_file).is_absolute() else args.for_file
-        print("\n".join(sorted(coverage.get(rel, ()))))
+        docs = set(coverage.get(rel, ()))
+        for folder, named in folders.items():
+            if rel.startswith(folder + "/"):
+                docs |= named
+        print("\n".join(sorted(docs)))
         return 0
 
     # A change whose covering doc neither changed nor was declared checked.

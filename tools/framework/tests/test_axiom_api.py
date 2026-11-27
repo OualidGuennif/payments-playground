@@ -159,8 +159,8 @@ class BriefTests(Framework):
         for kind in ("read", "warned"):
             self.addCleanup((Path(tempfile.gettempdir()) / f"claude-doc-{kind}-{self.session}").unlink, missing_ok=True)
 
-    def hook(self, event, tool, data):
-        payload = {"hook_event_name": event, "tool_name": tool, "tool_input": data, "session_id": self.session}
+    def hook(self, event, tool, data, **extra):
+        payload = {"hook_event_name": event, "tool_name": tool, "tool_input": data, "session_id": self.session, **extra}
         return subprocess.run([sys.executable, str(self.root / ".claude/hooks/doc-gate.py")], input=json.dumps(payload),
                               capture_output=True, text=True, cwd=self.root, env=self.env, timeout=30)
 
@@ -195,6 +195,18 @@ class BriefTests(Framework):
         # A compaction forgets the briefs with the docs.
         self.hook("SessionStart", None, {})
         self.assertEqual(self.edit().returncode, 2)
+
+    def test_a_read_recorded_before_it_runs_loads_no_brief(self):
+        # Droid's adapter records a Script's reads before they run (docs_only): no brief reached the agent yet.
+        self.connect()
+        for rid in ("REQ-001", "REQ-002"):
+            self.service.set(f"/v1/snapshots/current/nodes/{rid}", 200, view(rid))
+        for tool, data in (("Read", {"file_path": str(self.code)}), ("Bash", {"command": "sed -n 1,40p src/ledger.py"})):
+            with self.subTest(tool=tool):
+                result = self.hook("PostToolUse", tool, data, docs_only=True)
+                self.assertEqual((result.returncode, result.stdout), (0, ""), result.stderr)
+                self.assertEqual(self.service.seen, [])
+                self.assertEqual(self.edit().returncode, 2)
 
     def test_shell_reads_load_briefs_before_an_edit(self):
         self.connect()

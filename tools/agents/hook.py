@@ -20,6 +20,13 @@ DEVIN_TOOLS = {'exec': 'Bash', 'bash': 'Bash', 'shell': 'Bash', 'read': 'Read', 
 # Factory's Droid sends Claude-shaped payloads with its own names for the shell, create and patch tools.
 DROID_TOOLS = {'Execute': 'Bash', 'Create': 'Write', 'ApplyPatch': 'apply_patch'}
 DROID_KNOWN = {*DROID_TOOLS, 'Bash', 'Read', 'Edit', 'MultiEdit', 'Write', 'Grep', 'Glob', 'LS'}
+# Droid's Script runs other tools, and each call it makes reaches this adapter on its own PreToolUse (live 2026-11-23);
+# WaitForScript only watches a Script and TodoWrite keeps the session's own list. Closure judges the inner calls.
+DROID_CLOSURE_SAFE = {'Script', 'WaitForScript', 'TodoWrite'}
+# Droid's Read re-encodes an image, often larger than the file, and resends it with every later call, so the file-size
+# intake check never bounds it: one context epoch admits this many image reads (live 2026-11-24).
+DROID_IMAGE_BUDGET = 4
+IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
 # Grok Build names its tools in snake_case. read_file's path is target_file; list_dir's is target_directory.
 GROK_TOOLS = {'run_terminal_command': 'Bash', 'read_file': 'Read', 'search_replace': 'Edit',
               'write': 'Write', 'grep': 'Grep', 'list_dir': 'Glob'}
@@ -164,6 +171,51 @@ def edit_paths(event, provider=None):
         raise ValueError('the native file tool requires its supported path field')
     return paths
 
+
+def doc_records(root, event, provider, edited):
+    """The calls the doc gate remembers: a shell command, the file a read names, or the files an edit wrote."""
+    tool = event.get('tool_name')
+    if tool == 'Bash':
+        # A shell result may come without its input (Pi's tool_result); then nothing is recorded.
+        data = event.get('tool_input')
+        return [{'tool_name': 'Bash', 'tool_input': data}] if isinstance(data, dict) and isinstance(data.get('command'), str) else []
+    if tool != 'Read' and tool not in GATED_TOOLS:
+        return []
+    try:
+        raws = edited if tool in {'apply_patch', 'Edit', 'Write'} else edit_paths(event, provider)
+    except ValueError:
+        # A result without a path records nothing; the gate then asks for the read again.
+        raws = []
+    return [{'tool_name': 'Edit' if tool == 'apply_patch' else tool,
+             'tool_input': {'file_path': str(absolute(root, raw))}} for raw in raws]
+
+
+def remember_before_call(root, normalized, event, provider, measured):
+    """Droid sends the calls made inside its Script PreToolUse but never PostToolUse (live 2026-11-23), so the doc gate
+    would never see a read made there. A call every guard let through runs, so its docs are remembered now;
+    `docs_only` keeps framework briefs the agent has not seen from counting as loaded."""
+    if provider != 'droid' or measured.get('hookSpecificOutput', {}).get('permissionDecision') == 'deny':
+        return
+    edited = edit_paths(event, provider) if event.get('tool_name') in {'apply_patch', 'Edit', 'Write'} else []
+    for record in doc_records(root, event, provider, edited):
+        script(root, 'doc-gate.py', {**normalized, **record, 'hook_event_name': 'PostToolUse', 'docs_only': True})
+
+
+def droid_image_refusal(root, session, event, paths):
+    """Spend one of the epoch's image reads, or say why none is left; the count follows the epoch, not the session."""
+    if event.get('tool_name') != 'Read' or not any(Path(str(path)).suffix.lower() in IMAGE_SUFFIXES for path in paths):
+        return None
+    with budget.locked(root, session) as file:
+        state = json.loads(file.read_text()) if file.exists() else {'epoch': 0, 'state': 'RUNNING', 'profile': 'droid'}
+        spent = state.get('images') or {}
+        count = spent.get('count', 0) if spent.get('epoch') == state['epoch'] else 0
+        if count >= DROID_IMAGE_BUDGET:
+            return (f'Æion Template image budget: {DROID_IMAGE_BUDGET} images are already in this context, and each one is '
+                    'resent with every call. Check the pages with a script that prints the numbers and leave the visual '
+                    'review to the owner; the budget restarts at the next compaction (knowledge/policies/bounded-intake.md).')
+        state['images'] = {'epoch': state['epoch'], 'count': count + 1}
+        budget.atomic(file, json.dumps(state, sort_keys=True) + '\n')
+    return None
 
 def argument_name(key):
     return re.sub(r'[_-]', '', str(key)).lower()
@@ -327,7 +379,7 @@ def grok_usage(event):
 
 
 # Harnesses that report their context usage share Claude's 340k/390k rule (tools/context/budget.py).
-MEASURED = {'codex', 'opencode', 'pi', 'dsh', 'grok'}
+MEASURED = {'codex', 'opencode', 'pi', 'dsh', 'grok', 'droid'}
 # dsh compaction is not dependable in every profile. A verified handover is enough to recover, so the user is
 # told to end the session instead of working past the gate waiting for a compaction that may never run.
 DSH_STOP = ('After the handover, work/current.md and the checkpoint verify, stop this dsh session and start a new '
@@ -375,16 +427,60 @@ def codex_usage(event):
     return usage
 
 
+def droid_usage(event):
+    """Droid's context: lastCallTokenUsage in the session's settings file beside its transcript.
+
+    The file is Droid's own session record, not a documented API. Its token fields follow the
+    provider's split, so cached input counts once, as in Claude's transcript.
+    """
+    path = event.get('transcript_path')
+    if not isinstance(path, str) or not path:
+        return None
+    transcript = Path(path)
+    session = event['session_id']
+    if transcript.is_symlink() or transcript.name != f'{session}.jsonl':
+        raise ValueError("usage must come from this session's transcript")
+    record = transcript.with_name(f'{session}.settings.json')
+    if record.is_symlink():
+        raise ValueError('the droid session settings must be a regular file')
+    if not record.is_file():
+        return None
+    try:
+        data = json.loads(record.read_text(encoding='utf-8'))
+    except json.JSONDecodeError:
+        # Droid rewrites this file after each call; a half-written copy is a transient read, so the last count holds.
+        return None
+    usage = data.get('lastCallTokenUsage') if isinstance(data, dict) else None
+    if usage is None:
+        return None
+    fields = ('inputTokens', 'cacheReadTokens', 'cacheCreationTokens', 'outputTokens')
+    if not isinstance(usage, dict) or any(usage.get(field) is not None
+                                          and (type(usage[field]) is not int or usage[field] < 0) for field in fields):
+        raise ValueError('invalid droid token counts')
+    return sum(usage.get(field) or 0 for field in fields)
+
+
 def observed_usage(provider, event):
     """The context size the harness measured; None while it has measured nothing yet."""
     if provider == 'codex':
         return codex_usage(event)
     if provider == 'grok':
         return grok_usage(event)
+    if provider == 'droid':
+        return droid_usage(event)
     value = event.get('observed_tokens')
     if value is not None and (type(value) is not int or value < 0):
         raise ValueError('observed_tokens must be a nonnegative integer')
     return value
+
+
+def droid_verified(root, session, state, usage):
+    """A Droid 340k closure whose handover verified inside it: code stays open until the compaction, whatever
+    moved since. Droid compacts natively at 355k, and refreezing on each edit stalled real sessions."""
+    receipt = state.get('checkpoint') or {}
+    handover = budget.handover_path(root, session)
+    return (state.get('state') == 'HANDOVER_REQUIRED' and receipt.get('state') == 'HANDOVER_REQUIRED'
+            and usage < budget.LIMIT and handover.is_file() and not budget.handover_faults(handover))
 
 
 def alert(result, measured):
@@ -432,12 +528,14 @@ def handle(root, provider, event):
         raise ValueError('unsupported adapter event')
     session = key(provider, event)
     normalized = {**event, 'session_id': session}
+    moved = None
     with budget.locked(root, session) as file:
         state = json.loads(file.read_text()) if file.exists() else {'epoch': 0, 'state': 'RUNNING', 'profile': provider}
         handover = budget.handover_path(root, session)
         if state.get('state') == 'STOPPED':
             return fail(provider, name, 'Æion Template session is stopped; use its handover in a new session.')
         if name == 'SessionStart' and event.get('source') == 'compact':
+            moved = state.pop('moved_since_receipt', None)
             state.pop('checkpoint', None)
             state.pop('observed_tokens', None)
             state['epoch'] += 1
@@ -457,12 +555,24 @@ def handle(root, provider, event):
                 state['warning_pending'] = True
         budget.atomic(file, json.dumps(state, sort_keys=True) + '\n')
         if name == 'PreCompact':
-            if not budget.ready(root, session, state) and (provider in {'codex', 'droid', 'grok'}
+            # The work after Droid's verified 340k handover was allowed, so its compaction owes no closure; the
+            # resume names the files that work changed.
+            if provider == 'droid' and not budget.ready(root, session, state) \
+                    and droid_verified(root, session, state, state.get('observed_tokens') or 0):
+                changed = budget.changed_paths(state['checkpoint'].get('files', {}), budget.tree_files(root))
+                state.pop('closure_owed', None)
+                state['moved_since_receipt'] = changed
+                budget.atomic(file, json.dumps(state, sort_keys=True) + '\n')
+                return {'systemMessage': f'Æion Template {budget.WARN_K}: {handover.relative_to(root)} was verified; compacting, '
+                                         f'and the session resumes editable'
+                                         + (f'; changed since its checkpoint: {changed}.' if changed else '.')}
+            if not budget.ready(root, session, state) and (provider in {'codex', 'grok'}
+                    or provider == 'droid' and event.get('trigger') != 'manual'
                     or provider == 'pi' and event.get('native') is True):
-                # Codex ends its turn on a refused compaction and retries it before every turn, Droid documents no
-                # way to refuse one, Pi cancels a native compaction at the model window, and Grok only reads a
-                # systemMessage from PreCompact: a refusal would stall them or be ignored. The compaction runs,
-                # and the handover and checkpoint come right after it.
+                # Codex ends its turn on a refused compaction and retries it before every turn, Droid cannot block
+                # its automatic compaction (only a manual /compact), Pi cancels a native compaction at the model
+                # window, and Grok only reads a systemMessage from PreCompact: a refusal would stall them or be
+                # ignored. The compaction runs, and the handover and checkpoint come right after it.
                 budget.ensure_handover(root, session)
                 state['closure_owed'] = 'pending'
                 budget.atomic(file, json.dumps(state, sort_keys=True) + '\n')
@@ -518,10 +628,8 @@ def handle(root, provider, event):
                 budget.atomic(file, json.dumps(state, sort_keys=True) + '\n')
             return {'systemMessage': f'Æion Template verified handover: {handover.relative_to(root)}'}
         measured = {}
-        # Droid measures nothing, so only the closure owed after its compaction applies the shared rule.
-        owed = provider == 'droid' and state.get('closure_owed') == 'due'
-        if (provider in MEASURED or owed) and name in {'PreToolUse', 'PostToolUse', 'Stop'}:
-            usage = observed_usage(provider, event) if provider in MEASURED else None
+        if provider in MEASURED and name in {'PreToolUse', 'PostToolUse', 'Stop'}:
+            usage = observed_usage(provider, event)
             # Harnesses report usage after the response that asked for the tool: until then the last count holds.
             if usage is None:
                 usage = state.get('observed_tokens') or 0
@@ -541,6 +649,10 @@ def handle(root, provider, event):
                 paths = edit_paths(event, provider)
                 target = str(root / paths[0]) if len(paths) == 1 else ''
                 call = {**normalized, 'tool_name': 'Edit', 'tool_input': {'file_path': target}}
+            elif name == 'PreToolUse' and provider == 'droid' and event.get('tool_name') in DROID_CLOSURE_SAFE:
+                call = {**normalized, 'closure_safe': True}
+            if name == 'PreToolUse' and provider == 'droid' and droid_verified(root, session, state, usage):
+                call = {**call, 'closure_safe': True}
             measured = budget.apply_usage(root, session, state, name, call, usage)
             if provider == 'dsh':
                 measured = dsh_advice(measured)
@@ -553,6 +665,15 @@ def handle(root, provider, event):
                 measured = {'aeion': {'compact': True}}
                 reason = None
             if reason:
+                # Droid continues a turn on a Stop block, so closure work is asked of the agent once; with the handover
+                # verified, let Droid continue cleanly into its native auto-compaction (355k) without pausing for /compact.
+                if provider == 'droid' and name == 'Stop':
+                    if state['state'] in {'HANDOVER_REQUIRED', 'COMPACT_REQUIRED'} and (budget.ready(root, session, state)
+                                                                                     or droid_verified(root, session, state, usage)):
+                        return {'systemMessage': f'Æion Template {budget.WARN_K}: {handover.relative_to(root)} is verified. '
+                                                 'Native auto-compaction runs at compactionTokenLimit (355k) and resumes automatically.'}
+                    if not event.get('stop_hook_active'):
+                        return {'decision': 'block', 'reason': reason}
                 return fail(provider, name, reason)
             # Pi, OpenCode and dsh start compaction themselves: at 340k once the checkpoint is verified, and at
             # 390k always, because that compaction is what the stopgap uses to release a frozen session. A profile
@@ -570,9 +691,15 @@ def handle(root, provider, event):
         if provider in {'devin', 'antigravity'}:
             context = f'Æion Template {provider} profile: shared guards and edit feedback; no compaction checkpoint or token stop.'
         if provider == 'droid':
-            context = (f'Æion Template droid profile: shared guards and edit feedback; no {budget.WARN_K} alert. Before compacting, fill '
-                       f'{handover.relative_to(root)}, update work/current.md and verify: {budget.checkpoint_command(root, session)}. '
-                       f'A compaction without it owes that closure right after.')
+            if event.get('source') == 'compact':
+                context = (f'Æion Template: context compacted. Read {handover.relative_to(root)} and immediately '
+                           f'continue the Remaining work without stopping for the user.'
+                           + (f' Changed since its verified checkpoint: {moved}; read them first.' if moved else '')
+                           + '\n' + context)
+            context += (f' Droid: once the {budget.WARN_K} handover is verified, code stays open; keep working cleanly into native '
+                        'auto-compaction (compactionTokenLimit: 355000 in .factory/settings.json), which compacts '
+                        'mid-turn and resumes automatically; a compaction before the verified handover owes that '
+                        'closure right after. Context size is lastCallTokenUsage in the session settings file.')
         if provider == 'grok':
             context += (' Grok cannot refuse compaction, so a compaction before the verified handover owes that closure '
                         'right after. The context size is contextTokensUsed in signals.json beside updates.jsonl or chat_history.jsonl.')
@@ -595,6 +722,7 @@ def handle(root, provider, event):
             # An unknown tool routed here may also name a file; that path still meets the path guard.
             for path in edit_paths(event, provider):
                 script(root, 'guard-path.py', {'tool_name': 'Edit', 'tool_input': {**data, 'file_path': path}})
+            remember_before_call(root, normalized, event, provider, measured)
             return alert(result, measured)
         # A file filter under any harness's name picks the files a search reads, so each meets the Grep glob check.
         globs = event.get('antigravity_globs', []) if provider == 'antigravity' else filter_globs(event.get('tool_input'), FILTER_KEY)
@@ -611,6 +739,12 @@ def handle(root, provider, event):
             if tool in GATED_TOOLS:
                 script(root, 'doc-gate.py', {**normalized, 'tool_name': tool,
                                              'tool_input': {**data, 'file_path': str(absolute(root, path))}})
+        # Counted last: a read another guard or the context gate refused never reached the context.
+        if provider == 'droid' and measured.get('hookSpecificOutput', {}).get('permissionDecision') != 'deny':
+            refusal = droid_image_refusal(root, session, event, paths)
+            if refusal:
+                return fail(provider, name, refusal)
+        remember_before_call(root, normalized, event, provider, measured)
         return alert({}, measured)
     if name == 'PostToolUse':
         messages = [measured['systemMessage']] if measured.get('systemMessage') else []
@@ -627,22 +761,7 @@ def handle(root, provider, event):
             if context:
                 messages.append(context)
         # The doc gate remembers the docs read through the read tool or the shell, and the docs written.
-        tool = event.get('tool_name')
-        if tool == 'Bash':
-            # A shell result may come without its input (Pi's tool_result); then nothing is recorded.
-            data = event.get('tool_input')
-            records = [{'tool_name': 'Bash', 'tool_input': data}] if isinstance(data, dict) and isinstance(data.get('command'), str) else []
-        elif tool == 'Read' or tool in GATED_TOOLS:
-            try:
-                raws = edited if tool in {'apply_patch', 'Edit', 'Write'} else edit_paths(event, provider)
-            except ValueError:
-                # A result without a path records nothing; the gate then asks for the read again.
-                raws = []
-            records = [{'tool_name': 'Edit' if tool == 'apply_patch' else tool,
-                        'tool_input': {'file_path': str(absolute(root, raw))}} for raw in raws]
-        else:
-            records = []
-        for record in records:
+        for record in doc_records(root, event, provider, edited):
             context = script(root, 'doc-gate.py', {**normalized, **record}).get('hookSpecificOutput', {}).get('additionalContext')
             if context:
                 messages.append(context)

@@ -19,9 +19,12 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / ".claude/hooks"))
 from secret_names import is_secret  # noqa: E402
 from project_files import git_active, project_files  # noqa: E402
+import handovers  # noqa: E402
+NOTICE = 300_000
 WARNING = 340_000
 LIMIT = 390_000
 # Every message names the thresholds from these labels, so the text never drifts from the numbers.
+NOTICE_K = f"{NOTICE // 1000}k"
 WARN_K = f"{WARNING // 1000}k"
 LIMIT_K = f"{LIMIT // 1000}k"
 MAX_TAIL = 4 * 1024 * 1024
@@ -159,7 +162,8 @@ def checkpoint_command(root, session):
 
 
 def tree_files(root):
-    """{path: digest} for untracked task files and tracked bytes, without following symlinks."""
+    """{path: digest} for untracked task files and tracked bytes, without following symlinks. A deleted path is
+    absent, as it is once the deletion is committed, so the receipt and its stale-path list agree."""
     files = {}
     for rel in project_files(root, untracked=True):
         if rel.startswith(("work/handovers/", ".aeion/")) or is_secret(Path(rel).name):
@@ -169,22 +173,13 @@ def tree_files(root):
             files[rel] = "link:" + os.readlink(path)
         elif path.is_file():
             files[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
-        else:
-            files[rel] = "deleted"
     return files
 
 
-def head(root):
-    """The commit HEAD names; b"no-git" in a plain folder, b"no-commit" in a repository before its first commit."""
-    if not git_active(root):
-        return b"no-git"
-    found = subprocess.run(["git", "rev-parse", "--verify", "--quiet", "HEAD"], cwd=root, capture_output=True, check=False)
-    return found.stdout if found.returncode == 0 else b"no-commit"
-
-
 def fingerprint(root, files=None):
-    # Without a commit (a plain folder, or a repository not yet committed) the files alone make the fingerprint.
-    digest = hashlib.sha256(head(root))
+    # The bytes alone, never the commit HEAD names: the checks verified these bytes, and committing them (the team
+    # flow commits the handover's docs) staled the receipt and sent the session back into closure, in a loop.
+    digest = hashlib.sha256(b"tree")
     for rel, value in (tree_files(root) if files is None else files).items():
         digest.update(os.fsencode(rel) + b"\0" + value.encode())
     return digest.hexdigest()
@@ -208,27 +203,37 @@ def changed_paths(before, after, limit=5):
     return ", ".join(paths[:limit]) + (f" and {len(paths) - limit} more" if len(paths) > limit else "")
 
 
-HEADINGS = ("Scope", "Completed", "Remaining", "Constraints", "Evidence")
-SHAPE = "the handover uses the exact lines " + ", ".join(f"## {h}" for h in HEADINGS)
+HEADINGS = handovers.HEADINGS
+# Half the bounded-intake limit, so the next context reads the whole handover in one call.
+HANDOVER_BYTES = 32 * 1024
+HANDOVER_LINE = 1000
+SHAPE ="the handover uses the exact lines " + ", ".join(f"## {h}" for h in HEADINGS)
 
 
 def handover_path(root, session):
-    return root / "work/handovers" / f"{session}.md"
+    return handovers.folder(root) / f"{session}.md"
 
 
 def ensure_handover(root, session):
     path = handover_path(root, session)
     if not path.exists():
-        atomic(path, f"# Handover {session}\n\n" + "".join(f"## {h}\nTODO\n\n" for h in HEADINGS).rstrip("\n") + "\n")
+        atomic(path, handovers.skeleton(session))
     return path
 
 
 def handover_faults(path):
-    """Named faults that keep a handover from being a checkpoint: a missing exact heading, a section still TODO."""
-    text = path.read_text()
+    """Named faults that keep a handover from being a checkpoint: a missing exact heading, a section still TODO,
+    and a size the next context cannot read whole (bounded intake refuses a full read above 64 KiB)."""
+    data = path.read_bytes()
+    text = data.decode(errors="replace")
     missing = [f"## {key}" for key in HEADINGS if f"## {key}\n" not in text]
+    long = [str(number) for number, line in enumerate(text.splitlines(), 1) if len(line) > HANDOVER_LINE]
     return ([f"missing heading{'s' if len(missing) > 1 else ''}: {', '.join(missing)} (exact line)"] if missing else []) \
-        + (["a section still reads TODO"] if "TODO" in text else [])
+        + (["a section still reads TODO"] if "TODO" in text else []) \
+        + ([f"{len(data)} bytes, over {HANDOVER_BYTES}: drop what a newer line supersedes and what commits or docs "
+            f"already hold"] if len(data) > HANDOVER_BYTES else []) \
+        + ([f"line{'s' if len(long) > 1 else ''} {', '.join(long[:5])} over {HANDOVER_LINE} characters: split "
+            f"{'them' if len(long) > 1 else 'it'}"] if long else [])
 
 
 def ready(root, session, state):
@@ -246,15 +251,18 @@ def closure_tool(root, event):
     data = event.get("tool_input", {})
     if not isinstance(data, dict):
         return False
-    if tool in {"Read", "Grep", "Glob"}:
+    # An adapter marks a call closure admits: a harness tool that acts only through calls this gate judges one by
+    # one (Droid's Script), or any Droid call once its 340k handover verified (tools/agents/hook.py).
+    if event.get("closure_safe") is True:
         return True
+    # The handover must describe live state (a background run, an open page), so reading it stays open.
+    if tool in {"Read", "Grep", "Glob", "TaskOutput", "BashOutput"}:
+        return True
+    if isinstance(tool, str) and tool.startswith(BROWSERS):
+        action = tool.rsplit("__", 1)[-1]
+        return action in BROWSER_READS or (action == "computer" and data.get("action") in SCREEN_READS)
     if tool in {"Edit", "Write"}:
-        path = Path(data.get("file_path", "")).resolve()
-        if not path.is_relative_to(root):
-            return False
-        rel = path.relative_to(root).as_posix()
-        # "Affected docs" includes a project's own Markdown wherever it lives; code edits stay closed.
-        return rel in DOC_FILES or rel.startswith(DOC_ROOTS) or path.suffix.lower() in {".md", ".mdx"}
+        return doc_path(root, Path(data.get("file_path", "")))
     if tool == "Bash":
         command = data.get("command", "")
         if not isinstance(command, str):
@@ -267,18 +275,72 @@ def closure_tool(root, event):
             words = shlex.split(command)
         except ValueError:
             return False
-        return read_call(command, words) or checkpoint_call(root, event, words)
+        return (read_call(command, words) or git_read(command, words) or git_doc_write(root, event, command, words)
+                or checkpoint_call(root, event, words))
     return False
+
+
+def doc_path(root, path):
+    """A path closure may change: "affected docs" include a project's own Markdown wherever it lives, and work/.
+    A path that no longer exists still counts by its name, so a doc's deletion can be staged and committed."""
+    path = path.resolve()
+    if not path.is_relative_to(root) or path.is_dir():
+        return False
+    rel = path.relative_to(root).as_posix()
+    return rel in DOC_FILES or rel.startswith(DOC_ROOTS) or path.suffix.lower() in {".md", ".mdx"}
+
+
+def git_doc_write(root, event, command, words):
+    """`git add <doc files>` and `git commit -m <message>` while only doc paths are staged: the team flow commits
+    the handover's docs and work/current.md. No flag beyond -m/-q, so no --amend, -a, hook skipping or pathspec."""
+    if len(words) < 3 or words[0] != "git" or words[1] not in {"add", "commit"} or SHELL_OPERATORS.search(command):
+        return False
+    here = Path(event.get("cwd") or root)
+    if words[1] == "add":
+        paths = [word for word in words[2:] if word != "--"]
+        # A leading colon is pathspec magic (`:!README.md` stages everything else), never a file name here.
+        return bool(paths) and all(not word.startswith(("-", ":")) and doc_path(root, here / word) for word in paths)
+    rest = words[2:]
+    while rest[:1] == ["-q"]:
+        rest = rest[1:]
+    if len(rest) < 2 or len(rest) % 2 or any(flag not in {"-m", "--message"} for flag in rest[::2]):
+        return False
+    # The index decides what a commit records, so every staged path must be one closure could have edited. A
+    # rename lists only its destination, which would hide a code file's deletion behind a Markdown name.
+    staged = subprocess.run(["git", "diff", "--cached", "--no-renames", "--name-only", "-z"], cwd=root,
+                            capture_output=True, check=False)
+    paths = [os.fsdecode(path) for path in staged.stdout.split(b"\0") if path]
+    return staged.returncode == 0 and bool(paths) and all(doc_path(root, root / path) for path in paths)
 
 
 # Shell-only harnesses (Codex) read through these, so closure must let them read the handover and docs.
 READERS = {"cat", "head", "tail", "wc", "nl", "ls", "grep", "rg"}
+# Browser tools that only look at the page already open: navigation, clicks and typing stay frozen.
+BROWSERS = ("mcp__Claude_Browser__", "mcp__claude-in-chrome__", "mcp__remote-devices__Claude_Browser__")
+BROWSER_READS = {"find", "read_page", "get_page_text", "tabs_context", "tabs_context_mcp", "read_console_messages",
+                 "read_network_requests"}
+SCREEN_READS = {"screenshot", "zoom"}
+GIT_READS = {"status", "log", "show", "diff"}
+CLOSURE_ADMITS = ("Closure admits: Read, Grep, Glob, task and browser-page reads; edits to Markdown, work/ and the "
+                  "handover; one plain cat/head/tail/wc/ls/grep/rg or sed -n; git status/log/show/diff; git add of "
+                  "doc files and git commit -m while only docs are staged; the fixed checks; the checkpoint command. "
+                  "Web fetches, code and subagents wait for the receipt.")
+SHELL_OPERATORS = re.compile(r"[;&|<>`$\n*?\[{~]")
+
+
+def git_read(command, words):
+    """One plain `git status|log|show|diff`, so the handover can name commits and changes. `--output` writes a
+    file, `--ext-diff` runs a program and `--no-index` reads outside the repository: those stay closed."""
+    if len(words) < 2 or words[0] != "git" or words[1] not in GIT_READS or SHELL_OPERATORS.search(command):
+        return False
+    return not any(word.startswith(("--output", "--ext-diff", "--no-index")) or is_secret(Path(word.split(":")[-1]).name)
+                   for word in words)
 
 
 def read_call(command, words):
     """One plain read command: no shell operators or globs, no secret file, no `rg --pre` program, and `sed`
     only as `sed -n <lines>p <files>`."""
-    if not words or re.search(r"[;&|<>`$\n*?\[{~]", command) or any(is_secret(Path(word).name) for word in words):
+    if not words or SHELL_OPERATORS.search(command) or any(is_secret(Path(word).name) for word in words):
         return False
     if words[0] == "sed":
         return len(words) >= 3 and words[1] == "-n" and re.fullmatch(r"\d+(,\d+)?p", words[2]) is not None
@@ -348,7 +410,7 @@ def apply_usage(root, session, state, name, event, usage):
             # denying it would turn the escape hatch into a permanent gate. A latch a harness set because its own
             # compaction resumed in closure is not a threshold latch: `resumed_in_closure` keeps it until the
             # handover verifies, which is the whole point of that resume.
-            # A zero is the stand-in a harness that measures nothing (Droid) uses, never a real measurement.
+            # A zero is the stand-in for a harness that has measured nothing yet, never a real measurement.
             state["state"] = "RUNNING"
             state.pop("warning_pending", None)
             if not ready(root, session, state):
@@ -401,7 +463,11 @@ def apply_usage(root, session, state, name, event, usage):
                                f"verify the checkpoint before compaction ({checkpoint_command(root, session)}); {SHAPE}.")
                 allowed = ready(root, session, state) or closure_tool(root, call)
                 if name == "PreToolUse" and not allowed:
-                    result = {"hookSpecificOutput": {"hookEventName": name, "permissionDecision": "deny", "permissionDecisionReason": message}}
+                    # Name what still works and why the last receipt no longer counts, so the next call is not a guess.
+                    moved = changed_paths(state["checkpoint"].get("files", {}), tree_files(root)) if state.get("checkpoint") else ""
+                    stale = f" The last receipt is stale: {moved} changed since it; verify again." if moved else ""
+                    reason = f"{message} {CLOSURE_ADMITS}{stale}"
+                    result = {"hookSpecificOutput": {"hookEventName": name, "permissionDecision": "deny", "permissionDecisionReason": reason}}
                 elif name in {"Stop", "SubagentStop"}:
                     # An agent can claim closure without running the command; name the missing receipt, so it cannot.
                     missing = "" if ready(root, session, state) else " No verified checkpoint receipt exists for this session yet."
@@ -412,6 +478,19 @@ def apply_usage(root, session, state, name, event, usage):
                     result["systemMessage"] = message
         elif state["state"] == "RECOVERING":
             state["state"] = "RUNNING"
+        # Claude compacts natively at 340k, so the alert and the compaction arrive together and the handover gets
+        # written from the summary. A notice 40k earlier asks for it while the agent still holds the detail; it
+        # refuses nothing. It is sent once per climb: a fall under 300k (a compaction) re-arms it.
+        if usage < NOTICE:
+            state.pop("notice_sent", None)
+        elif (usage < WARNING and state["state"] == "RUNNING" and not state.get("notice_sent") and not result
+              and name in {"PreToolUse", "PostToolUse", "UserPromptSubmit"}):
+            state["notice_sent"] = True
+            handover = ensure_handover(root, session)
+            message = (f"Æion Template {NOTICE_K} notice: closure starts at {WARN_K}. Fill {handover.relative_to(root)} now, "
+                       f"while you hold the detail ({SHAPE}): what a compaction summary drops, the owner's rules, the "
+                       f"exact next commands and the evidence ids. Nothing is refused yet.")
+            result = {"systemMessage": message, "hookSpecificOutput": {"hookEventName": name, "additionalContext": message}}
         # A closure the 390k stopgap deferred is still owed: the run ends with its receipt, or not at all.
         if not result and name in {"Stop", "SubagentStop"} and state.get("closure_owed") == "due" and not ready(root, session, state):
             result = stop(name, f"Æion Template {LIMIT_K}: closure is still owed; fix the failing check and verify the "
@@ -534,12 +613,15 @@ def checkpoint(root, session, base):
             raise ValueError("update work/current.md before checkpointing")
         after = tree_files(root)
         if fingerprint(root, after) != before:
-            raise ValueError(f"files changed during checkpoint validation: {changed_paths(files, after) or 'HEAD'} "
+            raise ValueError(f"files changed during checkpoint validation: {changed_paths(files, after)} "
                              "(a live log in the tree makes every receipt stale: git-ignore it)")
-        state["checkpoint"] = {"tree": before, "files": files, "handover": hashlib.sha256(handover.read_bytes()).hexdigest()}
+        # The closure the receipt was taken in: Droid keeps a 340k one open until its compaction.
+        state["checkpoint"] = {"tree": before, "files": files, "handover": hashlib.sha256(handover.read_bytes()).hexdigest(),
+                               "state": state["state"]}
         # `closure_owed` stays until the next event reads this receipt: Codex and Droid leave their closure state
         # only on that event, so dropping the flag here would strand them in a closure that is already satisfied.
         atomic(file, json.dumps(state, sort_keys=True) + "\n")
+        handovers.record(root, session)
 
 
 def main():

@@ -6,7 +6,7 @@ status: stable
 stale_after: 2026-12-31
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-15T21:00:00Z
+  at: 2026-11-27T11:40:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "The merged agent rules and repository map"
@@ -50,6 +50,9 @@ production or Adyen TEST call was made by the adoption itself.
 - 2026-11-15: Deno, Fresh and Vite left the repository
   ([ADR-014](../decisions/ADR-014-every-playground-on-bun-and-next.md)); the `deno task` rows above
   are history, the gate is now `bun run check` and the images build on `oven/bun:1.4.4`.
+- 2026-11-27: updated to Æion Template v4.1.1 (`.aeion-template`): a 300k handover notice, reads
+  open during closure, a `work/current.md`-only push of `develop` without a review, handover
+  pruning; the README, the Bun `knowledge-check` and the AGENTS.md wording stayed the project's.
 
 ## Open
 

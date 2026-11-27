@@ -1,11 +1,11 @@
 ---
 type: Reference
 title: "Æion Template v4.0.3: upstream and local adaptations"
-description: "The template release this repository follows, how it got there from Æion Factory v1.7.0, what was kept, what was omitted and where the local adaptations live."
+description: "The template release this repository adopted (v4.0.3, now v4.1.1), how it got there from Æion Factory v1.7.0, what was kept, what was omitted and where the local adaptations live."
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T18:00:00Z
+  at: 2026-11-27T12:25:00Z
 sources:
   - resource: https://github.com/OualidGuennif/aeion-template/releases/tag/v4.0.3
     title: "Release v4.0.3"
@@ -22,6 +22,11 @@ Upstream: `OualidGuennif/aeion-template` (renamed from `aeion-factory`), tag `v4
 `tools/agents/template-update --ref v4.0.3 --from-ref v1.7.0` on 2026-11-15
 ([ADR-013](../decisions/ADR-013-aeion-template-v4-without-source-analysis.md)). The read-only
 reference clone lives under the ignored `.aeion/reference/`.
+
+Updated to `v4.1.1` (commit `18604d6`) on 2026-11-27 with `tools/agents/template-update --ref v4.1.1`
+from the template checkout, on the owner's yes. What it changed and what stayed the project's is in
+the commit `chore: update Æion Template to v4.1.1` and in
+[the adoption status](../current/aeion-adoption-status.md); the adoption described below holds.
 
 ## Adopted
 

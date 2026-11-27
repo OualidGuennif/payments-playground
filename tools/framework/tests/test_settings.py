@@ -303,7 +303,7 @@ class SettingsTests(unittest.TestCase):
     def test_session_start_names_a_ready_service(self):
         repo = self.root / "repo"
         for rel in (".claude/hooks/session-start.py", ".claude/hooks/project_files.py", ".claude/hooks/aeion_settings.py",
-                    "tools/repo-health/repo-health"):
+                    ".claude/hooks/handovers.py", "tools/repo-health/repo-health"):
             (repo / rel).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ROOT / rel, repo / rel)
         (repo / ".aeion").mkdir()

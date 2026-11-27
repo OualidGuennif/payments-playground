@@ -64,7 +64,17 @@ def check(name, tmp, args, want_code, want_text=""):
 t = repo()
 check("links resolve, free text ignored", t, [], 0, "PASS")
 check("the docs covering a file", t, ["--for", "src/app.ts"], 0, "knowledge/components/example.md")
-check("a directory source covers no single file", t, ["--for", "src/other.ts"], 0, "")
+# A folder source covers what it holds, new files included, so the doc gate names its doc (an adopter's
+# `../../app` named none); a sibling folder sharing the prefix stays uncovered.
+check("a directory source covers the files under it", t, ["--for", "src/other.ts"], 0, "knowledge/components/example.md")
+check("a directory source covers a file not yet written", t, ["--for", "src/new/later.ts"], 0, "knowledge/components/example.md")
+(t / "src2").mkdir()
+(t / "src2/x.ts").write_text("export const x = 1;\n")
+r = subprocess.run([sys.executable, str(TOOL), "--root", str(t), "--for", "src2/x.ts"], capture_output=True, text=True)
+if (r.returncode, r.stdout) == (0, "\n"):
+    passes += 1
+else:
+    failures.append(f"a sibling folder sharing the prefix is not covered: exit {r.returncode}\n{r.stdout}{r.stderr}")
 
 (t / "src/app.ts").write_text(f"// {TAG} knowledge/components/example.md\nexport const a = 2;\n")
 commit(t, "change app")

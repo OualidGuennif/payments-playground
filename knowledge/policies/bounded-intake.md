@@ -5,7 +5,7 @@ description: "Refuse obvious large dumps before execution; use targeted reads an
 status: stable
 generated:
   by: aeion-template/4.0.3
-  at: 2026-11-15T18:00:00Z
+  at: 2026-11-27T11:32:00Z
 sources:
   - resource: ../../.claude/hooks/guard-path.py
   - resource: ../../.claude/hooks/guard-bash.py
@@ -50,8 +50,16 @@ their existing secret guards; editing a large file is not a full read. Known lar
 pipeline. Use `head -n 80`, `head -c 65536`, `tail -n 80` or a summary such as `wc -l`. Keep the
 bounded pipeline separate from unrelated shell commands. Use `cp` for file copies. The refusal names
 its cause: the file over the limit, a variable or glob path, or a `cat` of a relative path after a
-`cd` (an absolute path is sized whatever the directory). Tests remain runnable; quiet/fail-fast
+`cd` (an absolute path is sized whatever the directory; a `cat` of a small literal heredoc names no
+path, so `cd <dir> && cat > file <<'EOF'` is allowed as it is without the `cd`). Tests remain runnable; quiet/fail-fast
 flags and error summaries are guidance in this version.
+
+Images in Droid get their own budget. Droid's Read re-encodes an image before it enters the
+context: on 2026-11-24, previews of 18 to 57 KB on disk arrived as 52 to 152 KB each, so the file
+size check never applied, and every image is resent with each later call. A Droid session therefore
+admits at most **4 image Reads** (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`) per context epoch; the
+count restarts with the epoch at the compact `SessionStart`. A read that another guard or the
+context gate refused is not counted. Other harnesses are unchanged.
 
 Prompt defense (`.claude/hooks/prompt-defense.py`) never refuses either: it reads at most 64 KiB in
 total of a tool result the harness forwards, flags hidden characters, role markers, override phrases
@@ -62,8 +70,9 @@ still stops at 64 KiB.
 Token feedback (`.claude/hooks/token-feedback.py`) never refuses. Keep reasoning private and use
 tools directly; do not emit optional progress narration or intermediate JSON notes. After a tool
 call the hook adds one line of context, at most once per turn, when the turn holds visible prose or
-JSON notes before or between tool calls. It tolerates one status line of at most 100 characters for
-harnesses that require it, and excludes the final answer. It also names a Write that resent 200+
+JSON notes before or between tool calls. It tolerates a status line of at most 100 characters: the
+turn's first one, then one per five minutes by the transcript's timestamps, because a harness may
+ask for one and the Claude app asks again on a long step. It excludes the final answer. It also names a Write that resent 200+
 lines of an existing file where Edit would send only the change. Stop records each turn's narration
 in `.aeion/context/narration-<session>.json`. It reads Claude Code and Codex transcript shapes from
 a bounded tail, never through a symlink; any other shape or error is silence. A measured session
@@ -79,7 +88,9 @@ saving.
 ## Invariants
 
 Secrets remain refused even with a limiter. Native adapters preserve tool kind and range/count
-arguments, so bounded reads work and large-file edits remain available. Guard regressions cover
+arguments, so bounded reads work and large-file edits remain available. Droid fires PreToolUse for
+the calls inside its `Script` tool, so the intake guards refuse oversized reads there too. A Droid
+epoch never holds more than 4 image Reads, whatever the session's age. Guard regressions cover
 thresholds, long lines, explicit ranges, real native fields and misleading limiter placement.
 
 ## Determinism
@@ -92,7 +103,8 @@ owner's settings never change an intake limit.
 
 ## Acceptance
 
-Run `python3 .claude/hooks/test_hooks.py` and `python3 tools/agents/tests/test_hooks.py`, then the
+Run `python3 .claude/hooks/test_hooks.py` and `python3 tools/agents/tests/test_hooks.py`
+(`test_droid_reads_at_most_four_images_per_context_epoch` for the image budget), then the
 existing Knowledge, context and native-plugin checks. Check real workflow friction before extending
 the recognized command patterns.
 

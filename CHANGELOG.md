@@ -5,6 +5,36 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-27
+
+- Æion Template 4.1.1 (from 4.0.3): a 300k handover notice, reads open during closure, a
+  `work/current.md`-only fast-forward of `develop` pushes without a review, handover pruning and
+  staleness, and hook fixes; the playground's README, its Bun `knowledge-check` and its AGENTS.md
+  wording stay, and the template docs it edited take only the facts 4.1.1 changed.
+- The agentic footer's store links open without a full page load and its brand link is a 44 px
+  target; Drop-in's colours and its card fields read the store's tokens instead of copies.
+- The agentic Drop-in reads its card brands from the session, which names the card brands
+  (Cartes Bancaires, Visa, Mastercard, Amex, Discover, Diners, UnionPay) instead of `scheme`, for
+  the card save too, always shows saved cards, and sets
+  `autoFocus`, `keypadFix` and `disableIOSArrowKeys` for iOS Safari.
+- The agentic store's footer is redone: brand, departments and developer links, then one line
+  ("A fictional store on Adyen TEST, a sandbox for demos and play.") and the terms; the protocol
+  versions and the repeated "no real money moves" lines are gone, Cartes Bancaires leads the card
+  brands, and Drop-in drops its "All fields are required" line.
+- The agentic home's band for humans and agents drops its title and opens on the three ways to
+  shop.
+- The agentic checkout's Drop-in asks first for the name on the card (optional), and the folded "Test
+  cards" list sits above it, with the 3-D Secure TEST password instead of the docs link; the
+  "Pay on Adyen TEST" label above the form is gone.
+- The agentic store's Drop-in lists the store's methods (Visa, Mastercard, Cartes Bancaires,
+  American Express, Apple Pay, Google Pay, Klarna, PayPal, Wero, MB WAY, Bizum, Pix; Adyen shows
+  those the account offers for France in euros), puts Apple Pay and Google Pay above the list as
+  express buttons, carries one order line so Klarna can show, asks an account before keeping a card,
+  and wears the store's colours in both themes, following the header's theme switch until Adyen
+  answers a payment.
+- An agent's network token is no longer sent to `/cardDetails` when its checkout carries another
+  account's welcome offer, since that payment is refused anyway.
+
 ## [0.11.0] - 2026-11-27
 
 - The agentic store's welcome offer is checked again at the payment form's last step, so a form

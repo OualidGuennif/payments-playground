@@ -39,6 +39,7 @@ CONTRACT = (
     ".claude/hooks/doc-gate.py",
     ".claude/hooks/guard-bash.py",
     ".claude/hooks/guard-path.py",
+    ".claude/hooks/handovers.py",
     ".claude/hooks/project_files.py",
     ".claude/hooks/prompt-defense.py",
     ".claude/hooks/secret_names.py",

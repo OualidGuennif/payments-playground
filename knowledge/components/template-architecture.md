@@ -5,7 +5,7 @@ description: "Complete specification of Æion Template's authority, execution, K
 status: stable
 generated:
   by: aeion-template/3.0
-  at: 2026-11-10
+  at: 2026-11-27T11:32:00Z
 verified:
   - at: 2026-11-12
     what: "tools/template-tests and the knowledge, link and health checks passed with no embedded spec engine"
@@ -37,7 +37,8 @@ Adopting projects keep their existing instructions and architecture.
 Claude Code retains its native hooks. Codex, OpenCode, Pi, dsh (DeepSeek Harness), Devin, Droid
 (factory.ai), Google Antigravity and Grok load the same instructions and skills, with narrow
 adapters to the existing secret guards, edit checks and handover checkpoints (Devin and Antigravity
-have no compaction checkpoint; Droid, which reports no tokens, owes its closure after a compaction;
+have no compaction checkpoint; Droid measures its session record and auto-compacts natively at 355k
+(`compactionTokenLimit`) right after the 340k verified handover, resuming on compact `SessionStart`;
 Grok cannot refuse compaction). Grok's hooks live in `.grok/`. During closure, plain read commands
 (`cat`, `head`, `sed -n`, `rg` and the like, without operators, globs or secret files) are closure
 tools, because Codex reads only through its shell. Droid owns `.factory/`, so Æion Template's local
@@ -160,11 +161,16 @@ Deployment remains the adopting project's own guarded procedure. Æion Template 
 ### Context and recovery
 
 In the Claude profile, native auto-compaction is enabled at 340k. The state machine starts RUNNING;
-observing 340k latches HANDOVER_REQUIRED and emits one alert to user and agent. Code/subtask tools
-are refused; closure docs, `work/current.md` and fixed check commands remain, at 390k
-(COMPACT_REQUIRED) too, because the checkpoint verifies them. A checkpoint validates handover
-sections, Knowledge, doc links, repository health and current task updates, then hashes source and
-handover bytes. Any later source or handover change invalidates readiness. An observed size back
+a 300k notice (once per climb, advisory) asks for the handover while the detail is in context,
+because Claude compacts at the same 340k that raises the alert. Observing 340k latches
+HANDOVER_REQUIRED and emits one alert to user and agent. Code/subtask tools are refused; reads
+(files, background output, plain git reads, browser page reads), closure docs, `work/current.md`, a
+commit of staged docs and fixed check commands remain, at 390k (COMPACT_REQUIRED) too, because the
+checkpoint verifies them. A checkpoint validates handover sections and size, Knowledge, doc links,
+repository health and current task updates, then hashes the tree's bytes (not HEAD, so a commit of
+them keeps it) and the handover's. Any later source or handover change invalidates readiness,
+except that Droid keeps a 340k handover verified inside its closure until its native compaction 15k
+later ([context safety](../operations/context-safety.md)). An observed size back
 under 340k ends the latch, because a harness that compacts without the adapter seeing its compact
 SessionStart (dsh does) would otherwise stay gated at a fraction of the threshold; the closure it
 owed survives as `closure_owed`, which the settlement enforces. That debt never re-latches a later

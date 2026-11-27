@@ -5,7 +5,7 @@ description: "The docs a file names or is named by are read in the session befor
 status: draft
 generated:
   by: aeion-template/4.0
-  at: 2026-11-12
+  at: 2026-11-27T11:32:00Z
 verified:
   - at: 2026-11-12
     what: "tools/framework/tests/test_axiom_api.py: 16 passed; shell reads load briefs, retain unserved refusals and share the eight-ID cap"
@@ -34,7 +34,7 @@ gate asks for the reading before it, when the doc can still shape the change.
 
 | Source                                     | What is read                                                                                                    | Owner                                 | Freshness                                                         |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------- |
-| `tools/knowledge/doc-links --for FILE`     | the docs covering an existing file: its `Spec:` header and the docs naming it in `sources` (files, not folders) | knowledge/ and the code               | each gated edit                                                   |
+| `tools/knowledge/doc-links --for FILE`     | the docs covering an existing file: its `Spec:` header and the docs naming it, or a folder holding it, in `sources` | knowledge/ and the code               | each gated edit                                                   |
 | a Write's `content`                        | `Spec: knowledge/<doc>.md` in its first 30 lines, for a file that does not exist yet                            | the agent                             | each Write                                                        |
 | `<tmp>/claude-doc-read-<session>`          | the docs this session read or wrote                                                                             | this hook                             | each event                                                        |
 | `.aeion/settings.json` `doc_gate`          | `enforce` (default), `warn` or `off` ([framework mode](framework-mode.md))                                      | the owner                             | each event                                                        |
@@ -103,8 +103,8 @@ about a tenth of a second on this repository, inside the hook's three seconds; n
 
 - Shell writes (`sed -i`, a redirection): the gate covers the native edit tools, as after-edit does.
   It guides the agent; it is not a security boundary.
-- Folder sources: `doc-links` gives coverage only for exact files, so a new file in a documented
-  folder is gated only by the `Spec:` header it carries.
+- Folder sources in L3: a folder source names its doc before every edit under it, but a change
+  inside it asks `doc-links --diff` for no doc update; list a file to have L3 follow it.
 - Whether the doc was understood, or read whole: a range read counts, as bounded intake asks for
   ranges.
 - Shell expansion or a `cd` inside a command: only literal paths and the tool's declared working

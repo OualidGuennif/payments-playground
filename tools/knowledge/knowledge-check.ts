@@ -169,8 +169,11 @@ function checkConcept(concept: Concept, root: string, report: Report, now: Date)
   if (typeof meta.description === "string" && meta.description.length > DESCRIPTION_MAX) {
     report.errors.push(`${where}: description over ${DESCRIPTION_MAX} characters`);
   }
-  if (concept.body.split("\n").length > BODY_MAX_LINES) {
-    report.errors.push(`${where}: body over ${BODY_MAX_LINES} lines; split it along its headings`);
+  const bodyLines = concept.body.split("\n").length;
+  if (bodyLines > BODY_MAX_LINES) {
+    report.errors.push(
+      `${where}: body over ${BODY_MAX_LINES} lines by ${bodyLines - BODY_MAX_LINES}; split it along its headings`,
+    );
   }
   const verified = Array.isArray(meta.verified) ? (meta.verified as Record<string, unknown>[]) : [];
   if (verified.length > VERIFIED_MAX) {

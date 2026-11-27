@@ -292,9 +292,11 @@ export async function completeCheckout(
   const canUseCards = auth !== undefined && allows(auth.token.scopes, "ucp:pay");
   const cards = canUseCards ? await savedCards(reference) : [];
   // Adyen reads the token's brand, asked only when the checkout could be paid now: a checkout over
-  // the limit or not ready sends the number nowhere.
+  // the limit or not ready sends the number nowhere, nor does one carrying another account's
+  // welcome offer, which is refused below.
   const brand =
     instrument?.handler === "network_token" &&
+    !(loaded.welcomeOffer && auth?.grant.customerId !== loaded.customerId) &&
     assess(loaded, auth, []).status === "ready_for_complete"
       ? await networkTokenBrand(instrument.token.number, loaded.id)
       : undefined;

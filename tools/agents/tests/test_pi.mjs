@@ -5,9 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import extension from '../../../.pi/extensions/template/index.js';
+import { guardProjectState } from './leak-guard.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const sessionID = `template-pi-extension-test-${process.pid}`;
+guardProjectState('pi', [sessionID, `${sessionID}-340k`, `${sessionID}-defense`, `${sessionID}-native`]);
 
 // The extension runs only the hook.py shipped beside it, so a stand-in project gets its own copy of it.
 const copies = new Map();

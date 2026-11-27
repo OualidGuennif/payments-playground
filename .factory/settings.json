@@ -1,4 +1,5 @@
 {
+  "compactionTokenLimit": 355000,
   "hooks": {
     "SessionStart": [
       {

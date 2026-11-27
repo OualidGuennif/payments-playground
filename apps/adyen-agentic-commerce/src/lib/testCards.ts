@@ -17,5 +17,5 @@ export const TEST_CARDS: readonly TestCard[] = [
   { scheme: "Amex", pan: "3700 0000 0000 002", expiry: "03/30", cvc: "7373" },
 ];
 
-export const ADYEN_TEST_CARDS_DOCS =
-  "https://docs.adyen.com/development-resources/test-cards-and-credentials/test-card-numbers";
+// What Adyen's TEST 3-D Secure 2 challenge accepts (the Mastercard above asks for it).
+export const THREEDS_TEST_PASSWORD = "password";

@@ -2,6 +2,7 @@
 """Boundary, recovery and refusal regressions for the real budget implementation."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -36,6 +37,18 @@ class BudgetTests(unittest.TestCase):
 
     def call(self, **changes):
         return budget.handle(self.root, {**self.event, **changes})
+
+    def verified_checkpoint(self):
+        """A filled handover verified with git real and the project checks, absent from the fixture, passing."""
+        handover = budget.ensure_handover(self.root, 'test-session')
+        handover.write_text(handover.read_text().replace('TODO', 'Fixture evidence'))
+        actual_run = subprocess.run
+
+        def run(command, **options):
+            return actual_run(command, **options) if command[0] == 'git' else subprocess.CompletedProcess(command, 0)
+
+        with patch.object(budget.subprocess, 'run', side_effect=run):
+            budget.checkpoint(self.root, 'test-session', 'HEAD')
 
     def test_warning_boundary_and_latched_closure(self):
         self.observe(249999)
@@ -458,6 +471,180 @@ class BudgetTests(unittest.TestCase):
                         "cat $HOME/x", "python3 -c 1"):
             result = self.call(tool_name="Bash", tool_input={"command": command})
             self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "deny", command)
+
+    def test_read_only_tools_stay_open_during_closure(self):
+        # A live check frozen mid-step left a handover describing a page and a background run it could not see.
+        self.observe(340000)
+        self.call()
+        browser = "mcp__Claude_Browser__"
+        for tool, data in [("TaskOutput", {"task_id": "b1"}), ("BashOutput", {"bash_id": "b1"}),
+                           (browser + "find", {"query": "Deploy"}), ("mcp__claude-in-chrome__get_page_text", {}),
+                           (browser + "computer", {"action": "screenshot"}), (browser + "read_console_messages", {}),
+                           ("Bash", {"command": "git log --oneline -5"}), ("Bash", {"command": "git show HEAD --stat"}),
+                           ("Bash", {"command": "git diff origin/develop -- knowledge"}), ("Bash", {"command": "git status"})]:
+            result = self.call(tool_name=tool, tool_input=data)
+            self.assertNotIn("permissionDecision", result.get("hookSpecificOutput", {}), (tool, data))
+        secret = "." + "env"
+        for tool, data in [(browser + "navigate", {"url": "https://example.com"}),
+                           (browser + "computer", {"action": "left_click"}), (browser + "form_input", {}),
+                           ("mcp__other__find", {}), ("Bash", {"command": "git diff --output=x.patch"}),
+                           ("Bash", {"command": f"git diff --no-index /dev/null {secret}"}),
+                           ("Bash", {"command": "git log --ext-diff -p"}), ("Bash", {"command": f"git show HEAD:{secret}"}),
+                           ("Bash", {"command": "git commit -m x"}), ("Bash", {"command": "git push"}),
+                           ("Bash", {"command": "git log; rm -rf x"})]:
+            result = self.call(tool_name=tool, tool_input=data)
+            self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "deny", (tool, data))
+
+    def test_closure_commits_staged_docs_and_the_commit_keeps_the_receipt(self):
+        # Adopters reported a loop: verify, commit the handover's docs, the receipt goes stale, closure again.
+        (self.root / '.gitignore').write_text('.aeion/\nwork/handovers/\n*.jsonl\n')
+        (self.root / 'work').mkdir(exist_ok=True)
+        (self.root / 'knowledge').mkdir(exist_ok=True)
+        (self.root / 'work/current.md').write_text('# Current work\n')
+        (self.root / 'old.md').write_text('# Old\n')
+        budget.git(self.root, 'add', '.gitignore', 'work/current.md', 'old.md')
+        commit = ('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm')
+        budget.git(self.root, *commit, 'fixture')
+        self.observe(340000)
+        self.call()
+        (self.root / 'work/current.md').write_text('# Current work\nTask updated.\n')
+        (self.root / 'knowledge/a.md').write_text('# A\n')
+        (self.root / 'src.py').write_text('x = 1\n')
+        (self.root / 'old.md').unlink()
+        bash = lambda command: self.call(tool_name='Bash', tool_input={'command': command}, cwd=str(self.root))
+        denied = lambda result: result.get('hookSpecificOutput', {}).get('permissionDecision') == 'deny'
+        for command in ('git add work/current.md knowledge/a.md', 'git add -- old.md', 'git add knowledge/a.md'):
+            self.assertFalse(denied(bash(command)), command)
+        for command in ('git add src.py', 'git add -A', 'git add knowledge', 'git add knowledge/*.md',
+                        'git add -f knowledge/a.md', 'git add ../outside.md', "git add ':!README.md'",
+                        'git add :(top)knowledge/a.md', 'git commit -m x'):
+            self.assertTrue(denied(bash(command)), command)
+        # A code file renamed to a Markdown name is still a code file's deletion.
+        (self.root / 'tool.py').write_text('x = 1\n')
+        budget.git(self.root, 'add', 'tool.py')
+        budget.git(self.root, *commit, 'a code file')
+        budget.git(self.root, 'mv', 'tool.py', 'knowledge/tool.md')
+        self.assertTrue(denied(bash('git commit -m x')))
+        budget.git(self.root, 'mv', 'knowledge/tool.md', 'tool.py')
+        budget.git(self.root, 'add', 'work/current.md', 'knowledge/a.md', 'old.md')
+        for command in ('git commit -m "docs: closure"', 'git commit -q -m x -m y', 'git commit --message x'):
+            self.assertFalse(denied(bash(command)), command)
+        for command in ('git commit --amend -m x', 'git commit -a -m x', 'git commit -n -m x', 'git commit -m x src.py',
+                        'git commit -m $(touch y)', 'git commit -m'):
+            self.assertTrue(denied(bash(command)), command)
+        budget.git(self.root, 'add', 'src.py')
+        self.assertTrue(denied(bash('git commit -m x')))
+        budget.git(self.root, 'reset', '-q', 'src.py')
+        self.verified_checkpoint()
+        # The checks verified these bytes; committing them, the deletion included, moves HEAD and nothing else.
+        budget.git(self.root, *commit, 'docs and task state')
+        self.assertFalse(denied(self.call()))
+        self.assertTrue(budget.ready(self.root, 'test-session', json.loads((self.root / '.aeion/context/test-session.json').read_text())))
+        # A later code edit stales it, and the refusal names that edit, never the deletion already committed.
+        (self.root / 'src.py').write_text('x = 2\n')
+        refused = self.call()['hookSpecificOutput']['permissionDecisionReason']
+        self.assertIn('The last receipt is stale: src.py changed since it', refused)
+        self.assertNotIn('old.md', refused)
+
+    def test_closure_refusal_lists_what_it_admits_and_what_staled_the_receipt(self):
+        self.observe(340000)
+        refused = self.call()['hookSpecificOutput']['permissionDecisionReason']
+        self.assertIn('Closure admits: Read, Grep, Glob', refused)
+        self.assertIn('git commit -m while only docs are staged', refused)
+        self.assertNotIn('stale', refused)
+        (self.root / 'work').mkdir(exist_ok=True)
+        (self.root / 'work/current.md').write_text('# Current work\n')
+        self.verified_checkpoint()
+        (self.root / 'src.py').write_text('x = 1\n')
+        refused = self.call()['hookSpecificOutput']['permissionDecisionReason']
+        self.assertIn('The last receipt is stale: src.py changed since it', refused)
+
+    def test_a_handover_too_large_to_read_whole_is_no_checkpoint(self):
+        # A 70 KB handover outgrew bounded intake, so the next context could not read it in one call.
+        self.call()
+        handover = budget.ensure_handover(self.root, 'test-session')
+        filled = handover.read_text().replace('TODO', 'Fixture evidence')
+        handover.write_text(filled.replace('## Evidence\n', '## Evidence\n' + 'short line\n' * 3400))
+        with self.assertRaisesRegex(ValueError, r'\d+ bytes, over 32768: drop what a newer line supersedes'):
+            budget.checkpoint(self.root, 'test-session', 'HEAD')
+        handover.write_text(filled + 'x' * 1001 + '\n' + 'y' * 1001 + '\n')
+        with self.assertRaisesRegex(ValueError, r'lines \d+, \d+ over 1000 characters: split them'):
+            budget.checkpoint(self.root, 'test-session', 'HEAD')
+
+    def test_a_300k_notice_asks_for_the_handover_once_per_climb_and_refuses_nothing(self):
+        self.observe(299999)
+        self.assertEqual(self.call(), {})
+        self.observe(300000)
+        notice = self.call()
+        self.assertIn("300k notice", notice["systemMessage"])
+        self.assertNotIn("permissionDecision", notice["hookSpecificOutput"])
+        self.assertTrue(budget.handover_path(self.root, "test-session").is_file())
+        self.observe(320000)
+        self.assertEqual(self.call(), {})
+        # A compaction brings the size back down; the next climb gets its own notice.
+        self.observe(1000)
+        self.assertEqual(self.call(), {})
+        self.observe(310000)
+        self.assertIn("300k notice", self.call(hook_event_name="PostToolUse")["systemMessage"])
+        # Stop cannot carry it; the 340k alert replaces it.
+        self.observe(1000)
+        self.call()
+        self.observe(305000)
+        self.assertEqual(self.call(hook_event_name="Stop"), {})
+        self.observe(345000)
+        self.assertIn("340k alert", self.call()["systemMessage"])
+
+    def test_unfilled_skeletons_are_pruned_after_a_week_and_a_written_handover_reports_what_moved(self):
+        handovers = budget.handovers
+        folder = handovers.folder(self.root)
+        folder.mkdir(parents=True)
+        old_shape = folder / "pi-old.md"
+        old_shape.write_text("# Handover pi-old\n\n" + "\n\n".join(f"## {h}\nTODO" for h in handovers.HEADINGS) + "\n")
+        fresh = budget.ensure_handover(self.root, "fresh")
+        written = folder / "written.md"
+        written.write_text(handovers.skeleton("written").replace("TODO: the exact next commands, in order", "run the tests"))
+        self.assertTrue(handovers.unfilled(old_shape) and handovers.unfilled(fresh))
+        self.assertFalse(handovers.unfilled(written))
+        week = 8 * 86400
+        for path in (old_shape, written):
+            os.utime(path, (path.stat().st_mtime - week,) * 2)
+        self.assertEqual(handovers.prune(self.root), 1)
+        self.assertEqual(sorted(p.name for p in folder.iterdir()), ["fresh.md", "written.md"])
+        # The written handover is a week old and HEAD and work/current.md moved after it.
+        (self.root / "work/current.md").write_text("# Current work\n")
+        subprocess.run(["git", "-C", str(self.root), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                        "commit", "-qm", "later", "--allow-empty"], check=True)
+        self.assertEqual(handovers.behind(self.root, written), ["HEAD", "work/current.md"])
+        written.write_text(written.read_text() + "\nupdated\n")
+        self.assertEqual(handovers.behind(self.root, written), [])
+        self.assertEqual(handovers.behind(self.root, fresh), [])
+        # Closure saves the handover, then work/current.md, then verifies: the checkpoint's record decides, not the
+        # save time, so a just-verified handover is never called behind.
+        (self.root / "work/current.md").write_text("# Current work\n\n## Task — ACTIVE\n")
+        handovers.record(self.root, "written")
+        self.assertEqual(handovers.behind(self.root, written), [])
+        (self.root / "work/current.md").write_text("# Current work\n")
+        self.assertEqual(handovers.behind(self.root, written), ["work/current.md"])
+
+    def test_handovers_survive_a_vanished_file_and_ignore_a_parent_repository(self):
+        handovers = budget.handovers
+        # A plain folder nested in this repository: git would answer for the parent, whose commits are newer.
+        nested = self.root / "plain"
+        (nested / "work/handovers").mkdir(parents=True)
+        written = nested / "work/handovers/s.md"
+        written.write_text("# Handover s\n\n## Scope\nthe task\n")
+        os.utime(written, (1, 1))
+        self.assertEqual(handovers.head(nested), "")
+        self.assertEqual(handovers.behind(nested, written), [])
+        # Two sessions starting together: the other one pruned the skeleton first.
+        with patch.object(handovers, "unfilled_files", return_value=[nested / "work/handovers/gone.md"]):
+            self.assertEqual(handovers.prune(nested), 0)
+        # A .git that git cannot read: session start reports it, so the handover check must not end the hook.
+        (nested / ".git").write_text("gitdir: /nonexistent\n")
+        with self.assertRaises(subprocess.CalledProcessError):
+            budget.git_active(nested)
+        self.assertEqual(handovers.head(nested), "")
+        self.assertEqual(handovers.behind(nested, written), [])
 
     def test_checkpoint_is_admitted_from_any_folder_and_only_for_this_root(self):
         # A shell left in a subfolder at the alert must still reach this root's checkpoint.

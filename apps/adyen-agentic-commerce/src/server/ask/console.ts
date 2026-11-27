@@ -10,7 +10,7 @@ import { AGENT_VERSION, agentCanary, houseAgentRunner } from "./agent";
 import { type AskConfig, PROVIDERS } from "./config";
 import { gate } from "./gate";
 import { runGuard } from "./guard";
-import { disconnect, houseToken } from "./house";
+import { detachSession, disconnect, houseToken } from "./house";
 import { admit, answer, type PipelineEvent } from "./pipeline";
 import { askModels } from "./runtime";
 import {
@@ -196,7 +196,8 @@ export function sessionDetail(id: string) {
 export function closeSession(id: string, how: "end" | "lock") {
   const session = sessionById(id);
   if (!session) return undefined;
-  void disconnect(id);
+  // A lock revokes the grant (fail closed); ending keeps it for the account's next conversation.
+  void (how === "lock" ? disconnect(id) : detachSession(id));
   return sessionSummary(endSession(session, how === "lock" ? "locked" : "ended_by_console"));
 }
 

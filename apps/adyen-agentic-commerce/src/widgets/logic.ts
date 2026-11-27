@@ -434,3 +434,76 @@ export function contextDataFor(bag: BagView): Record<string, unknown> {
     ...(bag.order ? { order: bag.order.label } : {}),
   };
 }
+
+// --- the checkout card in the store's own panel (ADR-021, decision 5) ---------------------------
+
+// Who is shopping, as the store's panel tells it: counts and amounts only.
+export type Velune = {
+  signedIn: boolean;
+  connected: boolean;
+  cardCount: number;
+  grantRemaining?: number;
+  grantLimit?: number;
+};
+export function veluneContext(raw: unknown): Velune | undefined {
+  if (!record(raw) || typeof raw.signedIn !== "boolean" || typeof raw.connected !== "boolean")
+    return undefined;
+  const count = whole(raw.cardCount);
+  const remaining = whole(raw.grantRemaining);
+  const limit = whole(raw.grantLimit);
+  return {
+    signedIn: raw.signedIn,
+    connected: raw.connected,
+    cardCount: count !== undefined && count >= 0 ? Math.floor(count) : 0,
+    ...(remaining !== undefined ? { grantRemaining: remaining } : {}),
+    ...(limit !== undefined ? { grantLimit: limit } : {}),
+  };
+}
+
+// The one action the checkout card leads with, in the owner's order: a guest with no email pays
+// (the panel asks for it); connected with a card and the budget, pay in the chat; over the budget,
+// raise it; not connected, allow it; no card, save one; a guest with an email, a new account.
+export type PayStep =
+  | "email"
+  | "pay"
+  | "raise"
+  | "connect"
+  | "save-card"
+  | "create-account"
+  | "refresh"
+  | "fix";
+export function payStep(bag: BagView, v: Velune): PayStep {
+  if (bag.codes.includes("missing_buyer_email")) return "email";
+  const ready = bag.status === "ready_for_complete";
+  // A budget leads only when it is all that stands in the way: the store sends its code only for a
+  // checkout with nothing else to fix, and the panel's own count counts only on a ready one.
+  const over =
+    bag.codes.includes("spend_limit_exceeded") ||
+    (ready && v.connected && v.grantRemaining !== undefined && bag.total > v.grantRemaining);
+  if (!ready && !over) return "fix";
+  if (!v.signedIn) return "create-account";
+  if (v.cardCount === 0 && bag.instruments.length === 0) return "save-card";
+  if (!v.connected) return "connect";
+  if (over) return "raise";
+  // Connected with saved cards the checkout has not listed yet: it was read before the connection.
+  return bag.instruments.length > 0 ? "pay" : "refresh";
+}
+
+// The panel's overlay for an action; it never leaves the chat.
+export function chatLink(store: string, step: PayStep, checkoutId: string): string | undefined {
+  const id = encodeURIComponent(checkoutId);
+  const base = `${store}/checkout/${id}`;
+  switch (step) {
+    case "email":
+      return `${base}#velune-pay-email?checkoutId=${id}`;
+    case "save-card":
+      return `${base}#velune-save-card?checkoutId=${id}`;
+    case "create-account":
+      return `${base}#velune-create-account?checkoutId=${id}`;
+    case "raise":
+    case "connect":
+      return `${base}#velune-budget?mode=${step}&checkoutId=${id}`;
+    default:
+      return undefined;
+  }
+}

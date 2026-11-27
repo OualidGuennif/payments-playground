@@ -131,7 +131,7 @@ export function admit(input: {
   bag?: unknown;
   via: "text" | "voice" | "widget";
   // The connected grant: its budget left, whether it may pay, the saved cards (when counted).
-  account?: { remaining: number; pay: boolean; cards?: number };
+  account?: { remaining: number; pay: boolean; fresh?: boolean; cards?: number };
   limits: AskLimits;
   regular: boolean;
   address: string;
@@ -191,7 +191,10 @@ export function admit(input: {
   const bag = bagFact(page, input.bag, session.customerId);
   const viewing = productFact(page);
   const account = input.account;
-  const autonomous = Boolean(account?.pay && account.remaining > 0 && stage2.mode === "normal");
+  // A chat payment also needs a recent password or passkey proof (spec invariant 22).
+  const autonomous = Boolean(
+    account?.pay && account.remaining > 0 && account.fresh === true && stage2.mode === "normal",
+  );
   const context = [
     page ? `page: ${page}` : undefined,
     viewing ? `viewing: ${viewing}` : undefined,

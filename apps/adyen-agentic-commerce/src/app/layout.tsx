@@ -54,7 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </p>
         {/* Layers (storefront spec): ambience 10, minimised Shopper 30, header and its menus 40,
             open Shopper 50, Pay email modal 60. One line on every width: nothing wraps. */}
-        <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur">
+        <header className="velune-glass sticky top-0 z-40 border-b border-line">
           <div className="mx-auto flex max-w-7xl flex-nowrap items-center gap-2 px-3 py-2.5 sm:px-6">
             <Link
               href="/"
@@ -94,7 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </summary>
                 <nav
                   aria-label="Mobile navigation"
-                  className="absolute right-0 top-[calc(100%+8px)] z-30 grid max-h-[80dvh] w-72 gap-0.5 overflow-y-auto rounded-2xl border border-line bg-card p-2 shadow-lg"
+                  className="absolute right-0 top-[calc(100%+8px)] z-30 velune-glass-card grid max-h-[80dvh] w-72 gap-0.5 overflow-y-auto rounded-2xl border border-line p-2 shadow-lg"
                 >
                   <p className="eyebrow px-3.5 pt-2 pb-1">Shop</p>
                   {NAV.map(([href, label]) => (

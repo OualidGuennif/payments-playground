@@ -5,6 +5,29 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-27
+
+- The Personal Shopper's checkout stays in the chat (ADR-021): its card leads with one action (Pay,
+  Pay in chat, Raise budget, Allow, Save a card, or a new account), each opening an overlay above
+  the chat (the Pay email modal, a Drop-in card save, a budget to allow or raise, the chat-pay
+  confirmation, which then sends the same payment again), and "Continue on website checkout" comes
+  last. Every overlay is held to the top of the visual viewport on a phone, so the iOS keyboard no
+  longer covers it. The sheet opens at 88 % (96 % enlarged) with only the composer in its footer,
+  the closing time and "€X left" in its header, aligned product cards, and a restrained glass on
+  the header, menus, panel and overlays.
+- The Personal Shopper's account grant is durable (ADR-021): a new conversation, a sign-in or a
+  deploy resumes the account's one active Atelier Velune Ask grant with a token minted for it, a
+  normal end keeps it and only a lock (any path, also after a restart) or Disconnect ends it;
+  connecting again reuses it. Paying in
+  the chat with a saved card needs a password or passkey proof under 60 minutes old
+  (`POST /api/ask/confirm-pay`, 401 `step_up_required` otherwise; the agent hears
+  `autonomous pay: no`), and the session view adds `cardCount`, `grant`, `stepUpRequired` and
+  `webauthn`.
+- The agentic checkout waits for an email in step 1: a guest reads "Add your email to continue"
+  with one primary button, and Delivery and Payment stay locked until the checkout has an email.
+  Once Adyen answers with an order, the page opens `/orders/:id` at the top instead of keeping the
+  payment form's scroll on a shorter page (the owner's iPhone Safari report).
+
 ## [0.12.0] - 2026-11-27
 
 - Æion Template 4.1.1 (from 4.0.3): a 300k handover notice, reads open during closure, a

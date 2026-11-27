@@ -46,9 +46,34 @@ export type SessionView = {
   signedIn: boolean;
   accountEmail?: string;
   connected: boolean;
+  // ADR-021: what the checkout card needs to lead with the right action.
+  cardCount?: number;
+  grant?: { id: string; spendLimit: number; spent: number; remaining: number } | null;
+  stepUpRequired?: boolean;
+  webauthn?: boolean;
   voice: { available: boolean; unlocked: boolean };
   messages: AskMessage[];
 };
+
+// The store's panel tells its widget who is shopping, so the checkout card leads with one action
+// (ADR-021, decision 5). Counts and amounts only, never a card or an email.
+export type VeluneContext = {
+  signedIn: boolean;
+  connected: boolean;
+  cardCount: number;
+  grantRemaining?: number;
+  grantLimit?: number;
+};
+export function veluneOf(view: SessionView | undefined): VeluneContext {
+  const live = view?.state === "active" || view?.state === "none";
+  const grant = live && view?.connected ? view.grant : undefined;
+  return {
+    signedIn: Boolean(view?.signedIn),
+    connected: Boolean(live && view?.connected),
+    cardCount: view?.signedIn ? (view.cardCount ?? 0) : 0,
+    ...(grant ? { grantRemaining: grant.remaining, grantLimit: grant.spendLimit } : {}),
+  };
+}
 export type StreamEvent =
   | { type: "stage"; stage: string }
   | { type: "tool"; name: string; phase: "start" | "end"; label?: string }
@@ -221,10 +246,28 @@ export function joinSiteBag(site: BagLine[], lineItems: unknown): Json[] | undef
   return [...joined].map(([id, quantity]) => ({ item: { id }, quantity }));
 }
 
-// The widget's Pay in the store's own panel (ADR-020) opens `#velune-pay-email?checkoutId=`: the
-// panel asks for the email itself. Any other path is a page.
-const PAY_EMAIL = /#velune-pay-email\?checkoutId=(chk_[\w-]{1,80})$/;
-export const payEmailCheckout = (path: string): string | undefined => PAY_EMAIL.exec(path)?.[1];
+// The checkout card's actions in the store's own panel (ADR-020, ADR-021): each `#velune-…` link
+// opens an overlay above the chat, never another page. Any other path is a page.
+export type ChatAction =
+  | { kind: "pay-email" | "save-card" | "create-account"; checkoutId: string }
+  | { kind: "budget"; mode: "connect" | "raise"; checkoutId: string };
+const CHAT_ACTION = /#velune-(pay-email|save-card|create-account)\?checkoutId=(chk_[\w-]{1,80})$/;
+const BUDGET_ACTION = /#velune-budget\?mode=(connect|raise)&checkoutId=(chk_[\w-]{1,80})$/;
+export function chatAction(path: string): ChatAction | undefined {
+  const budget = BUDGET_ACTION.exec(path);
+  if (budget)
+    return { kind: "budget", mode: budget[1] as "connect" | "raise", checkoutId: budget[2] ?? "" };
+  const action = CHAT_ACTION.exec(path);
+  if (!action) return undefined;
+  return {
+    kind: action[1] as "pay-email" | "save-card" | "create-account",
+    checkoutId: action[2] ?? "",
+  };
+}
+export const payEmailCheckout = (path: string): string | undefined => {
+  const action = chatAction(path);
+  return action?.kind === "pay-email" ? action.checkoutId : undefined;
+};
 
 export const sameLines = (a: BagLine[], b: BagLine[]) =>
   a.length === b.length &&
@@ -383,6 +426,8 @@ export type HostDeps = {
   theme(): "light" | "dark";
   resize(height: number): void;
   initialized(): void;
+  // The shopper's state for the checkout card; absent, the widget keeps its links.
+  velune?(): VeluneContext | undefined;
 };
 
 const failure = (id: unknown, code: number, message: string) => ({
@@ -412,7 +457,8 @@ export async function hostReply(message: unknown, deps: HostDeps): Promise<Json 
   if (!isRequest) return undefined;
   const ok = (result: Json) => ({ jsonrpc: "2.0", id, result });
   switch (message.method) {
-    case "ui/initialize":
+    case "ui/initialize": {
+      const velune = deps.velune?.();
       return ok({
         protocolVersion: HOST_PROTOCOL,
         hostInfo: { name: "atelier-velune-ask", version: "1.0.0" },
@@ -423,8 +469,10 @@ export async function hostReply(message: unknown, deps: HostDeps): Promise<Json 
           displayMode: "inline",
           platform: "web",
           veluneHost: true,
+          ...(velune ? { velune } : {}),
         },
       });
+    }
     case "tools/call": {
       const name = params.name;
       if (typeof name !== "string") return failure(id, -32602, "A tool name is needed.");

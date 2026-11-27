@@ -38,6 +38,8 @@ import {
   voicePage,
   joinSiteBag,
   payEmailCheckout,
+  chatAction,
+  veluneOf,
 } from "./askLogic";
 
 const CAROUSEL = "ui://widget/product-carousel-v2.html";
@@ -340,6 +342,79 @@ describe("the MCP Apps host", () => {
       "/x#other?checkoutId=chk_1",
     ])
       expect(payEmailCheckout(path)).toBeUndefined();
+  });
+
+  test("the checkout card's actions open overlays in the chat; anything else is a page", () => {
+    const at = "/checkout/chk_ab-1";
+    expect(chatAction(`${at}#velune-save-card?checkoutId=chk_ab-1`)).toEqual({
+      kind: "save-card",
+      checkoutId: "chk_ab-1",
+    });
+    expect(chatAction(`${at}#velune-create-account?checkoutId=chk_ab-1`)).toEqual({
+      kind: "create-account",
+      checkoutId: "chk_ab-1",
+    });
+    expect(chatAction(`${at}#velune-budget?mode=raise&checkoutId=chk_ab-1`)).toEqual({
+      kind: "budget",
+      mode: "raise",
+      checkoutId: "chk_ab-1",
+    });
+    expect(chatAction(`${at}#velune-budget?mode=connect&checkoutId=chk_ab-1`)).toMatchObject({
+      mode: "connect",
+    });
+    for (const path of [
+      at,
+      `${at}#velune-budget?mode=spend&checkoutId=chk_ab-1`,
+      `${at}#velune-budget?checkoutId=chk_ab-1`,
+      `${at}#velune-save-card?checkoutId=cart_1`,
+      `${at}#velune-save-card?checkoutId=chk_1&next=//x`,
+      `${at}#velune-delete-card?checkoutId=chk_1`,
+    ])
+      expect(chatAction(path)).toBeUndefined();
+  });
+
+  test("the widget hears who is shopping: counts and amounts only, and again on the handshake", async () => {
+    const view = (over: Partial<SessionView>): SessionView => ({
+      available: true,
+      state: "active",
+      signedIn: true,
+      connected: true,
+      cardCount: 2,
+      grant: { id: "grant_1", spendLimit: 15000, spent: 2000, remaining: 13000 },
+      voice: { available: false, unlocked: false },
+      messages: [],
+      ...over,
+    });
+    expect(veluneOf(view({}))).toEqual({
+      signedIn: true,
+      connected: true,
+      cardCount: 2,
+      grantRemaining: 13000,
+      grantLimit: 15000,
+    });
+    expect(veluneOf(view({ connected: false, grant: null }))).toEqual({
+      signedIn: true,
+      connected: false,
+      cardCount: 2,
+    });
+    // A guest never shows saved cards, and an ended conversation holds no connection.
+    expect(veluneOf(view({ signedIn: false, connected: false, grant: null }))).toEqual({
+      signedIn: false,
+      connected: false,
+      cardCount: 0,
+    });
+    expect(veluneOf(view({ state: "ended" }))).toMatchObject({ connected: false });
+    expect(veluneOf(undefined)).toEqual({ signedIn: false, connected: false, cardCount: 0 });
+    expect(JSON.stringify(veluneOf(view({})))).not.toContain("grant_1");
+    const reply = await hostReply(
+      request("ui/initialize", { protocolVersion: "2026-01-26" }),
+      deps({ velune: () => veluneOf(view({})) }),
+    );
+    expect(reply).toMatchObject({
+      result: {
+        hostContext: { veluneHost: true, velune: { cardCount: 2, grantRemaining: 13000 } },
+      },
+    });
   });
 
   test("a tool call goes to the panel's route and its answer comes back", async () => {

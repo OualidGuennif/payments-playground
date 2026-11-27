@@ -6,12 +6,17 @@ import { authenticate } from "../oauth/oauth";
 import { grants } from "../oauth/tokens";
 import { freshStore, ORIGIN, randomIp, signUpCustomer } from "../testing/agent";
 import {
+  connectInline,
+  detachSession,
   disconnect,
+  findActiveHouseGrant,
   forgetHouseConnections,
   HOUSE_CLIENT_NAME,
   houseClientId,
+  houseGrantInfo,
   houseToken,
   pollConnect,
+  resumeHouseConnection,
   startConnect,
 } from "./house";
 
@@ -127,5 +132,62 @@ describe("connecting a session to the shopper's account", () => {
     const after = authenticate(`Bearer ${token}`, "/mcp");
     expect(after === undefined || after === "invalid").toBe(true);
     expect(grants(owner.id).every((g) => g.revoked)).toBe(true);
+  });
+});
+
+// ADR-021: the grant is the account's; a conversation holds only a token minted for it.
+describe("a durable house grant", () => {
+  test("a resumed grant: a normal end keeps it, the next conversation takes it back", async () => {
+    const owner = await shopper();
+    expect(await connectInline("ask_session_a1", owner.id, 15_000)).toBe("connected");
+    const first = houseToken("ask_session_a1");
+    await detachSession("ask_session_a1");
+    expect(houseToken("ask_session_a1")).toBeUndefined();
+    const old = authenticate(`Bearer ${first}`, "/mcp");
+    expect(old === undefined || old === "invalid").toBe(true);
+    const grant = findActiveHouseGrant(owner.id);
+    expect(grant).toMatchObject({ spendLimit: 15_000, revoked: false });
+    // A restart forgets every token; the grant is still there to resume.
+    forgetHouseConnections();
+    expect(resumeHouseConnection("ask_session_a2", owner.id)).toBe(true);
+    expect(houseGrantInfo("ask_session_a2")).toEqual({
+      id: grant?.id ?? "",
+      spendLimit: 15_000,
+      spent: 0,
+      remaining: 15_000,
+    });
+    const auth = authenticate(`Bearer ${houseToken("ask_session_a2")}`, "/mcp");
+    if (!grant || !auth || auth === "invalid") throw new Error("no resumed grant");
+    expect(auth.grant.id).toBe(grant.id);
+    expect(resumeHouseConnection("ask_session_a3", "cus_nobody")).toBe(false);
+  });
+
+  test("one active grant: connect reuses it at its limit, a resume revokes older ones", async () => {
+    const owner = await shopper();
+    const t = Date.now();
+    // Two grants from the device flow, as restarts before ADR-021 left them.
+    for (const id of ["ask_session_b1", "ask_session_b2"]) {
+      const started = await startConnect(id, t);
+      await decide(started.userCode, owner.cookie);
+      expect(await pollConnect(id, owner.id, t + LATER)).toBe("connected");
+    }
+    const house = () => grants(owner.id).filter((g) => g.clientId === houseClientId());
+    expect(house().filter((g) => !g.revoked)).toHaveLength(2);
+    forgetHouseConnections();
+    expect(await connectInline("ask_session_b3", owner.id, 90_000)).toBe("connected");
+    const live = house().filter((g) => !g.revoked);
+    expect(live).toHaveLength(1);
+    expect(live[0]?.spendLimit).not.toBe(90_000);
+    expect(house()).toHaveLength(2);
+  });
+
+  test("a lock revokes the grant the conversation held", async () => {
+    const owner = await shopper();
+    expect(await connectInline("ask_session_c1", owner.id, 5_000)).toBe("connected");
+    forgetHouseConnections();
+    expect(resumeHouseConnection("ask_session_c2", owner.id)).toBe(true);
+    await disconnect("ask_session_c2");
+    expect(findActiveHouseGrant(owner.id)).toBeUndefined();
+    expect(resumeHouseConnection("ask_session_c3", owner.id)).toBe(false);
   });
 });

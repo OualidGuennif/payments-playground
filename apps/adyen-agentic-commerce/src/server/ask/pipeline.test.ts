@@ -233,7 +233,7 @@ describe("the shop context", () => {
   test("names the piece viewed, the account and what the agent may pay", () => {
     const shown = contextOf({
       page: "/products/velune-trench",
-      account: { remaining: 12_345, pay: true, cards: 2 },
+      account: { remaining: 12_345, pay: true, fresh: true, cards: 2 },
     });
     expect(shown).toContain("viewing: Linen-blend trench coat (velune-trench)");
     expect(shown).toContain("signed in: yes");
@@ -251,6 +251,15 @@ describe("the shop context", () => {
     const spent = contextOf({ account: { remaining: 0, pay: true } });
     expect(spent).toContain("autonomous pay: no");
     expect(spent).toContain("budget left: €0.00");
+  });
+
+  test("a grant without a recent proof reads as connected, but the agent may not pay", () => {
+    for (const fresh of [false, undefined]) {
+      const stale = contextOf({ account: { remaining: 12_345, pay: true, fresh, cards: 2 } });
+      expect(stale).toContain("account connected: yes");
+      expect(stale).toContain("autonomous pay: no");
+      expect(stale).toContain("saved cards: 2");
+    }
   });
 
   test("a grant revoked since the session connected reads as not connected", () => {

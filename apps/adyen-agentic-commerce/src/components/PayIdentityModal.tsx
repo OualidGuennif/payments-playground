@@ -3,8 +3,9 @@
 // "Add your email address" (ADR-020): one field, then sign in, a new account with the welcome
 // offer, or Pay as guest. On /checkout it calls the store's own routes; over the Personal Shopper
 // the Ask routes, so the conversation keeps its checkout. The email never reaches the assistant.
-import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
 import { sessionChanged } from "@/components/AccountMenu";
+import { ChatOverlayModal } from "@/components/ChatOverlayModal";
 import { askCall } from "@/components/ask/askClient";
 import { type Answer, codeOf, messageOf } from "@/lib/answer";
 import { api } from "@/lib/client";
@@ -23,8 +24,6 @@ type Outcome = { data: unknown } | { problem: string };
 
 const CLAIM_FAILED = "The store could not take this checkout. Try again.";
 const EMAIL_FAILED = "The store could not take this email. Try again.";
-const FOCUSABLE =
-  "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]):not([hidden])";
 
 // The store's browser routes answer { error: words, code }.
 function wordsOf(error: { value: unknown } | null | undefined, fallback: string): string {
@@ -72,8 +71,6 @@ export function PayIdentityModal({
   onClose: () => void;
   onResolved: (resolved: PayResolved) => void;
 }) {
-  const titleId = useId();
-  const dialog = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -82,58 +79,8 @@ export function PayIdentityModal({
   const [problem, setProblem] = useState<string>();
   const season = seasonFor();
   const saving = welcomeSaving(subtotal);
-
-  // The page behind stays still, focus starts inside and goes back where it was on close.
-  useEffect(() => {
-    const before = document.activeElement as HTMLElement | null;
-    document.documentElement.classList.add("overflow-hidden");
-    return () => {
-      document.documentElement.classList.remove("overflow-hidden");
-      before?.focus?.({ preventScroll: true });
-    };
-  }, []);
-  // Each step starts on its first field, or its first button when it has none.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: each step draws new fields to focus
-  useEffect(() => {
-    const first = dialog.current?.querySelector<HTMLElement>("[data-autofocus]");
-    first?.focus({ preventScroll: true });
-  }, [step]);
-
-  // Keys are read on the document, not on the dialog: a button disabled while busy drops focus to
-  // the page, and Escape and Tab must still close the modal or come back inside it.
-  useEffect(() => {
-    const onKey = (event: globalThis.KeyboardEvent) => {
-      const box = dialog.current;
-      if (!box) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        if (!busy) onClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const items = [...box.querySelectorAll<HTMLElement>(FOCUSABLE)];
-      const first = items[0];
-      const last = items.at(-1);
-      const at = document.activeElement;
-      const inside = at instanceof Node && box.contains(at);
-      if (!first || !last) {
-        event.preventDefault();
-        return;
-      }
-      if (!inside || (event.shiftKey && at === first) || (!event.shiftKey && at === last)) {
-        event.preventDefault();
-        (event.shiftKey ? last : first).focus();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [busy, onClose]);
-  // After a refusal (a wrong password, a cancelled passkey) focus goes back to the step's field.
-  useEffect(() => {
-    const box = dialog.current;
-    if (busy || !box || box.contains(document.activeElement)) return;
-    box.querySelector<HTMLElement>("[data-autofocus]")?.focus({ preventScroll: true });
-  }, [busy]);
+  // Over the Personal Shopper the buttons say the shopper stays in the chat (ADR-021).
+  const inChat = source === "ask";
 
   const go = (next: Step) => {
     setProblem(undefined);
@@ -294,7 +241,11 @@ export function PayIdentityModal({
             />
           </label>
           <button type="submit" className="btn w-full" disabled={busy || !password}>
-            {busy ? "Signing in…" : "Sign in & continue to payment"}
+            {busy
+              ? "Signing in…"
+              : inChat
+                ? "Sign in & return to chat"
+                : "Sign in & continue to payment"}
           </button>
         </form>
         <button
@@ -377,7 +328,11 @@ export function PayIdentityModal({
             <span className="block text-xs text-muted">12 to 128 characters.</span>
           </label>
           <button type="submit" className="btn w-full" disabled={busy || password.length < 12}>
-            {busy ? "Creating your account…" : "Create account & continue"}
+            {busy
+              ? "Creating your account…"
+              : inChat
+                ? "Create account & apply 5% off"
+                : "Create account & continue"}
           </button>
         </form>
         <p className="text-center text-xs text-muted">or</p>
@@ -408,43 +363,14 @@ export function PayIdentityModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-6">
-      <button
-        type="button"
-        tabIndex={-1}
-        aria-label="Close"
-        className="absolute inset-0 cursor-default bg-scrim/40"
-        onClick={() => !busy && onClose()}
-      />
-      <div
-        ref={dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="relative max-h-[92dvh] w-full space-y-4 overflow-y-auto rounded-t-3xl border border-line bg-paper p-5 pb-8 text-ink shadow-xl sm:max-w-md sm:rounded-3xl sm:p-7"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <h2 id={titleId} className="text-2xl">
-            {title}
-          </h2>
-          <button
-            type="button"
-            aria-label="Close"
-            className="btn-ghost size-10 min-h-10 shrink-0 p-0"
-            disabled={busy}
-            onClick={onClose}
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-        {body}
-        {problem ? (
-          <p role="alert" className="text-sm text-bad">
-            {problem}
-          </p>
-        ) : null}
-        <p className="text-xs text-muted">Adyen TEST: no real money moves.</p>
-      </div>
-    </div>
+    <ChatOverlayModal title={title} onClose={onClose} busy={busy} focusKey={step}>
+      {body}
+      {problem ? (
+        <p role="alert" className="text-sm text-bad">
+          {problem}
+        </p>
+      ) : null}
+      <p className="text-xs text-muted">Adyen TEST: no real money moves.</p>
+    </ChatOverlayModal>
   );
 }

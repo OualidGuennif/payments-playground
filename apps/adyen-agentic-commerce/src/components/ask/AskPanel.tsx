@@ -1,6 +1,6 @@
 "use client";
 // Spec: knowledge/components/ask-agent.md
-// The Personal Shopper: a 440 px rail from 1024 px (the page makes room), a sheet of 55 or 92 % of
+// The Personal Shopper: a 440 px rail from 1024 px (the page makes room), a sheet of 88 or 96 % of
 // the screen below, full screen on demand, or minimised to a bar while the answer, the voice call
 // and the widget keep running. Cmd or Ctrl+K opens it on the composer. It shows what the server answers and nothing more: no score, verdict,
 // model or cost ever reaches it.
@@ -15,7 +15,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { AskConnect } from "./AskConnect";
 import { Icon } from "./AskIcon";
 import { AskDelivery } from "./AskDelivery";
 import { AskText } from "./AskText";
@@ -24,6 +23,7 @@ import { SESSION_EVENT } from "@/components/AccountMenu";
 import { PayIdentityModal, type PayResolved } from "@/components/PayIdentityModal";
 import { closeHeaderMenus } from "@/components/useHeaderMenu";
 import { followBag, readCart, useCart } from "@/lib/client";
+import { money } from "@/lib/money";
 import { openablePage } from "@/lib/storePages";
 import {
   ASK_ABOUT_EVENT,
@@ -46,16 +46,18 @@ import {
   pageHelp,
   preview,
   BAG_URI,
+  chatAction,
   deliveryCheckout,
-  payEmailCheckout,
   type SessionView,
   shortcutNext,
   shownMessages,
   siteBagOf,
   stageLabel,
+  veluneOf,
   voicePage,
   widgetLine,
 } from "./askLogic";
+import { ChatBudgetModal, ChatCardSaveModal, ChatStepUpModal } from "./ChatOverlays";
 import { WidgetFrame } from "./WidgetFrame";
 
 // Pages where the assistant has no place: the owner's tools and the consent screens.
@@ -63,6 +65,13 @@ const HIDDEN = ["/console", "/back-office", "/consent", "/device", "/oauth"];
 const hiddenOn = (path: string) => HIDDEN.some((p) => path === p || path.startsWith(`${p}/`));
 const MAX_CHARS = 1000;
 const DOCKS = "(min-width: 1024px)";
+
+// What opens above the chat (ADR-021): the checkout never takes the shopper to another page.
+type Overlay =
+  | { kind: "email"; checkoutId: string }
+  | { kind: "card"; checkoutId: string }
+  | { kind: "budget"; checkoutId: string; mode: "connect" | "raise" }
+  | { kind: "step-up" };
 
 const SPARK =
   "M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z";
@@ -286,10 +295,11 @@ export function AskPanel() {
     [showPage],
   );
 
-  // The widget's Pay when the checkout lacks an email (ADR-020): a signed-in shopper's checkout
-  // becomes the account's at once; a guest gets the Pay email modal over the panel. Either way the
-  // widget re-reads the checkout and the checkout page opens.
-  const [payFor, setPayFor] = useState<string>();
+  // The checkout card's actions (ADR-020, ADR-021) open overlays above the chat; afterwards the
+  // panel reads the session and the checkout again where it is. A signed-in shopper's checkout
+  // without an email becomes the account's at once.
+  const [overlay, setOverlay] = useState<Overlay>();
+  const stepUpDone = useRef<(confirmed: boolean) => void>(undefined);
   const fedBag = useCallback(
     (result: unknown) => {
       const r = result as { structuredContent?: unknown } | null | undefined;
@@ -299,25 +309,61 @@ export function AskPanel() {
     },
     [onResult],
   );
+  const refreshCheckout = useCallback(
+    async (checkoutId: string) => {
+      await load(false);
+      const fresh = await askCall<{ result: unknown }>("/widget", {
+        name: "get_checkout",
+        arguments: { id: checkoutId },
+      });
+      fedBag(fresh.data?.result);
+    },
+    [load, fedBag],
+  );
   const fromWidget = useCallback(
     async (path: string) => {
-      const checkoutId = payEmailCheckout(path);
-      if (!checkoutId) return showPage(path);
-      if (!viewNow.current?.signedIn) return setPayFor(checkoutId);
+      const action = chatAction(path);
+      if (!action) return showPage(path);
+      const { checkoutId } = action;
+      if (!viewNow.current?.signedIn) return setOverlay({ kind: "email", checkoutId });
+      if (action.kind === "save-card") return setOverlay({ kind: "card", checkoutId });
+      if (action.kind === "budget")
+        return setOverlay({ kind: "budget", checkoutId, mode: action.mode });
       const answer = await askCall<{ result: unknown }>("/checkout-claim", {
         checkoutId,
         applyWelcomeOffer: true,
       });
-      if (fedBag(answer.data?.result)) showPage(`/checkout/${checkoutId}`);
+      if (fedBag(answer.data?.result)) void load(false);
       else setNotice(answer.message ?? "The store could not take this checkout. Try again.");
     },
-    [showPage, fedBag],
+    [showPage, fedBag, load],
   );
-  const paid = (checkoutId: string, { data }: PayResolved) => {
-    setPayFor(undefined);
+  const emailed = ({ data }: PayResolved) => {
+    setOverlay(undefined);
     fedBag((data as { result?: unknown } | undefined)?.result);
     void load(false);
-    showPage(`/checkout/${checkoutId}`);
+  };
+  const afterOverlay = (checkoutId: string) => {
+    setOverlay(undefined);
+    void refreshCheckout(checkoutId);
+  };
+  // A chat payment without a recent proof (401 step_up_required): the confirmation opens, and the
+  // widget sends the same payment again once it is given.
+  const askStepUp = useCallback(
+    () =>
+      new Promise<boolean>((resolve) => {
+        stepUpDone.current?.(false);
+        stepUpDone.current = resolve;
+        setOverlay({ kind: "step-up" });
+      }),
+    [],
+  );
+  const stepUpEnded = (confirmed: boolean) => {
+    const done = stepUpDone.current;
+    stepUpDone.current = undefined;
+    setOverlay(undefined);
+    done?.(confirmed);
+    if (confirmed) void load(false);
   };
 
   const startNew = useCallback(async (): Promise<string | undefined> => {
@@ -462,6 +508,8 @@ export function AskPanel() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: the key names the bag's content.
   useEffect(() => {
     if (!followed) return;
+    // A bag paid in the chat spent from the budget: the header's "€X left" reads it again.
+    if (followed.paid) void load(false);
     const KEY = "velune-bag-followed";
     try {
       if (sessionStorage.getItem(KEY) === followed.key) return;
@@ -484,8 +532,12 @@ export function AskPanel() {
     view?.state === "active" && view.endsAt
       ? `Open until ${new Date(view.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
       : "Answers can be wrong; check before you pay.";
-  const canConnect =
-    view?.state === "active" && view.signedIn && !view.connected && view.mode === "normal";
+  // The header's short form, beside the connection's budget on a phone.
+  const closes =
+    view?.state === "active" && view.endsAt
+      ? `Until ${new Date(view.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+      : until;
+  const velune = veluneOf(view);
   const inner = wide ? "mx-auto w-full max-w-3xl" : "";
   const help = pageHelp(pathname);
   const chips = !unavailable && !locked && !ended && !calling && (
@@ -522,12 +574,12 @@ export function AskPanel() {
         tabIndex={-1}
         aria-labelledby="ask-title"
         onKeyDown={(event) => event.key === "Escape" && open && minimise()}
-        className={`fixed ${minimised ? "z-30" : "z-50"} flex flex-col bg-paper shadow-2xl outline-none ${
+        className={`velune-glass fixed ${minimised ? "z-30" : "z-50"} flex flex-col shadow-2xl outline-none ${
           wide
-            ? "inset-x-0 bottom-0 h-[92dvh] rounded-t-3xl border-t border-line lg:inset-0 lg:h-auto lg:rounded-none lg:border-0"
+            ? "inset-x-0 bottom-0 h-[96dvh] rounded-t-3xl border-t border-line lg:inset-0 lg:h-auto lg:rounded-none lg:border-0"
             : minimised
               ? "inset-x-3 bottom-3 max-h-[60dvh] rounded-3xl border border-line lg:inset-x-auto lg:right-4 lg:bottom-4 lg:w-[380px]"
-              : "inset-x-0 bottom-0 h-[55dvh] rounded-t-3xl border-t border-line lg:inset-x-auto lg:top-0 lg:right-0 lg:h-dvh lg:w-[440px] lg:rounded-none lg:border-t-0 lg:border-l"
+              : "inset-x-0 bottom-0 h-[88dvh] rounded-t-3xl border-t border-line lg:inset-x-auto lg:top-0 lg:right-0 lg:h-dvh lg:w-[440px] lg:rounded-none lg:border-t-0 lg:border-l"
         }`}
       >
         <header className={`border-b border-line px-4 ${minimised ? "py-2" : "py-3"}`}>
@@ -548,10 +600,18 @@ export function AskPanel() {
                   {status ?? preview(visible) ?? until}
                 </p>
               ) : (
-                <p className="truncate text-xs text-muted">
-                  {view?.connected ? "Connected to your account · " : ""}
-                  {help.context}
-                </p>
+                <>
+                  <p className="truncate text-xs text-muted">{help.context}</p>
+                  <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted">
+                    <span className="truncate">{closes}</span>
+                    {velune.grantRemaining !== undefined && (
+                      <span className="velune-glass-pill pill shrink-0 border-line text-ok tabular-nums">
+                        <span className="sr-only sm:not-sr-only">Connected ·&nbsp;</span>
+                        {money(velune.grantRemaining)} left
+                      </span>
+                    )}
+                  </p>
+                </>
               )}
             </div>
             {minimised && (
@@ -656,6 +716,8 @@ export function AskPanel() {
                           feed={one.feed}
                           onResult={onResult}
                           onOpen={(path) => void fromWidget(path)}
+                          velune={velune}
+                          onStepUp={askStepUp}
                         />
                         {delivery && (
                           <AskDelivery
@@ -709,16 +771,6 @@ export function AskPanel() {
                 {notice}
               </p>
             )}
-            {canConnect && (
-              <div className={minimised ? "hidden" : undefined}>
-                <AskConnect onConnected={() => void load(false)} />
-              </div>
-            )}
-            {!minimised && visible.length > 0 && !status && (
-              <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none]">
-                <div className="w-max">{chips}</div>
-              </div>
-            )}
             <VoicePanel voice={voice} />
             <form onSubmit={submit} className="flex items-end gap-2">
               <label className="sr-only" htmlFor="ask-input">
@@ -746,7 +798,6 @@ export function AskPanel() {
                 <Icon d={SEND} label="Send" />
               </button>
             </form>
-            {!minimised && <p className="text-center text-[11px] text-muted">{until}</p>}
             {draft.length > MAX_CHARS - 200 && (
               <p className="text-right text-xs text-muted tabular-nums">
                 {draft.length} / {MAX_CHARS}
@@ -755,16 +806,33 @@ export function AskPanel() {
           </div>
         </footer>
       </aside>
-      {payFor ? (
+      {overlay?.kind === "email" && (
         <PayIdentityModal
-          checkoutId={payFor}
+          checkoutId={overlay.checkoutId}
           source="ask"
-          subtotal={delivery?.id === payFor ? (delivery.subtotal ?? 0) : 0}
-          total={delivery?.id === payFor ? (delivery.total ?? 0) : 0}
-          onClose={() => setPayFor(undefined)}
-          onResolved={(resolved) => paid(payFor, resolved)}
+          subtotal={delivery?.id === overlay.checkoutId ? (delivery.subtotal ?? 0) : 0}
+          total={delivery?.id === overlay.checkoutId ? (delivery.total ?? 0) : 0}
+          onClose={() => setOverlay(undefined)}
+          onResolved={emailed}
         />
-      ) : null}
+      )}
+      {overlay?.kind === "card" && (
+        <ChatCardSaveModal
+          onClose={() => afterOverlay(overlay.checkoutId)}
+          onSaved={() => afterOverlay(overlay.checkoutId)}
+        />
+      )}
+      {overlay?.kind === "budget" && (
+        <ChatBudgetModal
+          mode={overlay.mode}
+          grantId={view?.grant?.id}
+          onClose={() => setOverlay(undefined)}
+          onDone={() => afterOverlay(overlay.checkoutId)}
+        />
+      )}
+      {overlay?.kind === "step-up" && (
+        <ChatStepUpModal webauthn={Boolean(view?.webauthn)} onDone={stepUpEnded} />
+      )}
     </>
   );
 }

@@ -22,6 +22,10 @@ import {
   shopperNote,
   type UcpProduct,
   variantFor,
+  chatLink,
+  payStep,
+  type Velune,
+  veluneContext,
 } from "./logic";
 
 const KEY = "11111111-1111-4111-8111-111111111111";
@@ -347,5 +351,83 @@ describe("Show details", () => {
 
   test("without a store origin it names no page", () => {
     expect(productPage("", "trench")).toBeUndefined();
+  });
+});
+
+describe("the checkout card in the store's own panel (ADR-021)", () => {
+  const bag = (over: Partial<BagView> = {}): BagView => ({
+    kind: "checkout",
+    id: "chk_1",
+    status: "ready_for_complete",
+    currency: "EUR",
+    lines: [],
+    total: 12000,
+    instruments: [],
+    problems: [],
+    codes: [],
+    ...over,
+  });
+  const card = { id: "saved_card:1", label: "Visa •••• 1111" } as BagView["instruments"][number];
+  const signedIn: Velune = { signedIn: true, connected: true, cardCount: 1, grantRemaining: 15000 };
+
+  test("one action leads, in the owner's order A to F", () => {
+    const guest: Velune = { signedIn: false, connected: false, cardCount: 0 };
+    // A: a guest with no email pays, and the panel asks for the email.
+    expect(payStep(bag({ status: "incomplete", codes: ["missing_buyer_email"] }), guest)).toBe(
+      "email",
+    );
+    // B: connected, a card, within the budget.
+    expect(payStep(bag({ instruments: [card] }), signedIn)).toBe("pay");
+    // C: over the budget, from the store's code or the panel's own count.
+    expect(payStep(bag({ instruments: [card], total: 20000 }), signedIn)).toBe("raise");
+    expect(payStep(bag({ status: "incomplete", codes: ["spend_limit_exceeded"] }), signedIn)).toBe(
+      "raise",
+    );
+    // D: a card but no connection.
+    expect(payStep(bag(), { ...signedIn, connected: false, grantRemaining: undefined })).toBe(
+      "connect",
+    );
+    // E: signed in with no card.
+    expect(payStep(bag(), { ...signedIn, cardCount: 0 })).toBe("save-card");
+    // F: a guest with an email.
+    expect(payStep(bag(), guest)).toBe("create-account");
+    // Saved cards the checkout has not listed yet are read again, never called missing.
+    expect(payStep(bag(), signedIn)).toBe("refresh");
+    expect(payStep(bag({ status: "incomplete" }), signedIn)).toBe("fix");
+    // Something else to fix comes before the panel's own count of the budget.
+    const over = { instruments: [card], total: 20000 };
+    expect(payStep(bag({ ...over, status: "incomplete", codes: ["out_of_stock"] }), signedIn)).toBe(
+      "fix",
+    );
+    expect(
+      payStep(bag({ ...over, status: "requires_escalation", codes: ["shopper_pays"] }), signedIn),
+    ).toBe("fix");
+  });
+
+  test("each action is an overlay link on the store, never a payment", () => {
+    const store = "https://shop.test";
+    expect(chatLink(store, "raise", "chk_1")).toBe(
+      "https://shop.test/checkout/chk_1#velune-budget?mode=raise&checkoutId=chk_1",
+    );
+    expect(chatLink(store, "save-card", "chk_1")).toBe(
+      "https://shop.test/checkout/chk_1#velune-save-card?checkoutId=chk_1",
+    );
+    expect(chatLink(store, "create-account", "chk_1")).toContain("#velune-create-account?");
+    expect(chatLink(store, "email", "chk_1")).toContain("#velune-pay-email?checkoutId=chk_1");
+    for (const step of ["pay", "refresh", "fix"] as const)
+      expect(chatLink(store, step, "chk_1")).toBeUndefined();
+  });
+
+  test("the panel's context is read strictly: counts and amounts, nothing else", () => {
+    expect(veluneContext({ signedIn: true, connected: false, cardCount: 2, email: "x" })).toEqual({
+      signedIn: true,
+      connected: false,
+      cardCount: 2,
+    });
+    expect(veluneContext({ signedIn: "yes", connected: false })).toBeUndefined();
+    expect(veluneContext(undefined)).toBeUndefined();
+    expect(veluneContext({ signedIn: true, connected: true, cardCount: -3 })).toMatchObject({
+      cardCount: 0,
+    });
   });
 });

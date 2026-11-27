@@ -5,7 +5,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { backOfficeView, handle } from "../api";
 import { SESSIONS_PER_MINUTE } from "./account-api";
 import { type Checkout, sessionIdForReference } from "../commerce/commerce";
-import { type Customer, customerFromCookies } from "./customers";
+import {
+  CHAT_PAY_FRESH_SECONDS,
+  type Customer,
+  customerFromCookies,
+  isSessionFresh,
+  touchSessionConfirmation,
+} from "./customers";
 import { database, get, list, put } from "../core/db";
 import { grants } from "../oauth/oauth";
 import { SoftAuthenticator } from "../testing/authenticator";
@@ -240,6 +246,27 @@ describe("accounts", () => {
       expiresAt: 1,
     });
     expect(customerFromCookies(again)).toBeUndefined();
+  });
+
+  // ADR-021: a chat payment needs a sign-in or a step-up under an hour old; anything older, or a
+  // session stored before the timestamps existed, is not fresh.
+  test("session freshness: an hour after the last proof, legacy sessions never", async () => {
+    const { cookie } = await signUpCustomer();
+    const id = sha256(cookie.split("=")[1]!);
+    const now = Math.floor(Date.now() / 1000);
+    expect(isSessionFresh(cookie, now)).toBe(true);
+    expect(isSessionFresh(cookie, now + CHAT_PAY_FRESH_SECONDS + 1)).toBe(false);
+    touchSessionConfirmation(cookie, now + 2 * CHAT_PAY_FRESH_SECONDS);
+    expect(isSessionFresh(cookie, now + 2 * CHAT_PAY_FRESH_SECONDS + 60)).toBe(true);
+    const {
+      createdAt: _c,
+      confirmedAt: _d,
+      ...legacy
+    } = get<Record<string, unknown>>("customer_sessions", id)!;
+    put("customer_sessions", id, legacy);
+    expect(customerFromCookies(cookie)).toBeDefined();
+    expect(isSessionFresh(cookie, now)).toBe(false);
+    expect(isSessionFresh(null, now)).toBe(false);
   });
 
   test("every account route needs the session; a bearer token is not one", async () => {

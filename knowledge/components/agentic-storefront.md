@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T11:11:00Z
+  at: 2026-11-27T14:57:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -157,11 +157,14 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
 - **Checkout:** the title, then two columns from 1024 px: the steps Contact, Delivery and Payment,
   and a sticky order summary (above the steps on a phone). A signed-in shopper's receipt goes to
   their account email, labelled "Your account", and they are never asked for one; an account with
-  no order yet may apply the welcome offer in one tap. A guest reads "Guest or account: we ask for
-  your email when you pay" (with "Add email now") and a "Pay €X" button; Pay with no email opens
-  the Pay email modal, and once it resolves Drop-in opens and scrolls into view. The summary shows
+  no order yet may apply the welcome offer in one tap. A guest reads "Add your email to continue:
+  sign in, create an account or continue as a guest" with "Add your email", which opens the Pay
+  email modal; Delivery and Payment stay locked ("Add your email in step 1 first.") until the
+  checkout has an email (owner, 2026-11-27), then Drop-in opens and scrolls into view. Once Adyen
+  answers with an order, the page replaces itself with `/orders/:id` at the top, so Safari never
+  keeps the payment form's scroll on a shorter page (owner, 2026-11-27). The summary shows
   a welcome offer as a green "Welcome offer (-5%)" row and the free tote line with its picture.
-  Above Drop-in (and above Pay before it opens), a folded "Test cards" lists four Adyen TEST cards
+  Above Drop-in, a folded "Test cards" lists four Adyen TEST cards
   (`src/lib/testCards.ts`, the values of `packages/ui/testData.ts`) that copy without spaces, and
   the 3-D Secure challenge's TEST password, `password` (owner, 2026-11-27).
 - **Drop-in** (`DropinPanel`; owner decision 2026-11-27): an order's session lists the store's
@@ -197,8 +200,13 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   account & get 5% off" (name optional, a password of 12 to 128 characters, the saving, the
   seasonal tote's picture and the new total shown) or "Pay as guest" (the standard total, no
   account). A guest email goes through `POST /api/checkouts/:id/email`, set once. When the check
-  answers 429, the modal offers Pay as guest and Sign in. A centred card from 640 px, a bottom
-  sheet below; Escape and the backdrop close it, focus stays inside, 16 px fields on touch screens.
+  answers 429, the modal offers Pay as guest and Sign in. A centred card from 640 px; below, a
+  card held to the top of the visual viewport (`ChatOverlayModal`, which follows
+  `window.visualViewport`), so the iOS keyboard and its toolbar never cover the field or the
+  button (owner's iPhone screenshots, 2026-11-27, ADR-021); fields take focus by themselves only
+  with a fine pointer. Escape and the backdrop close it, focus stays inside, 16 px fields on touch
+  screens. Over the Personal Shopper its buttons say the shopper stays in the chat ("Sign in &
+  return to chat", "Create account & apply 5% off").
   Its backdrop, the filters sheet's and the Personal Shopper sheet's darken the page in both themes
   (`--color-scrim`: the ink in light, black in dark, where the ink turns light).
 - **Email check** `POST /api/session/check-email` `{ email }`: another site (the proxy, then
@@ -234,14 +242,22 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   particles, 10 under 640 px, CSS keyframes only, opacity 0.12 to 0.24, no pointer events, light
   and dark) draws it. Reduced motion hides it.
 - **Layers:** the ambience `z-10`, the minimised Personal Shopper `z-30`, the header and its menus
-  `z-40`, the open Personal Shopper `z-50`, the Pay email modal `z-[60]`. Opening the Personal
+  `z-40`, the open Personal Shopper `z-50`, the Pay email modal and the chat's overlays (card
+  save, budget, chat-pay confirmation) `z-[60]`. Opening the Personal
   Shopper closes the header's menus (`velune:close-menus`); opening the Menu or the account menu on
   a phone minimises an open Personal Shopper.
 - **Personal Shopper:** the Ask panel under its new name: a 440 px rail from 1024 px, a sheet of
-  55 or 92 % of the screen below, Cmd/Ctrl+K, a header line and three questions per kind of page,
-  the bag's count, and the widget with its delivery block as one card; Pay with no email opens the
-  Pay email modal over it; it reads the site session as soon as it changes and steps aside on a
-  phone when a product or checkout page opens ([Ask spec](ask-agent.md), Panel).
+  88 or 96 % of the dynamic viewport below with only the composer in its footer, Cmd/Ctrl+K, a
+  header line and three questions per kind of page (before the first message), the bag's count,
+  and the widget with its delivery block as one card; Pay opens its overlays above it and never
+  leaves the chat unless the shopper taps "Continue on website checkout"; it reads the site
+  session as soon as it changes and steps aside on a phone when a product or checkout page opens
+  ([Ask spec](ask-agent.md), Panel; ADR-021).
+- **Glass** (`.velune-glass`, `.velune-glass-pill`, ADR-021): the sticky header, the Personal
+  Shopper's rail, sheet and minimised bar, the overlays and the header menus (Menu, Developers,
+  account) are translucent and
+  blurred in both themes, opaque under `prefers-reduced-transparency: reduce`; Drop-in keeps an
+  opaque card and text keeps AA contrast.
 
 ## Invariants
 
@@ -286,6 +302,9 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
     one line item at the order's amount, a card save's the card brands alone, and none lists `scheme`. Only an account's session can keep a card, an order's only once
     the shopper ticks the box; a guest's names no shopper reference and no store mode. Test:
     `src/server/payments/adyen.test.ts`.
+14. A guest's checkout with no email shows Delivery and Payment locked, with no payment form and
+    no Pay button, until step 1 has an email. Test: `src/components/CheckoutPay.test.tsx` "a guest
+    with no email sees step 1's button and steps 2 and 3 locked".
 
 ## Determinism
 

@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T09:35:00Z
+  at: 2026-11-27T18:30:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -80,7 +80,15 @@ voice mode (GPT-Live) talks to the same agent through the same gate.
   `{ spendLimit }` (EUR minor units, an integer from 100 to 100,000; else `invalid_budget` 400),
   same checks as connect: the house client's device request is approved at once for the session's
   signed-in shopper with that budget (`decide`, traced as a consent on this path) and redeemed, so
-  the grant is a real one the account page lists and revokes; answered `{ state }`.
+  the grant is a real one the account page lists and revokes; answered `{ state }`. An account
+  that already has an active house grant keeps it: connect reuses it at its own limit and creates
+  no second one ([ADR-021](../decisions/ADR-021-durable-ask-grant-step-up-and-in-chat-checkout.md)).
+- **Chat-pay confirmation** `POST /api/ask/confirm-pay` `{ confirm: { password } | { challengeId,
+  response } }` (same checks as connect: signed in, else 401 `not_signed_in`; a live conversation,
+  else 409; normal mode, else 403 `strict_mode`): the account's own step-up (`confirmIdentity`,
+  its failure limits, the passkey's user verification); on success the customer session's
+  `confirmedAt` is now, traced without the proof, answered `{ confirmed: true, stepUpRequired:
+  false }`; a wrong proof keeps the account's refusal (401 `invalid_login` or `invalid_passkey`).
 - **Widget action** `POST /api/ask/widget` `{ name, arguments }` from a widget in the panel: a
   shopper's tap, forwarded to `/mcp` as the session's identity, allowlist below. A widget's
   `ui/message` is refused: a widget never writes to the agent.
@@ -93,7 +101,9 @@ voice mode (GPT-Live) talks to the same agent through the same gate.
   in, else 401 `not_signed_in`; a checkout this conversation showed, else 404 `checkout_unknown`):
   the store's claim ([storefront spec](agentic-storefront.md), Welcome offer), for the Pay email
   modal and a shopper who signed in after the bag was made; answered like the receipt email, but
-  the claimed checkout's buyer (the account's) no longer reaches the agent, masked or not.
+  the claimed checkout's buyer (the account's) no longer reaches the agent, masked or not. The
+  claim first resumes the account's grant (normal mode), so its answer already lists the saved
+  cards and the budget, and it carries the session view (`session`) beside `result`.
 - **Widget frame** `GET /api/ask/widget-frame?uri=` (the carousel or the bag): the widget's HTML
   as JSON, never `text/html`, with a Content-Security-Policy meta (no connection, images from
   `PUBLIC_ORIGIN` only); anything else is `invalid_request`.
@@ -132,8 +142,14 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   one `error` `{ error }`; `page` is a store path the panel opens after the answer (invariant 21). A refused message is a normal `final` answer with a fixed polite text,
   never the model's. Verdicts and score changes go to the transcript the console reads.
 - **Session view:** `{ available, state: active | ended | locked | none, reason, endsAt, mode:
-  normal | strict, signedIn, accountEmail?, connected, voice: { available, unlocked }, messages:
-  [{ role, text, widgets, page?, at }] }`; an ended session shows no messages; `page` is the store
+  normal | strict, signedIn, accountEmail?, connected, cardCount, grant: { id, spendLimit, spent,
+  remaining } | null, stepUpRequired, webauthn, voice: { available, unlocked }, messages:
+  [{ role, text, widgets, page?, at }] }`; `cardCount` counts the account's saved cards (0 signed
+  out), `grant` is the live house grant (connected only), whose id the budget overlay raises
+  through `/api/account/grants/:id`, `stepUpRequired` says a chat
+  payment would ask for the password or a passkey first, `webauthn` that the account has a
+  passkey to answer with; counts, amounts and booleans only, never
+  a card's digits or alias. An ended session shows no messages; `page` is the store
   path a voiced answer asked to open (stage 5 let it through), so the call can open it; a typed
   answer's page opened from its own stream and is not repeated here. `accountEmail` is the
   signed-in account's email masked (first letter and domain, `b•••@example.com`), for the receipt
@@ -143,11 +159,14 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   under 640 px) or Cmd/Ctrl+K opens it on the composer (the shortcut minimises it from the
   composer; `askLogic.test.ts` "Cmd or Ctrl+K"). From 1024 px it is a 440 px rail and the page makes
   room for it (the header then hands its departments and Developers links to the Menu below a
-  1720 px screen); below, a sheet of 55 % of the screen over a dimmed page, 92 % with "Make it
-  bigger", which is full screen from 1024 px. Below 1024 px a product or checkout page the shopper
-  opens minimises it (`askLogic.test.ts` "below 1024 px a product or checkout page"). Its header
-  names the page's help ("Here to help with this piece" and so on), three questions fit the page
-  as chips (empty conversation, and above the composer after), a bar shows the site bag's count
+  1720 px screen); below, a sheet of 88 % of the dynamic viewport over a dimmed page, 96 % with
+  "Make it bigger", which is full screen from 1024 px (ADR-021). Below 1024 px a product or
+  checkout page the shopper opens minimises it (`askLogic.test.ts` "below 1024 px a product or
+  checkout page"). Its header names the page's help ("Here to help with this piece" and so on) and,
+  in its subtitle, the closing time ("Until 16:20") and, when connected, "Connected · €X left" (the
+  budget alone on a phone, re-read after a payment in the chat); three questions
+  fit the page as chips on the empty conversation only; the footer holds the composer alone (the
+  budget card lives in the checkout card's overlays); a bar shows the site bag's count
   with "View bag", and the widget, the delivery block and the receipt block read as one card.
   Escape minimises it; it reopens, open or minimised, after a reload in the same tab. It is absent on `/console`, `/back-office`, `/consent`,
   `/device` and `/oauth`. Answers are light Markdown parsed to data and drawn by React (no HTML;
@@ -157,7 +176,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   with the page's theme, `tools/call` sent to `POST /api/ask/widget`, `ui/message` refused,
   `ui/open-link` for the store's pages only (opened as the panel opens a page, below), size
   changes clamped to 120 to 900 px; the theme follows the page's `data-theme` and the system's
-  at once. The carousel is compact (about two cards across the panel, each as tall as its
+  at once. The carousel is compact and aligned (about two cards across the panel, one height per row,
+  4:3 pictures, two-line titles, actions at the bottom, as tall as the tallest
   content) and each card has Add to bag and "View product details", which opens the product's
   page (below 1024 px the panel minimises first, and the page opens without a reload); in ChatGPT
   it opens as a link. Chromium refuses an opaque-origin frame's requests to a loopback address, so the host
@@ -173,9 +193,27 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   in any other host Pay opens `continue_url` as before. On that link a signed-in shopper's checkout
   is claimed at once (`/checkout-claim`, no question); a guest gets the store's Pay email modal
   over the panel ([storefront spec](agentic-storefront.md)), which ends on `/checkout-claim` or
-  `/checkout-email`. The panel then re-reads the checkout (`get_checkout`), so the widget shows a
-  welcome offer's discount and tote, and opens `/checkout/<id>` (minimised below 1024 px). When
-  the store refuses an email because one is set, the panel re-reads the checkout too. While the
+  `/checkout-email`. The panel then reads the session and the checkout (`get_checkout`) again and
+  stays where it is (ADR-021): the widget shows a welcome offer's discount and tote, the account's
+  saved cards and the budget. When the store refuses an email because one is set, the panel
+  re-reads the checkout too. **The checkout card's actions** (ADR-021, decision 5): the host
+  tells the widget `velune: { signedIn, connected, cardCount, grantRemaining?, grantLimit? }`
+  in its context and again on every change; with it the widget leads with one primary action,
+  in this order: a guest with no email, Pay (the Pay email modal); connected with a card and the
+  budget, Pay in chat (`complete_checkout` with the chosen card); over the budget, Raise budget &
+  pay in chat (`#velune-budget?mode=raise`); not connected with a card, Allow & pay in chat
+  (`#velune-budget?mode=connect`); no card, Save a card & pay in chat (`#velune-save-card`); a
+  guest with an email, Save a card & pay in chat through a new account
+  (`#velune-create-account`). Each `#velune-…?checkoutId=` link opens its overlay above the chat:
+  a card save in Drop-in (`/api/account/card-session`, `/api/account/card-result`), a budget to
+  allow (`/api/ask/connect/inline`) or to raise (`/api/account/grants/:id` with the step-up), the
+  Pay email modal, whose new email leads to a new account with the welcome offer. "Continue on website checkout" comes last, quieter,
+  and opens `/checkout/<id>` like any store page; it is the only way the panel leaves the chat
+  for the checkout. "No card is saved" shows only when the store, read with the account's token,
+  lists none. A paying tap answered 401 `step_up_required` opens the chat-pay confirmation over
+  the panel and, once confirmed, sends the same call again; a cancel answers the widget with an
+  error, so it never stays busy. Without `velune` (ChatGPT, any MCP host) the widget keeps its
+  links (`continue_url`, `manage_url`). While the
   newest bag's checkout can still change (incomplete,
   needing review or ready), a delivery block under the widget shows one line (method, price,
   place) with Edit, which unfolds Standard, Express or a pickup point with the store's preset
@@ -192,7 +230,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   account's or no account's). It also hears `viewing:` (a product page's title, id and subtitle),
   `signed in`, `account connected` (a live grant read at that message, like the console's
   `connected`), `autonomous pay` (yes only with a live grant that may pay, budget
-  left and normal mode), `budget left` and `saved cards` (counted, for a connected session only);
+  left, normal mode and a recent proof, invariant 22), `budget left` and `saved cards` (counted,
+  for a connected session only);
   the prompt (agent `ask-5`, "Personal Shopper") never asks a signed-in shopper to sign in or for an
   email (`ask/pipeline.test.ts` "the shop context").
   When voice is offered, a round icon of five bars beside Send shows from the panel's first
@@ -228,7 +267,8 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
   `signed_out`, `other_customer`, `ended_by_shopper`, `ended_by_console`), `session_locked` 423,
   `invalid_request` 400, `session_busy` 409 (a message of this session is still being answered),
   `not_signed_in` 401 (connect), `strict_mode` 403 (connect in strict
-  mode), `voice_unavailable` 404 (switch off, no OpenAI key, no `VOICE_MODE_PASSWORD`, another provider,
+  mode), `step_up_required` 401 (a chat payment without a recent proof: `{ error, message,
+  hasPasskey }`), `voice_unavailable` 404 (switch off, no OpenAI key, no `VOICE_MODE_PASSWORD`, another provider,
   strict mode),
   `voice_locked` 403 (not unlocked), `invalid_password` 401, `voice_limit` 429 (fewer than 30 s
   left), `voice_failed` 502 (OpenAI refused or the sideband did not attach), `session_busy` 409
@@ -264,13 +304,20 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
    card needs a connected account and normal mode, card data (a network token) is always refused,
    handing the checkout to the shopper always passes; the door reads the instruments where the
    store does (`checkout.payment`), and a top-level `payment` too. Beside them it has one house
-   tool, `open_page` (invariant 21), which calls nothing and only names a store page. The house client's tokens live in the
-   process's memory only, so a restart forgets a connection and the shopper connects again (the
-   storefront plan's SQLite link would have stored them: not done); ending a session revokes its
-   grant, and a grant the shopper disconnects on the account page ends the chat's connection at
-   its next read (the session then reads as not connected and may connect again; the check never
-   marks the agent used). Test: `ask/api.test.ts` "one click in the chat connects with the budget
-   picked". Test: `ask/agent.test.ts` "guest
+   tool, `open_page` (invariant 21), which calls nothing and only names a store page. The house
+   client's access tokens live in the process's memory only (the database keeps their hashes, as
+   for every token). The grant is the account's and outlives a conversation (ADR-021): a normal end
+   forgets and revokes the session's access token only, a lock (any path, also after a restart)
+   revokes the account's live house grants, and a live
+   normal-mode conversation of a signed-in shopper resumes the account's newest active house
+   grant with an access token minted for it, never a new or wider grant; resuming revokes the
+   account's older active house grants, so one stays. A grant the shopper disconnects on the
+   account page ends the chat's connection at its next read (the session then reads as not
+   connected and may connect again; the check never marks the agent used). Test:
+   `ask/api.test.ts` "one click in the chat connects with the budget picked", "a new conversation
+   resumes the account's grant", "a lock in a message turn revokes the account's grant";
+   `ask/house.test.ts` "a resumed grant", "one active grant".
+   Test: `ask/agent.test.ts` "guest
    has no token", "pay tools only when connected and normal", "no tool runs outside a shopper
    message"; `ask/house.test.ts`.
 3. **Five stages, in order, every message,** typed or voiced. A
@@ -430,6 +477,14 @@ Costs are in USD because providers bill in USD and Pi's prices are USD.
     answer opens no page"; `ask/voice.test.ts` "a voiced answer keeps its page"; `ask/api.test.ts`
     "a store page the agent opens reaches the browser";
     `components/ask/askLogic.test.ts` "store links only", "voice pages".
+22. **Paying in the chat needs a recent proof** (ADR-021): a saved-card `complete_checkout` from
+    the widget or the agent runs only when the customer session's last password or passkey proof
+    (`confirmedAt`, else its sign-in `createdAt`) is under 60 minutes old; a session with neither
+    is stale. Stale, the widget's call is 401 `step_up_required` with nothing sent to the store,
+    the agent's is refused in words and `<shop_context>` says `autonomous pay: no`; browsing, the
+    bag, the checkout and the session view still work. `POST /api/ask/confirm-pay` refreshes it
+    only on the account's own successful check. Test: `ask/api.test.ts` "a chat payment asks for
+    a recent proof"; `accounts/customers.test.ts` "session freshness".
 
 ## Determinism
 

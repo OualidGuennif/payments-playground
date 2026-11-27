@@ -16,6 +16,7 @@ import {
   joinSiteBag,
   storePath,
   type ToolAnswer,
+  type VeluneContext,
   widgetName,
   widgetOfTool,
 } from "./askLogic";
@@ -80,6 +81,9 @@ const postTo = (frame: HTMLIFrameElement | null, message: Record<string, unknown
   // nosemgrep: javascript.browser.security.wildcard-postmessage-configuration.wildcard-postmessage-configuration
   frame?.contentWindow?.postMessage(message, "*");
 
+const STEP_UP = "step_up_required";
+const CANCELLED = "Payment cancelled. Nothing was charged.";
+
 // The conversation's one widget (spec Panel): each data in `feed` it has not had yet is sent in
 // order, its pictures inlined; a tap's answer is handed back through `onResult` so the panel keeps
 // it when the widget moves under a newer message.
@@ -88,12 +92,18 @@ export function WidgetFrame({
   feed,
   onResult,
   onOpen,
+  velune,
+  onStepUp,
 }: {
   uri: string;
   feed: Fed[];
   onResult: (fed: Fed) => void;
   // The panel opens a store page the way it opens an answer's (it steps aside on a phone).
   onOpen?: (path: string) => void;
+  // Who is shopping, for the checkout card's one action (ADR-021); sent again on every change.
+  velune?: VeluneContext;
+  // A chat payment without a recent proof: the panel asks for it and answers whether it was given.
+  onStepUp?: () => Promise<boolean>;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLIFrameElement>(null);
@@ -113,6 +123,12 @@ export function WidgetFrame({
   useEffect(() => {
     opener.current = onOpen;
   }, [onOpen]);
+  const stepUp = useRef(onStepUp);
+  useEffect(() => {
+    stepUp.current = onStepUp;
+  }, [onStepUp]);
+  const veluneNow = useRef(velune);
+  const veluneKey = velune ? JSON.stringify(velune) : "";
 
   const push = useCallback(() => {
     const store = origin.current;
@@ -153,10 +169,15 @@ export function WidgetFrame({
       if (event.source !== target.contentWindow) return;
       void hostReply(event.data, {
         call: async (name, args): Promise<ToolAnswer> => {
-          const answer = await askCall<{ result: unknown }>("/widget", {
-            name,
-            arguments: withSiteBag(name, args),
-          });
+          const body = { name, arguments: withSiteBag(name, args) };
+          let answer = await askCall<{ result: unknown }>("/widget", body);
+          // ADR-021: paying in the chat needs a recent proof; once given, the same call goes
+          // again, once. A cancel answers the widget, so it never stays busy.
+          if (answer.status === 401 && answer.error === STEP_UP) {
+            const proven = stepUp.current ? await stepUp.current() : false;
+            if (!proven) return { error: CANCELLED };
+            answer = await askCall<{ result: unknown }>("/widget", body);
+          }
           if (!answer.data) return { error: answer.message };
           const result = answer.data.result;
           // The frame shows this answer itself; the panel keeps it as the newest of its view.
@@ -177,6 +198,7 @@ export function WidgetFrame({
           return Boolean(path);
         },
         theme: resolvedTheme,
+        velune: () => veluneNow.current,
         resize: setHeight,
         initialized: () => {
           ready.current = true;
@@ -200,6 +222,18 @@ export function WidgetFrame({
       window.removeEventListener("message", onMessage);
     };
   }, [frame, router, push]);
+
+  // A sign-in, a connection, a saved card or a new budget: the checkout card hears it at once.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the key names the context's content.
+  useEffect(() => {
+    veluneNow.current = velune;
+    if (!ready.current || !velune) return;
+    postTo(ref.current, {
+      jsonrpc: "2.0",
+      method: "ui/notifications/host-context-changed",
+      params: { velune },
+    });
+  }, [veluneKey]);
 
   // Newer data, from the agent or a tap the panel kept, is pushed in place.
   useEffect(() => {

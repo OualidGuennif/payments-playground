@@ -44,7 +44,7 @@ export function DevelopersMenu() {
       </summary>
       <nav
         aria-label="Developers"
-        className="absolute right-0 top-[calc(100%+8px)] z-30 grid w-72 gap-0.5 rounded-2xl border border-line bg-card p-2 shadow-lg"
+        className="absolute right-0 top-[calc(100%+8px)] z-30 velune-glass-card grid w-72 gap-0.5 rounded-2xl border border-line p-2 shadow-lg"
       >
         {DEVELOPER_LINKS.map(([href, label, hint]) =>
           href.startsWith("/api/") ? (

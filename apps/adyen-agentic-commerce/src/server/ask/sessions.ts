@@ -103,15 +103,22 @@ export const sessionById = (id: string) => get<AskSession>("ask_sessions", id);
 
 export const save = (session: AskSession) => put("ask_sessions", session.id, session);
 
+// Every lock passes here, whoever locks (the gate, the guard's score, the console), so what a lock
+// must take away is registered here rather than at each caller (spec invariant 2).
+const lockListeners = new Set<(session: AskSession) => void>();
+export const onSessionLocked = (listener: (session: AskSession) => void) =>
+  lockListeners.add(listener);
+
 export function endSession(session: AskSession, reason: EndReason, now = Date.now()): AskSession {
   if (session.state !== "active") return session;
-  const ended: AskSession = {
+  const ended = save({
     ...session,
     state: reason === "locked" ? "locked" : "ended",
     endReason: reason,
     endedAt: now,
-  };
-  return save(ended);
+  });
+  if (reason === "locked") for (const listener of lockListeners) listener(ended);
+  return ended;
 }
 
 export type Resolved =

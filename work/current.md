@@ -5,15 +5,25 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## Drop-in methods, express wallets and the Velune look — ACTIVE
+## v0.13.0: Personal Shopper overhaul and Safari checkout fixes — ACTIVE
 
-- Owner decision: 2026-11-27, in chat: the 12 listed methods, card saving, Apple and Google Pay on
-  top, Velune styling; MB WAY, Bizum and Pix stay listed though FR/EUR hides them.
-- State: develop 5c9ccf3 pushed (check exit 0, Pi review OK, two lows noted in the receipt); local
-  TEST card Authorised, light and dark, 375 and 1440 px; template 4.1.1 written (owner's yes).
-- Next: review and push the 4.1.1 commit, then release v0.12.0 (agent).
+- Owner decision: 2026-11-27, in chat: the pasted v0.13.0 plan (durable Ask grant, 60-minute
+  step-up for in-chat pay, no redirect out of chat), the Safari fixes, and "jusqu'en production".
+- State: develop `860d8eb` pushed with Review OK (the three findings fixed); release 0.13.0 cut;
+  local QA paid a TEST order in the chat after the step-up.
+- Next: release PR to main, CI, merge, tag, prod check of the Personal Shopper (agent).
 - Blocker: none.
-- Evidence: knowledge/components/agentic-storefront.md (Drop-in).
+- Evidence: this session's handover; the owner's iPhone screenshots of 2026-11-27.
+
+## v0.12.0: Drop-in methods and look, Æion Template 4.1.1 — WAITING-OWNER
+
+- Owner decision: 2026-11-27, in chat: "Oui, merge" for v0.12.0 (PR #27), template 4.1.1 first.
+- State: v0.12.0 live (main `b1f4589`, tag v0.12.0, CI green); guest checkout, Test cards and
+  footer checked in prod; Drop-in itself not opened in prod (needs the email step).
+- Next: open Drop-in in prod (brands, holder name, wallets) and pay a TEST card (who: owner);
+  "Save another card" lists saved cards: hide them there if wanted (who: owner decides).
+- Blocker: none.
+- Evidence: knowledge/current/digital-status.md (v0.12.0 deploy row); GitHub release v0.12.0.
 
 ## v0.11.0: Pay email modal, welcome offer, seasons (ADR-020) — WAITING-OWNER
 

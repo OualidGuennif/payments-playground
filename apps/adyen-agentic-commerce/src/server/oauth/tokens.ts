@@ -95,6 +95,29 @@ function issueTokens(clientId: string, grant: Grant, granted: Reach, access: Rea
   };
 }
 
+// The house agent's resume (ADR-021): a new access token, held only in the process's memory, for a
+// grant its account approved and has not revoked. It never creates or widens a grant: the token
+// carries the grant's own scopes and no resource of its own, and its client must be the grant's.
+export function issueAccessTokenForGrant(
+  clientId: string,
+  grantId: string,
+): { access_token: string; expires_in: number } | undefined {
+  const grant = get<Grant>("grants", grantId);
+  if (!grant || grant.revoked || !grant.customerId || grant.clientId !== clientId) return undefined;
+  const accessToken = `at_${secret()}`;
+  put<Token>("tokens", sha256(accessToken), {
+    id: sha256(accessToken),
+    kind: "access",
+    clientId,
+    grantId: grant.id,
+    scopes: grant.scopes,
+    resources: undefined,
+    expiresAt: nowSec() + ACCESS_TTL,
+    revoked: false,
+  });
+  return { access_token: accessToken, expires_in: ACCESS_TTL };
+}
+
 export async function tokenEndpoint(form: URLSearchParams) {
   const client = await authenticateClient(form);
   const grantType = form.get("grant_type");

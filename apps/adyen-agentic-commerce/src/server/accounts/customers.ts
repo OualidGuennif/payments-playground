@@ -32,7 +32,15 @@ export type Passkey = {
   lastUsedAt?: string;
 };
 
-type CustomerSession = { id: string; customerId: string; expiresAt: number };
+// createdAt and confirmedAt (unix seconds) date the sign-in and the last password or passkey proof;
+// a session stored before v0.13.0 has neither (ADR-021).
+type CustomerSession = {
+  id: string;
+  customerId: string;
+  expiresAt: number;
+  createdAt?: number;
+  confirmedAt?: number;
+};
 
 type Challenge = {
   id: string;
@@ -96,16 +104,47 @@ export function customerFromToken(token: string | undefined): Customer | undefin
 export const customerFromCookies = (header: string | null) =>
   customerFromToken(tokenFromCookies(header));
 
+function sessionFromCookies(header: string | null): CustomerSession | undefined {
+  const token = tokenFromCookies(header);
+  const session = token ? get<CustomerSession>("customer_sessions", sha256(token)) : undefined;
+  return session && session.expiresAt >= nowSec() ? session : undefined;
+}
+
+// Paying in the chat needs a proof this recent (ADR-021); the session alone does for the rest.
+export const CHAT_PAY_FRESH_SECONDS = 3600;
+
+// Until when (unix seconds) the session counts as freshly proven: 0 when there is no session or
+// it predates the timestamps, so it fails closed and asks once.
+export function sessionProvenUntil(header: string | null): number {
+  const session = sessionFromCookies(header);
+  const verifiedAt = session?.confirmedAt ?? session?.createdAt;
+  return verifiedAt ? verifiedAt + CHAT_PAY_FRESH_SECONDS : 0;
+}
+
+export const isSessionFresh = (header: string | null, now = nowSec()) =>
+  now < sessionProvenUntil(header);
+
+// Called only after confirmIdentity succeeded for this session's customer.
+export function touchSessionConfirmation(header: string | null, now = nowSec()): void {
+  const session = sessionFromCookies(header);
+  if (session)
+    put<CustomerSession>("customer_sessions", session.id, { ...session, confirmedAt: now });
+}
+
 export const customerById = (id: string | undefined) =>
   id ? get<Customer>("customers", id) : undefined;
 
 function startSession(customer: Customer): string {
   removeExpired("customer_sessions", nowSec());
   const token = secret();
+  const now = nowSec();
+  // A sign-in is a proof: password, passkey or a new account's password (ADR-021).
   put<CustomerSession>("customer_sessions", sha256(token), {
     id: sha256(token),
     customerId: customer.id,
-    expiresAt: nowSec() + SESSION_TTL,
+    expiresAt: now + SESSION_TTL,
+    createdAt: now,
+    confirmedAt: now,
   });
   return cookie(token, SESSION_TTL);
 }

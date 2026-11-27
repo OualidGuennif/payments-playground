@@ -161,10 +161,11 @@ input:focus-visible {
   opacity: 0.45;
   cursor: not-allowed;
 }
-/* Each card is as tall as its own content: a short title never stretches to its neighbour's. */
+/* Cards in a row share one height (ADR-021): 4:3 pictures, titles held to two lines, actions at the
+   bottom, so prices and buttons line up across the rail. */
 .rail {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 8px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
@@ -187,13 +188,24 @@ input:focus-visible {
 .noimg {
   width: 100%;
   height: auto;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 3;
   border-radius: 10px;
   background: var(--soft);
   object-fit: cover;
 }
+.card h3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  min-height: 2.6em;
+}
 .card .btn {
   margin-top: 4px;
+}
+.card .btn:not(.details) {
+  margin-top: auto;
 }
 .price {
   color: var(--muted);
@@ -270,6 +282,10 @@ input:focus-visible {
   border-radius: 999px;
   background: transparent;
   cursor: pointer;
+}
+.link.quiet {
+  color: var(--muted);
+  font-size: 13px;
 }
 .link {
   min-height: 44px;

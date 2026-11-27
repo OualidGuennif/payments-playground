@@ -46,6 +46,7 @@ export {
   chargeGrant,
   type ResourcePath,
   grants,
+  issueAccessTokenForGrant,
   jwkThumbprint,
   liveAuth,
   peekAuth,

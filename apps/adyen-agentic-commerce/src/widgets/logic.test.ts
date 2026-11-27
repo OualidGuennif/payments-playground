@@ -23,6 +23,8 @@ import {
   type UcpProduct,
   variantFor,
   chatLink,
+  countOf,
+  inBag,
   payStep,
   type Velune,
   veluneContext,
@@ -351,6 +353,47 @@ describe("Show details", () => {
 
   test("without a store origin it names no page", () => {
     expect(productPage("", "trench")).toBeUndefined();
+  });
+});
+
+// A tap on Add to bag keeps the collection in view: the card steps what the bag holds.
+describe("in the bag", () => {
+  const line = (variantId: string, quantity: number) => ({
+    variantId,
+    title: variantId,
+    quantity,
+    amount: 1000 * quantity,
+  });
+  const cart = (over: Partial<BagView> = {}): BagView => ({
+    kind: "cart",
+    id: "cart_1",
+    status: "active",
+    currency: "EUR",
+    lines: [line("trench-sand-s", 2), line("scarf-oat", 1)],
+    total: 3000,
+    instruments: [],
+    problems: [],
+    codes: [],
+    ...over,
+  });
+
+  test("a card steps the variant an open bag holds, and the tab counts every piece", () => {
+    expect(inBag(cart(), "trench-sand-s")).toBe(2);
+    expect(inBag(cart(), "trench-sand-m")).toBe(0);
+    expect(inBag(undefined, "trench-sand-s")).toBe(0);
+    expect(countOf(cart())).toBe(3);
+    expect(countOf(undefined)).toBe(0);
+    const checkout = cart({ kind: "checkout", id: "chk_1", status: "ready_for_complete" });
+    expect(inBag(checkout, "scarf-oat")).toBe(1);
+  });
+
+  test("a paid, cancelled or closed bag holds nothing to step", () => {
+    const paid = cart({ order: { label: "Order ord_1" } });
+    expect(inBag(paid, "trench-sand-s")).toBe(0);
+    expect(countOf(paid)).toBe(0);
+    expect(inBag(cart({ status: "canceled" }), "trench-sand-s")).toBe(0);
+    const done = cart({ kind: "checkout", id: "chk_1", status: "completed" });
+    expect(inBag(done, "trench-sand-s")).toBe(0);
   });
 });
 

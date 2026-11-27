@@ -7,7 +7,7 @@ status: draft
 scope: component-mcp-apps-widgets
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T18:30:00Z
+  at: 2026-11-27T17:00:00Z
 sources:
   - id: store
     resource: ./adyen-agentic-commerce.md
@@ -52,7 +52,11 @@ hold no token, no card data and no authority the agent does not already have.
   tools through the host themselves (search, next page, add to bag, quantities, checkout, pay with
   a listed saved card); it never writes to the assistant. The carousel is compact (about two cards
   across the Ask panel, one height per row, 4:3 pictures, two-line titles, actions at the bottom,
-  44 px hit areas) and each card's "View product
+  44 px hit areas). A tap on Add to bag keeps the collection in view: the card's button becomes a
+  `−` count `+` stepper for that variant, "Added to bag" shows briefly, and the Bag tab carries a
+  round count that bumps; only a bag the agent shows, or a tap on the Bag tab, opens the bag. The
+  two views slide in (none under reduced motion) (`src/widgets/logic.test.ts` "in the bag"). Each
+  card's "View product
   details" opens the product's page,
   `/products/<id>?variant=<id>` on `PUBLIC_ORIGIN`, through the host's link opening (`ui/open-link`,
   else `openExternal`); the Ask panel opens it as its own page. Every call is the host's `tools/call` on

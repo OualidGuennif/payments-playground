@@ -19,6 +19,7 @@ import {
   withAccountEmail,
 } from "./agent";
 import { forgetHouseConnections, HOUSE_CLIENT_NAME } from "./house";
+import { STORE_LINE } from "./refusals";
 
 const toolUse = (name: string, args: Parameters<typeof fauxToolCall>[1] = {}) =>
   fauxAssistantMessage(fauxToolCall(`mcp__store__${name}`, args), { stopReason: "toolUse" });
@@ -348,6 +349,11 @@ describe("the prompt", () => {
     expect(prompt).toContain("signed in: yes");
     expect(prompt).toContain("never ask them to sign in");
     expect(prompt).toContain("autonomous pay: yes");
+    // An upbeat salesperson that never talks about itself: anything off the shop gets the line.
+    expect(prompt).toContain("enthusiastic boutique salesperson");
+    expect(prompt).toContain("Never talk about yourself");
+    expect(prompt).toContain("cheerfully offer the closest pieces instead of a no");
+    expect(prompt).toContain(STORE_LINE.en);
     expect(STORE_TOOLS).toContain("complete_checkout");
   });
 });

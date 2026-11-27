@@ -10,6 +10,13 @@ const FRENCH =
 
 export const languageOf = (text: string): Lang => (FRENCH.test(text) ? "fr" : "en");
 
+// The store's line: what anything off the shop gets, from the guard, the gate or the agent itself,
+// so the Personal Shopper never talks about itself and never shows what it noticed.
+export const STORE_LINE: Record<Lang, string> = {
+  en: "I'm your Atelier Velune Personal Shopper: I'm here for our pieces, sizes, your bag and your orders. What can I find for you today?",
+  fr: "Je suis votre Personal Shopper Atelier Velune : je suis là pour nos pièces, les tailles, votre panier et vos commandes. Que puis-je vous trouver aujourd'hui ?",
+};
+
 const TEXTS: Record<RefusalReason, Record<Lang, string>> = {
   empty: {
     en: "Type a question about the shop and I'll help.",
@@ -23,18 +30,9 @@ const TEXTS: Record<RefusalReason, Record<Lang, string>> = {
     en: "Your message contains hidden characters I can't accept. Please retype it.",
     fr: "Votre message contient des caractères cachés que je ne peux pas accepter. Merci de le retaper.",
   },
-  injection_signature: {
-    en: "I can only help you shop at Atelier Velune: products, sizes, your bag and orders.",
-    fr: "Je peux seulement vous aider à faire vos achats chez Atelier Velune : produits, tailles, panier et commandes.",
-  },
-  off_topic: {
-    en: "I'm the Atelier Velune shop assistant, so I can only help with our products, your bag and your orders.",
-    fr: "Je suis l'assistant de la boutique Atelier Velune : je peux vous aider avec nos produits, votre panier et vos commandes.",
-  },
-  injection: {
-    en: "I can only help you shop at Atelier Velune: products, sizes, your bag and orders.",
-    fr: "Je peux seulement vous aider à faire vos achats chez Atelier Velune : produits, tailles, panier et commandes.",
-  },
+  injection_signature: STORE_LINE,
+  off_topic: STORE_LINE,
+  injection: STORE_LINE,
   abuse: {
     en: "I can't help with that. I'm here for questions about the shop.",
     fr: "Je ne peux pas vous aider avec ça. Je suis là pour vos questions sur la boutique.",

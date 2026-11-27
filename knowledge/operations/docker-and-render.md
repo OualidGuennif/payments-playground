@@ -7,7 +7,7 @@ status: stable
 scope: docker-and-render
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-26T08:18:00Z
+  at: 2026-11-27T06:57:00Z
 sources:
   - id: dockerfile
     resource: ../../apps/adyen-digital/Dockerfile
@@ -15,6 +15,9 @@ sources:
   - id: agentic-dockerfile
     resource: ../../apps/adyen-agentic-commerce/Dockerfile
     title: "Agentic image: built in the Bun workspace, tests in the build stage, Next standalone server"
+  - id: agentic-self-contained
+    resource: ../../apps/adyen-agentic-commerce/src/selfContained.test.ts
+    title: "The agentic app imports nothing by path outside itself, since its image carries no package source"
   - id: styling-dockerfile
     resource: ../../apps/adyen-v6-styling/Dockerfile
     title: "Styling image: built in the Bun workspace, Next standalone server"
@@ -32,6 +35,8 @@ verified:
     check: "All four images built; a root:root 644 volume became 1993:1993 and the digital, IPP and agentic apps answered /healthz as uid 1993; styling wrote its disk; Render measured /var/data root:1000 2775 and the SQLite files 644."
   - at: 2026-11-15
     check: "All three Bun workspace images built with the SSR assertion in the build stage; each ran as uid 1993 with /healthz 200; digital served six pages and its CSS, wrote /app/data, reported healthy; agentic six pages; no env file in the app folders."
+  - at: 2026-11-27
+    check: "After v0.10.0's agentic build failed on Render (tsc: packages/ui/testData not found), the agentic image built locally from the fixed tree: type check, 831 tests, Next build and the SSR assertion passed."
 ---
 
 # Docker images and the Render deployment
@@ -51,7 +56,10 @@ as environment variables. `--env-file` keeps quotes around values; the app strip
 Every image builds inside the Bun workspace on `oven/bun:1.4.4`: it copies the root manifests and
 every member's `package.json`, runs `bun install --frozen-lockfile`, copies `packages`, `testing`,
 `tools/build` and the app, type-checks and builds it (the agentic store also runs `bun test`), then
-boots the standalone server once for the SSR assertion. The runtime stage keeps only
+boots the standalone server once for the SSR assertion. The agentic image copies only `tools/build`
+and its own app, no `packages` or `testing` source: a file in it that imports one by path passes
+`bun run check` and CI, which run on the whole repository, then fails the Render build (v0.10.0's
+did, a test importing `packages/ui/testData.ts`). `src/selfContained.test.ts` refuses such an import. The runtime stage keeps only
 `.next/standalone` and `.next/static`, runs `bun apps/<app>/server.js` on `PORT` (8000) with
 `HOSTNAME=0.0.0.0` and `__NEXT_PROCESSED_ENV=true`, and has a `HEALTHCHECK` on `/healthz`. Next
 copies a loaded local `.env` into `.next/standalone` by design; an image never gets one because the

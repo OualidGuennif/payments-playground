@@ -310,11 +310,21 @@ export async function completeCheckout(
   if (auth && !live) return checkout;
   // The shopper is paying another checkout of the account (in Drop-in, or through another agent).
   if (live && accountPaying(live.grant.customerId, checkout.id)) throw paymentInProgress();
-  confirmWelcomeOffer(checkout, live?.grant.customerId ?? null);
+  confirmWelcomeOffer(checkout);
   const assessment = assess(checkout, live, cards);
   if (assessment.status !== "ready_for_complete") return checkout;
   // No instrument is the agent's third choice: the shopper pays at continue_url, in Drop-in.
   if (!instrument) return saveCheckout({ ...checkout, handedOverAt: now() });
+  // The welcome offer is the account's own: an agent pays a checkout carrying it only on that
+  // account's grant. Anyone else is refused and the checkout stays as it is, offer included.
+  if (checkout.welcomeOffer && live?.grant.customerId !== checkout.customerId)
+    throw err(
+      409,
+      "welcome_offer_account_only",
+      "This checkout carries the account's welcome offer: only an agent the account connected may pay it. Complete with no instrument to hand the shopper continue_url.",
+      undefined,
+      "requires_buyer_input",
+    );
   // Ready now but not when the brand was asked (an edit, or budget given back meanwhile): the
   // checkout is answered as it stands and the same complete can be sent again.
   if (instrument.handler === "network_token" && !brand) return checkout;

@@ -7,8 +7,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 - The agentic store's welcome offer is checked again at the payment form's last step, so a form
   opened before another checkout of the account was paid reloads at the full price instead of
-  paying with the offer, and an agent pays with it only on the account's own grant. The Pay email
-  modal keeps Escape and Tab working after a refused sign-in.
+  paying with the offer, and an agent pays with it only on the account's own grant (any other
+  agent is refused and the offer stays). Once an account claims an agent's checkout, its email and
+  name reach no agent without that account's grant. The email check stays outside the playground's
+  basic auth, so a guest on a public checkout can still pay. The Pay email modal keeps Escape and
+  Tab working after a refused sign-in.
 - The Personal Shopper's widget says a missing email once, "Add your email to continue to
   payment" beside its Pay, without a red line above repeating it.
 - The agentic store's backdrops (the Pay email modal, the shop's filters sheet, the Personal

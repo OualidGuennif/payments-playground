@@ -21,6 +21,10 @@ const PROTECTED = [
   "/oauth/device/verify",
 ];
 
+// The Pay email modal's check is a guest's way to Drop-in on a public checkout: it keeps the
+// cross-site refusal and never asks for the playground's pair (docs/KNOWN_LIMITS.md).
+const PUBLIC_FORMS = ["/api/session/check-email"];
+
 // `docker run --env-file` keeps the quotes of `KEY="value"`; uncleaned, the right pair was refused.
 export function basicAuthAllows(
   header: string | null,
@@ -122,7 +126,8 @@ export function proxy(request: NextRequest) {
   if (crossSiteRefused(request.method, request.headers, [request.nextUrl.origin, publicOrigin()])) {
     return new NextResponse("Cross-site request refused", { status: 403 });
   }
-  if (basicAuthAllows(request.headers.get("authorization"))) return pass();
+  if (PUBLIC_FORMS.includes(path) || basicAuthAllows(request.headers.get("authorization")))
+    return pass();
   return new NextResponse("Sign-in required", {
     status: 401,
     headers: { "www-authenticate": 'Basic realm="Atelier Velune shopper", charset="UTF-8"' },

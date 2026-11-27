@@ -495,8 +495,15 @@ export async function renderCheckout(checkout: commerce.Checkout, auth?: Auth) {
     id: checkout.id,
     status: assessment.status,
     line_items: [...renderLines(checkout.lines), ...giftLine(checkout.welcomeOffer)],
-    buyer:
-      (auth && allows(auth.token.scopes, "profile")) || !checkout.clientId
+    // A guest checkout's buyer is what its agent sent. Once an account owns it (a claim on the
+    // site, ADR-020), the buyer is that account's email and name: its own grant with profile only.
+    buyer: checkout.customerId
+      ? auth &&
+        allows(auth.token.scopes, "profile") &&
+        auth.grant.customerId === checkout.customerId
+        ? checkout.buyer
+        : undefined
+      : (auth && allows(auth.token.scopes, "profile")) || !checkout.clientId
         ? checkout.buyer
         : undefined,
     currency: CURRENCY,

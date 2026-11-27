@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T09:15:00Z
+  at: 2026-11-27T09:35:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -169,7 +169,8 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   calls per client address per 15 minutes, counted before the body is read (429 `rate_limited`
   with `Retry-After`); 400 `invalid_email` for a malformed address; else 200 `{ "exists": boolean
   }` with nothing more, `Cache-Control: no-store`, never sooner than 45 ms after it began. The
-  trace keeps the email masked. Sign-in keeps one refusal, "Wrong email or password".
+  trace keeps the email masked. It never asks for the playground's basic auth: it is a guest's
+  way to Drop-in on a public checkout. Sign-in keeps one refusal, "Wrong email or password".
 - **Welcome offer:** `POST /api/checkouts/:id/claim` `{ applyWelcomeOffer?: boolean }` (signed in,
   else 401 `sign_in_required`; another key 400 `invalid_request`) binds an open checkout to the
   signed-in customer and their email (another customer's: 404 `not_found`; paid, closed or being
@@ -180,8 +181,11 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   session checks again, and so does the form's last step before Adyen (`pay-intent`, for a form
   opened before another checkout of the account was paid): an account that has ordered since loses
   the offer and the step is refused (409 `welcome_offer_ineligible`), so the page reloads with the
-  new total before paying. An agent pays with the offer only on that account's own grant; any other
-  agent's complete removes it with the same refusal. The
+  new total before paying. An agent pays a checkout carrying the offer only on that account's own
+  grant; any other agent's payment is refused (409 `welcome_offer_account_only`) and the offer
+  stays, while a complete with no instrument still hands the checkout to the shopper. A claimed
+  checkout's buyer (the account's email and name) shows over UCP and MCP only to that account's
+  own grant with `profile`. The
   payment record and the order keep the offer, and the order's amount check prices with it. The
   checkout, the order page, the account's orders, UCP answers (a negative `discount` total and the
   tote line at 0) and the Back Office show it; `GET /api/account` says `firstOrderEligible`. The
@@ -234,8 +238,9 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
     check" (four tests); `src/components/payIdentity.test.ts` (three tests).
 11. The welcome offer is asked for, never applied by itself; it goes to an account with no order,
     once, priced on the server and checked again before the payment session, at the form's
-    `pay-intent` and before an agent's complete, which needs that account's grant; the payment's
-    amount is the discounted total. A checkout without it keeps its catalogue prices and three totals.
+    `pay-intent` and before an agent's payment, which needs that account's grant (a refusal leaves
+    the offer in place); a claimed checkout's buyer reaches no other agent; the payment's amount
+    is the discounted total. A checkout without it keeps its catalogue prices and three totals.
     Tests: `src/server/commerce/welcome-offer.test.ts`; the UCP and checkout price tests unchanged.
 12. A guest's email stays set once: a second `POST /api/checkouts/:id/email` is 409 `email_set`.
     Test: `src/server/accounts/customers.test.ts` "a checkout handed over without an email takes

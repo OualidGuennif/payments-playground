@@ -142,19 +142,10 @@ export function claimCheckout(
 }
 
 // Checked again right before a payment: an account that ordered since the claim (another tab,
-// another checkout) loses the offer here, and the payer sees the new total before paying. An agent
-// pays with it only on that account's own grant (payerId): another agent pays the catalogue price.
-export function confirmWelcomeOffer(
-  checkout: Checkout,
-  payerId: string | null = checkout.customerId ?? null,
-): void {
+// another checkout) loses the offer here, and the payer sees the new total before paying.
+export function confirmWelcomeOffer(checkout: Checkout): void {
   if (!checkout.welcomeOffer) return;
-  if (
-    checkout.customerId &&
-    payerId === checkout.customerId &&
-    isFirstOrderEligible(checkout.customerId)
-  )
-    return;
+  if (checkout.customerId && isFirstOrderEligible(checkout.customerId)) return;
   saveCheckout({ ...checkout, welcomeOffer: undefined });
   throw err(
     409,

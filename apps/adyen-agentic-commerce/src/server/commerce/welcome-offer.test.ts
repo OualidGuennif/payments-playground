@@ -225,7 +225,7 @@ describe("welcome offer", () => {
     expect(list<commerce.Order>("orders")).toHaveLength(1);
   });
 
-  test("an agent without the account's grant pays the catalogue price, never the account's offer", async () => {
+  test("an agent without the account's grant cannot pay the account's offer, and leaves it in place", async () => {
     const { cookie } = await signUpCustomer();
     const created = await ucpCreate([{ item: { id: SOCKS[0]!.variantId }, quantity: 1 }]);
     expect((await claim(created.body.id, cookie)).body.welcomeOfferApplied).toBe(true);
@@ -246,14 +246,32 @@ describe("welcome offer", () => {
         ],
       },
     };
-    const refused = await commerce
-      .completeCheckout(commerce.loadCheckout(created.body.id), token)
-      .then(() => undefined)
-      .catch((error: commerce.CommerceError) => error.msg.code);
-    expect(refused).toBe("welcome_offer_ineligible");
-    expect(get<commerce.Checkout>("checkouts", created.body.id)!.welcomeOffer).toBeUndefined();
+    const attempt = () =>
+      commerce
+        .completeCheckout(commerce.loadCheckout(created.body.id), token)
+        .then(() => undefined)
+        .catch((error: commerce.CommerceError) => error.msg.code);
+    // Twice: a refusal never takes the offer away, so a second try is refused the same way.
+    expect(await attempt()).toBe("welcome_offer_account_only");
+    expect(await attempt()).toBe("welcome_offer_account_only");
+    expect(get<commerce.Checkout>("checkouts", created.body.id)!.welcomeOffer).toBeDefined();
     expect(fake.payments).toHaveLength(0);
     expect(list<commerce.Order>("orders")).toHaveLength(0);
+    // Handing the checkout to the shopper still works, offer and all.
+    const handed = await commerce.completeCheckout(commerce.loadCheckout(created.body.id), {});
+    expect([Boolean(handed.handedOverAt), Boolean(handed.welcomeOffer)]).toEqual([true, true]);
+    // The anonymous agent no longer reads the account's email and name.
+    const read = await handle(
+      new Request(`${ORIGIN}/ucp/v1/checkout-sessions/${created.body.id}`, {
+        headers: {
+          "ucp-agent": ucpAgent(),
+          "request-id": crypto.randomUUID(),
+          "x-forwarded-for": randomIp(),
+        },
+      }),
+    );
+    expect(read.status).toBe(200);
+    expect(((await read.json()) as Record<string, unknown>).buyer).toBeUndefined();
   });
 
   test("the claim needs a session, the checkout's own account and a body with the flag only", async () => {

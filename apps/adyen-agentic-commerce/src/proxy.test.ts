@@ -55,6 +55,13 @@ test("a cross-site write to a shopper form is refused, signed in or not", () => 
   }
 });
 
+test("the Pay email modal's check never asks for Basic Auth, and still refuses another site", () => {
+  expect(call("/api/session/check-email", { method: "POST" }).status).toBe(200);
+  const crossSite = { "sec-fetch-site": "cross-site" };
+  expect(call("/api/session/check-email", { method: "POST", headers: crossSite }).status).toBe(403);
+  expect(call("/api/session", { method: "POST" }).status).toBe(401);
+});
+
 test("the agent protocol paths never ask for Basic Auth", () => {
   for (const path of ["/mcp", "/oauth/token", "/oauth/device_authorization", "/ucp/v1/carts"])
     expect(call(path, { method: "POST" }).status).toBe(200);

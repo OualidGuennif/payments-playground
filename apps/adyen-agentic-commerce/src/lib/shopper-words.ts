@@ -39,6 +39,8 @@ const WORDS: Record<string, string> = {
   email_set: "This checkout already has an email for the receipt.",
   welcome_offer_ineligible:
     "The welcome offer is for a first order only. Your total has been updated: check it, then pay.",
+  welcome_offer_account_only:
+    "This bag carries your welcome offer: pay it on the store's checkout, or connect your assistant to your account.",
   sign_in_required: "Sign in to your account first.",
   invalid_request: "Something in that request was not right. Refresh the page and try again.",
   invalid_delivery: "Choose a delivery option and an address or pickup point from the list.",

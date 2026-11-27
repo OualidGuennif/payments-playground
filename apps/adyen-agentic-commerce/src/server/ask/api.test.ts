@@ -552,7 +552,9 @@ describe("receipt email", () => {
     expect(answer.welcomeOfferApplied).toBe(true);
     const shown = answer.result.structuredContent;
     expect(JSON.stringify(shown.messages ?? [])).not.toContain("missing_buyer_email");
-    expect(shown.buyer?.email).toBe("d•••@example.com");
+    // The checkout is the account's now: an agent without its grant reads no buyer, not even
+    // masked (the store's UCP rule for a claimed checkout, ADR-020).
+    expect(shown.buyer).toBeUndefined();
     expect(shown.totals.map((t: { type: string }) => t.type)).toEqual([
       "subtotal",
       "discount",

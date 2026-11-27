@@ -7,7 +7,7 @@ status: draft
 scope: component-ask-agent
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T08:00:00Z
+  at: 2026-11-27T09:35:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-018-ask-agent-flue-in-process.md
@@ -92,7 +92,8 @@ voice mode (GPT-Live) talks to the same agent through the same gate.
 - **Checkout claim** `POST /api/ask/checkout-claim` `{ checkoutId, applyWelcomeOffer? }` (signed
   in, else 401 `not_signed_in`; a checkout this conversation showed, else 404 `checkout_unknown`):
   the store's claim ([storefront spec](agentic-storefront.md), Welcome offer), for the Pay email
-  modal and a shopper who signed in after the bag was made; answered like the receipt email.
+  modal and a shopper who signed in after the bag was made; answered like the receipt email, but
+  the claimed checkout's buyer (the account's) no longer reaches the agent, masked or not.
 - **Widget frame** `GET /api/ask/widget-frame?uri=` (the carousel or the bag): the widget's HTML
   as JSON, never `text/html`, with a Content-Security-Policy meta (no connection, images from
   `PUBLIC_ORIGIN` only); anything else is `invalid_request`.

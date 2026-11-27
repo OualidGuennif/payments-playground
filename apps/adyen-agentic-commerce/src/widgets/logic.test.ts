@@ -180,7 +180,9 @@ describe("views of UCP answers", () => {
         { type: "error", content: "A message with no code" },
       ],
     });
-    expect(bag.problems).toEqual(["The store needs an email for the receipt.", GENERAL_PROBLEM]);
+    // The pay area says "Add your email to continue to payment." itself: no red line repeats it.
+    expect(bag.problems).toEqual([GENERAL_PROBLEM]);
+    expect(shopperNote("missing_buyer_email")).toBeNull();
     expect(shopperNote("spend_limit_exceeded")).toBeNull();
     expect(shopperNote(undefined)).toBe(GENERAL_PROBLEM);
   });

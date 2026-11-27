@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The Personal Shopper's widget says a missing email once, "Add your email to continue to
+  payment" beside its Pay, without a red line above repeating it.
 - The agentic store's backdrops (the Pay email modal, the shop's filters sheet, the Personal
   Shopper's sheet) darken the page in dark mode too, through a scrim colour that stays black there.
 - The agentic store's header: Sign in (or the account's initial) shows on every width and leaves

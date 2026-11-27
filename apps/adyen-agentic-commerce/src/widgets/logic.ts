@@ -40,7 +40,7 @@ const SHOPPER_TEXT: Record<string, string | null> = {
   spend_limit_exceeded: null,
   checkout_expired: "This checkout expired. Check out again from your bag.",
   empty_checkout: "Your bag is empty.",
-  missing_buyer_email: "The store needs an email for the receipt.",
+  missing_buyer_email: null,
   out_of_stock: "Something in your bag has just sold out. Remove it to go on.",
   no_saved_card: "Your account has no saved card. Save one on the store, or approve there.",
   payment_refused: "The card was refused. Try again, or choose another card.",

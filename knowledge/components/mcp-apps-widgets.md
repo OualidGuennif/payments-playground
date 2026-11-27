@@ -7,7 +7,7 @@ status: draft
 scope: component-mcp-apps-widgets
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T08:30:00Z
+  at: 2026-11-27T08:55:00Z
 sources:
   - id: store
     resource: ./adyen-agentic-commerce.md
@@ -58,8 +58,8 @@ hold no token, no card data and no authority the agent does not already have.
   the shopper's grant; the widget holds no token and no card data, and from the host's first
   message on it posts to the host's origin only (keeping `"*"` for the handshake and for an opaque
   `"null"` host origin). It shows the store's refusals in its own plain words for the codes it
-  knows ("The store needs an email for the receipt." for `missing_buyer_email`, which the store's
-  checkout page or the Ask panel asks for), and for any other code, or none, a general sentence
+  knows, says nothing more where its pay area already says it (`missing_buyer_email`,
+  `spend_limit_exceeded`), and for any other code, or none, a general sentence
   ("The store needs a change to this bag before payment."): the store's own text, written for
   agents, never reaches the shopper, in the bag or after a refused tap (`src/widgets/logic.test.ts`
   "no store message reaches the shopper in the store's own words"). A missing email reads "Add

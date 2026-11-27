@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-27
+
 - Digital Sessions: after five refusals or a `14_0422`, "Try again" no longer creates a new order
   from the browser's count. It asks `POST /api/digital/orders/:id/sessions`, and the server opens a
   new session on the same order only once five HMAC-valid refused AUTHORISATION webhooks name the

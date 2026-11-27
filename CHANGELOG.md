@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- ADR-020 and the specs for the agentic store's next release: one Pay email modal that tells an
+  account from a new shopper through a hardened email check, an opt-in first-order welcome offer
+  (5 % off and a free seasonal tote, priced on the server), seasons that start on the 21st of the
+  month before, Sign in in the header on every width, and the Personal Shopper's bag that starts
+  from the site's.
 ## [0.10.1] - 2026-11-27
 
 - The agentic store's image builds again. v0.10.0 never reached Render: a test in the app imported

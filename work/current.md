@@ -5,6 +5,14 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
+## v0.11.0: Pay email modal, welcome offer, seasons (ADR-020) — ACTIVE
+
+- Owner decision: 2026-11-27, in chat: execute the v0.11.0 plan (Section 0 decisions approved).
+- State: code inspected, nothing changed yet; plan in the session handover.
+- Next: slices 0 to 6 on develop, checks, browser QA, review, release (who: agent).
+- Blocker: none.
+- Evidence: work/handovers (session 94e4267a).
+
 ## Flagship storefront on the agentic store (ADR-019) — WAITING-OWNER
 
 - Owner decision: 2026-11-27, in chat: implement the six-slice flagship plan and ship it to prod.

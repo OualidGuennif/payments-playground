@@ -1,11 +1,11 @@
 ---
 type: Policy
 title: "The owner's preferences"
-description: "Durable project preferences: Render at the root, TEST only, the factory scope, the toolchain and the pi worker model."
+description: "Durable project preferences: Render at the root, TEST only, the factory scope, the toolchain, the pi worker model and the agentic store's Pay and offer choices."
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-18T13:31:04Z
+  at: 2026-11-27T08:00:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "Project rules and owner"
@@ -45,6 +45,13 @@ What the owner asked for that a reviewer should not have to ask again.
 - The agentic store must let real MCP clients such as ChatGPT sign in; where a protocol rule blocks
   one, the owner decides, and each departure from PAP 1.0 is an ADR (2026-11-18,
   [ADR-016](../decisions/ADR-016-client-assertion-audience-for-mcp-clients.md)).
+- On the agentic store, Pay asks for an email in one modal that may tell whether the address has
+  an account, through a hardened boolean check (same origin, a custom header, 15 per 15 minutes
+  per address, a timing floor, a masked trace); sign-in stays one generic refusal. A first order
+  may take 5 % off and a free seasonal tote, opt-in and priced on the server. Seasons start on
+  the 21st of the month before the solstice or equinox. Sign in sits in the header on every width,
+  and the top bar is a seasonal sandbox line (2026-11-27,
+  [ADR-020](../decisions/ADR-020-pay-identity-welcome-offer-and-seasons.md)).
 - Existing public docs (`README.md`, `docs/SECURITY.md`, `docs/KNOWN_LIMITS.md`) win over factory
   defaults where they differ; record the divergence here.
 

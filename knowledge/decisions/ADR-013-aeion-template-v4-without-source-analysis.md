@@ -6,7 +6,7 @@ tags: [decision, template, tooling]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-15T18:00:00Z
+  at: 2026-11-27T12:25:00Z
 sources:
   - id: marker
     resource: ../../.aeion-template
@@ -43,6 +43,9 @@ and Archify entirely and to leave aeion-framework off by default.
 - The knowledge checker stays the project's TypeScript one, which enforces more rules than the
   template's Python checker; `tools/template-tests` runs its tests in place of the Python ones.
 - The git lifecycle is now off unless `aeion.mode` is `team`; the owner sets it in each clone.
+
+Amended 2026-11-27: the project follows v4.1.1, updated the same way (`--ref v4.1.1`); the
+decisions above are unchanged.
 
 ## Consequences
 

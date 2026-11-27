@@ -5,10 +5,15 @@
   margin: 0 auto;
 }
 
-/* With the inspector beside the checkout, the page takes the header's width
-   and the inspector gets everything the checkout does not need. */
+/* With the inspector beside the checkout, the whole page (header, column and
+   footer) takes the wide column, and the inspector gets everything the
+   checkout does not need. */
+body:has(.checkout-page.is-inspecting) {
+  --page-max: var(--page-max-wide);
+}
+
 .checkout-page.is-inspecting {
-  max-width: 1416px;
+  max-width: none;
 }
 
 .scenario-bar {

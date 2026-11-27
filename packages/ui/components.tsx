@@ -329,7 +329,7 @@ export function AppShell(props: {
           <main id="main-content" tabIndex={-1}>
             {props.children}
           </main>
-          <footer className={props.minimal ? "app-footer app-footer--wide" : "app-footer"}>
+          <footer className="app-footer">
             <span className="app-footer__meta">
               {props.minimal ? <TestPill /> : null}
               Adyen Web 6.48.1 · Checkout API v72

@@ -20,6 +20,11 @@
 /* Dark follows the system unless the header's switch chose light or dark (data-theme on <html>). */
 :root {
   color-scheme: light dark;
+  /* Page width, the same values as packages/ui/styles.css (UI policy): one centred column on a
+     wide window. */
+  --page-max: 1140px;
+  --page-max-wide: 1240px;
+  --page-gutter: clamp(16px, 4vw, 48px);
 }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -86,6 +91,21 @@
 }
 
 @layer components {
+  /* The page column: the page and the footer share its edges. */
+  .page-frame {
+    width: 100%;
+    max-width: calc(var(--page-max) + 2 * var(--page-gutter));
+    margin-inline: auto;
+    padding-inline: var(--page-gutter);
+  }
+  /* The header's row on the wide column, with the 12 and 24 px edges it always had: beside the
+     departments its items need about 1220 px, so on the page column they would not fit on one
+     line. A header wider than the page, as on most stores; at 1720 px with the Shopper docked
+     the row is 1232 px, as before. */
+  .header-frame {
+    max-width: calc(var(--page-max-wide) + 3rem);
+    margin-inline: auto;
+  }
   .btn {
     @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-paper transition hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40;
   }

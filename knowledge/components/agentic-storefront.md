@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T17:00:00Z
+  at: 2026-11-28T09:00:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -132,7 +132,10 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   `localStorage` and applied by a head script before the first paint), the bag with its count,
   and Sign in or the account's initial on every width (it follows `velune:auth-changed` at once).
   Below 1280 px the Menu holds the departments, the Developers links and the theme, never the
-  account. Header items never wrap onto a second line. The Adyen TEST notice stays on the
+  account. Header items never wrap onto a second line. Page width (UI policy): every page and the
+  footer sit on one centred column of at most 1140 px (`.page-frame`, side margins
+  `clamp(16px, 4vw, 48px)`); the header's row takes the wide column, 1240 px with its 12 and 24 px
+  edges, because beside the departments its items need about 1220 px. The Adyen TEST notice stays on the
   Pay email modal, `/legal` and the footer. The footer (`SiteFooter`, owner 2026-11-27) shows the
   brand with one line, the departments, the Developers links, then one quiet row: "A fictional
   store on Adyen TEST, a sandbox for demos and play." and the terms; no protocol versions.

@@ -1,7 +1,7 @@
 /* ---------- Page intro (Back Office, Settings) ---------- */
 
 .page-intro {
-  max-width: 1180px;
+  max-width: var(--page-max);
   margin: 0 auto 22px;
 }
 
@@ -21,7 +21,7 @@
 
 .bo {
   display: grid;
-  max-width: 1180px;
+  max-width: var(--page-max);
   gap: 16px;
   margin: 0 auto;
 }

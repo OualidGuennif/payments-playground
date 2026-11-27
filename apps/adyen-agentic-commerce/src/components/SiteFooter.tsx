@@ -9,7 +9,7 @@ const LINK = "inline-flex min-h-11 items-center text-sm text-muted hover:text-in
 export function SiteFooter({ departments }: { departments: [string, string][] }) {
   return (
     <footer className="mt-12 border-t border-line">
-      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-8 px-4 py-12 sm:grid-cols-[1.6fr_1fr_1fr] sm:px-6">
+      <div className="page-frame grid grid-cols-2 gap-x-6 gap-y-8 py-12 sm:grid-cols-[1.6fr_1fr_1fr]">
         <div className="col-span-2 space-y-3 sm:col-span-1">
           <Link
             href="/"
@@ -54,7 +54,7 @@ export function SiteFooter({ departments }: { departments: [string, string][] })
         </nav>
       </div>
       <div className="border-t border-line">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-1 px-4 py-3 text-xs text-muted sm:px-6">
+        <div className="page-frame flex flex-wrap items-center justify-between gap-x-6 gap-y-1 py-3 text-xs text-muted">
           <p className="py-2">A fictional store on Adyen TEST, a sandbox for demos and play.</p>
           <Link href="/legal" className="inline-flex min-h-11 items-center hover:text-ink">
             Terms, privacy and returns

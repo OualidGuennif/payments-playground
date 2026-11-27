@@ -122,6 +122,15 @@
   --radius-s: 10px;
   --radius-m: 14px;
   --radius-l: 18px;
+  /* Page width (UI policy): one centred column on a wide window, the same edges for the header,
+     the page and the footer. A page may set --page-max on body (a checkout beside its inspector
+     takes the wide one), so every rule computes its width from it where it is used: a derived
+     variable declared here would keep 1140. --measure is for running text. */
+  --page-max: 1140px;
+  --page-max-wide: 1240px;
+  --page-max-workbench: 1440px;
+  --page-gutter: clamp(16px, 4vw, 48px);
+  --measure: 68ch;
   color: var(--color-ink);
   background: var(--color-surface-muted);
   font-family: var(--font-sans);
@@ -218,13 +227,13 @@ a {
 .shell-header {
   position: relative;
   z-index: 30;
-  padding: 12px clamp(10px, 3vw, 32px) 0;
+  padding: 12px var(--page-gutter) 0;
   pointer-events: none;
 }
 
 .shell-header__bar {
   display: grid;
-  width: min(1180px, 100%);
+  width: min(var(--page-max), 100%);
   min-height: 58px;
   align-items: center;
   grid-template-columns: 1fr auto 1fr;
@@ -379,12 +388,13 @@ a {
 /* Digital's header: no bar, two floating glass groups, navigation on the
    left (inner pages only) and the theme switch with settings on the right. */
 .shell-header--minimal {
-  padding: 12px clamp(16px, 3vw, 32px) 0;
+  padding: 12px var(--page-gutter) 0;
 }
 
+/* The page column's edges, so the groups sit above the page's first and last element. */
 .shell-float {
   display: flex;
-  width: min(1416px, 100%);
+  width: min(var(--page-max), 100%);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -566,28 +576,23 @@ a {
 }
 
 main {
-  width: min(1380px, 100%);
+  width: min(100%, calc(var(--page-max) + 2 * var(--page-gutter)));
   flex: 1 0 auto;
   margin: 0 auto;
-  padding: 40px clamp(20px, 4vw, 48px) 72px;
+  padding: 40px var(--page-gutter) 72px;
 }
 
+/* The page column's edges, like the header's. */
 .app-footer {
   display: flex;
-  width: min(1180px, 100%);
+  width: min(100%, calc(var(--page-max) + 2 * var(--page-gutter)));
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin: 0 auto;
-  padding: 22px clamp(20px, 4vw, 48px) 28px;
+  padding: 22px var(--page-gutter) 28px;
   color: var(--color-ink-subtle);
   font-size: 0.72rem;
-}
-
-/* Same edges as the minimal header's floating groups and the home tiles. */
-.app-footer--wide {
-  width: min(1480px, 100%);
-  padding-inline: clamp(16px, 3vw, 32px);
 }
 
 .app-footer__meta {
@@ -672,7 +677,7 @@ p {
 }
 
 .page-header p {
-  max-width: 740px;
+  max-width: var(--measure);
   margin-bottom: 0;
   font-size: 0.91rem;
 }

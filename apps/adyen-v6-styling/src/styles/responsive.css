@@ -3,20 +3,12 @@
 /* On a laptop the panel at its full 480px is what decides whether the checkout
    and the dataset can share a row, and it wins that argument for space it
    does not need. Narrower here, the pair fits side by side from ~1375px
-   instead of ~1470px, which is most laptops. */
-@media (min-width: 1180px) and (max-width: 1699px) {
+   instead of ~1470px, which is most laptops. The workbench stops growing at
+   its 1440px frame (page.css), so a wider window keeps this split: a wider
+   panel would push the dataset under the checkout. */
+@media (min-width: 1180px) {
   .styling-layout {
     grid-template-columns: minmax(420px, 1fr) minmax(340px, 400px);
-  }
-}
-
-/* Past this width the preview column grows faster than a checkout should, and
-   the pair ends up marooned in the middle of it. Handing the extra to the
-   options panel, which is genuinely cramped, keeps the composition tight
-   instead of banding it with empty space. */
-@media (min-width: 1700px) {
-  .styling-layout {
-    grid-template-columns: minmax(420px, 1fr) minmax(360px, 560px);
   }
 }
 
@@ -137,7 +129,7 @@
     position: static;
     height: auto;
     border-top: 1px solid var(--color-border);
-    border-left: 0;
+    border-inline: 0;
   }
 
   .styling-tabs {

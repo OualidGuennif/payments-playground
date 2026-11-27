@@ -18,8 +18,27 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* Dark follows the system unless the header's switch chose light or dark (data-theme on <html>). */
+:root {
+  color-scheme: light dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-ink: #f2efe9;
+  --color-muted: #b4ada3;
+  --color-paper: #161514;
+  --color-card: #201f1d;
+  --color-line: #3a3733;
+  --color-accent: #e0a070;
+  --color-ok: #7cc48b;
+  --color-warn: #e0b057;
+  --color-bad: #f08a7a;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --color-ink: #f2efe9;
     --color-muted: #b4ada3;
     --color-paper: #161514;

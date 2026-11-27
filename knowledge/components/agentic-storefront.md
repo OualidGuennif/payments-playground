@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T00:22:00Z
+  at: 2026-11-27T00:36:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -21,6 +21,24 @@ sources:
   - id: catalog
     resource: ../../apps/adyen-agentic-commerce/src/server/catalog
     title: "The catalogue data (products.ts: 30 products, colours, sizes, feed attributes) and the OpenAI feed (openai-feed.ts)"
+  - id: pages
+    resource: ../../apps/adyen-agentic-commerce/src/app/page.tsx
+    title: "The home page"
+  - id: shop
+    resource: ../../apps/adyen-agentic-commerce/src/app/shop
+    title: "The shop page (filters in components/shop/ShopBrowser.tsx)"
+  - id: product
+    resource: ../../apps/adyen-agentic-commerce/src/app/products
+    title: "The product page"
+  - id: components
+    resource: ../../apps/adyen-agentic-commerce/src/components
+    title: "Storefront components: ProductCard, VariantPicker, DevelopersMenu, ThemeSwitch, shop/, motion/ (GSAP)"
+  - id: developer-links
+    resource: ../../apps/adyen-agentic-commerce/src/lib/developerLinks.ts
+    title: "The Developers menu's links, shared by the header and the mobile menu"
+  - id: theme
+    resource: ../../apps/adyen-agentic-commerce/src/lib/theme.ts
+    title: "The theme's storage key and the head script that applies it before first paint"
   - id: openai-feed
     resource: https://developers.openai.com/commerce/specs/feed
     title: "OpenAI: product feed schema (read 2026-11-27)"
@@ -72,9 +90,26 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   `star_rating`, `is_eligible_search`, `is_eligible_checkout`, `seller_privacy_policy` and
   `seller_tos`. No `additional_image_urls`: each variant has one drawing. JSON answers
   `{ "items": [...] }`; JSONL one row per line. Both are public and cacheable for 300 s.
-- **Header:** a thin TEST bar; the wordmark; the categories; on the right the Personal Shopper, a
-  Developers menu (Connect an agent, Docs, Back Office, OpenAI product feed, Agent console), the bag
-  with its count, the account and the theme switch.
+- **Header:** a thin TEST bar; the wordmark (ATELIER VELUNE, VELUNE under 640 px); New and the
+  five departments from 1280 px; on the right the Personal Shopper, a Developers menu from 1024 px
+  (Connect an agent, Technical docs, Back Office, OpenAI product feed, Agent console), the theme
+  switch (system, light, dark, kept in `localStorage` and applied by a head script before the
+  first paint), the bag with its count and the account. Below 1280 px the Menu holds the
+  departments, the Developers links, the theme and the account.
+- **Home:** a hero (GSAP), five department tiles, New and trending (badged pieces, New first), a
+  Personal Shopper section whose prompts open the panel with the question in its composer (never
+  sent by itself), and a "Built for humans and AI agents" band (MCP address, feed links).
+- **Shop:** every filter applies in the browser as the shopper taps or types (department, New in,
+  for women or men, price band, on sale, colour, size; sort featured, new, price, rating) and the
+  address follows (`/shop?category=…&q=…` and the rest), so links and the Personal Shopper's
+  `open_page` open the same view; 2 columns, 3 from 768 px, 4 from 1280 px; under 1024 px the
+  filters are a bottom sheet.
+- **Product page:** sticky picture with colour thumbnails, badge, demo rating labelled "(demo
+  data)", price with the struck earlier price on a markdown, colour swatches, a size grid, Add to
+  bag, "Ask your Personal Shopper about this piece", folds (details, material and care, fit,
+  delivery and returns), an "OpenAI feed & UCP data" fold with the variant's UCP id and feed row,
+  and Complete the look (the best-rated piece of up to four other departments that suits the same
+  shopper).
 - **Cart and checkout:** no demo email is ever prefilled. Checkout shows contact, delivery and
   payment together; a signed-in shopper sees their email as verified, a guest types one, and Pay
   with a missing or invalid email marks the field, focuses it and pays once it is valid.
@@ -99,6 +134,9 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
 6. The feed has one row per variant, unique ids, valid and unique EAN-13s in the 200 range, the
    spec's names and money format, and the same rows in JSON and JSONL. Tests:
    `src/server/catalog/openai-feed.test.ts` (six tests).
+7. The shop's filters keep only matching pieces, split prices into bands that cover every piece
+   once, read a plural search word as its singular and sort without reordering the catalogue.
+   Tests: `src/components/shop/filter.test.ts` (seven tests).
 
 ## Determinism
 

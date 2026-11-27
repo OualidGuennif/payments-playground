@@ -24,6 +24,7 @@ import { SESSION_EVENT } from "@/components/AccountMenu";
 import { followBag, readCart } from "@/lib/client";
 import { openablePage } from "@/lib/storePages";
 import {
+  ASK_ABOUT_EVENT,
   askCall,
   askState,
   savedAskState,
@@ -171,6 +172,18 @@ export function AskPanel() {
   useEffect(() => {
     if (shown && pathname && !busy.current) void load(true);
   }, [shown, pathname, load]);
+
+  // A page's "Ask about this" button fills the composer; the shopper sends it.
+  useEffect(() => {
+    const fill = (event: Event) => {
+      const text = (event as CustomEvent<unknown>).detail;
+      if (typeof text !== "string") return;
+      setDraft(text.slice(0, MAX_CHARS));
+      requestAnimationFrame(() => input.current?.focus());
+    };
+    window.addEventListener(ASK_ABOUT_EVENT, fill);
+    return () => window.removeEventListener(ASK_ABOUT_EVENT, fill);
+  }, []);
 
   // A sign-in or sign-out on this page (the header, the receipt block) or in another tab: the
   // panel reads the session again, so it never asks a signed-in shopper who they are.

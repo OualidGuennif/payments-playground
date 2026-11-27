@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store gets a new storefront: a header with New, the five departments, a Developers
+  menu and a light, dark or system theme; a home page with a hero, department tiles, New and
+  trending and a Personal Shopper section; a shop whose filters (department, price, colour, size,
+  sale, sort, search) apply as the shopper taps and keep the address in step; and a product page
+  with a sticky picture, swatches, a size grid, folds, the variant's feed row and Complete the
+  look. GSAP motion stays off under reduced motion.
 - The agentic store's assistant becomes the Personal Shopper and follows the site's session: it
   reads the session again on a sign-in or sign-out (this page or another tab), never asks a
   signed-in shopper to sign in or for an email, and puts the account's email on the receipt of

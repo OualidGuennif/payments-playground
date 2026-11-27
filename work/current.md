@@ -8,9 +8,10 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 ## Flagship storefront on the agentic store (ADR-019) — ACTIVE
 
 - Owner decision: 2026-11-27, in chat: implement the six-slice flagship plan and ship it to prod.
-- State: slice 1 started: 30-product catalogue and drawings, tests green, uncommitted on develop.
-- Next: feed endpoints, session sync and inline budget, storefront and motion, checkout, Personal
-  Shopper, browser checks, review, release (who: agent).
+- State: committed on develop (unpushed): catalogue 6696449, feed 8cece44, session sync and
+  one-click budget 584f248; storefront (header, home, shop, product, GSAP) written, uncommitted.
+- Next: commit storefront; cart and checkout; Personal Shopper rail and sheet; browser checks,
+  review, release (who: agent).
 - Blocker: none.
 - Evidence: knowledge/components/agentic-storefront.md; ADR-019.
 

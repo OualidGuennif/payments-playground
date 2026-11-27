@@ -83,12 +83,14 @@ function row(origin: string, product: Product, variant: Variant, siblings: numbe
   };
 }
 
-export function openAiFeed(origin: string): FeedItem[] {
-  return PRODUCTS.flatMap((product) => {
-    const variants = variantsOf(product);
-    return variants.map((v) => row(origin, product, v, variants.length));
-  });
+// One product's rows, for its page's developer tab.
+export function productFeed(origin: string, product: Product): FeedItem[] {
+  const variants = variantsOf(product);
+  return variants.map((v) => row(origin, product, v, variants.length));
 }
+
+export const openAiFeed = (origin: string): FeedItem[] =>
+  PRODUCTS.flatMap((product) => productFeed(origin, product));
 
 export const feedJsonl = (items: FeedItem[]) =>
   `${items.map((item) => JSON.stringify(item)).join("\n")}\n`;

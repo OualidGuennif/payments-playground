@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-27
+
 - The Personal Shopper's checkout stays in the chat (ADR-021): its card leads with one action (Pay,
   Pay in chat, Raise budget, Allow, Save a card, or a new account), each opening an overlay above
   the chat (the Pay email modal, a Drop-in card save, a budget to allow or raise, the chat-pay

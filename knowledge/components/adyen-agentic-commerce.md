@@ -7,7 +7,7 @@ status: draft
 scope: component-adyen-agentic-commerce
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T08:00:00Z
+  at: 2026-11-27T10:24:00Z
 verified:
   - at: 2026-11-19
     check: "v0.7.1 on develop: bun run check green (413 agentic tests, 107 workspace tests, biome ci 0 errors, tsc clean, 3 Next builds + SSR, template-tests PASS); bridge dedup, silent setWidgetState, /api/return, MCP prompts and OpenAI ZIP schema tested."
@@ -82,13 +82,13 @@ before, every deploy or restart emptied orders, agents and grants.
 ## Inputs
 
 - **Shopper (browser):** catalogue filters, variant choice, cart edits, delivery choice, Drop-in
-  (Sessions flow), consent decisions, spend limit, agent revocation, card save (zero-value auth). A guest
-  buys without an account; consent, device approval, the account and card save need one. The consent
-  page, where both sign-in flows end, tells the shopper in one sentence to allow only if they just asked
-  this agent to connect (PAP 1.0 §10.8: a link or code can be sent by someone else). It is a short
-  e-commerce screen: the agent's name, the account (email masked), one line per permission, a budget with
-  presets (50, 150, 300, 1000 EUR) and a free amount, Allow and Deny; the client's host and where the
-  browser returns sit in a folded "Details".
+  (Sessions flow; methods and look: [storefront](agentic-storefront.md)), consent decisions, spend limit,
+  agent revocation, card save (zero-value auth). A guest buys without an account; consent, device
+  approval, the account and card save need one. The consent page, where both sign-in flows end, tells the
+  shopper in one sentence to allow only if they just asked this agent to connect (PAP 1.0 §10.8: a link
+  or code can be sent by someone else). It is a short e-commerce screen: the agent's name, the account
+  (email masked), one line per permission, a budget with presets (50, 150, 300, 1000 EUR) and a free
+  amount, Allow and Deny; the client's host and where the browser returns sit in a folded "Details".
 - **Customer account (browser):** sign-up `POST /api/customers` (email, name, a password of 12 to 128
   characters), sign-in `POST /api/session` (email and password), sign-out `DELETE /api/session`; Pay's
   email check and claim ([storefront](agentic-storefront.md)); passkeys: `POST

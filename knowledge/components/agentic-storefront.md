@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T09:35:00Z
+  at: 2026-11-27T10:24:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -48,6 +48,9 @@ sources:
   - id: seasons
     resource: ../../apps/adyen-agentic-commerce/src/lib/seasons.ts
     title: "The season of a UTC date: its tote, its top bar line, its ambience"
+  - id: payment-session
+    resource: ../../apps/adyen-agentic-commerce/src/server/payments/adyen.ts
+    title: "The Adyen session request: the order's methods, the card save's card, the store mode"
   - id: test-cards
     resource: ../../apps/adyen-agentic-commerce/src/lib/testCards.ts
     title: "The Adyen TEST cards shown beside Drop-in on the checkout"
@@ -151,6 +154,22 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   a welcome offer as a green "Welcome offer (-5%)" row and the free tote line with its picture.
   Below Drop-in, four Adyen TEST cards (`src/lib/testCards.ts`, the values of
   `packages/ui/testData.ts`) copy without spaces.
+- **Drop-in** (`DropinPanel`; owner decision 2026-11-27): an order's session lists the store's
+  methods in `allowedPaymentMethods` (`ORDER_PAYMENT_METHODS`, `src/server/payments/adyen.ts`):
+  cards (Visa, Mastercard, Cartes Bancaires, American Express), Apple Pay, Google Pay, Klarna (its
+  three ways to pay), PayPal, Wero, MB WAY, Bizum and Pix; Drop-in's card takes only those four
+  brands. Adyen shows only what the merchant account offers for France in euros, so MB WAY
+  (Portugal), Bizum (Spain) and Pix (Brazil, in reais) stay hidden here; the owner keeps them
+  listed. A card save's session lists the card alone. Apple Pay and Google Pay sit above the list
+  as express buttons (`instantPaymentTypes`), "Buy with", black on the light theme and white on the
+  dark one, with the store's 12 px corners; Apple Pay shows only in Safari, on a domain registered
+  for it in the Adyen TEST account. An account's session asks before keeping a card ("Save for my
+  next payment": `askForConsent`, `CardOnFile`) and shows its saved cards; a guest's has neither.
+  The form wears the store's colours in both themes through Adyen Web 6's CSS custom properties on
+  `.dropin-surface` (surfaces, labels, outlines, the pay button at rest, hover and press, the focus
+  ring, corners, type). The card fields, drawn in Adyen's frames, take the theme's text and
+  background when Drop-in mounts; a switch of the header's theme mounts Drop-in again on the same
+  Adyen session, with no new session (a card number typed before the switch is typed again).
 - **Pay email modal** (`PayIdentityModal`, on `/checkout` and over the Personal Shopper): "Add your
   email address", one field and Continue, then the email check below. An account's email shows
   "Welcome back" with the email and Change, a password ("Sign in & continue to payment") or a
@@ -245,6 +264,10 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
 12. A guest's email stays set once: a second `POST /api/checkouts/:id/email` is 409 `email_set`.
     Test: `src/server/accounts/customers.test.ts` "a checkout handed over without an email takes
     one at its link, once" (unchanged).
+13. A payment session lists exactly the store's methods: an order's `ORDER_PAYMENT_METHODS`, a
+    card save's the card alone. Only an account's session can keep a card, an order's only once
+    the shopper ticks the box; a guest's names no shopper reference and no store mode. Test:
+    `src/server/payments/adyen.test.ts`.
 
 ## Determinism
 
@@ -263,6 +286,9 @@ The catalogue and the feed are pure functions of the build and `PUBLIC_ORIGIN`.
   the order, and a second order gets no offer; Pay as guest opens Drop-in at the standard total.
 - `/sign-up` with an email that has an account offers "Sign in as" with the email prefilled; in
   dark mode an autofilled field stays dark.
+- Drop-in on TEST: Google Pay above the list in Chrome, only the four card brands and the listed
+  methods the account offers for France, the store's pay button and card fields in light and dark
+  (and after a theme switch) at 375 and 1440 px, and a card payment Authorised.
 
 ## Out of scope
 

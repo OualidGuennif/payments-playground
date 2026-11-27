@@ -99,6 +99,9 @@ export function DropinPanel({
           result?: { sessionResult?: string; resultCode?: string },
         ) => {
           paying.current = false;
+          // Adyen has answered: the session is spent or Drop-in shows its final state, so a theme
+          // switch from here on keeps what is shown rather than mount a fresh form on it.
+          remount.current = undefined;
           if (!active) return;
           if (!result?.sessionResult) {
             setError(
@@ -167,6 +170,7 @@ export function DropinPanel({
           onError: (e) => {
             paying.current = false;
             if (!active || e.name === "CANCEL") return;
+            remount.current = undefined;
             setError(e.message);
             setState("error");
           },

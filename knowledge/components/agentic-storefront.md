@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T10:35:00Z
+  at: 2026-11-27T10:47:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -178,7 +178,8 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   `.dropin-surface` (surfaces, labels, outlines, the pay button at rest, hover and press, the focus
   ring, corners, type). The card fields, drawn in Adyen's frames, take the theme's text and
   background when Drop-in mounts; a switch of the header's theme mounts Drop-in again on the same
-  Adyen session, with no new session (a card number typed before the switch is typed again).
+  Adyen session, with no new session (a card number typed before the switch is typed again), but
+  never while a payment is in flight or once Adyen has answered it.
 - **Pay email modal** (`PayIdentityModal`, on `/checkout` and over the Personal Shopper): "Add your
   email address", one field and Continue, then the email check below. An account's email shows
   "Welcome back" with the email and Change, a password ("Sign in & continue to payment") or a

@@ -15,6 +15,8 @@ import type {
   ModificationRequest,
   OrderAggregate,
   OrderState,
+  PaymentSessionAggregate,
+  SessionState,
   TimelineEntry,
 } from "./types.ts";
 import { isModificationEvent } from "./modifications.ts";
@@ -34,6 +36,16 @@ interface OrderRow {
   payment_link_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface SessionRow {
+  id: string;
+  order_id: string;
+  kind: string;
+  adyen_session_id: string | null;
+  state: SessionState;
+  expires_at: string | null;
+  created_at: string;
 }
 
 interface AttemptRow {
@@ -273,6 +285,65 @@ export class Repository {
         now,
       );
     return id;
+  }
+
+  /** The order's newest session, the one in use; a renewal adds a newer one. */
+  latestSession(orderId: string): PaymentSessionAggregate | undefined {
+    const row = this.database
+      .prepare<SessionRow, Bindings>(
+        `SELECT * FROM payment_sessions WHERE order_id = ?
+         ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+      )
+      .get(orderId);
+    if (!row) return undefined;
+    return {
+      id: row.id,
+      orderId: row.order_id,
+      kind: row.kind,
+      ...(row.adyen_session_id ? { adyenSessionId: row.adyen_session_id } : {}),
+      state: row.state,
+      ...(row.expires_at ? { expiresAt: row.expires_at } : {}),
+      createdAt: row.created_at,
+    };
+  }
+
+  /**
+   * Moves a session to `to` only while it is still `from`. Two renewals racing for the same
+   * session both read it, but only one of them gets this change.
+   */
+  claimSession(id: string, from: SessionState, to: SessionState): boolean {
+    const { changes } = this.database
+      .prepare("UPDATE payment_sessions SET state = ?, updated_at = ? WHERE id = ? AND state = ?")
+      .run(to, new Date().toISOString(), id, from);
+    return changes === 1;
+  }
+
+  /**
+   * The refusals Adyen itself reported for one session: HMAC-valid AUTHORISATION webhooks with
+   * success false that name it in additionalData.checkoutSessionId, once per PSP reference.
+   */
+  sessionRefusals(adyenSessionId: string): number {
+    const row = this.database
+      .prepare<{ refusals: number }, Bindings>(
+        `SELECT COUNT(DISTINCT psp_reference) AS refusals FROM webhooks
+         WHERE event_type = 'AUTHORISATION' AND hmac_valid = 1
+           AND lower(CAST(json_extract(payload, '$.success') AS TEXT)) IN ('false', '0')
+           AND json_extract(payload, '$.additionalData.checkoutSessionId') = ?`,
+      )
+      .get(adyenSessionId);
+    return row?.refusals ?? 0;
+  }
+
+  /** The metadata an order was created with (the profile it was made under, for one). */
+  orderMetadata(id: string): Record<string, unknown> {
+    const row = this.database
+      .prepare<{ metadata: string }, Bindings>("SELECT metadata FROM orders WHERE id = ?")
+      .get(id);
+    if (!row) return {};
+    const parsed: unknown = JSON.parse(row.metadata);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
   }
 
   createAttempt(input: {

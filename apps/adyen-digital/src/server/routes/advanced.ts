@@ -14,6 +14,7 @@ import {
 } from "../input.ts";
 import { recordedCall, resolveAndStore, settleAttempt, RESULT_CODE_FOR_STATE } from "../orders.ts";
 import { createPayment } from "../payments.ts";
+import { attemptForRedirect, earlierRedirectAnswer, reloadedResult } from "../redirect-return.ts";
 import { Elysia } from "elysia";
 
 export const advancedRoutes = new Elysia()
@@ -83,8 +84,9 @@ export const advancedRoutes = new Elysia()
   // back to /result with a redirectResult and nothing else had told this server
   // how the payment ended. Submitting it to /payments/details settles the order,
   // for Sessions too: the redirectResult carries the whole payment, so the
-  // call does not need the session. A reload must not submit it twice, so an
-  // order with nothing left waiting answers with what is already stored.
+  // call does not need the session. A reload must not submit it twice, so the
+  // same redirectResult answers with what is already stored; any other one is
+  // submitted, even when older attempts of the order are settled.
   .post(
     "/api/digital/orders/:id/redirect-result",
     async ({ params, body: rawBody, request: http }) => {
@@ -93,20 +95,23 @@ export const advancedRoutes = new Elysia()
       const body = object(rawBody);
       const redirectResult = typeof body.redirectResult === "string" ? body.redirectResult : "";
       if (!redirectResult) return status(400, { error: "redirectResult is required." });
-      const attempts = context.repository.listAttempts(order.id);
-      const waiting = attempts.findLast(
-        (item) => item.state === "pending" || item.state === "created",
-      );
-      const settled = attempts.findLast((item) => item.pspReference && item.state !== "created");
-      if (!waiting && settled) {
+      const foreign = (answer: unknown) => {
+        const merchantReference = resultField(answer, "merchantReference");
+        return typeof merchantReference === "string" && merchantReference !== order.reference;
+      };
+      const earlier = earlierRedirectAnswer(context.repository.timeline(order.id), redirectResult);
+      if (earlier && foreign(earlier)) {
+        return status(409, { error: "This redirect belongs to another order." });
+      }
+      if (earlier) {
         return {
           correlationId: order.id,
           alreadySettled: true,
-          result: {
-            resultCode: RESULT_CODE_FOR_STATE[settled.state],
-            pspReference: settled.pspReference,
-            paymentMethod: { type: settled.paymentMethod },
-          },
+          result: reloadedResult(
+            earlier,
+            context.repository.listAttempts(order.id),
+            RESULT_CODE_FOR_STATE,
+          ),
           resolution: resolveAndStore(order),
         };
       }
@@ -119,14 +124,17 @@ export const advancedRoutes = new Elysia()
         request,
         execute: () => client.paymentDetails(request, crypto.randomUUID()),
       });
-      const merchantReference = resultField(result, "merchantReference");
-      if (typeof merchantReference === "string" && merchantReference !== order.reference) {
+      if (foreign(result)) {
         return status(409, { error: "This redirect belongs to another order." });
       }
       // Sessions orders get their attempt from the session result, which a
-      // redirect skips; this is the first time the server sees the payment.
+      // redirect skips; unless its webhook came first, this is the first time
+      // the server sees the payment.
       const attempt =
-        waiting ??
+        attemptForRedirect(
+          context.repository.listAttempts(order.id),
+          resultField(result, "pspReference"),
+        ) ??
         context.repository.createAttempt({
           orderId: order.id,
           amount: order.amount,

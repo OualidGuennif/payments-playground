@@ -5,6 +5,7 @@ import { unwrap } from "@suite/ui/client.ts";
 import { type RefObject, useEffect } from "react";
 import { api, type CallbackActions } from "./client.ts";
 import { type OrderProgress, orderProgress } from "./partial.ts";
+import { pollRenewal, type RenewalWait } from "./session-renewal.ts";
 import {
   forgetSession,
   readSavedSession,
@@ -38,6 +39,41 @@ export async function createSession(input: {
       nativeThreeDS: input.nativeThreeDS,
     }),
   ) as NewSession;
+}
+
+/**
+ * A new session on the same order, once the server has Adyen's word that the current one is spent
+ * (ADR-022). The amount is the order's: the browser sends only the shopper's settings.
+ */
+export async function renewSession(
+  input: {
+    profileId: string;
+    orderId: string;
+    integration: "dropin" | "component";
+    country: string;
+    locale: string;
+    installments: boolean;
+    nativeThreeDS: boolean;
+  },
+  onWait: (wait: RenewalWait) => void,
+  stale: () => boolean,
+): Promise<NewSession | null> {
+  return pollRenewal<NewSession>({
+    ask: async () =>
+      unwrap(
+        await api(input.profileId)
+          .api.digital.orders({ id: input.orderId })
+          .sessions.post({
+            flow: `sessions-${input.integration}`,
+            countryCode: input.country,
+            shopperLocale: input.locale,
+            installments: input.installments,
+            nativeThreeDS: input.nativeThreeDS,
+          }),
+      ) as NewSession | RenewalWait,
+    onWait,
+    stale,
+  });
 }
 
 /** When the session stops taking payments, or null when Adyen did not say. */

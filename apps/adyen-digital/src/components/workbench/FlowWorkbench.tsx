@@ -31,6 +31,7 @@ import {
   type Bootstrap,
   closesSession,
   detectInitialCountry,
+  expiredSession,
   flagEmoji,
   MARKETS,
   minorExponent,
@@ -57,6 +58,7 @@ import {
 import {
   createSession,
   reapplyRestoredOrder,
+  renewSession,
   sessionExpiry,
   sessionHandlers,
   useSessionKeptOnLeave,
@@ -69,7 +71,7 @@ import { FlowIcon } from "./FlowIcon.tsx";
 import { FlowSettings } from "./FlowSettings.tsx";
 import { MitPanel } from "./MitPanel.tsx";
 import { PayByLinkPanel } from "./PayByLinkPanel.tsx";
-import { type PaymentOutcome, ResultCard } from "./ResultCard.tsx";
+import { type PaymentOutcome, type Renewal, ResultCard, type RetryMode } from "./ResultCard.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { TestData } from "./TestData.tsx";
 
@@ -125,6 +127,7 @@ export default function FlowWorkbench({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<PaymentOutcome | null>(null);
+  const [renewal, setRenewal] = useState<Renewal | null>(null);
   const [link, setLink] = useState<Record<string, unknown> | null>(null);
   const [linkState, setLinkState] = useState<string | null>(null);
   const [storedMethods, setStoredMethods] = useState<StoredMethod[] | null>(null);
@@ -159,6 +162,10 @@ export default function FlowWorkbench({
   const sessionExpiresAtRef = useRef<number | null>(null);
   const sessionRefusalsRef = useRef(0);
   const sessionClosedRef = useRef(false);
+  const sessionExpiredRef = useRef(false);
+  // A session the server renewed that has not mounted yet: the server already
+  // replaced the old one, so a retry mounts this one instead of asking again.
+  const renewedRef = useRef<Awaited<ReturnType<typeof renewSession>>>(null);
   const remainingRef = useRef<number | null>(null);
   const giftCardBalanceRef = useRef<number | null>(null);
   const inspectorBody = useRef<HTMLDivElement>(null);
@@ -371,6 +378,7 @@ export default function FlowWorkbench({
         if (field(result, "resultCode") === "Refused") sessionRefusalsRef.current += 1;
         if (closesSession(result)) {
           sessionClosedRef.current = true;
+          sessionExpiredRef.current = expiredSession(result);
           forgetSession(tabStore());
         } else {
           keepLatestSessionData(result);
@@ -408,6 +416,7 @@ export default function FlowWorkbench({
         // onPaymentFailed reports it too, with a way out; no second banner.
         if (closesSession(cause)) {
           sessionClosedRef.current = true;
+          sessionExpiredRef.current = expiredSession(cause);
           forgetSession(tabStore());
           return;
         }
@@ -470,20 +479,30 @@ export default function FlowWorkbench({
   // still holds the session, with the sessionData of its last answer, and any
   // order a gift card opened: remounting on it lets the shopper try again
   // without losing what was paid. Starting over (a new session) would leave
-  // that order to expire. An expired session can only be replaced.
-  function retryNeedsNewSession(): boolean {
-    if (flow !== "sessions") return false;
+  // that order to expire. An expired session expired with its order: only a
+  // new checkout can pay. A spent one (five refusals, 14_0422) is the
+  // server's to renew on the same order, once Adyen's webhooks say so
+  // (ADR-022): the counter here only says when to ask.
+  function retryMode(): RetryMode {
+    if (flow !== "sessions") return "same";
     const expired =
       sessionExpiresAtRef.current !== null && Date.now() >= sessionExpiresAtRef.current;
-    return (
-      expired || sessionClosedRef.current || sessionRefusalsRef.current >= SESSION_REFUSAL_LIMIT
-    );
+    if (expired || sessionExpiredRef.current) return "new";
+    if (sessionClosedRef.current || sessionRefusalsRef.current >= SESSION_REFUSAL_LIMIT) {
+      return "renew";
+    }
+    return "same";
   }
 
   function retry() {
     const checkout = checkoutRef.current;
-    if (!checkout || !dropinHost.current || flow === "api-only" || retryNeedsNewSession()) {
-      if (retryNeedsNewSession()) forgetSession(tabStore());
+    const mode = retryMode();
+    if (mode === "renew" && correlationRef.current) {
+      void renew(correlationRef.current);
+      return;
+    }
+    if (!checkout || !dropinHost.current || flow === "api-only" || mode !== "same") {
+      if (mode !== "same") forgetSession(tabStore());
       start();
       return;
     }
@@ -494,6 +513,48 @@ export default function FlowWorkbench({
     dropinHost.current.replaceChildren();
     if (integration === "dropin") mountDropin(checkout);
     else mountComponentType(componentType);
+  }
+
+  // A new session on the same order, from the server only: it answers 202
+  // until Adyen's refusal webhooks for this session are all in, 409 when the
+  // order cannot take one. The result card shows the wait and the reason.
+  async function renew(orderId: string) {
+    const run = ++runRef.current;
+    const stale = () => run !== runRef.current;
+    forgetSession(tabStore());
+    setError(null);
+    setRenewal({ phase: "waiting", refusals: null, limit: SESSION_REFUSAL_LIMIT });
+    try {
+      const kept = renewedRef.current?.correlationId === orderId ? renewedRef.current : null;
+      const data =
+        kept ??
+        (await renewSession(
+          { profileId, orderId, integration, country, locale, installments, nativeThreeDS },
+          (wait) => setRenewal({ phase: "waiting", refusals: wait.refusals, limit: wait.limit }),
+          stale,
+        ));
+      if (!data || stale()) return;
+      renewedRef.current = data;
+      await mountCheckout(sessionConfiguration(data.correlationId, data.session), stale);
+      if (stale()) return;
+      // Only a mounted session is the one in use: until then the counters
+      // still say "renew", and a retry mounts the session kept above.
+      renewedRef.current = null;
+      sessionIdRef.current = data.session.id;
+      sessionExpiresAtRef.current = sessionExpiry(data.session);
+      sessionRefusalsRef.current = 0;
+      sessionClosedRef.current = false;
+      sessionExpiredRef.current = false;
+      lastPaymentRef.current = {};
+      setRenewal(null);
+      setOutcome(null);
+    } catch (cause) {
+      if (stale()) return;
+      setRenewal({
+        phase: "failed",
+        message: cause instanceof Error ? cause.message : "The server opened no new session.",
+      });
+    }
   }
 
   async function mountCheckout(
@@ -692,6 +753,7 @@ export default function FlowWorkbench({
   async function start() {
     setError(null);
     setOutcome(null);
+    setRenewal(null);
     setCallbacks([]);
     setTimeline([]);
     setCorrelationIds([]);
@@ -702,6 +764,8 @@ export default function FlowWorkbench({
     sessionExpiresAtRef.current = null;
     sessionRefusalsRef.current = 0;
     sessionClosedRef.current = false;
+    sessionExpiredRef.current = false;
+    renewedRef.current = null;
     resetPartialOrder();
     const run = ++runRef.current;
     const stale = () => run !== runRef.current;
@@ -810,7 +874,8 @@ export default function FlowWorkbench({
             orderId={correlationId}
             onRestart={startOver}
             onRetry={flow === "api-only" ? undefined : retry}
-            retryStartsOver={retryNeedsNewSession()}
+            retryMode={retryMode()}
+            renewal={renewal}
           />
         ) : null}
         {partialOrder && integration === "component" && !outcome ? (

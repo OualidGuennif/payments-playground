@@ -57,6 +57,19 @@ export interface OrderAggregate {
   updatedAt: string;
 }
 
+/** One Adyen session of an order: the one in use, or one a renewal replaced (ADR-022). */
+export type SessionState = "created" | "renewing" | "replaced";
+
+export interface PaymentSessionAggregate {
+  id: string;
+  orderId: string;
+  kind: string;
+  adyenSessionId?: string;
+  state: SessionState;
+  expiresAt?: string;
+  createdAt: string;
+}
+
 export interface AttemptAggregate {
   id: string;
   orderId: string;

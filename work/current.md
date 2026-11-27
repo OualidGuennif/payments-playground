@@ -5,15 +5,26 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## v0.14.0: Personal Shopper tone, chat Add to bag, page transitions — ACTIVE
+## Digital: the server decides a Sessions renewal (ADR-022) — WAITING-OWNER
+
+- Owner decision: 2026-11-27, in chat: "Oui, vas-y" to the plan; count refusals by the webhook's
+  `checkoutSessionId` ("on aura bien l'info").
+- State: released in v0.15.0 (`develop` `d96f7d5` reviewed, CI green); the Render deploy follows.
+- Next: on Render, five `DECLINED` in one session, then Try again: confirm each refused
+  AUTHORISATION carries `checkoutSessionId` and the new session opens on the same order (who: owner).
+- Blocker: none.
+- Evidence: ADR-022; knowledge/components/adyen-digital.md invariant 12.
+
+## v0.14.0: Personal Shopper tone, chat Add to bag, page transitions — WAITING-OWNER
 
 - Owner decision: 2026-11-27, in chat: "yes GO !!!!" to the v0.14.0 plan; a personal question gets
   only the store's generic line; "Oui, release" after the screenshots.
-- State: on develop at `3016da5` (Gemini review OK in round 4, receipt posted); release 0.14.0
-  in progress; local QA at 375 px: store line, Add to bag stays, stepper, Bag count, pill once.
-- Next: release PR, CI, merge, tag, Render deploy, prod check (agent).
+- State: v0.14.0 live (main `7a1b274`, tag v0.14.0, CI green); page and picture fades checked in
+  prod; the store line and the chat Add to bag stepper checked locally on TEST.
+- Next: in prod, ask the Personal Shopper something personal and tap Add to bag in its card
+  (who: owner).
 - Blocker: none.
-- Evidence: this session's handover.
+- Evidence: knowledge/current/digital-status.md (v0.14.0 deploy row); GitHub release v0.14.0.
 
 ## v0.13.0: Personal Shopper checkout in the chat, Safari fixes — WAITING-OWNER
 

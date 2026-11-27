@@ -9,11 +9,12 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-27, in chat: "Oui, vas-y" to the plan; count refusals by the webhook's
   `checkoutSessionId` ("on aura bien l'info").
-- State: released in v0.15.0 (`develop` `d96f7d5` reviewed, CI green); the Render deploy follows.
+- State: v0.15.0 live (main `e987965`, tag v0.15.0, CI green); the renewal route answers in prod;
+  renewal and redirect after a refusal checked locally on TEST.
 - Next: on Render, five `DECLINED` in one session, then Try again: confirm each refused
   AUTHORISATION carries `checkoutSessionId` and the new session opens on the same order (who: owner).
 - Blocker: none.
-- Evidence: ADR-022; knowledge/components/adyen-digital.md invariant 12.
+- Evidence: ADR-022; knowledge/current/digital-status.md (v0.15.0 deploy row); release v0.15.0.
 
 ## v0.14.0: Personal Shopper tone, chat Add to bag, page transitions — WAITING-OWNER
 

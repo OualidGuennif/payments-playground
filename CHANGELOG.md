@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-27
+
 - The agentic store's welcome offer is checked again at the payment form's last step, so a form
   opened before another checkout of the account was paid reloads at the full price instead of
   paying with the offer, and an agent pays with it only on the account's own grant (any other
@@ -54,6 +56,7 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   (5 % off and a free seasonal tote, priced on the server), seasons that start on the 21st of the
   month before, Sign in in the header on every width, and the Personal Shopper's bag that starts
   from the site's.
+
 ## [0.10.1] - 2026-11-27
 
 - The agentic store's image builds again. v0.10.0 never reached Render: a test in the app imported

@@ -7,7 +7,7 @@ scope: component-ui
 tags: [component, ui, adyen-web]
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-25T13:00:00Z
+  at: 2026-11-27T06:57:00Z
 sources:
   - resource: ../../packages/ui
     title: "The package: modules and stylesheet"
@@ -145,8 +145,8 @@ on anything but `GET`/`HEAD`, and `X-Profile-Id` when a profile id is given, alw
 
 ## Invariants
 
-This package has no test file of its own. Each invariant names the check that actually holds it, and
-says when only one half is covered.
+This package's only test file is `testData.test.ts` (invariant 6). Each invariant names the check
+that actually holds it, and says when only one half is covered.
 
 1. Every app's rendered page contains a `<main>` element and the TEST marker —
    `bun run ssr:assert` (`tools/build/assert-built-ssr.ts`, run per app).
@@ -164,6 +164,10 @@ says when only one half is covered.
 5. The zero-decimal set that `formatMinorAmount` branches on is exactly the currencies without a
    minor unit — `packages/platform/markets.test.ts` "zero-decimal currencies are never given
    fractional minor units". The formatter's own branch has no test.
+6. The agentic store's copy of the TEST cards (`apps/adyen-agentic-commerce/src/lib/testCards.ts`,
+   kept apart because that image carries no package source) holds only cards of `TEST_CARDS`,
+   value for value — `packages/ui/testData.test.ts`. Whether `TEST_CARDS` itself is current is
+   not checked.
 
 ## Determinism
 

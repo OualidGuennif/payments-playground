@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T00:50:00Z
+  at: 2026-11-27T06:57:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -153,7 +153,8 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
    once, read a plural search word as its singular and sort without reordering the catalogue.
    Tests: `src/components/shop/filter.test.ts` (seven tests).
 8. The checkout's test cards are Adyen's published TEST numbers, the same values as the suite's
-   shared list. Test: `src/lib/testCards.test.ts`.
+   shared list. Test: `packages/ui/testData.test.ts` (outside the app: its image carries no
+   package source, and `src/selfContained.test.ts` refuses an import that leaves the app).
 
 ## Determinism
 

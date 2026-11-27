@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic store's image builds again. v0.10.0 never reached Render: a test in the app imported
+  the shared test cards from `packages/ui`, which that image does not carry, so the build stage's
+  type check failed while every check on the whole repository passed. The comparison now lives in
+  `packages/ui/testData.test.ts`, and a test in the app refuses any import that leaves it.
+
 ## [0.10.0] - 2026-11-27
 
 - The agentic store's Ask panel is now the Personal Shopper everywhere. From 1024 px it is a 440 px

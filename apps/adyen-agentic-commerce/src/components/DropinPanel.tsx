@@ -2,7 +2,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import "@adyen/adyen-web/styles/adyen.css";
-import { CARD_BRANDS } from "@/lib/payment-methods";
 import { onThemeChange, resolvedTheme, type Theme } from "@/lib/theme";
 
 // The card fields live in Adyen's frames, out of reach of the page's CSS: they take the theme's
@@ -24,20 +23,26 @@ const FIELDS: Record<Theme, Record<string, Record<string, string>>> = {
 
 // Apple Pay and Google Pay above the list, in the store's ink: black on light, white on dark,
 // with round ends like the store's buttons (Apple Pay's comes from globals.css).
-function dropinOptions(theme: Theme, showStored: boolean) {
+// The card brands come from the session (allowedPaymentMethods), so the card names none here.
+// autoFocus, keypadFix and disableIOSArrowKeys keep the secured fields usable on iOS Safari
+// (owner, 2026-11-27).
+function dropinOptions(theme: Theme) {
   const wallet: "white" | "black" = theme === "dark" ? "white" : "black";
   return {
-    showStoredPaymentMethods: showStored,
+    // A session lists saved cards only for the signed-in owner's shopper reference.
+    showStoredPaymentMethods: true,
     instantPaymentTypes: ["applepay", "googlepay"] as ("applepay" | "googlepay")[],
     paymentMethodsConfiguration: {
       // The cardholder's name is asked for first, optional (owner, 2026-11-27).
       card: {
-        brands: [...CARD_BRANDS],
         hasHolderName: true,
         positionHolderNameOnTop: true,
+        autoFocus: true,
+        keypadFix: true,
+        disableIOSArrowKeys: true,
         styles: FIELDS[theme],
       },
-      storedCard: { styles: FIELDS[theme] },
+      storedCard: { keypadFix: true, disableIOSArrowKeys: true, styles: FIELDS[theme] },
       applepay: { buttonType: "buy" as const, buttonColor: wallet },
       googlepay: {
         buttonType: "buy" as const,
@@ -56,8 +61,6 @@ export type SessionInfo = {
   clientKey: string;
   amount: number;
   currency: string;
-  // False when the payer is not the checkout's own signed-in customer: no saved card to offer.
-  storedCards?: boolean;
 };
 
 type Props = {
@@ -68,8 +71,6 @@ type Props = {
   // Set when Adyen redirected back to this page.
   redirect?: { sessionId: string; redirectResult: string };
   label?: string;
-  // A card save offers only a new card; a purchase may reuse a saved one.
-  storedMethods?: boolean;
   // Asked before Drop-in sends the payment: a sentence stops it (another payment holds the
   // checkout, or the bag changed since the form opened), nothing lets it go.
   beforePay?: (sessionId: string) => Promise<string | undefined>;
@@ -81,7 +82,6 @@ export function DropinPanel({
   clientKey,
   redirect,
   label,
-  storedMethods = true,
   beforePay,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -182,10 +182,9 @@ export function DropinPanel({
           },
         });
         if (!active || !host.current) return;
-        const showStored = storedMethods && session.storedCards !== false;
         const target = host.current;
         let shown: Theme = resolvedTheme();
-        let dropin = new Dropin(checkout, dropinOptions(shown, showStored)).mount(target);
+        let dropin = new Dropin(checkout, dropinOptions(shown)).mount(target);
         const drop = () => {
           try {
             dropin.unmount();
@@ -197,7 +196,7 @@ export function DropinPanel({
           if (!active || theme === shown || paying.current) return;
           drop();
           shown = theme;
-          dropin = new Dropin(checkout, dropinOptions(theme, showStored)).mount(target);
+          dropin = new Dropin(checkout, dropinOptions(theme)).mount(target);
         };
         unmount = () => {
           remount.current = undefined;
@@ -214,7 +213,7 @@ export function DropinPanel({
       active = false;
       unmount?.();
     };
-  }, [beforePay, clientKey, createSession, onFinished, redirect, storedMethods]);
+  }, [beforePay, clientKey, createSession, onFinished, redirect]);
 
   // The header's theme switch: the card fields and wallet buttons cannot follow by CSS alone.
   useEffect(() => onThemeChange(() => remount.current?.(resolvedTheme())), []);

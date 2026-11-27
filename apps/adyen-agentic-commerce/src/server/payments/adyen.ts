@@ -31,10 +31,10 @@ export type SessionRequest = {
 
 // What an order's Drop-in may offer (owner, 2026-11-27). Adyen shows only those the merchant
 // account has for the session's country and currency: MB WAY, Bizum and Pix stay listed though
-// France in euros hides them.
+// France in euros hides them. Cards are named by brand, never as "scheme", which would let in
+// every brand the account has; Drop-in reads the brands from the session.
 export const ORDER_PAYMENT_METHODS = [
   ...CARD_BRANDS,
-  "scheme",
   "applepay",
   "googlepay",
   "klarna",
@@ -76,7 +76,7 @@ export function sessionRequest(input: SessionRequest, merchantAccount: string): 
       : cardSave
         ? S.StorePaymentMethodModeEnum.Enabled
         : S.StorePaymentMethodModeEnum.AskForConsent,
-    allowedPaymentMethods: cardSave ? ["scheme"] : [...ORDER_PAYMENT_METHODS],
+    allowedPaymentMethods: cardSave ? [...CARD_BRANDS] : [...ORDER_PAYMENT_METHODS],
     // Adyen offers Klarna only to a session whose line items add up to its amount: one line for
     // the whole order, VAT included, so the sum always matches whatever the order holds.
     lineItems: cardSave

@@ -5,6 +5,9 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic Drop-in reads its card brands from the session, which names the four brands
+  instead of `scheme` (so the card save takes the same four), always shows saved cards, and sets
+  `autoFocus`, `keypadFix` and `disableIOSArrowKeys` for iOS Safari.
 - The agentic store's footer is redone: brand, departments and developer links, then one line
   ("A fictional store on Adyen TEST, a sandbox for demos and play.") and the terms; the protocol
   versions and the repeated "no real money moves" lines are gone, Cartes Bancaires leads the card

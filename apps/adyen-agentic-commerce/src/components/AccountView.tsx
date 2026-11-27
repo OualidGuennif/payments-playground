@@ -310,7 +310,6 @@ export function AccountView({
         ) : saving ? (
           <DropinPanel
             label="Save a card"
-            storedMethods={false}
             clientKey={clientKey}
             createSession={createSession}
             onFinished={onFinished}

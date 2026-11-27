@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T11:06:00Z
+  at: 2026-11-27T11:10:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -50,13 +50,13 @@ sources:
     title: "The season of a UTC date: its tote, its top bar line, its ambience"
   - id: payment-methods
     resource: ../../apps/adyen-agentic-commerce/src/lib/payment-methods.ts
-    title: "The four card brands Drop-in's card takes, shared by the session and the browser"
+    title: "The four card brands a session names, Cartes Bancaires first"
   - id: payment-session-tests
     resource: ../../apps/adyen-agentic-commerce/src/server/payments/adyen.test.ts
     title: "The payment session's tests: the methods, the order line, card keeping per account"
   - id: payment-session
     resource: ../../apps/adyen-agentic-commerce/src/server/payments/adyen.ts
-    title: "The Adyen session request: the order's methods, the card save's card, the store mode"
+    title: "The Adyen session request: the order's methods, the card save's brands, the store mode"
   - id: test-cards
     resource: ../../apps/adyen-agentic-commerce/src/lib/testCards.ts
     title: "The Adyen TEST cards and the 3-D Secure TEST password shown above Drop-in on the checkout"
@@ -167,17 +167,20 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
 - **Drop-in** (`DropinPanel`; owner decision 2026-11-27): an order's session lists the store's
   methods in `allowedPaymentMethods` (`ORDER_PAYMENT_METHODS`, `src/server/payments/adyen.ts`):
   cards (Cartes Bancaires first, then Visa, Mastercard, American Express), Apple Pay, Google Pay, Klarna (its
-  three ways to pay), PayPal, Wero, MB WAY, Bizum and Pix; Drop-in's card takes only those four
-  brands and asks first for the cardholder's name, optional (owner, 2026-11-27). Adyen shows only what the merchant account offers for France in euros, so MB WAY
+  three ways to pay), PayPal, Wero, MB WAY, Bizum and Pix; cards are named by those four brands,
+  never as `scheme` (which lets in every brand the account has), and Drop-in reads them from the
+  session (owner, 2026-11-27). The card asks first for the cardholder's name, optional, and sets
+  `autoFocus`, `keypadFix` and `disableIOSArrowKeys` for iOS Safari. Adyen shows only what the merchant account offers for France in euros, so MB WAY
   (Portugal), Bizum (Spain) and Pix (Brazil, in reais) stay hidden here; the owner keeps them
   listed. The session carries one line item, the whole order at its amount, since Adyen offers
-  Klarna only when the line items add up to it. A card save's session lists the card alone, with no
+  Klarna only when the line items add up to it. A card save's session lists the four brands alone, with no
   line item. Apple Pay and Google Pay sit above the list
   as express buttons (`instantPaymentTypes`), "Buy with", black on the light theme and white on the
   dark one, with round ends like the store's buttons (the pay button and PayPal's too; fields keep
   12 px corners); Apple Pay shows only in Safari, on a domain registered for it in the Adyen TEST
   account. An account's session asks before keeping a card ("Save for my
-  next payment": `askForConsent`, `CardOnFile`) and shows its saved cards; a guest's has neither.
+  next payment": `askForConsent`, `CardOnFile`) and shows its saved cards (Drop-in always shows them, and only an owner's session names a shopper);
+  a guest's has neither.
   The form wears the store's colours in both themes through Adyen Web 6's CSS custom properties on
   `.dropin-surface` (surfaces, labels, outlines, the pay button at rest, hover and press, the focus
   ring, corners, type). The card fields, drawn in Adyen's frames, take the theme's text and
@@ -279,7 +282,7 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
     Test: `src/server/accounts/customers.test.ts` "a checkout handed over without an email takes
     one at its link, once" (unchanged).
 13. A payment session lists exactly the store's methods: an order's `ORDER_PAYMENT_METHODS`, with
-    one line item at the order's amount, a card save's the card alone. Only an account's session can keep a card, an order's only once
+    one line item at the order's amount, a card save's the four brands alone, and none lists `scheme`. Only an account's session can keep a card, an order's only once
     the shopper ticks the box; a guest's names no shopper reference and no store mode. Test:
     `src/server/payments/adyen.test.ts`.
 

@@ -19,7 +19,6 @@ describe("the payment session request", () => {
       "visa",
       "mc",
       "amex",
-      "scheme",
       "applepay",
       "googlepay",
       "klarna",
@@ -32,6 +31,8 @@ describe("the payment session request", () => {
       "pix",
     ]);
     expect(CARD_BRANDS).toEqual(["cartebancaire", "visa", "mc", "amex"]);
+    // "scheme" would let in every card brand the merchant account has.
+    expect(body.allowedPaymentMethods).not.toContain("scheme");
     // A copy: a caller changing one request never changes the next one's list.
     expect(body.allowedPaymentMethods).not.toBe(ORDER_PAYMENT_METHODS);
     expect(body.countryCode).toBe("FR");
@@ -55,10 +56,10 @@ describe("the payment session request", () => {
     expect(body.allowedPaymentMethods).toEqual([...ORDER_PAYMENT_METHODS]);
   });
 
-  test("a card save lists the card alone, stores it, and needs an account", () => {
+  test("a card save lists the four card brands alone, stores it, and needs an account", () => {
     const save: SessionRequest = { ...order, amount: 0, purpose: "card-save" };
     const body = sessionRequest({ ...save, shopperReference: "cus_1" }, "M");
-    expect(body.allowedPaymentMethods).toEqual(["scheme"]);
+    expect(body.allowedPaymentMethods).toEqual([...CARD_BRANDS]);
     expect(body.lineItems).toBeUndefined();
     expect(String(body.storePaymentMethodMode)).toBe("enabled");
     expect(String(body.recurringProcessingModel)).toBe("UnscheduledCardOnFile");

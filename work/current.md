@@ -8,10 +8,10 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 ## v0.14.0: Personal Shopper tone, chat Add to bag, page transitions — ACTIVE
 
 - Owner decision: 2026-11-27, in chat: "yes GO !!!!" to the v0.14.0 plan; a personal question gets
-  only the store's generic line.
-- State: specs, tone (ask-6, STORE_LINE), widget stepper and badge, page and picture fades done,
-  uncommitted on develop; local QA at 375 px: store line, Add to bag stays, Bag badge.
-- Next: checks, commit, review, screenshots for the owner's visual yes, then release (agent).
+  only the store's generic line; "Oui, release" after the screenshots.
+- State: on develop at `3016da5` (Gemini review OK in round 4, receipt posted); release 0.14.0
+  in progress; local QA at 375 px: store line, Add to bag stays, stepper, Bag count, pill once.
+- Next: release PR, CI, merge, tag, Render deploy, prod check (agent).
 - Blocker: none.
 - Evidence: this session's handover.
 
@@ -30,8 +30,8 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 - Owner decision: 2026-11-27, in chat: "Oui, merge" for v0.12.0 (PR #27), template 4.1.1 first.
 - State: v0.12.0 live (main `b1f4589`, tag v0.12.0, CI green); guest checkout, Test cards and
   footer checked in prod; Drop-in itself not opened in prod (needs the email step).
-- Next: open Drop-in in prod (brands, holder name, wallets) and pay a TEST card (who: owner);
-  "Save another card" lists saved cards: hide them there if wanted (who: owner decides).
+- Next: open Drop-in in prod (brands, holder name, wallets) and pay a TEST card (who: owner).
+  "Save another card" keeps listing saved cards (owner, 2026-11-27: "non" to hiding them).
 - Blocker: none.
 - Evidence: knowledge/current/digital-status.md (v0.12.0 deploy row); GitHub release v0.12.0.
 

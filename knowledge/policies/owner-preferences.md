@@ -5,7 +5,7 @@ description: "Durable project preferences: Render at the root, TEST only, the fa
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T08:00:00Z
+  at: 2026-11-27T11:40:00Z
 sources:
   - resource: ../../AGENTS.md
     title: "Project rules and owner"
@@ -58,7 +58,7 @@ What the owner asked for that a reviewer should not have to ask again.
 ## Toolchain
 
 - Bun 1.4.4 and Python 3.12+ (excluding 3.14.1); Deno, Fresh, Hono and Vite are gone (2026-11-15).
-- Æion Template v4.0.3 through `template-update` (2026-11-15); Graphify and Archify are removed and
+- Æion Template v4.1.1 through `template-update` (2026-11-27, owner's yes; v4.0.3 since 2026-11-15); Graphify and Archify are removed and
   must not come back; aeion-framework mode stays off by default
   ([ADR-013](../decisions/ADR-013-aeion-template-v4-without-source-analysis.md)). The owner sets
   `aeion.mode team` in each clone.

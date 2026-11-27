@@ -4,9 +4,10 @@
     tools/repo-health/repo-health            print the scorecard; fail on a cap
     tools/repo-health/repo-health --json     the scorecard as JSON
 
-Caps: AGENTS.md at most 120 lines; work/current.md at most 150; no tracked source file (by suffix or shebang) over 1,500
+Caps: AGENTS.md at most 120 lines; work/current.md at most 150; no source file, tracked or untracked (by suffix or shebang), over 1,500
 lines; no comment block over 20 lines; at most nine top-level folders, not counting a folder releases leave out
-(`/name export-ignore`). Spec: knowledge/policies/engineering.md
+(`/name export-ignore`). Warns, never fails, past 20 unfilled handover skeletons.
+Spec: knowledge/policies/engineering.md
 """
 import json
 import re
@@ -19,11 +20,16 @@ SOURCE = {".py", ".ts", ".tsx", ".js", ".mjs", ".java", ".go", ".rs", ".kt", ".s
 COMMENT = re.compile(r"^\s*(//|#|\*|/\*|--)")
 sys.path.insert(0, str(ROOT / ".claude/hooks"))
 from project_files import export_ignored, project_files  # noqa: E402
+import handovers  # noqa: E402
+
+UNFILLED_WARN = 20
 
 
-def tracked():
+def checked_files():
+    # Untracked, unignored files too: local mode keeps the work uncommitted, and a report on tracked files alone
+    # read "0 big files" over a whole untracked application.
     try:
-        files = project_files(ROOT)
+        files = project_files(ROOT, untracked=True)
     except (OSError, subprocess.SubprocessError) as error:
         print(f"FAIL file enumeration failed: {error}", file=sys.stderr)
         sys.exit(1)
@@ -49,7 +55,7 @@ def longest_comment_block(text):
 
 
 def main(argv):
-    files = tracked()
+    files = checked_files()
     candidates = [p for p in files if is_source(p) and not p.name.startswith("test_")]
     # The versioned passive library preserves upstream formatting; its own integrity check is mandatory.
     catalog = ROOT / "skills/catalog.json"
@@ -72,7 +78,8 @@ def main(argv):
             "source_files_checked": len(sources), "source_suffixes": sorted(SOURCE),
             "passive_pool_source_files_excluded": len(candidates) - len(sources),
             "files_over_1500_lines": big, "comment_blocks_over_20_lines": blocks, "top_level_folders": top,
-            "top_level_folders_not_shipped": [name for name in top if name in unshipped]}
+            "top_level_folders_not_shipped": [name for name in top if name in unshipped],
+            "unfilled_handovers": len(handovers.unfilled_files(ROOT))}
     if "--json" in argv:
         print(json.dumps(card, indent=2))
     problems = []
@@ -90,6 +97,11 @@ def main(argv):
         print(f"repo-health: AGENTS.md {card['agents_md_lines']} lines, work/current.md {card['work_current_lines']}, "
               f"{len(counted)} top-level folders" + (f" (+{len(top) - len(counted)} not shipped)" if len(top) > len(counted) else "")
               + f", {len(big)} big files, {len(blocks)} long comment blocks")
+        # Ignored and local, so a warning, never a failure: the checkpoint runs this check.
+        if card["unfilled_handovers"] > UNFILLED_WARN:
+            print(f"repo-health: WARN {card['unfilled_handovers']} unfilled handover skeletons in work/handovers/ "
+                  f"(test debris or abandoned closures); session start removes those older than "
+                  f"{handovers.PRUNE_DAYS} days")
     return 1 if problems else 0
 
 

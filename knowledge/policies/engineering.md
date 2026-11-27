@@ -5,7 +5,7 @@ description: "Steps that read top to bottom, comments that say why, no needless 
 status: stable
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-16T03:00:00Z
+  at: 2026-11-27T11:32:00Z
 sources:
   - resource: ../../tools/git-hooks/pre-push
     title: "pre-push, which names this doc as its spec"
@@ -49,8 +49,11 @@ Never in a comment: dates, ticket numbers, the story of a bug, or a list of what
 story goes in the commit message.
 
 `repo-health` applies source-size/comment heuristics to its documented suffix set and to
-extensionless files that start with a shebang (`#!`), excluding `test_*` files. Its JSON scorecard
-reports that set and how many files were checked. This is a structural scorecard; each project's
+extensionless files that start with a shebang (`#!`), excluding `test_*` files. It reads tracked and
+untracked files alike, ignored ones aside, because local mode keeps the work uncommitted. It also
+counts the unfilled handover skeletons in the ignored `work/handovers/` and warns past 20, without
+failing, since the checkpoint runs it. Its JSON scorecard reports that set and how many files were
+checked. This is a structural scorecard; each project's
 build, linter and tests provide language-specific validation. Here that is Biome (formatter and
 linter), `tsc --noEmit` per package and app, `bun test`, the three Next.js builds and an SSR
 assertion on each standalone server, all through `bun run check`.
@@ -71,7 +74,9 @@ run.
   every finding and records `Review: OK` or `Review: NOT OK` (at most five findings) for the exact
   commit in `.aeion/reviews/<sha>.md`, then posts it on the commit. The hook
   `tools/git-hooks/pre-push` (`git config core.hooksPath tools/git-hooks`) refuses a push of
-  `develop` without `Review: OK` and any direct push to `main`. CI runs on pushes to `main` and
+  `develop` without `Review: OK` and any direct push to `main`. One push needs no review: a
+  fast-forward from the remote `develop` that changes only `work/current.md`, because task state is
+  not code. CI runs on pushes to `main` and
   `develop` and on pull requests into them (`.github/workflows/ci.yml`). A loop's pull request into `develop` merges after its `Review: OK`
   comment and a green CI; then the local `develop` pulls it before new commits.
 - A release (skill `ship`): `tools/release/release <part>` bumps `VERSION` (SemVer) and dates the

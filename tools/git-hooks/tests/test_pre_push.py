@@ -32,8 +32,8 @@ class PrePushTests(unittest.TestCase):
         self.git("commit", "-q", "--allow-empty", "-m", message)
         return self.git("rev-parse", "HEAD")
 
-    def push(self, remote_ref, sha):
-        line = f"refs/heads/x {sha} {remote_ref} {'0' * 40}\n"
+    def push(self, remote_ref, sha, remote_sha="0" * 40):
+        line = f"refs/heads/x {sha} {remote_ref} {remote_sha}\n"
         return subprocess.run([sys.executable, str(HOOK), "origin", "url"], cwd=self.root, input=line,
                               capture_output=True, text=True, timeout=10)
 
@@ -52,6 +52,26 @@ class PrePushTests(unittest.TestCase):
         # A review of an older commit does not cover new work.
         newer = self.commit("more work")
         self.assertIn("no 'Review: OK'", self.push("refs/heads/develop", newer).stderr)
+
+    def test_a_task_state_only_fast_forward_of_develop_needs_no_review(self):
+        reviewed = self.commit("work")
+        (self.root / "work").mkdir()
+        (self.root / "work/current.md").write_text("# Current work\n")
+        self.git("add", "work/current.md")
+        state = self.commit("chore(work): record the deploy")
+        self.assertEqual(self.push("refs/heads/develop", state, reviewed).returncode, 0)
+        # Not from a reviewed remote commit, not a fast-forward, or touching anything else: the review stays owed.
+        self.assertEqual(self.push("refs/heads/develop", state).returncode, 1)
+        (self.root / "work/notes.md").write_text("x\n")
+        self.git("add", "work/notes.md")
+        mixed = self.commit("notes")
+        self.assertEqual(self.push("refs/heads/develop", mixed, state).returncode, 1)
+        self.git("switch", "-q", "-c", "other", reviewed)
+        (self.root / "work").mkdir(exist_ok=True)
+        (self.root / "work/current.md").write_text("# Other\n")
+        self.git("add", "work/current.md")
+        diverged = self.commit("rewrite")
+        self.assertEqual(self.push("refs/heads/develop", diverged, state).returncode, 1)
 
     def test_main_is_refused_and_develop_may_catch_up_with_it(self):
         sha = self.git("rev-parse", "HEAD")

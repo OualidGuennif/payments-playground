@@ -748,7 +748,7 @@ class HookTests(unittest.TestCase):
         droid = lambda **changes: self.call('droid', session_id='context-droid', **changes)
         edit = {'tool_name': 'Edit', 'tool_input': {'file_path': str(self.root / 'src.py')}}
         denied = lambda result: result.get('hookSpecificOutput', {}).get('permissionDecision') == 'deny'
-        # Droid measures no tokens: work runs freely, and a compaction is never refused (Droid documents no refusal).
+        # Without a session record Droid is unmeasured: work runs freely, and its automatic compaction cannot be refused.
         self.assertFalse(denied(droid(**edit)))
         self.assertNotIn('continue', droid(hook_event_name='PreCompact', trigger='auto'))
         droid(hook_event_name='SessionStart', source='compact')
@@ -762,11 +762,253 @@ class HookTests(unittest.TestCase):
         hook.budget.atomic(state_file, json.dumps(state))
         self.assertFalse(denied(droid(**edit)))
         self.assertEqual(json.loads(state_file.read_text())['state'], 'RUNNING')
-        # A compaction after a verified handover owes nothing.
+        # That settlement used the receipt, so a later manual /compact needs a fresh verified handover, as Claude's does.
+        self.assertIs(droid(hook_event_name='PreCompact', trigger='manual')['continue'], False)
+
+    def droid_session(self, session_id, usage):
+        """A Droid session folder: the transcript and the settings file Droid writes beside it."""
+        folder = self.root / 'droid-sessions'
+        folder.mkdir(exist_ok=True)
+        transcript = folder / f'{session_id}.jsonl'
+        transcript.write_text('')
+        (folder / f'{session_id}.settings.json').write_text(json.dumps({'lastCallTokenUsage': usage}))
+        return transcript
+
+    def test_droid_session_usage_drives_the_shared_gate(self):
+        sid = 'droid-usage'
+        session = hook.key('droid', {'session_id': sid})
+        handover = hook.budget.handover_path(self.root, session)
+        state_file = self.root / '.aeion/context' / f'{session}.json'
+        transcript = self.droid_session(sid, {'inputTokens': 1000, 'cacheReadTokens': 300000,
+                                              'cacheCreationTokens': 37000, 'outputTokens': 1000})
+        droid = lambda **changes: self.call('droid', session_id=sid, transcript_path=str(transcript), **changes)
+        edit = {'tool_name': 'Edit', 'tool_input': {'file_path': str(self.root / 'src.py')}}
+        denied = lambda result: result.get('hookSpecificOutput', {}).get('permissionDecision') == 'deny'
+        # Below 340k (cached input counted once) the work runs freely.
+        self.assertFalse(denied(droid(**edit)))
+        # At 340k code is frozen, docs stay open, and a manual /compact is refused until the handover verifies.
+        self.droid_session(sid, {'inputTokens': 1000, 'cacheReadTokens': 300000, 'cacheCreationTokens': 39000})
+        result = droid(**edit)
+        self.assertTrue(denied(result))
+        self.assertIn('340k', result['hookSpecificOutput']['permissionDecisionReason'])
+        self.assertFalse(denied(droid(tool_name='Edit', tool_input={'file_path': str(self.root / 'work/current.md')})))
+        self.assertIs(droid(hook_event_name='PreCompact', trigger='manual')['continue'], False)
+        # Stop asks Droid once to do the closure itself, then hands the turn back with the reason.
+        stopped = droid(hook_event_name='Stop')
+        self.assertEqual(stopped['decision'], 'block')
+        self.assertIn('checkpoint', stopped['reason'])
+        self.assertIs(droid(hook_event_name='Stop', stop_hook_active=True)['continue'], False)
+        # A verified handover reopens the work and lets Stop pass into native auto-compaction without forcing /compact.
+        handover.write_text('## Scope\nx\n## Completed\nx\n## Remaining\nx\n## Constraints\nx\n## Evidence\nx\n')
+        state = json.loads(state_file.read_text())
+        state['checkpoint'] = {'tree': hook.budget.fingerprint(self.root),
+                               'handover': hook.budget.hashlib.sha256(handover.read_bytes()).hexdigest()}
+        hook.budget.atomic(state_file, json.dumps(state))
+        self.assertFalse(denied(droid(**edit)))
+        ready = droid(hook_event_name='Stop')
+        self.assertNotIn('continue', ready)
+        self.assertIn('355k', ready['systemMessage'])
         self.assertIn('verified handover', droid(hook_event_name='PreCompact', trigger='manual')['systemMessage'])
+        resumed = droid(hook_event_name='SessionStart', source='compact')
+        self.assertIn('continue the Remaining work', resumed['hookSpecificOutput']['additionalContext'])
+        # After the compaction the next reading is small again and the session runs.
+        self.droid_session(sid, {'inputTokens': 500, 'cacheReadTokens': 20000, 'outputTokens': 300})
+        self.assertFalse(denied(droid(**edit)))
+        self.assertEqual(json.loads(state_file.read_text())['state'], 'RUNNING')
+
+    def test_droid_verified_handover_keeps_code_open_until_its_compaction(self):
+        sid = 'droid-verified'
+        session = hook.key('droid', {'session_id': sid})
+        handover = hook.budget.handover_path(self.root, session)
+        state_file = self.root / '.aeion/context' / f'{session}.json'
+        state = lambda: json.loads(state_file.read_text())
+        transcript = self.droid_session(sid, {'inputTokens': 1000, 'cacheReadTokens': 100000})
+        droid = lambda **changes: self.call('droid', session_id=sid, transcript_path=str(transcript), **changes)
+        edit = lambda name: {'tool_name': 'Edit', 'tool_input': {'file_path': str(self.root / name)}}
+        denied = lambda result: result.get('hookSpecificOutput', {}).get('permissionDecision') == 'deny'
+        complete = '## Scope\nx\n## Completed\nx\n## Remaining\nx\n## Constraints\nx\n## Evidence\nx\n'
+        # The receipt is taken and read under the same git view, as it is in a real run.
+        with patch.object(hook.budget, 'CHECKS', ((sys.executable, '-c', 'pass'),)), \
+                patch.object(hook.budget, 'git_active', lambda root: False):
+            # A receipt taken before the 340k latch opens no closure: the handover must verify inside it.
+            self.assertFalse(denied(droid(**edit('src.py'))))
+            handover.parent.mkdir(parents=True, exist_ok=True)
+            handover.write_text(complete)
+            hook.budget.checkpoint(self.root, session, None)
+            self.droid_session(sid, {'inputTokens': 1000, 'cacheReadTokens': 345000})
+            (self.root / 'src.py').write_text('x = 1\n')
+            self.assertTrue(denied(droid(**edit('src.py'))))
+            # Verified inside the closure, the receipt survives this session's next edits and another session's.
+            hook.budget.checkpoint(self.root, session, None)
+            self.assertEqual(state()['checkpoint']['state'], 'HANDOVER_REQUIRED')
+            (self.root / 'src.py').write_text('x = 2\n')
+            (self.root / 'other_session.py').write_text('y = 1\n')
+            self.assertFalse(hook.budget.ready(self.root, session, state()))
+            for call in (edit('src.py'), {'tool_name': 'Execute', 'tool_input': {'command': 'touch src.py'}}):
+                self.assertFalse(denied(droid(**call)), call)
+            # Stop passes into the native auto-compaction instead of asking for another checkpoint.
+            stopped = droid(hook_event_name='Stop')
+            self.assertNotIn('decision', stopped)
+            self.assertIn('355k', stopped['systemMessage'])
+            # The latch needs a complete handover: one that reads TODO again freezes code.
+            handover.write_text(complete.replace('x\n## Evidence', 'TODO\n## Evidence'))
+            self.assertTrue(denied(droid(**edit('src.py'))))
+            handover.write_text(complete)
+            self.assertFalse(denied(droid(**edit('src.py'))))
+            # The automatic compaction owes no closure and names what moved; the session resumes editable.
+            compacting = droid(hook_event_name='PreCompact', trigger='auto')
+            self.assertIn('resumes editable', compacting['systemMessage'])
+            self.assertIn('other_session.py', compacting['systemMessage'])
+            self.assertNotIn('closure_owed', state())
+            context = droid(hook_event_name='SessionStart', source='compact')['hookSpecificOutput']['additionalContext']
+            self.assertIn('Changed since its verified checkpoint:', context)
+            self.assertIn('src.py', context)
+            self.assertEqual(state()['state'], 'RECOVERING')
+            self.assertNotIn('moved_since_receipt', state())
+            self.droid_session(sid, {'inputTokens': 500, 'cacheReadTokens': 20000})
+            self.assertFalse(denied(droid(**edit('src.py'))))
+            self.assertEqual(state()['state'], 'RUNNING')
+
+    def test_droid_390k_keeps_the_strict_receipt_after_a_verified_handover(self):
+        sid = 'droid-verified-limit'
+        session = hook.key('droid', {'session_id': sid})
+        handover = hook.budget.handover_path(self.root, session)
+        transcript = self.droid_session(sid, {'inputTokens': 1000, 'cacheReadTokens': 345000})
+        droid = lambda **changes: self.call('droid', session_id=sid, transcript_path=str(transcript), **changes)
+        edit = {'tool_name': 'Edit', 'tool_input': {'file_path': str(self.root / 'src.py')}}
+        denied = lambda result: result.get('hookSpecificOutput', {}).get('permissionDecision') == 'deny'
+        with patch.object(hook.budget, 'CHECKS', ((sys.executable, '-c', 'pass'),)), \
+                patch.object(hook.budget, 'git_active', lambda root: False):
+            self.assertTrue(denied(droid(**edit)))
+            handover.write_text('## Scope\nx\n## Completed\nx\n## Remaining\nx\n## Constraints\nx\n## Evidence\nx\n')
+            hook.budget.checkpoint(self.root, session, None)
+            (self.root / 'src.py').write_text('x = 1\n')
+            self.assertFalse(denied(droid(**edit)))
+            # Past 390k the forced closure needs a receipt of the current tree again.
+            self.droid_session(sid, {'inputTokens': 1000, 'cacheReadTokens': 389500})
+            result = droid(**edit)
+            self.assertTrue(denied(result))
+            self.assertIn('390k', result['hookSpecificOutput']['permissionDecisionReason'])
+    def test_droid_390k_forces_closure_and_lets_the_native_compaction_through(self):
+        sid = 'droid-limit'
+        transcript = self.droid_session(sid, {'inputTokens': 2000, 'cacheReadTokens': 388000})
+        droid = lambda **changes: self.call('droid', session_id=sid, transcript_path=str(transcript), **changes)
+        result = droid(tool_name='Edit', tool_input={'file_path': str(self.root / 'src.py')})
+        self.assertIn('390k', result['hookSpecificOutput']['permissionDecisionReason'])
+        session = hook.key('droid', {'session_id': sid})
+        self.assertEqual(json.loads((self.root / '.aeion/context' / f'{session}.json').read_text())['state'], 'COMPACT_REQUIRED')
+        # Droid's automatic compaction cannot be blocked, so it runs and the closure is owed after it.
+        self.assertNotIn('continue', droid(hook_event_name='PreCompact', trigger='auto'))
+        droid(hook_event_name='SessionStart', source='compact')
+        self.droid_session(sid, {'inputTokens': 500, 'cacheReadTokens': 20000})
+        self.assertEqual(droid(tool_name='Edit', tool_input={'file_path': str(self.root / 'src.py')})
+                         ['hookSpecificOutput']['permissionDecision'], 'deny')
+
+    def test_droid_script_runs_closure_while_its_inner_calls_meet_the_gate(self):
+        sid = 'droid-script'
+        session = hook.key('droid', {'session_id': sid})
+        handover = hook.budget.handover_path(self.root, session)
+        transcript = self.droid_session(sid, {'inputTokens': 1000, 'cacheReadTokens': 345000})
+        droid = lambda **changes: self.call('droid', session_id=sid, transcript_path=str(transcript), **changes)
+        denied = lambda result: result.get('hookSpecificOutput', {}).get('permissionDecision') == 'deny'
+        # At 340k the Script wrapper, its watcher and the session's task list pass: closure judges the inner calls.
+        for tool, data in (('Script', {'script': 'await tools.Execute({ command: "touch src.py" })'}),
+                           ('WaitForScript', {'toolCallId': 'call_1'}), ('TodoWrite', {'todos': '1. [in_progress] closure'})):
+            self.assertFalse(denied(droid(tool_name=tool, tool_input=data)), tool)
+        # Inside it, the handover and the checkpoint pass; code, a code-writing command and a subagent stay closed.
+        self.assertFalse(denied(droid(tool_name='Create', tool_input={'file_path': str(handover), 'content': '## Scope\n'})))
+        checkpoint = hook.budget.checkpoint_command(self.root, session)
+        self.assertFalse(denied(droid(tool_name='Execute', tool_input={'command': checkpoint})))
+        self.assertTrue(denied(droid(tool_name='Create', tool_input={'file_path': str(self.root / 'src.py'), 'content': 'x = 1\n'})))
+        self.assertTrue(denied(droid(tool_name='Execute', tool_input={'command': 'touch src.py'})))
+        self.assertTrue(denied(droid(tool_name='Task', tool_input={'subagent_type': 'worker', 'prompt': 'edit src.py'})))
+        # The pass is the Droid adapter's mark, never the tool's name: unmarked, a Script is no closure tool.
+        self.assertFalse(hook.budget.closure_tool(self.root, {'tool_name': 'Script', 'tool_input': {'script': 'x'}}))
+
+    def test_droid_reads_open_the_doc_gate_without_a_post_tool_use(self):
+        doc = 'knowledge/components/a.md'
+        (self.root / doc).write_text('---\ntitle: a\nsources:\n  - resource: ../../src/a.py\n---\n# A\n')
+        (self.root / 'src').mkdir()
+        (self.root / 'src/a.py').write_text('a = 1\n')
+        edit = {'tool_name': 'Edit', 'tool_input': {'file_path': str(self.root / 'src/a.py')}}
+        # Calls inside Droid's Script send PreToolUse only, so a read is remembered once every guard let it through.
+        cases = {'read': ('Read', {'file_path': str(self.root / doc)}),
+                 'shell': ('Execute', {'command': f'sed -n 1,40p {doc}'}),
+                 'write': ('Create', {'file_path': str(self.root / doc), 'content': '# A\n'}),
+                 'refused': ('Execute', {'command': f'sed -n 1,40p {doc} .env'})}
+        for name, (tool, data) in cases.items():
+            with self.subTest(name):
+                session = f'gate-droid-pre-{name}-{os.getpid()}'
+                key = hook.key('droid', {'session_id': session})
+                for kind in ('read', 'warned'):
+                    self.addCleanup((Path(tempfile.gettempdir()) / f'claude-doc-{kind}-{key}').unlink, missing_ok=True)
+                with self.assertRaisesRegex(hook.GuardRefusal, f'Doc gate: before editing src/a.py, read {doc}'):
+                    self.call('droid', session_id=session, **edit)
+                if name == 'refused':
+                    # A read a guard refused never ran, so it opens nothing.
+                    with self.assertRaisesRegex(hook.GuardRefusal, 'secret'):
+                        self.call('droid', session_id=session, tool_name=tool, tool_input=data)
+                    with self.assertRaisesRegex(hook.GuardRefusal, 'Doc gate'):
+                        self.call('droid', session_id=session, **edit)
+                    continue
+                self.call('droid', session_id=session, tool_name=tool, tool_input=data)
+                self.assertEqual(self.call('droid', session_id=session, **edit), {})
+
+    def test_droid_reads_at_most_four_images_per_context_epoch(self):
+        sid = 'droid-images'
+        transcript = self.droid_session(sid, {'inputTokens': 1000, 'cacheReadTokens': 50000})
+        droid = lambda **changes: self.call('droid', session_id=sid, transcript_path=str(transcript), **changes)
+        denied = lambda result: result.get('hookSpecificOutput', {}).get('permissionDecision') == 'deny'
+        read = lambda name: droid(tool_name='Read', tool_input={'file_path': str(self.root / name)})
+        for name in ('a.png', 'b.jpg', 'c.JPEG', 'd.webp', 'e.gif', 'notes.md'):
+            (self.root / name).write_bytes(b'x')
+        (self.root / 'big.png').write_bytes(b'x' * 70000)
+        # A read the intake guard refused never entered the context, so it spends nothing.
+        with self.assertRaisesRegex(hook.GuardRefusal, 'bounded intake'):
+            read('big.png')
+        # Droid re-encodes each image and resends it with every call: four fit in one epoch, the fifth is refused.
+        for name in ('a.png', 'b.jpg', 'c.JPEG', 'd.webp'):
+            self.assertFalse(denied(read(name)), name)
+        refused = read('e.gif')
+        self.assertTrue(denied(refused))
+        self.assertIn('image budget', refused['hookSpecificOutput']['permissionDecisionReason'])
+        self.assertFalse(denied(read('notes.md')))
+        # The compaction starts a new epoch, and the budget with it.
+        droid(hook_event_name='SessionStart', source='compact')
+        self.assertFalse(denied(read('e.gif')))
+        # Other harnesses keep the file-size check alone.
+        for _ in range(5):
+            self.assertFalse(denied(self.call('devin', session_id='devin-images', tool_name='read',
+                                              tool_input={'file_path': str(self.root / 'a.png')})))
+    def test_droid_usage_reads_only_this_sessions_regular_record(self):
+        sid = 'droid-mine'
+        transcript = self.droid_session(sid, {'inputTokens': 10})
+        call = lambda **changes: self.call('droid', **{'session_id': sid, 'transcript_path': str(transcript),
+                                                        'tool_name': 'Read', 'tool_input': {'file_path': 'README.md', 'limit': 5}, **changes})
+        with self.assertRaisesRegex(ValueError, "this session's transcript"):
+            call(session_id='droid-other')
+        record = transcript.with_name(f'{sid}.settings.json')
+        record.write_text(json.dumps({'lastCallTokenUsage': {'inputTokens': -1}}))
+        with self.assertRaisesRegex(ValueError, 'invalid droid token counts'):
+            call()
+        record.unlink()
+        target = self.root / 'elsewhere.json'
+        target.write_text(json.dumps({'lastCallTokenUsage': {'inputTokens': 10}}))
+        record.symlink_to(target)
+        with self.assertRaisesRegex(ValueError, 'regular file'):
+            call()
+        record.unlink()
+        # A missing or half-written record is unmeasured: the last count holds and nothing is refused.
+        self.assertIsNone(hook.droid_usage({'session_id': sid, 'transcript_path': str(transcript)}))
+        record.write_text('{"lastCallTokenUsage": {"inputTo')
+        self.assertIsNone(hook.droid_usage({'session_id': sid, 'transcript_path': str(transcript)}))
+        self.assertNotIn('permissionDecision', call().get('hookSpecificOutput', {}))
 
     def test_droid_settings_route_every_event_to_the_adapter(self):
-        hooks=json.loads((ROOT/'.factory/settings.json').read_text())['hooks']
+        settings=json.loads((ROOT/'.factory/settings.json').read_text())
+        # Droid's own compaction runs right after the 340k verified handover (355k) and below the 390k stopgap.
+        self.assertTrue(hook.budget.WARNING < settings['compactionTokenLimit'] <= hook.budget.LIMIT)
+        hooks=settings['hooks']
         self.assertEqual(set(hooks),{'SessionStart','PreToolUse','PostToolUse','PreCompact','Stop'})
         # Each registration also names its event, so a payload without hook_event_name is still understood.
         for event, entries in hooks.items():

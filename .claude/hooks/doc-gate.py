@@ -216,6 +216,9 @@ if name == "SessionStart":
 
 if name == "PostToolUse" and valid:
     context = None
+    # An adapter records a call before it runs when its harness sends no PostToolUse (Droid's Script): that record
+    # remembers docs only, never briefs the agent has not seen nor an edit that has not happened yet.
+    before = event.get("docs_only") is True
     if tool == "Read" or (tool == "Bash" and isinstance(data.get("command"), str)):
         if tool == "Read":
             rel = inside(data.get("file_path", data.get("filePath", data.get("path"))), base)
@@ -225,7 +228,7 @@ if name == "PostToolUse" and valid:
             paths = shell_reads(data["command"], Path(workdir) if isinstance(workdir, str) else base)
         remember(session, "read", [rel for rel in paths if rel.lower().endswith(".md")])
         code = [rel for rel in paths if gated(rel)]
-        if code and (url := framework_url()):
+        if code and not before and (url := framework_url()):
             # All files read by this call share one brief budget.
             read = remembered(session, "read")
             todo = list(dict.fromkeys(rid for rel in code for rid in annotations(rel) if f"axiom:{rid}" not in read))
@@ -245,7 +248,7 @@ if name == "PostToolUse" and valid:
         if rel and rel.lower().endswith(".md"):
             # A doc the agent wrote or changed is a doc it has in front of it.
             remember(session, "read", [rel])
-        elif rel and gated(rel) and aeion_settings.doc_gate(ROOT)[0] == "warn" and rel not in remembered(session, "warned"):
+        elif rel and not before and gated(rel) and aeion_settings.doc_gate(ROOT)[0] == "warn" and rel not in remembered(session, "warned"):
             docs, ids = owed(rel, data, tool, session)
             if docs or ids:
                 remember(session, "warned", [rel])

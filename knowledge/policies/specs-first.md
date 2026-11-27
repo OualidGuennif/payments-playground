@@ -5,7 +5,7 @@ description: "The OKF format: the eight sections a component doc carries as its 
 status: stable
 generated:
   by: aeion-template/4.0.3
-  at: 2026-11-15T18:00:00Z
+  at: 2026-11-27T11:32:00Z
 sources:
   - id: tool
     resource: ../../tools/knowledge/doc-links
@@ -59,7 +59,8 @@ that run both ways between docs and code (below).
   `tools/knowledge/stale` fails once the date passed, and a document without the key is exempt. A
   present key must hold a real, nonempty date; a blank value is invalid, not an exemption.
 - **Doc to code:** the doc's frontmatter `sources` lists the files it describes
-  (`resource: ../../src/area/file.ts`). A directory source is checked for existence only.
+  (`resource: ../../src/area/file.ts`). A directory source covers the files under it for the doc
+  gate (`doc-links --for`); L3 checks it for existence only, so a change inside it asks for nothing.
 - **Code to doc:** a described file carries one header line `Spec: knowledge/<doc>.md`, and that doc
   lists the file (or a folder holding it) in its `sources`: the contract runs both ways (L4).
 - `tools/knowledge/doc-links` fails when a pointer or a source does not resolve, when a `Spec:`
@@ -85,7 +86,7 @@ that run both ways between docs and code (below).
   files, regardless of suffix. It excludes Markdown, `knowledge/`, vendored/dependency/cache folders
   and secret paths (the shared list in `.claude/hooks/secret_names.py`). It never follows file
   symlinks. Use explicit sources for other formats or metadata after executable code; directory
-  sources remain existence-only.
+  sources count for the doc gate, not for L3.
 - A documentation-only exemption accepts standalone comment `Spec:` lines and blanks, never
   executable code that happens to contain a pointer.
 

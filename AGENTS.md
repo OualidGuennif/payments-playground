@@ -77,6 +77,8 @@ CI repeats the checks on pull requests and `main`. Runbooks:
     [verification and reporting](knowledge/policies/verification-and-reporting.md).
 11. Full rules: [engineering](knowledge/policies/engineering.md). Context rule: 340k closure with a
     verified handover, 390k forces handover and compaction again; never a stop.
+12. Scratch files go to the ignored `.aeion/tmp/`: inside the project, outside the checkpoint
+    receipt, safe to `rm -rf`.
 
 ## How a task flows
 

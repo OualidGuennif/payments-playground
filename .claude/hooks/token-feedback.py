@@ -2,14 +2,15 @@
 # Spec: knowledge/policies/bounded-intake.md
 """PostToolUse/Stop hook: one-line feedback on tokens spent for nothing; it never blocks.
 
-Narration: visible prose or JSON notes before or between tool calls. Tolerated are one required
-status line of at most 100 characters per turn (some harnesses ask for one) and the final
-answer after the last tool. PostToolUse warns once per turn; Stop records the turn's total in
+Narration: visible prose or JSON notes before or between tool calls. Tolerated are a status line of
+at most 100 characters, the turn's first one and then one per five minutes (a harness may ask for
+one, and the Claude app asks again on a long step), and the final answer after the last tool. PostToolUse warns once per turn; Stop records the turn's total in
 .aeion/context/narration-<session>.json. Rewrite: a Write that replaced an existing file with
 200+ lines, where Edit would have sent only the change.
 
 The transcript is read in Claude Code's and Codex's JSONL shapes; any other shape, or any error,
 means silence. Exit 0 always: feedback must never stop work."""
+from datetime import datetime
 import hashlib
 import json
 import re
@@ -20,6 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 MAX_TAIL = 4 * 1024 * 1024
 STATUS_LIMIT = 100
+STATUS_EVERY = 300
 REWRITE_LINES = 200
 SESSION = re.compile(r"[A-Za-z0-9_-]{1,100}")
 
@@ -51,8 +53,16 @@ def is_prompt_text(text):
     return isinstance(text, str) and bool(text.strip()) and not text.lstrip().startswith("<")
 
 
+def stamp(record):
+    """The record's time in seconds, or None: both transcript shapes carry an ISO `timestamp`."""
+    try:
+        return datetime.fromisoformat(record["timestamp"].replace("Z", "+00:00")).timestamp()
+    except (KeyError, AttributeError, TypeError, ValueError):
+        return None
+
+
 def events(record):
-    """('turn',) for a new user prompt, ('text', s) for assistant text, ('tool',) for a tool call."""
+    """('turn',) for a new user prompt, ('text', s, time) for assistant text, ('tool',) for a tool call."""
     # Claude Code: one record per message, content blocks inside.
     if record.get("subtype") == "compact_boundary":
         return [("turn",)]
@@ -70,7 +80,7 @@ def events(record):
         found = []
         for part in content if isinstance(content, list) else []:
             if isinstance(part, dict) and part.get("type") == "text" and isinstance(part.get("text"), str):
-                found.append(("text", part["text"]))
+                found.append(("text", part["text"], stamp(record)))
             elif isinstance(part, dict) and part.get("type") == "tool_use":
                 found.append(("tool",))
         return found
@@ -85,7 +95,7 @@ def events(record):
             if payload.get("role") == "user":
                 return [("turn",)] if any(is_prompt_text(t) for t in texts) else []
             if payload.get("role") == "assistant":
-                return [("text", t) for t in texts if isinstance(t, str)]
+                return [("text", t, stamp(record)) for t in texts if isinstance(t, str)]
     return []
 
 
@@ -102,14 +112,16 @@ def current_turn(records):
 
 
 def narration(texts):
-    """Visible narration, excluding only the turn's one short non-JSON status line."""
-    total, status_used = 0, False
-    for raw in texts:
+    """Visible narration from (text, time) pairs, excluding short non-JSON status lines: the turn's first one, then
+    one each STATUS_EVERY seconds. A line without a time cannot prove the interval, so it counts."""
+    total, used, last = 0, False, None
+    for raw, at in texts:
         text = raw.strip()
         if not text:
             continue
-        if not status_used and not text.startswith(("{", "[")) and "\n" not in text and len(text) <= STATUS_LIMIT:
-            status_used = True
+        short = not text.startswith(("{", "[")) and "\n" not in text and len(text) <= STATUS_LIMIT
+        if short and (not used or (at is not None and last is not None and at - last >= STATUS_EVERY)):
+            used, last = True, at
             continue
         total += len(text)
     return total
@@ -118,7 +130,7 @@ def narration(texts):
 def between_tools(turn):
     """Texts written before the turn's last tool call: the answer after it is not narration."""
     last = max((i for i, event in enumerate(turn) if event[0] == "tool"), default=-1)
-    return [event[1] for event in turn[:last] if event[0] == "text"]
+    return [event[1:] for event in turn[:last] if event[0] == "text"]
 
 
 def rewrite_note(event):
@@ -141,7 +153,7 @@ def post_tool_use(event, session):
         notes.append(rewrite)
     key, turn = current_turn(tail_records(event.get("transcript_path") or ""))
     # After a tool ran, everything the turn has written so far came before a tool call.
-    chars = narration(event[1] for event in turn if event[0] == "text")
+    chars = narration(event[1:] for event in turn if event[0] == "text")
     # Once per turn: the reminder is the cost we accept, a stream of them is not.
     state = Path(tempfile.gettempdir()) / f"aeion-narration-{session}"
     if key and chars and not state.is_symlink() and (not state.exists() or state.read_text().strip() != key):

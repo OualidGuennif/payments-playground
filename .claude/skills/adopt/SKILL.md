@@ -18,7 +18,7 @@ The four promises come first:
 | --- | --- | --- |
 | 1 Instructions | a short `AGENTS.md` (`CLAUDE.md` links to it), security, layout and UI policies | `tools/knowledge/knowledge-check` passes |
 | 2 Code intelligence | the optional language-server plugins (`command.md`) | the agent's LSP answers a definition |
-| 3 Knowledge | `knowledge/` in the OKF format, `work/current.md`, `Spec:` headers and `sources`, `tech-watch/` | `knowledge-check` and `tools/knowledge/doc-links` pass |
+| 3 Knowledge | `knowledge/` in the OKF format, `work/current.md` (its header and the "Adapt" entry only: the template's own tasks stay behind), `Spec:` headers and `sources`, `tech-watch/` | `knowledge-check` and `tools/knowledge/doc-links` pass; session start counts only this project's tasks |
 | 4 Skills | the lifecycle skills in `.claude/skills/`, linked from `.agents/skills/` | the agent lists them natively |
 | 5 Hooks | the guards, edit feedback and context checkpoints; the git hooks on the owner's yes | asking the agent to print `.env` is refused |
 | 6 Loops | the optional scheduled loops (`knowledge/operations/loops.md`) | `loops/orchestrator.sh outer --dry-run` prints the command |

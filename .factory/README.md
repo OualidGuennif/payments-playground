@@ -3,6 +3,10 @@
 This folder belongs to Factory's Droid CLI, a separate product from Æion Template. Only
 `settings.json` and this file are tracked: its hooks send Droid's events to the shared Æion Template
 adapter, `tools/agents/hook.py droid`. Droid reads `AGENTS.md` and `.agents/skills` natively.
+`compactionTokenLimit: 355000` triggers Droid's native auto-compaction right after the 340k
+verified handover without pausing for a manual `/compact`, and compact `SessionStart` injects an
+auto-resume directive pointing at the handover
+([context safety](../knowledge/operations/context-safety.md)).
 
 Æion Template's own local state (context, loop bodies, the knowledge graph) lives in the ignored
 `.aeion/`. An `--isolated` OpenCode profile left in `.factory/opencode` by an older release can move

@@ -86,6 +86,15 @@ class TokenFeedbackTests(unittest.TestCase):
                    claude_assistant("Reading the next file.", ("Read",)))
         self.assertIn("narration: 22 chars", self.run_hook())
 
+    def test_a_status_line_is_tolerated_again_after_five_minutes(self):
+        # A long step is asked for a word now and then; a line five minutes after the last one is that word.
+        def at(minute, record):
+            return {**record, "timestamp": f"2026-11-27T10:{minute:02d}:00.000Z"}
+        self.write(claude_user("go"), at(0, claude_assistant("Running the tests now.", ("Bash",))), tool_result(),
+                   at(6, claude_assistant("Still on the hook suite.", ("Read",))), tool_result(),
+                   at(8, claude_assistant("Reading the next file.", ("Read",))))
+        self.assertIn("narration: 22 chars", self.run_hook())
+
     def test_injected_context_does_not_start_a_turn_and_compaction_does(self):
         self.write(claude_user("go"), claude_assistant(PROSE, ("Bash",)), tool_result(),
                    claude_user("<system-reminder>note</system-reminder>"))

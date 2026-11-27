@@ -57,7 +57,7 @@ sources:
     title: "OpenCode integration and its live note"
 generated:
   by: aeion-template/1.6
-  at: 2026-11-26
+  at: 2026-11-27T11:32:00Z
 verified:
   - at: 2026-11-06
     what: "tools/agents/tests/test_hooks.py: 65 passed; the gate reads signals.json contextTokensUsed, and a large usage.json ledger does not latch"
@@ -200,11 +200,29 @@ copying a directory does not establish loaded hooks or identical runtime guarant
   `patchText`, `patch` or `input`) to the shared guards; a tool outside the known names carrying a
   `command` string goes through the shell guard (and the path guard for a file). It refuses with
   `permissionDecision: deny`. As for Devin, each registration passes its event name and a payload
-  without `session_id` uses one key per clone, so a missing field refuses nothing by itself. Droid
-  passes no token count, so it gets no 340k alert or 390k stop, but its PreCompact (documented with
-  `trigger` manual or auto) reaches the adapter: a compaction before a verified handover runs, since
-  Droid documents no way to refuse one, and its compact SessionStart then allows only closure
-  (handover, `work/current.md`, docs, checkpoint) until the checkpoint passes.
+  without `session_id` uses one key per clone, so a missing field refuses nothing by itself. Droid's
+  context size is `lastCallTokenUsage` (input, cache read, cache creation
+  and output tokens) in `<session_id>.settings.json` beside the hook's `transcript_path`
+  (`~/.factory/sessions/<project>/<session_id>.jsonl`, live 2026-11-23). That file is Droid's own
+  session record, not a documented API: another session's file or a symlink is refused, and a missing
+  or half-written one keeps the last count. Droid then shares the 340k/390k rule. At 340k code is
+  frozen; Stop asks Droid once (`decision: block`) to write the handover and verify the checkpoint, and
+  a second Stop (`stop_hook_active`) hands the turn back with the reason. Once the handover verifies,
+  Stop allows the turn to continue into Droid's native auto-compaction (`compactionTokenLimit: 355000`
+  in `.factory/settings.json`), which compacts mid-turn and injects an auto-resume directive on compact
+  `SessionStart` so Droid reads the handover and continues without manual `/compact`. Edits after that
+  verification keep code open until the compaction, whoever made them: the receipt records the 340k
+  closure it was taken in, and the handover must stay complete. That compaction owes no closure, and
+  its compact `SessionStart` names the files changed since the receipt; 390k keeps the strict receipt. A manual
+  `/compact` before a verified handover is refused; automatic compaction cannot be refused, so one
+  before a verified handover runs, and its compact SessionStart then allows only closure (handover,
+  `work/current.md`, docs, checkpoint) until the checkpoint passes. Closure judges the calls made
+  inside Droid's `Script`, each of which reaches the adapter on its own PreToolUse: the `Script`
+  wrapper, `WaitForScript` and `TodoWrite` pass, and a subagent (`Task`) stays closed.
+  A Droid subagent is a session of its own, with its own 340k closure: a resumed subagent was
+  refused before its first edit because its earlier context already counted. Give each subagent one
+  fresh task of bounded size (a page, one refactor step), never resume a large one, and verify each
+  slice from the parent (an adopter's session, 2026-11-26).
 - Google Antigravity (the `agy` CLI and the IDE) reads `AGENTS.md` and `.agents/skills`, and
   workspace hooks from `.agents/hooks.json` once the folder is trusted. One `aeion-template` group
   sends PreToolUse and PostToolUse (matcher `.*`) and Stop to
@@ -514,6 +532,20 @@ added it, so the payload shape, tool names and `$FACTORY_PROJECT_DIR` follow sea
 hooks reference and public Droid hook integrations. Unverified: `ApplyPatch`'s input field (an
 unknown field is refused, failing closed) and whether Droid also loads `.claude/` hooks. Qualify it
 like Devin: `cat .env` refused with the guard's reason, an edit naming its covering doc.
+On 2026-11-23 a live Droid desktop session confirmed the payload's `transcript_path` and its
+`lastCallTokenUsage` record, and the guards refused calls made inside Droid's `Script` tool. Droid
+does not fire PostToolUse for those inner calls, so the adapter records the docs a call reads or
+writes at its PreToolUse, once every guard let it through; with the gate in `enforce`, docs read
+inside a `Script` then opened an edit of `tools/context/budget.py` (live, the same day). Edit
+feedback (`after-edit`) and the edited-file list for sign-off are still lost for inner edits. On
+2026-11-24 a live session latched at 340k (352,935 tokens) and wrote and verified its handover inside
+`Script`; its next code edit froze code again, because the receipt pins the whole tree, and a
+parallel session's edits did the same. A handover verified inside the 340k closure now keeps code
+open until the compaction. On 2026-11-24 a live transcript showed two native compactions, each a few
+minutes after a 340k alert, with the user's and the project's `compactionTokenLimit` both at 355000;
+which of the two Droid reads is still not witnessed. Droid's context meter read 338% between them,
+apparently counting screenshots as text (see [context safety](context-safety.md)); the adapter now
+admits 4 image Reads per Droid epoch ([bounded intake](../policies/bounded-intake.md)).
 
 Antigravity is not yet qualified live either; antigravity.google was unreachable from the container
 that added it. The `toolCall` payload, `run_command`'s `CommandLine`, the decisions and

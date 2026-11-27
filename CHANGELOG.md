@@ -5,6 +5,10 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Æion Template 4.1.1 (from 4.0.3): a 300k handover notice, reads open during closure, a
+  `work/current.md`-only fast-forward of `develop` pushes without a review, handover pruning and
+  staleness, and hook fixes; the playground's README, its Bun `knowledge-check` and its AGENTS.md
+  wording stay, and the template docs it edited take only the facts 4.1.1 changed.
 - The agentic footer's store links open without a full page load and its brand link is a 44 px
   target; Drop-in's colours and its card fields read the store's tokens instead of copies.
 - The agentic Drop-in reads its card brands from the session, which names the card brands

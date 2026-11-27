@@ -318,7 +318,8 @@ class TemplateUpdateTests(unittest.TestCase):
         (self.project / link).parent.mkdir(parents=True, exist_ok=True)
         (self.project / link).symlink_to('../../.claude/skills/retired')
         code, output = self.run_tool('--from-ref', 'v2.1.0', '--ref', 'v3.0.0')
-        self.assertNotIn('refusing', output)
+        # A refusal prints `template-update: refusing ...`; release notes quoted in the output may use the word.
+        self.assertNotIn('template-update: refusing', output)
         self.assertFalse((self.project / link).is_symlink(), output)
 
     def test_a_new_template_folder_comes_in_and_a_left_out_one_does_not(self):
@@ -587,7 +588,7 @@ class ReleaseUpdateTests(unittest.TestCase):
             done = subprocess.run([sys.executable, str(ROOT / 'tools/agents/template-update'), '--ref', 'HEAD',
                                    '--repo', str(ROOT), '--root', str(project)], capture_output=True, text=True)
             self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
-            self.assertNotIn('refusing', done.stdout + done.stderr)
+            self.assertNotIn('template-update: refusing', done.stdout + done.stderr)
             self.assertNotIn('migrate   AxiomSpec', done.stdout)
             self.assertFalse((project / 'tools/architecture').exists())
             for link in (project / '.agents/skills').iterdir():

@@ -7,9 +7,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { apply, inject } from '../../../.dsh/plugins/template/index.js';
 import * as compaction from '../../../.dsh/plugins/template/compaction.js';
 import { seam } from '../../../.dsh/plugins/template/seam.js';
+import { guardProjectState } from './leak-guard.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const sessionID = `template-dsh-plugin-test-${process.pid}`;
+guardProjectState('dsh', [sessionID, `${sessionID}-340k`, `${sessionID}-compact-failure`, `${sessionID}-context`, `${sessionID}-defense`, `${sessionID}-fall`, `${sessionID}-ids`, `${sessionID}-notice`, `${sessionID}-web-compact`]);
 
 // The plugin trusts the project it ships in, so a stand-in project gets its own copy of the plugin.
 const copies = new Map();

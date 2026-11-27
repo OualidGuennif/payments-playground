@@ -10,8 +10,8 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 - Owner decision: 2026-11-27, in chat: the 12 listed methods, card saving, Apple and Google Pay on
   top, Velune styling; MB WAY, Bizum and Pix stay listed though FR/EUR hides them.
 - State: develop 5c9ccf3 pushed (check exit 0, Pi review OK, two lows noted in the receipt); local
-  TEST card Authorised, light and dark, 375 and 1440 px; template 4.1.1 previewed (--check).
-- Next: owner's yes on the 4.1.1 update, then the update commit and release v0.12.0 (agent).
+  TEST card Authorised, light and dark, 375 and 1440 px; template 4.1.1 written (owner's yes).
+- Next: review and push the 4.1.1 commit, then release v0.12.0 (agent).
 - Blocker: none.
 - Evidence: knowledge/components/agentic-storefront.md (Drop-in).
 

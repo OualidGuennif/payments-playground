@@ -2,18 +2,59 @@
 # Spec: knowledge/operations/build-and-test.md
 """SessionStart hook: at most 25 lines of facts — the flow mode, uncommitted changes, recent commits,
 open tasks and the health scorecard — so a new or resumed session starts from evidence."""
+import json
+import os
+import re
+import select
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / ".claude/hooks"))
 from project_files import git_active  # noqa: E402
 import aeion_settings  # noqa: E402
+import handovers  # noqa: E402
+
+STALE_DAYS = 30
+WAITING = ("— WAITING-OWNER", "— BACKLOG")
 
 
 def out(*command):
     return [l for l in subprocess.run(command, cwd=ROOT, capture_output=True, text=True).stdout.split("\n") if l.strip()]
+
+
+def heading_ages(heading_lines):
+    """{line number: commit time} for work/current.md's heading lines, from one `git blame --porcelain`."""
+    blame = subprocess.run(["git", "blame", "--porcelain", "--", "work/current.md"], cwd=ROOT, capture_output=True,
+                           text=True, check=False).stdout.split("\n")
+    times, at, commit = {}, {}, None
+    wanted = {number for number, _ in heading_lines}
+    for line in blame:
+        header = re.fullmatch(r"([0-9a-f]{40}) \d+ (\d+)(?: \d+)?", line)
+        if header:
+            commit = header.group(1)
+            if int(header.group(2)) in wanted:
+                at[int(header.group(2))] = commit
+        elif line.startswith("committer-time ") and commit:
+            times[commit] = int(line.split()[1])
+    # An uncommitted line blames the all-zero commit, whose time is now.
+    return {number: times.get(commit, time.time()) for number, commit in at.items()}
+
+
+# The hook event names the session. Run by hand, or under a parent whose stdin stays open, waiting for EOF would
+# hang the start: read chunks as they arrive, until EOF or 0.2 s of silence.
+try:
+    data = b""
+    while not sys.stdin.isatty() and len(data) < 1024 * 1024 and select.select([sys.stdin], [], [], 0.2)[0]:
+        chunk = os.read(sys.stdin.fileno(), 65536)
+        if not chunk:
+            break
+        data += chunk
+    event = json.loads(data or b"{}")
+except (ValueError, OSError):
+    event = {}
 
 
 def capped(items):
@@ -72,11 +113,37 @@ else:
     if aeion_settings.annotated(ROOT):
         framework += "; this code carries @req IDs: the owner connects it with tools/aeion-settings framework"
 lines.append(f"doc gate: {gate}" + (f" ({gate_problem})" if gate_problem else "") + f"; framework: {framework}")
-# Open tasks.
+# Handovers: skeletons nobody filled are pruned after a week; this session's own one says when it is behind.
+# Before the task list, so the 25-line cap trims tasks, never a stale recovery pointer.
+pruned = handovers.prune(ROOT)
+if pruned:
+    lines.append(f"handovers: removed {pruned} unfilled skeleton(s) older than {handovers.PRUNE_DAYS} days")
+session = event.get("session_id") if isinstance(event, dict) else None
+if isinstance(session, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,100}", session):
+    moved = handovers.behind(ROOT, handovers.folder(ROOT) / f"{session}.md")
+    if moved:
+        lines.append(f"handover: work/handovers/{session}.md is behind ({' and '.join(moved)} moved after it was "
+                     "saved); check git log and work/current.md before trusting it, and update it.")
+# Open tasks: the ones moving are listed; the ones waiting on the owner are counted, with the oldest one's age,
+# so they stop repeating at every start and still remind the owner. An entry's age is when its heading line
+# (title and status) last changed in git; uncommitted lines are today's.
 work = ROOT / "work/current.md"
-titles = [l[3:] for l in work.read_text(encoding="utf-8").split("\n") if l.startswith("## ")] if work.exists() else []
-lines.append(f"work/current.md: {len(titles)} open task(s)")
-lines += capped(titles)
+heading_lines = [(n, l[3:]) for n, l in enumerate(work.read_text(encoding="utf-8").split("\n"), 1)
+                 if l.startswith("## ")] if work.exists() else []
+changed_at = heading_ages(heading_lines) if repository else {}
+moving, waiting = [], []
+for number, title in heading_lines:
+    since = changed_at.get(number)
+    old = since is not None and time.time() - since > STALE_DAYS * 86400
+    label = title + (f" (unchanged since {time.strftime('%Y-%m-%d', time.gmtime(since))})" if old else "")
+    (waiting if title.endswith(WAITING) else moving).append((since, label))
+summary = f"work/current.md: {len(heading_lines)} open task(s)"
+if waiting:
+    oldest = min((since for since, _ in waiting if since is not None), default=None)
+    summary += f"; {len(waiting)} waiting on the owner or in backlog" + (
+        f", oldest unchanged since {time.strftime('%Y-%m-%d', time.gmtime(oldest))}" if oldest else "")
+lines.append(summary)
+lines += capped([label for _, label in moving])
 # The scorecard always shows; the lists above give way to it within the 25 lines.
 score = out("tools/repo-health/repo-health")[:25]
 print("\n".join(lines[:25 - len(score)] + score))

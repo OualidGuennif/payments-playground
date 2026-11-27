@@ -5,7 +5,7 @@ description: "Secrets, untrusted input, SQL and commands, access boundaries, lea
 status: stable
 generated:
   by: aeion-factory/1.0
-  at: 2026-10-20T00:00:00Z
+  at: 2026-11-27T11:32:00Z
 sources:
   - id: owasp
     resource: https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html
@@ -57,7 +57,8 @@ Requirements for a change, not claims about what production already satisfies.
   `watch`, `sh -c`) fails closed. Every glob is also judged by the files it expands to from the
   command's directory and each literal directory a `cd` or `pushd` moves to. The Grep tool's `glob`
   filter is refused when it names a secret the same way. The ordinary-name list is a heuristic: an
-  odd glob such as `*2` matches only a certificate name and is refused. A read of a secret name is
+  odd glob such as `*2` matches only a certificate name and is refused. The refusal names the word at fault and the
+  secrets it can reach, so a long command needs no guessing. A read of a secret name is
   refused even as a search pattern; search names with the Grep tool. One exception, for code: in a
   heredoc read by an interpreter or git, or written to a file by `cat` or `tee`, an identifier's
   property directly followed by `)`, `]`, `}`, `;` or `,` (a Deno KV `entry.key)`) is not a file
@@ -85,7 +86,9 @@ Requirements for a change, not claims about what production already satisfies.
   deliberate local bypass cannot pass.
 
 The same PreToolUse hooks also apply [bounded intake](bounded-intake.md) to recognized large
-reads/dumps. Secret refusals take precedence even when a command has a valid output limiter.
+reads/dumps. Secret refusals take precedence even when a command has a valid output limiter. A
+small literal heredoc that `cat` writes to a file is sized as text after a `cd` as well; its secret
+checks above are unchanged.
 
 ## Untrusted input
 

@@ -5,12 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import plugin from '../../../.opencode/plugins/template/index.js';
+import { guardProjectState } from './leak-guard.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const hooks = {};
 const register = (domain) => async (name, callback) => { hooks[`${domain}.${name}`] = callback; };
 await plugin.setup({ location: { directory: root }, tool: { hook: register('tool') }, session: { hook: register('session') } });
 const sessionID = `template-v2-plugin-test-${process.pid}`;
+guardProjectState('opencode', [sessionID, `${sessionID}-340k`, `${sessionID}-defense`]);
 
 // The plugin runs only the hook.py shipped beside it, so a stand-in project gets its own copy of the plugin.
 const copies = new Map();

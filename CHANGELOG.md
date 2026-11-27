@@ -5,6 +5,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-27
+
 - Æion Template 4.1.1 (from 4.0.3): a 300k handover notice, reads open during closure, a
   `work/current.md`-only fast-forward of `develop` pushes without a review, handover pruning and
   staleness, and hook fixes; the playground's README, its Bun `knowledge-check` and its AGENTS.md

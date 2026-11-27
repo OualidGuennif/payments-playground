@@ -1,6 +1,7 @@
 // Spec: knowledge/components/adyen-agentic-commerce.md
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { checkoutView } from "@/server/api";
 import { DeliveryPicker } from "@/components/DeliveryPicker";
@@ -39,6 +40,7 @@ export function CheckoutPay({
   clientKey?: string;
   redirect?: { sessionId: string; redirectResult: string };
 }) {
+  const router = useRouter();
   const [view, setView] = useState(initial);
   const [pendingRedirect, setPendingRedirect] = useState(redirect);
   const [error, setError] = useState<string>();
@@ -159,9 +161,19 @@ export function CheckoutPay({
         setError("Adyen has not confirmed the payment yet. Refresh in a moment.");
         return;
       }
-      show(data);
+      // An order leaves the checkout for its own page, opened at the top: staying here kept the
+      // payment form's scroll on a page that had just become much shorter (iOS Safari).
+      const next = data as View;
+      if (next.order) {
+        shown.current = next;
+        setView(next);
+        window.scrollTo({ top: 0 });
+        router.replace(`/orders/${next.order.id}`);
+        return;
+      }
+      show(next);
     },
-    [view.id, show],
+    [view.id, show, router],
   );
 
   const [savingEmail, setSavingEmail] = useState(false);
@@ -379,15 +391,21 @@ export function CheckoutPay({
             ) : askEmail ? (
               <div className="flex flex-wrap items-center gap-3">
                 <p className="min-w-0 flex-1 text-sm">
-                  Guest or account: we ask for your email when you pay.
+                  Add your email to continue: sign in, create an account or continue as a guest.
                 </p>
                 <button
                   type="button"
-                  className="btn-ghost min-h-10 px-4 py-1.5"
+                  className="btn min-h-11 px-5"
+                  disabled={savingEmail}
                   onClick={() => setPayModal(true)}
                 >
-                  Add email now
+                  Add your email
                 </button>
+                {error ? (
+                  <p role="alert" className="w-full text-sm text-bad">
+                    {error}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <p className="text-sm text-muted">The receipt goes to the email on the order.</p>
@@ -416,7 +434,7 @@ export function CheckoutPay({
               </div>
             ) : null}
           </Step>
-          <Step n={2} title="Delivery">
+          <Step n={2} title="Delivery" locked={askEmail}>
             {deliveryOpen ? (
               <DeliveryPicker
                 value={view.delivery}
@@ -432,7 +450,7 @@ export function CheckoutPay({
               </p>
             )}
           </Step>
-          <Step n={3} title="Payment">
+          <Step n={3} title="Payment" locked={askEmail}>
             <div ref={paymentRef} className="scroll-mt-24 space-y-4">
               {view.order ? (
                 <div className="space-y-3">
@@ -460,21 +478,6 @@ export function CheckoutPay({
                     onFinished={onFinished}
                     redirect={pendingRedirect}
                   />
-                </>
-              ) : askEmail ? (
-                <>
-                  <TestCardList />
-                  <button
-                    type="button"
-                    className="btn w-full"
-                    disabled={savingEmail}
-                    onClick={() => setPayModal(true)}
-                  >
-                    {`Pay ${money(view.total)}`}
-                  </button>
-                  <p className="text-xs text-muted">
-                    Your email first, then the card form opens here.
-                  </p>
                 </>
               ) : (
                 <p className="text-sm text-muted">
@@ -520,20 +523,38 @@ export function CheckoutPay({
   );
 }
 
-function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+// A locked step waits for the email of step 1 (owner, 2026-11-27): it says so and shows nothing
+// a guest could act on, so no one reaches the payment without an email.
+function Step({
+  n,
+  title,
+  locked = false,
+  children,
+}: {
+  n: number;
+  title: string;
+  locked?: boolean;
+  children: ReactNode;
+}) {
   const id = `checkout-step-${n}`;
   return (
-    <section aria-labelledby={id} className="panel space-y-4">
-      <h2 id={id} className="flex items-center gap-3 text-xl">
+    <section
+      aria-labelledby={id}
+      aria-disabled={locked || undefined}
+      className={locked ? "panel space-y-2" : "panel space-y-4"}
+    >
+      <h2 id={id} className={`flex items-center gap-3 text-xl ${locked ? "text-muted" : ""}`}>
         <span
           aria-hidden="true"
-          className="grid size-7 shrink-0 place-items-center rounded-full bg-ink font-sans text-xs font-semibold text-paper"
+          className={`grid size-7 shrink-0 place-items-center rounded-full font-sans text-xs font-semibold ${
+            locked ? "border border-line text-muted" : "bg-ink text-paper"
+          }`}
         >
           {n}
         </span>
         {title}
       </h2>
-      {children}
+      {locked ? <p className="text-sm text-muted">Add your email in step 1 first.</p> : children}
     </section>
   );
 }

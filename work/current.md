@@ -5,6 +5,16 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
+## v0.13.0: Personal Shopper overhaul and Safari checkout fixes — ACTIVE
+
+- Owner decision: 2026-11-27, in chat: the pasted v0.13.0 plan (durable Ask grant, 60-minute
+  step-up for in-chat pay, no redirect out of chat), the Safari fixes, and "jusqu'en production".
+- State: Safari email gate and order redirect done and checked locally (TEST order Authorised);
+  slices 0 to 6 next.
+- Next: slices 0 to 6, review, release v0.13.0 (agent).
+- Blocker: none.
+- Evidence: this session's handover; the owner's iPhone screenshots of 2026-11-27.
+
 ## v0.12.0: Drop-in methods and look, Æion Template 4.1.1 — WAITING-OWNER
 
 - Owner decision: 2026-11-27, in chat: "Oui, merge" for v0.12.0 (PR #27), template 4.1.1 first.

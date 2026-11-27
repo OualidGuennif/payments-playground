@@ -5,6 +5,11 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- The agentic checkout waits for an email in step 1: a guest reads "Add your email to continue"
+  with one primary button, and Delivery and Payment stay locked until the checkout has an email.
+  Once Adyen answers with an order, the page opens `/orders/:id` at the top instead of keeping the
+  payment form's scroll on a shorter page (the owner's iPhone Safari report).
+
 ## [0.12.0] - 2026-11-27
 
 - Æion Template 4.1.1 (from 4.0.3): a 300k handover notice, reads open during closure, a

@@ -7,7 +7,7 @@ status: draft
 scope: component-agentic-storefront
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T11:00:00Z
+  at: 2026-11-27T11:06:00Z
 sources:
   - id: adr
     resource: ../decisions/ADR-019-flagship-storefront.md
@@ -168,7 +168,7 @@ being asked twice who they are. Agents keep using UCP, MCP and PAP exactly as be
   methods in `allowedPaymentMethods` (`ORDER_PAYMENT_METHODS`, `src/server/payments/adyen.ts`):
   cards (Cartes Bancaires first, then Visa, Mastercard, American Express), Apple Pay, Google Pay, Klarna (its
   three ways to pay), PayPal, Wero, MB WAY, Bizum and Pix; Drop-in's card takes only those four
-  brands and asks for the cardholder's name, optional (owner, 2026-11-27). Adyen shows only what the merchant account offers for France in euros, so MB WAY
+  brands and asks first for the cardholder's name, optional (owner, 2026-11-27). Adyen shows only what the merchant account offers for France in euros, so MB WAY
   (Portugal), Bizum (Spain) and Pix (Brazil, in reais) stay hidden here; the owner keeps them
   listed. The session carries one line item, the whole order at its amount, since Adyen offers
   Klarna only when the line items add up to it. A card save's session lists the card alone, with no

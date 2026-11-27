@@ -11,7 +11,7 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   brands, and Drop-in drops its "All fields are required" line.
 - The agentic home's band for humans and agents drops its title and opens on the three ways to
   shop.
-- The agentic checkout's Drop-in asks for the name on the card (optional), and the folded "Test
+- The agentic checkout's Drop-in asks first for the name on the card (optional), and the folded "Test
   cards" list sits above it, with the 3-D Secure TEST password instead of the docs link; the
   "Pay on Adyen TEST" label above the form is gone.
 - The agentic store's Drop-in lists the store's methods (Visa, Mastercard, Cartes Bancaires,

@@ -5,15 +5,15 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
-## v0.13.0: Personal Shopper overhaul and Safari checkout fixes — ACTIVE
+## v0.13.0: Personal Shopper checkout in the chat, Safari fixes — WAITING-OWNER
 
-- Owner decision: 2026-11-27, in chat: the pasted v0.13.0 plan (durable Ask grant, 60-minute
-  step-up for in-chat pay, no redirect out of chat), the Safari fixes, and "jusqu'en production".
-- State: develop `860d8eb` pushed with Review OK (the three findings fixed); release 0.13.0 cut;
-  local QA paid a TEST order in the chat after the step-up.
-- Next: release PR to main, CI, merge, tag, prod check of the Personal Shopper (agent).
+- Owner decision: 2026-11-27, in chat: the pasted v0.13.0 plan and the Safari fixes, "jusqu'en prod".
+- State: v0.13.0 live (main `d0f8bbc`, tag v0.13.0, CI green); signed-out sheet checked in prod;
+  the chat payment with the step-up, the overlays and the Safari email gate paid locally on TEST.
+- Next: on the iPhone, a signed-in chat payment (step-up, budget, card save) and a website
+  checkout with its email step and order page (who: owner).
 - Blocker: none.
-- Evidence: this session's handover; the owner's iPhone screenshots of 2026-11-27.
+- Evidence: knowledge/current/digital-status.md (v0.13.0 deploy row); GitHub release v0.13.0.
 
 ## v0.12.0: Drop-in methods and look, Æion Template 4.1.1 — WAITING-OWNER
 

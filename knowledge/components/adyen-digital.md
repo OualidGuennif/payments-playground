@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-28T10:15:00Z
+  at: 2026-11-28T11:30:00Z
 sources:
   - resource: ../../apps/adyen-digital
     title: "The Next.js app: pages, Elysia API, client components"
@@ -158,7 +158,7 @@ browser's same-host `Origin`
 | `/back-office`                                                | orders in plain words, search and filters, detail with capture/cancel/refund and the reason an action is refused                                                                                                 |
 | `/settings`                                                   | the Connection card (profile, merchant account, client key, webhook HMAC key set or not, webhook URL to copy) and the TEST profiles                                                                              |
 | `/wiki`                                                       | in-app notes on each flow                                                                                                                                                                                        |
-| `/result`                                                     | `RedirectReturn`: with a `redirectResult` and a `sessionId` (Sessions) it creates AdyenCheckout from that session id and calls `submitDetails`, showing `onPaymentCompleted`/`onPaymentFailed` while the order waits for its webhook ([ADR-023](../decisions/ADR-023-sessions-redirect-completed-by-adyen-web.md)); with a `redirectResult` alone (Advanced) the server submits it to `/payments/details` and settles the order; without one it polls the order (10 times, 3 s apart); `redirectResult` and `sessionId` are removed from the URL |
+| `/result`                                                     | `RedirectReturn`: with a `redirectResult` and a `sessionId` (Sessions) it creates AdyenCheckout from that session id and calls `submitDetails`, showing `onPaymentCompleted`/`onPaymentFailed` while the order waits for its webhook ([ADR-023](../decisions/ADR-023-sessions-redirect-completed-by-adyen-web.md)); a reload shows that answer again from the tab's `sessionStorage` until a newer settled attempt is stored; with a `redirectResult` alone (Advanced) the server submits it to `/payments/details` and settles the order; without one it polls the order (10 times, 3 s apart); `redirectResult` and `sessionId` are removed from the URL |
 | `/disclaimer`                                                 | the TEST-only disclaimer                                                                                                                                                                                         |
 
 `FlowWorkbench` is one row on top: the flow as a rounded badge (the page's `h1`) and a scenario chip

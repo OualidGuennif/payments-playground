@@ -51,6 +51,48 @@ function outcomeFromAttempts(attempts: Attempt[]): PaymentOutcome | null {
   };
 }
 
+// A Sessions return leaves no attempt on this server until its webhook arrives, so a reload
+// (the URL no longer names the redirect) would show the order's previous attempt, perhaps an
+// older refusal. The tab keeps Adyen Web's answer with the number of settled attempts it saw;
+// a settled attempt stored after that is newer and wins.
+const KEPT_ANSWER = "digital:session-redirect-answer";
+
+interface KeptAnswer {
+  orderId: string;
+  outcome: PaymentOutcome;
+  settled: number;
+}
+
+function settledCount(attempts: Attempt[]): number {
+  return attempts.filter((attempt) => attempt.state !== "created").length;
+}
+
+function keepSessionAnswer(orderId: string, outcome: PaymentOutcome, attempts: Attempt[]) {
+  const kept: KeptAnswer = { orderId, outcome, settled: settledCount(attempts) };
+  try {
+    sessionStorage.setItem(KEPT_ANSWER, JSON.stringify(kept));
+  } catch {
+    // Storage refused: a reload falls back to the order's attempts.
+  }
+}
+
+function keptSessionAnswer(orderId: string, attempts: Attempt[]): PaymentOutcome | null {
+  try {
+    const kept = JSON.parse(sessionStorage.getItem(KEPT_ANSWER) ?? "null") as KeptAnswer | null;
+    if (kept?.orderId !== orderId || typeof kept.settled !== "number" || !kept.outcome) {
+      return null;
+    }
+    return settledCount(attempts) > kept.settled ? null : kept.outcome;
+  } catch {
+    return null;
+  }
+}
+
+/** Pending and Received wait for the webhook; anything else is an answer to show. */
+function isFinal(outcome: PaymentOutcome | null): boolean {
+  return !!outcome && outcome.resultCode !== "Pending" && outcome.resultCode !== "Received";
+}
+
 function outcomeFrom(result: Record<string, unknown> | undefined): PaymentOutcome {
   const paymentMethod = result?.paymentMethod as { type?: string; brand?: string } | undefined;
   return {
@@ -80,10 +122,10 @@ export default function RedirectReturn(props: {
       const next = unwrap(await order.get()) as OrderDetail;
       if (stopped) return;
       setDetail(next);
-      const fromAttempts = outcomeFromAttempts(next.attempts);
-      setOutcome(fromAttempts ?? { resultCode: "Pending" });
-      const settled = fromAttempts && fromAttempts.resultCode !== "Pending";
-      if (!settled && remaining > 0) {
+      const shown =
+        keptSessionAnswer(props.orderId, next.attempts) ?? outcomeFromAttempts(next.attempts);
+      setOutcome(shown ?? { resultCode: "Pending" });
+      if (!isFinal(shown) && remaining > 0) {
         timer = setTimeout(() => poll(remaining - 1), 3000);
       }
     }
@@ -114,12 +156,17 @@ export default function RedirectReturn(props: {
             clientKey?: string;
           };
           if (!bootstrap.clientKey) throw new Error("A valid TEST client key is required.");
+          // Until Adyen Web answers, a reload knows nothing of this payment: it shows
+          // Pending and waits for a newer settled attempt, never the older one.
+          keepSessionAnswer(props.orderId, { resultCode: "Pending" }, next.attempts);
           const { result } = await completeSessionRedirect({
             clientKey: bootstrap.clientKey,
             sessionId: props.sessionId,
             redirectResult: props.redirectResult,
           });
-          if (!stopped) setOutcome(outcomeFrom(result as Record<string, unknown>));
+          const answered = outcomeFrom(result as Record<string, unknown>);
+          keepSessionAnswer(props.orderId, answered, next.attempts);
+          if (!stopped) setOutcome(answered);
         } else if (props.redirectResult) {
           // Advanced: the server submits it to /payments/details and settles the attempt.
           const response = unwrap(

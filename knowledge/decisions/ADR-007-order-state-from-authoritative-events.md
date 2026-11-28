@@ -6,7 +6,7 @@ tags: [decision, state-machine, lifecycle]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T10:00:00Z
+  at: 2026-11-28T11:30:00Z
 sources:
   - id: state-machine
     resource: ../../packages/platform/state-machine.ts
@@ -34,8 +34,9 @@ Sessions outcomes and CAPTURE/CANCELLATION webhooks never reached the order, so 
   `GET /paymentLinks/{id}` and HMAC-valid webhooks.
 - Amended 2026-10-15 (owner): `GET /sessions/{id}` is no longer a source and is never called. Adyen
   documents that the status it returns is not updated after the first answer and must not be polled;
-  a Sessions order is settled by its AUTHORISATION webhook (or `/payments/details` after a
-  redirect).
+  a Sessions order is settled by its AUTHORISATION webhook. Since 2026-11-28 a Sessions redirect is
+  submitted by Adyen Web through the session, never by this server's `/payments/details`
+  ([ADR-023](ADR-023-sessions-redirect-completed-by-adyen-web.md)).
 - `resolveOrder` re-derives the state from attempts and at most one terminal event each time.
 - A refusal ends an attempt, never an order.
 - `paid` and `cancelled` are settled: a later event (a REFUND after a CAPTURE) never reopens them.

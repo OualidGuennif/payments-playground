@@ -9,7 +9,8 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
   as Adyen's Sessions guide says: `AdyenCheckout` from the return's `sessionId`, then
   `submitDetails` with the `redirectResult`; the server no longer calls `/payments/details` for it
   (409 for a Sessions order) and the order follows its webhook. Advanced keeps `/payments/details`
-  (ADR-023).
+  (ADR-023). A reload of `/result` shows Adyen Web's answer again, never an older refusal of the
+  same order.
 - Digital workbench: after a failed payment the result card has one button. "Try again" stays on
   the order (same session, or the server's renewal after five refusals); "Start a new checkout"
   appears only once the session expired or the server refused a renewal. Only an `onPaymentFailed`

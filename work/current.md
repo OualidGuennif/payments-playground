@@ -8,12 +8,12 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 ## Digital: the 3DS challenge is unreadable on the dark theme — WAITING-OWNER
 
 - Owner decision: 2026-11-28, in chat, with a screenshot: "c'est une catastrophe la page 3DS sur
-  fond noir" (Sessions, Drop-in, Adyen's TEST Mastercard that asks for a challenge).
+  fond noir" (Sessions, Drop-in, Adyen's TEST Mastercard); "Oui, release" after the screenshots.
 - State: fixed on develop, checked locally on TEST: white panel in dark, light unchanged, 375 px and
   desktop; Sessions Drop-in, Advanced Components and API only Authorised after the challenge.
-- Next: visual yes on the screenshots, then a release (who: owner).
+- Next: release v0.17.0 and check the live stylesheet (who: agent).
 - Blocker: none.
-- Evidence: CHANGELOG.md Unreleased; ADR-010 (amended 2026-11-28).
+- Evidence: CHANGELOG.md 0.17.0; ADR-010 (amended 2026-11-28).
 
 ## Page width on large screens, three apps — WAITING-OWNER
 

@@ -5,6 +5,12 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-28
+
+- Digital, 3DS challenge: in the dark theme the issuer's challenge page sits on a white panel, where
+  its dark text was unreadable on the dark checkout card; on a phone it fits the card's width
+  instead of cutting off the OK button.
+
 ## [0.16.0] - 2026-11-28
 
 - Page width on large screens, all three apps: the content stays in one centred column, 1140 px at

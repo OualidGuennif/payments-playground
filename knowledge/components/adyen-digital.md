@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-28T09:00:00Z
+  at: 2026-11-28T10:00:00Z
 sources:
   - resource: ../../apps/adyen-digital
     title: "The Next.js app: pages, Elysia API, client components"
@@ -172,7 +172,9 @@ module per flow in `src/checkout` (`sessions.ts`, `advanced.ts` with the partial
 components. Sessions, Advanced and API only start on load, and
 every scenario or theme change restarts the checkout 500 ms later. A run counter stops a slow
 superseded start from mounting a second checkout, and callbacks are reported under the current run's
-correlation id (a ref, not render state). The result card replaces the checkout once a payment ends,
+correlation id (a ref, not render state). In the dark theme the issuer's 3DS challenge frame sits on
+a white panel (its page has dark text and no background), and on a phone it takes the card's width
+instead of Adyen's fixed 390 px; on API only it mounts under the card form, 16 px below it. The result card replaces the checkout once a payment ends,
 and test cards open in a sheet. Partial payments (a gift card, then a card): `onOrderUpdated` is
 recorded and, with Components, shows a "Partial payment … paid · … left to pay" banner and mounts
 the card for the rest (Drop-in shows its own); Advanced also implements `onBalanceCheck`,

@@ -178,6 +178,13 @@ body:has(.checkout-page.is-inspecting) {
   display: none;
 }
 
+/* Adyen gives the 3DS challenge a fixed 390 px frame (window size 02); a phone's card is narrower
+   and cut off the issuer's OK button. The issuer's page reflows to the width it gets. */
+.checkout-pay .adyen-checkout__threeds2__challenge,
+.checkout-pay .adyen-checkout__iframe--threeDSIframe {
+  max-width: 100%;
+}
+
 .partial-banner {
   display: flex;
   flex-wrap: wrap;
@@ -232,4 +239,10 @@ body:has(.checkout-page.is-inspecting) {
 
 .custom-card-submit {
   margin-top: 4px;
+}
+
+/* On API only, Adyen mounts the 3DS challenge under our card form in the same container, so it
+   would touch the Pay button. */
+.custom-card-form + .adyen-checkout__threeds2__challenge {
+  margin-top: 16px;
 }

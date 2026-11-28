@@ -5,15 +5,25 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
+## Digital: the 3DS challenge is unreadable on the dark theme — WAITING-OWNER
+
+- Owner decision: 2026-11-28, in chat, with a screenshot: "c'est une catastrophe la page 3DS sur
+  fond noir" (Sessions, Drop-in, Adyen's TEST Mastercard); "Oui, release" after the screenshots.
+- State: fixed on develop, checked locally on TEST: white panel in dark, light unchanged, 375 px and
+  desktop; Sessions Drop-in, Advanced Components and API only Authorised after the challenge.
+- Next: release v0.17.0 and check the live stylesheet (who: agent).
+- Blocker: none.
+- Evidence: CHANGELOG.md 0.17.0; ADR-010 (amended 2026-11-28).
+
 ## Page width on large screens, three apps — WAITING-OWNER
 
 - Owner decision: 2026-11-27, in chat: centre and narrow the content like ElevenLabs and Voyage
   Privé, from UI/UX guidelines and Apple's principles; 2026-11-28 "Oui, go", then "Oui, release".
-- State: on develop, unreleased: one page column (1140, 1240 beside the inspector, 1440 Styling,
-  Velune header row 1240); measured locally at 375 to 1920 px, light and dark.
-- Next: visual yes on the 1710 px screenshots (who: owner); then release v0.16.0 (agent).
+- State: v0.16.0 live (main `973785c`, tag v0.16.0, CI green); widths checked in prod at 1710 px
+  in the three apps; other widths, light theme and the docked Shopper checked locally only.
+- Next: look at the three apps on the 15-inch MacBook and say if the column feels right (who: owner).
 - Blocker: none.
-- Evidence: knowledge/policies/ui-ux.md (Page width); this session's handover.
+- Evidence: knowledge/current/digital-status.md (v0.16.0 deploy row); GitHub release v0.16.0.
 
 ## Digital: the server decides a Sessions renewal (ADR-022) — WAITING-OWNER
 
@@ -136,12 +146,3 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
   WEBMCP_ORIGIN_TRIAL_TOKEN to .env.example and Render if wanted (who: owner).
 - Blocker: none.
 - Evidence: knowledge/current/digital-status.md (v0.3.0 and v0.3.1 deploy rows).
-
-## Owner browser check after the non-root deploy — WAITING-OWNER
-
-- Owner decision: 2026-10-31, check one real browser flow after the deploy.
-- State: all five services are Live on `7b72543`; the health endpoints return 200 and the logs show
-  no permission errors.
-- Next: open one flow in a browser (who: owner).
-- Blocker: none.
-- Evidence: PR #3; Render deploy `7b72543`; `deno task check`.

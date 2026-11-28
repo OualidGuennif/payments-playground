@@ -25,12 +25,11 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 - Blocker: none.
 - Evidence: knowledge/current/digital-status.md (v0.16.0 deploy row); GitHub release v0.16.0.
 
-## Digital: the server decides a Sessions renewal (ADR-022) — WAITING-OWNER
+## Digital: Sessions renewal by the server, redirect by Adyen Web (ADR-022, ADR-023) — WAITING-OWNER
 
-- Owner decision: 2026-11-27, in chat: "Oui, vas-y" to the plan; count refusals by the webhook's
-  `checkoutSessionId` ("on aura bien l'info").
-- State: v0.15.0 live (main `e987965`, tag v0.15.0, CI green); the renewal route answers in prod;
-  renewal and redirect after a refusal checked locally on TEST.
+- Owner decision: 2026-11-27 "Oui, vas-y" (renewal on webhooks); 2026-11-28: one result button,
+  count only Refused, a Sessions redirect through Adyen Web `submitDetails` ("respect la doc").
+- State: ADR-022 live in v0.15.0; ADR-023 and the one button on `develop`, checked locally on TEST.
 - Next: on Render, five `DECLINED` in one session, then Try again: confirm each refused
   AUTHORISATION carries `checkoutSessionId` and the new session opens on the same order (who: owner).
 - Blocker: none.

@@ -1,25 +1,29 @@
 import { useCopy } from "@suite/ui/useCopy.ts";
 import type { PaymentOutcome } from "../../checkout/client.ts";
+import type { RetryMode } from "../../checkout/session-renewal.ts";
 import { resultCodeStatus } from "../../lib/status.ts";
 
-export type { PaymentOutcome };
+export type { PaymentOutcome, RetryMode };
 
 /**
- * What "Try again" does: the same session, a new session the server opens on the same order once
- * Adyen's refusal webhooks say the session is spent (ADR-022), or a new checkout.
+ * The server's renewal: waiting for Adyen's refusal webhooks (`refusals` null before the first
+ * answer), or what stopped it (`refused` when the server said no for this order).
  */
-export type RetryMode = "same" | "renew" | "new";
-
-/** The server's renewal: waiting for Adyen's refusal webhooks (`refusals` null before the first answer), or what stopped it. */
 export type Renewal =
   | { phase: "waiting"; refusals: number | null; limit: number }
-  | { phase: "failed"; message: string };
+  | { phase: "failed"; message: string; refused: boolean };
 
 const RETRY_DETAIL: Record<RetryMode, string> = {
   same: "The checkout stays open, and so does anything already paid: try again with this method or another.",
   renew:
     "Adyen takes no more payments in this session (5 refusals). Trying again asks the server for a new session on the same order; it opens one once Adyen's webhooks confirm the refusals.",
-  new: "This session expired with its order: trying again starts a new checkout.",
+  new: "This order takes no more payments: a new checkout starts a new order.",
+};
+
+const RETRY_LABEL: Record<RetryMode, string> = {
+  same: "Try again",
+  renew: "Try again",
+  new: "Start a new checkout",
 };
 
 export function ResultCard(props: {
@@ -29,7 +33,7 @@ export function ResultCard(props: {
   /** The in-page reset, or a link back to the flow when there is no page state to reset. */
   onRestart?: () => void;
   restartHref?: string;
-  /** Another attempt in the same checkout: same session, same order. */
+  /** After a failed payment, the one way on: what it does follows `retryMode`. */
   onRetry?: () => void;
   retryMode?: RetryMode;
   renewal?: Renewal | null;
@@ -106,6 +110,8 @@ export function ResultCard(props: {
         ) : null}
       </dl>
       <div className="result__actions">
+        {/* One way on after a failed payment: a second "New payment" would open a new order from
+            the browser, around the server's renewal decision (ADR-022). */}
         {retry ? (
           <button
             className="button button--primary"
@@ -114,15 +120,10 @@ export function ResultCard(props: {
             disabled={Boolean(waiting)}
             aria-busy={Boolean(waiting)}
           >
-            {waiting ? "Waiting for Adyen…" : "Try again"}
+            {waiting ? "Waiting for Adyen…" : RETRY_LABEL[props.retryMode ?? "same"]}
           </button>
-        ) : null}
-        {props.onRestart ? (
-          <button
-            className={`button ${retry ? "button--secondary" : "button--primary"}`}
-            type="button"
-            onClick={props.onRestart}
-          >
+        ) : props.onRestart ? (
+          <button className="button button--primary" type="button" onClick={props.onRestart}>
             New payment
           </button>
         ) : (

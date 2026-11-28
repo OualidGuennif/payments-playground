@@ -100,6 +100,10 @@ const CALLBACK_CATALOG: Record<string, { rank: CallbackRank; hint: string }> = {
     rank: "optional",
     hint: "resolve() is not a plain continue: what you pass becomes the /payments payload.",
   },
+  onActionHandled: {
+    rank: "optional",
+    hint: "Adyen Web has put an action on screen (3DS challenge, redirect, QR code). Diagnostics only.",
+  },
   onChange: {
     rank: "optional",
     hint: "Fires on every field edit with the whole state. Diagnostics only, never a decision.",
@@ -213,6 +217,12 @@ function describe(entry: TimelineEntry, source: Source, changes: Change[] | null
       break;
     case "onAdditionalDetails":
       summary = Object.keys((field(payload, "data.details") ?? {}) as Record<string, unknown>);
+      break;
+    case "onActionHandled":
+      summary = [
+        text(field(payload, "componentType")),
+        text(field(payload, "actionDescription")),
+      ].filter((part): part is string => Boolean(part));
       break;
     case "onBinLookup":
       summary = [

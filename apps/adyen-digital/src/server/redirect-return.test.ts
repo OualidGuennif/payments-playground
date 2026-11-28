@@ -29,7 +29,7 @@ function attempt(state: AttemptState, pspReference?: string): AttemptAggregate {
   };
 }
 
-// Five refusals in the session that was renewed: they settle the order's older attempts.
+// Refusals of earlier attempts on the same order: they settle its older attempts.
 const REFUSED = ["P1", "P2", "P3", "P4", "P5"].map((psp) => attempt("refused", psp));
 
 test("a redirect is a reload only when the same redirectResult was answered before", () => {

@@ -8,6 +8,42 @@ export interface RenewalWait {
   limit: number;
 }
 
+/**
+ * What the result card's one button does after a failed payment: try again in the same session,
+ * ask the server for a new session on the same order, or start a new checkout (a new order).
+ */
+export type RetryMode = "same" | "renew" | "new";
+
+/** The server answered 409: this order takes no new session, only a new checkout can pay. */
+export class RenewalRefused extends Error {}
+
+/**
+ * Only a payment Adyen refused counts toward the five a session takes: an error, a cancellation
+ * or a closed session (14_0422) is not a refusal.
+ */
+export function countsAsRefusal(failure: unknown): boolean {
+  return (failure as { resultCode?: unknown } | null)?.resultCode === "Refused";
+}
+
+export function retryModeFor(input: {
+  flow: string;
+  /** The session or its order expired (its expiry passed, or Adyen answered 14_0423). */
+  expired: boolean;
+  /** The server refused a renewal (409): the order is paid, pending, part paid or expired. */
+  renewalRefused: boolean;
+  /** onPaymentFailed results with resultCode "Refused" in this session. */
+  refusals: number;
+  /** Adyen closed the session (14_0422) before five refusals were counted here. */
+  closed: boolean;
+  limit: number;
+}): RetryMode {
+  if (input.flow !== "sessions") return "same";
+  if (input.expired || input.renewalRefused) return "new";
+  // The count only says when to ask; the server decides from Adyen's webhooks (ADR-022).
+  if (input.refusals >= input.limit || input.closed) return "renew";
+  return "same";
+}
+
 export const RENEWAL_POLL_MS = 2_000;
 export const RENEWAL_TIMEOUT_MS = 60_000;
 

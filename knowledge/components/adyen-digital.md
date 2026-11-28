@@ -7,7 +7,7 @@ status: stable
 scope: component-adyen-digital
 generated:
   by: aeion-adoption/1.0
-  at: 2026-11-28T10:00:00Z
+  at: 2026-11-28T10:15:00Z
 sources:
   - resource: ../../apps/adyen-digital
     title: "The Next.js app: pages, Elysia API, client components"
@@ -68,7 +68,7 @@ in the [README](../../README.md) since 2026-10-10 (commit `8678cc9`); what is ve
 | `/sessions`, `/advanced`, `/api-only`, `/mit`, `/pay-by-link` | the flow id in the path; `?integration=dropin` (default) or `component` on the two flows that offer both; any other flow is 404 |
 | `/back-office`                                                | `?orderId=<order id>`, which selects that order in the list                                                                     |
 | `/settings`, `/wiki`, `/disclaimer`                           | nothing                                                                                                                         |
-| `/result`                                                     | `?orderId=<order id>` and optionally `?redirectResult=...`; it is the `returnUrl` of every payment                              |
+| `/result`                                                     | `?orderId=<order id>` and optionally `?redirectResult=...` (Sessions: also Adyen's `?sessionId=...`); the `returnUrl` of every payment |
 
 **API requests.** Shared routes from `packages/platform/base-api.ts`: `GET /api/health`,
 `GET /healthz`, `GET /api/bootstrap`, `GET /api/profiles`, `POST /api/profiles`
@@ -128,8 +128,8 @@ Shapes the routes rely on:
 
 **Browser callbacks.** The workbench sends Adyen Web callbacks to `POST /api/callbacks` under the
 current run's correlation id: `onChange`, `onSubmit`, `beforeSubmit`, `onAdditionalDetails`,
-`onPaymentCompleted`, `onPaymentFailed`, `onOrderUpdated`, `onError`, `onBinLookup`, `onBinValue`,
-`onBrand`; Advanced also reports `onBalanceCheck`, `onOrderRequest`, `onOrderCancel` and
+`onActionHandled` (Sessions and Advanced, shown only), `onPaymentCompleted`, `onPaymentFailed`,
+`onOrderUpdated`, `onError`, `onBinLookup`, `onBinValue`, `onBrand`; Advanced also reports `onBalanceCheck`, `onOrderRequest`, `onOrderCancel` and
 `onPaymentMethodsRequest`, and the API-only Custom Card reports `onLoad`, `onConfigSuccess`,
 `onBrand` and `onValidationError`. Gift-card details arrive encrypted, and `/paymentMethods/balance`
 is Advanced's `onBalanceCheck`. Card callbacks are configured on `card`, `scheme` and `storedCard`,
@@ -158,7 +158,7 @@ browser's same-host `Origin`
 | `/back-office`                                                | orders in plain words, search and filters, detail with capture/cancel/refund and the reason an action is refused                                                                                                 |
 | `/settings`                                                   | the Connection card (profile, merchant account, client key, webhook HMAC key set or not, webhook URL to copy) and the TEST profiles                                                                              |
 | `/wiki`                                                       | in-app notes on each flow                                                                                                                                                                                        |
-| `/result`                                                     | `RedirectReturn`: with a `redirectResult` it submits it, settles the order and shows the result; without one it polls the order (10 times, 3 s apart); `redirectResult` and `sessionId` are removed from the URL |
+| `/result`                                                     | `RedirectReturn`: with a `redirectResult` and a `sessionId` (Sessions) it creates AdyenCheckout from that session id and calls `submitDetails`, showing `onPaymentCompleted`/`onPaymentFailed` while the order waits for its webhook ([ADR-023](../decisions/ADR-023-sessions-redirect-completed-by-adyen-web.md)); with a `redirectResult` alone (Advanced) the server submits it to `/payments/details` and settles the order; without one it polls the order (10 times, 3 s apart); `redirectResult` and `sessionId` are removed from the URL |
 | `/disclaimer`                                                 | the TEST-only disclaimer                                                                                                                                                                                         |
 
 `FlowWorkbench` is one row on top: the flow as a rounded badge (the page's `h1`) and a scenario chip
@@ -180,11 +180,14 @@ recorded and, with Components, shows a "Partial payment … paid · … left to 
 the card for the rest (Drop-in shows its own); Advanced also implements `onBalanceCheck`,
 `onOrderRequest`, `onOrderCancel` and `onPaymentMethodsRequest`, and sends each payment's share
 (`checkout/partial.ts`: a gift card pays what its balance covers, the next method the rest). After
-a refused, cancelled or failed payment the result card offers "Try again": it remounts on the same
-AdyenCheckout instance, so the session (with its latest `sessionData`) and any gift card order
-survive; "New payment" starts a new order and session, and so does a retry once the session expired
-(`14_0423`, or past its expiry; the card says so). After the fifth refusal in a session or a
-`14_0422` answer, "Try again" asks the server for a new session on the same order
+a refused, cancelled or failed payment the result card has one button, with no "New payment"
+beside it (a new order from the browser would go round the server's renewal decision): "Try again"
+remounts on the same AdyenCheckout instance, so the session (with its latest `sessionData`) and any
+gift card order survive; once the session expired (`14_0423`, or past its expiry) or the server
+refused a renewal (409), it reads "Start a new checkout" and starts a new order and session. Only an
+`onPaymentFailed` whose `resultCode` is `Refused` counts toward the five a session takes
+(`countsAsRefusal`); after the fifth, or a `14_0422` answer, "Try again" asks the server for a new
+session on the same order
 (`POST /api/digital/orders/:id/sessions`, [ADR-022](../decisions/ADR-022-sessions-renewal-decided-by-the-server.md)):
 while it answers 202 the checkout shows "Waiting for Adyen to confirm the refusals (n/5)" and asks
 again every 2 s; a 201 mounts the new session, a 409 shows the server's reason, and after 60 s
@@ -239,12 +242,12 @@ MIT also an attempt; `/orders` lists each order with its attempts and permission
 
 `resolution` is the derived `{state, paidValue}` of the order; `session` is Adyen's session object,
 and the order and its session row both expire after 25 minutes (`expiresAt`, owner, 2026-10-16).
-`/payments/details` settles the attempt `/payments` left pending, and `/redirect-result` settles or
-creates one: the attempt `/payments` left waiting, else the one the payment's webhook already
-stored, else a new one (a Sessions order's attempt comes from the session result, which a redirect
-skips). Only a reload of the same `redirectResult` answers `alreadySettled`, from the stored outcome,
-without resubmitting; the order's older settled attempts (a renewed session's refusals) never answer
-for a new redirect (`src/server/redirect-return.test.ts`). A `GET /payment-links/:orderId` re-derives the order from the link status.
+`/payments/details` settles the attempt `/payments` left pending, and `/redirect-result` (Advanced
+only: a Sessions order is refused, its redirect is Adyen Web's to submit) settles or creates one:
+the attempt `/payments` left waiting, else the one the payment's webhook already stored, else a new
+one. Only a reload of the same `redirectResult` answers `alreadySettled`, from the stored outcome,
+without resubmitting; the order's older settled attempts never answer for a new redirect
+(`src/server/redirect-return.test.ts`). A `GET /payment-links/:orderId` re-derives the order from the link status.
 `/partial-orders` is Advanced's `onOrderRequest`: it creates the server order every payment of the
 split goes into. `/partial-orders/:id/cancel` is Advanced's `onOrderCancel` (Drop-in's "Supprimer"
 on a paid gift card).
@@ -256,7 +259,7 @@ without Adyen-encrypted values or a token. 401 for a webhook item whose HMAC mat
 whole delivery is refused so Adyen retries). 403 for a CSRF failure or a cross-origin request. 404
 for an unknown order, correlation id or payment link, and for an unknown flow page. 409 for a
 duplicate action still in flight, no authorised payment, a refused permission (the reason is in
-`error`), a redirect that belongs to another order, and a session renewal for an order that is not
+`error`), a redirect that belongs to another order or to a Sessions order, and a session renewal for an order that is not
 a Sessions order, was made under another profile, has no session, or is paid, pending, part paid,
 cancelled or expired. 429 above 120 requests per minute. 500 is
 `{error, correlationId}` and writes an audit row.
@@ -339,7 +342,8 @@ the set. Markets are 36 countries with their own currency, locale and default am
     for renewal once, and the newest session is the one in use");
     `packages/platform/apps.integration.test.ts` ("digital refuses to renew the session of an
     unknown order"). The browser's wait ends in an error, never a session, after 60 s —
-    `apps/adyen-digital/src/checkout/session-renewal.test.ts` (its three tests).
+    `apps/adyen-digital/src/checkout/session-renewal.test.ts`, which also pins that only a
+    `Refused` `onPaymentFailed` counts and when the one button renews or starts over.
 
 ## Determinism
 

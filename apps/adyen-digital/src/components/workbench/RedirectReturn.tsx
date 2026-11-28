@@ -2,6 +2,7 @@
 import { apiClient, formatMinorAmount, unwrap } from "@suite/ui/client.ts";
 import type { App } from "@/server/api";
 import { useEffect, useState } from "react";
+import { completeSessionRedirect } from "../../checkout/session-redirect.ts";
 import { type PaymentOutcome, ResultCard } from "./ResultCard.tsx";
 
 interface Attempt {
@@ -50,7 +51,20 @@ function outcomeFromAttempts(attempts: Attempt[]): PaymentOutcome | null {
   };
 }
 
-export default function RedirectReturn(props: { orderId: string; redirectResult: string | null }) {
+function outcomeFrom(result: Record<string, unknown> | undefined): PaymentOutcome {
+  const paymentMethod = result?.paymentMethod as { type?: string; brand?: string } | undefined;
+  return {
+    resultCode: result?.resultCode as string | undefined,
+    pspReference: result?.pspReference as string | undefined,
+    method: paymentMethod?.brand ?? paymentMethod?.type,
+  };
+}
+
+export default function RedirectReturn(props: {
+  orderId: string;
+  redirectResult: string | null;
+  sessionId: string | null;
+}) {
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [outcome, setOutcome] = useState<PaymentOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,26 +88,45 @@ export default function RedirectReturn(props: { orderId: string; redirectResult:
       }
     }
 
+    // The redirectResult is single-use: a reload should read the stored
+    // outcome rather than submit it again.
+    function forgetRedirect() {
+      const url = new URL(globalThis.location.href);
+      url.searchParams.delete("redirectResult");
+      url.searchParams.delete("sessionId");
+      history.replaceState(null, "", url);
+    }
+
     async function run() {
       try {
-        if (props.redirectResult) {
+        if (props.redirectResult && props.sessionId) {
+          // Sessions (ADR-023): Adyen Web submits the redirectResult through the
+          // session; this server never calls /payments/details for it, and the
+          // order follows the AUTHORISATION webhook.
+          forgetRedirect();
+          const next = unwrap(await order.get()) as OrderDetail;
+          if (stopped) return;
+          setDetail(next);
+          if (!next.order.flow.startsWith("sessions")) {
+            throw new Error("This return names a session, but the order is not a Sessions order.");
+          }
+          const bootstrap = unwrap(await apiClient<App>().api.bootstrap.get()) as {
+            clientKey?: string;
+          };
+          if (!bootstrap.clientKey) throw new Error("A valid TEST client key is required.");
+          const { result } = await completeSessionRedirect({
+            clientKey: bootstrap.clientKey,
+            sessionId: props.sessionId,
+            redirectResult: props.redirectResult,
+          });
+          if (!stopped) setOutcome(outcomeFrom(result as Record<string, unknown>));
+        } else if (props.redirectResult) {
+          // Advanced: the server submits it to /payments/details and settles the attempt.
           const response = unwrap(
             await order["redirect-result"].post({ redirectResult: props.redirectResult }),
           ) as RedirectResponse;
-          // The redirectResult is single-use: a reload should read the stored
-          // outcome rather than submit it again.
-          const url = new URL(globalThis.location.href);
-          url.searchParams.delete("redirectResult");
-          url.searchParams.delete("sessionId");
-          history.replaceState(null, "", url);
-          const paymentMethod = response.result.paymentMethod as
-            | { type?: string; brand?: string }
-            | undefined;
-          setOutcome({
-            resultCode: response.result.resultCode as string | undefined,
-            pspReference: response.result.pspReference as string | undefined,
-            method: paymentMethod?.brand ?? paymentMethod?.type,
-          });
+          forgetRedirect();
+          setOutcome(outcomeFrom(response.result));
           const next = unwrap(await order.get()) as OrderDetail;
           if (!stopped) setDetail(next);
         } else {
@@ -109,7 +142,7 @@ export default function RedirectReturn(props: { orderId: string; redirectResult:
       stopped = true;
       clearTimeout(timer);
     };
-  }, [props.orderId, props.redirectResult]);
+  }, [props.orderId, props.redirectResult, props.sessionId]);
 
   if (error) {
     return (

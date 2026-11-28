@@ -55,6 +55,7 @@ import {
   tabStore,
   withLatestSessionData,
 } from "../../checkout/session-restore.ts";
+import { countsAsRefusal, RenewalRefused, retryModeFor } from "../../checkout/session-renewal.ts";
 import {
   createSession,
   reapplyRestoredOrder,
@@ -368,6 +369,11 @@ export default function FlowWorkbench({
       analytics: { enabled: false },
       showPayButton: true,
       onChange: (state: unknown) => addCallback("onChange", state),
+      // Shown in the inspector only: Adyen Web reports the action (3DS challenge, redirect, QR
+      // code) it has just put on screen; nothing here depends on it.
+      ...(flow === "sessions" || flow === "advanced"
+        ? { onActionHandled: (data: unknown) => addCallback("onActionHandled", data) }
+        : {}),
       onPaymentCompleted: (result: unknown) => {
         addCallback("onPaymentCompleted", result);
         if (flow === "sessions") forgetSession(tabStore());
@@ -375,7 +381,7 @@ export default function FlowWorkbench({
       },
       onPaymentFailed: (result: unknown) => {
         addCallback("onPaymentFailed", result);
-        if (field(result, "resultCode") === "Refused") sessionRefusalsRef.current += 1;
+        if (countsAsRefusal(result)) sessionRefusalsRef.current += 1;
         if (closesSession(result)) {
           sessionClosedRef.current = true;
           sessionExpiredRef.current = expiredSession(result);
@@ -484,14 +490,16 @@ export default function FlowWorkbench({
   // server's to renew on the same order, once Adyen's webhooks say so
   // (ADR-022): the counter here only says when to ask.
   function retryMode(): RetryMode {
-    if (flow !== "sessions") return "same";
     const expired =
       sessionExpiresAtRef.current !== null && Date.now() >= sessionExpiresAtRef.current;
-    if (expired || sessionExpiredRef.current) return "new";
-    if (sessionClosedRef.current || sessionRefusalsRef.current >= SESSION_REFUSAL_LIMIT) {
-      return "renew";
-    }
-    return "same";
+    return retryModeFor({
+      flow,
+      expired: expired || sessionExpiredRef.current,
+      renewalRefused: renewal?.phase === "failed" && renewal.refused,
+      refusals: sessionRefusalsRef.current,
+      closed: sessionClosedRef.current,
+      limit: SESSION_REFUSAL_LIMIT,
+    });
   }
 
   function retry() {
@@ -553,6 +561,7 @@ export default function FlowWorkbench({
       setRenewal({
         phase: "failed",
         message: cause instanceof Error ? cause.message : "The server opened no new session.",
+        refused: cause instanceof RenewalRefused,
       });
     }
   }

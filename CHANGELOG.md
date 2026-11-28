@@ -5,6 +5,17 @@ Every notable change, newest first ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+- Digital `/result`: a Sessions redirect (iDEAL, Klarna, a 3DS redirect) is completed by Adyen Web,
+  as Adyen's Sessions guide says: `AdyenCheckout` from the return's `sessionId`, then
+  `submitDetails` with the `redirectResult`; the server no longer calls `/payments/details` for it
+  (409 for a Sessions order) and the order follows its webhook. Advanced keeps `/payments/details`
+  (ADR-023).
+- Digital workbench: after a failed payment the result card has one button. "Try again" stays on
+  the order (same session, or the server's renewal after five refusals); "Start a new checkout"
+  appears only once the session expired or the server refused a renewal. Only an `onPaymentFailed`
+  with `resultCode` `Refused` counts toward the five.
+- Digital inspector: `onActionHandled` is recorded for Sessions and Advanced, like `beforeSubmit`.
+
 ## [0.17.0] - 2026-11-28
 
 - Digital, 3DS challenge: in the dark theme the issuer's challenge page sits on a white panel, where

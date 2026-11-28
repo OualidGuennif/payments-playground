@@ -5,7 +5,7 @@ import { unwrap } from "@suite/ui/client.ts";
 import { type RefObject, useEffect } from "react";
 import { api, type CallbackActions } from "./client.ts";
 import { type OrderProgress, orderProgress } from "./partial.ts";
-import { pollRenewal, type RenewalWait } from "./session-renewal.ts";
+import { pollRenewal, RenewalRefused, type RenewalWait } from "./session-renewal.ts";
 import {
   forgetSession,
   readSavedSession,
@@ -59,18 +59,26 @@ export async function renewSession(
   stale: () => boolean,
 ): Promise<NewSession | null> {
   return pollRenewal<NewSession>({
-    ask: async () =>
-      unwrap(
-        await api(input.profileId)
-          .api.digital.orders({ id: input.orderId })
-          .sessions.post({
-            flow: `sessions-${input.integration}`,
-            countryCode: input.country,
-            shopperLocale: input.locale,
-            installments: input.installments,
-            nativeThreeDS: input.nativeThreeDS,
-          }),
-      ) as NewSession | RenewalWait,
+    ask: async () => {
+      const result = await api(input.profileId)
+        .api.digital.orders({ id: input.orderId })
+        .sessions.post({
+          flow: `sessions-${input.integration}`,
+          countryCode: input.country,
+          shopperLocale: input.locale,
+          installments: input.installments,
+          nativeThreeDS: input.nativeThreeDS,
+        });
+      try {
+        return unwrap(result) as NewSession | RenewalWait;
+      } catch (error) {
+        // 409 is the server's no for this order; anything else may pass on a new ask.
+        if (result.status === 409 && error instanceof Error) {
+          throw new RenewalRefused(error.message);
+        }
+        throw error;
+      }
+    },
     onWait,
     stale,
   });

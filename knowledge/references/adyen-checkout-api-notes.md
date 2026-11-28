@@ -6,7 +6,7 @@ tags: [reference, adyen, checkout-api]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-27T18:00:00Z
+  at: 2026-11-28T10:15:00Z
 sources:
   - id: api
     resource: ../../apps/adyen-digital/src/server/requests.ts
@@ -120,7 +120,10 @@ the page's origin, used by the native 3DS2 flow. Both follow the request's own o
 0000`: `preferred` answers `IdentifyShopper` with a `threeDS2` action rendered
 inside the checkout; `disabled` answers `RedirectShopper` with a `redirect` action to Adyen's
 full-page simulator, and the return to `/result` settles through `/payments/details`. Seen for both
-flows on 2026-10-15.
+flows on 2026-10-15. Since 2026-11-28 a Sessions return is submitted by Adyen Web instead: the
+return URL carries `sessionId` and `redirectResult`, and `AdyenCheckout({ session: { id } })`
+then `submitDetails({ details: { redirectResult } })` call `/sessions/{id}/paymentDetails`
+(Adyen's Sessions guide; [ADR-023](../decisions/ADR-023-sessions-redirect-completed-by-adyen-web.md)).
 
 ## Idempotency
 

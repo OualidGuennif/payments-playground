@@ -1,7 +1,7 @@
 // Spec: knowledge/components/adyen-digital.md
-// A redirect return is a reload only when this exact redirectResult was already submitted: an
-// order can hold older settled attempts (five refusals before its session was renewed) that say
-// nothing about the payment the shopper is coming back from.
+// An Advanced redirect return is a reload only when this exact redirectResult was already
+// submitted: an order can hold older settled attempts (a refusal before the shopper tried another
+// method) that say nothing about the payment the shopper is coming back from.
 import type { AttemptAggregate, TimelineEntry } from "@suite/platform/types.ts";
 
 type Answer = Record<string, unknown>;

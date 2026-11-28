@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 import { assert, assertEquals } from "../../../../testing/assert.ts";
-import { pollRenewal, type RenewalWait } from "./session-renewal.ts";
+import { countsAsRefusal, pollRenewal, type RenewalWait, retryModeFor } from "./session-renewal.ts";
 
 function fakeClock() {
   let time = 0;
@@ -76,4 +76,34 @@ test("a refusal from the server and a newer run both stop the renewal", async ()
     ...fakeClock(),
   });
   assertEquals(result, null);
+});
+
+test("only a refused payment counts toward the five a session takes", () => {
+  assertEquals(countsAsRefusal({ resultCode: "Refused" }), true);
+  for (const failure of [
+    { resultCode: "Error" },
+    { resultCode: "Cancelled" },
+    { cause: { errorCode: "14_0422" } },
+    null,
+  ]) {
+    assertEquals(countsAsRefusal(failure), false);
+  }
+});
+
+test("the result card's one button: same session, the server's renewal, or a new checkout", () => {
+  const sessions = {
+    flow: "sessions",
+    expired: false,
+    renewalRefused: false,
+    refusals: 0,
+    closed: false,
+    limit: 5,
+  };
+  assertEquals(retryModeFor({ ...sessions, refusals: 4 }), "same");
+  assertEquals(retryModeFor({ ...sessions, refusals: 5 }), "renew");
+  // Adyen closed the session before five refusals were counted here: the server decides.
+  assertEquals(retryModeFor({ ...sessions, refusals: 2, closed: true }), "renew");
+  assertEquals(retryModeFor({ ...sessions, refusals: 5, expired: true }), "new");
+  assertEquals(retryModeFor({ ...sessions, refusals: 5, renewalRefused: true }), "new");
+  assertEquals(retryModeFor({ ...sessions, flow: "advanced", refusals: 9 }), "same");
 });

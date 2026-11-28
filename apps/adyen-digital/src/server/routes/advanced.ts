@@ -80,18 +80,23 @@ export const advancedRoutes = new Elysia()
     const resolution = attempt ? settleAttempt(order, attempt, result) : undefined;
     return { correlationId, result, resolution };
   })
-  // A redirect method (iDEAL, Klarna, a 3DS1 bank page...) sends the shopper
+  // A redirect method (iDEAL, Klarna, a 3DS bank page...) sends the shopper
   // back to /result with a redirectResult and nothing else had told this server
-  // how the payment ended. Submitting it to /payments/details settles the order,
-  // for Sessions too: the redirectResult carries the whole payment, so the
-  // call does not need the session. A reload must not submit it twice, so the
-  // same redirectResult answers with what is already stored; any other one is
-  // submitted, even when older attempts of the order are settled.
+  // how an Advanced payment ended: submitting it to /payments/details settles
+  // the attempt. A Sessions return is Adyen Web's to submit through the session
+  // (ADR-023), so a Sessions order is refused here. A reload must not submit it
+  // twice, so the same redirectResult answers with what is already stored; any
+  // other one is submitted, even when older attempts of the order are settled.
   .post(
     "/api/digital/orders/:id/redirect-result",
     async ({ params, body: rawBody, request: http }) => {
       const order = context.repository.getOrder(params.id);
       if (!order) return status(404, { error: "Order not found." });
+      if (order.flow.startsWith("sessions")) {
+        return status(409, {
+          error: "A Sessions redirect is submitted by Adyen Web through its session, not here.",
+        });
+      }
       const body = object(rawBody);
       const redirectResult = typeof body.redirectResult === "string" ? body.redirectResult : "";
       if (!redirectResult) return status(400, { error: "redirectResult is required." });
@@ -127,9 +132,8 @@ export const advancedRoutes = new Elysia()
       if (foreign(result)) {
         return status(409, { error: "This redirect belongs to another order." });
       }
-      // Sessions orders get their attempt from the session result, which a
-      // redirect skips; unless its webhook came first, this is the first time
-      // the server sees the payment.
+      // The attempt /payments left waiting, else the one the payment's webhook
+      // stored if it came first, else a new one.
       const attempt =
         attemptForRedirect(
           context.repository.listAttempts(order.id),

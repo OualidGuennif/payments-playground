@@ -6,7 +6,7 @@ tags: [reference, adyen-web, drop-in]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T12:00:00Z
+  at: 2026-11-28T10:15:00Z
 sources:
   - id: workbench
     resource: ../../apps/adyen-digital/src/components/workbench/FlowWorkbench.tsx
@@ -43,6 +43,13 @@ sources:
 - `onSubmit`/`onAdditionalDetails` (Advanced): call the backend, then `actions.resolve(response)` or
   `actions.reject()`.
 - `onPaymentCompleted`/`onPaymentFailed` are terminal. In Sessions they carry `sessionResult`.
+- `onActionHandled({ componentType, actionDescription, originalAction })` fires once Adyen Web has
+  put an action on screen (3DS challenge, redirect, QR code); the workbench only records it.
+- Sessions redirect return (6.48.1): `AdyenCheckout({ session: { id } })` with no `sessionData`
+  sets the session up from the copy Adyen Web kept in `localStorage` (the setup answer supplies the
+  country `validateCoreConfiguration` requires), and `checkout.submitDetails({ details })` posts to
+  the session, then calls `onPaymentCompleted` or `onPaymentFailed`; a session error reaches
+  `onError` first, then `onPaymentFailed`.
 - Partial payments: after a payment whose `order.remainingAmount` is above zero, Adyen Web applies
   the order to the checkout (`core.update({ order })`, or in Advanced `onPaymentMethodsRequest` then
   the update) and only then calls `onOrderUpdated({ order })`, never `onPaymentCompleted`. A

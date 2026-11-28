@@ -48,6 +48,22 @@
   --adyen-sdk-toggle-track-hover-background-color: #242932;
   --adyen-sdk-toggle-track-active-background-color: #2b313b;
   --adyen-sdk-toggle-track-active-border-color: #eef1f6;
+  /* The one light surface left in dark mode: behind the issuer's 3DS challenge page. */
+  --checkout-challenge-surface: #ffffff;
+}
+
+/* The issuer's 3DS challenge page is drawn for a white page with dark text and no background of
+   its own, and Adyen keeps its frame transparent (as .dropin-host must for the card fields): on
+   the dark card it was unreadable. The challenge frame itself becomes a white panel, like the bank
+   page it stands for, never its parent: on API only that parent also holds our card form. The
+   white margin is a border because Adyen pins its iframe to the frame's padding-box corner, so
+   padding would not move it; the width cap leaves room for the border. */
+:root[data-theme="dark"] .checkout-pay .adyen-checkout__threeds2__challenge {
+  box-sizing: content-box;
+  max-width: calc(100% - 24px);
+  border: 12px solid var(--checkout-challenge-surface);
+  border-radius: var(--radius-m);
+  background-color: var(--checkout-challenge-surface);
 }
 
 /* Click to Pay paints its panel and OTP box in fixed light colours rather than

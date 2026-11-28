@@ -5,6 +5,16 @@ tasks are deleted: the commit message and knowledge/ keep what matters. Status: 
 WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the lines
 `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
 
+## Digital: the 3DS challenge is unreadable on the dark theme — WAITING-OWNER
+
+- Owner decision: 2026-11-28, in chat, with a screenshot: "c'est une catastrophe la page 3DS sur
+  fond noir" (Sessions, Drop-in, Adyen's TEST Mastercard that asks for a challenge).
+- State: fixed on develop, checked locally on TEST: white panel in dark, light unchanged, 375 px and
+  desktop; Sessions Drop-in, Advanced Components and API only Authorised after the challenge.
+- Next: visual yes on the screenshots, then a release (who: owner).
+- Blocker: none.
+- Evidence: CHANGELOG.md Unreleased; ADR-010 (amended 2026-11-28).
+
 ## Page width on large screens, three apps — WAITING-OWNER
 
 - Owner decision: 2026-11-27, in chat: centre and narrow the content like ElevenLabs and Voyage
@@ -136,12 +146,3 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
   WEBMCP_ORIGIN_TRIAL_TOKEN to .env.example and Render if wanted (who: owner).
 - Blocker: none.
 - Evidence: knowledge/current/digital-status.md (v0.3.0 and v0.3.1 deploy rows).
-
-## Owner browser check after the non-root deploy — WAITING-OWNER
-
-- Owner decision: 2026-10-31, check one real browser flow after the deploy.
-- State: all five services are Live on `7b72543`; the health endpoints return 200 and the logs show
-  no permission errors.
-- Next: open one flow in a browser (who: owner).
-- Blocker: none.
-- Evidence: PR #3; Render deploy `7b72543`; `deno task check`.

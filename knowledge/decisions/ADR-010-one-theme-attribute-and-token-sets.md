@@ -6,7 +6,7 @@ tags: [decision, ui, theme, dark-mode]
 status: stable
 generated:
   by: claude-code/opus-5.5
-  at: 2026-11-25T12:00:00Z
+  at: 2026-11-28T10:00:00Z
 sources:
   - id: theme
     resource: ../../packages/ui/theme.ts
@@ -47,7 +47,10 @@ only.
   secured-field `styles` from `securedFieldStyles(theme)`, and a remount when the theme changes.
   Amended 2026-10-16: those `styles` go to every method typed into secured fields (card, stored
   card, gift card, Bancontact, French meal vouchers); with only the card, gift card digits stayed
-  dark on the dark theme.
+  dark on the dark theme. Amended 2026-11-28: the issuer's 3DS challenge page is drawn for a white
+  page and Adyen keeps its frame transparent, so in dark mode the challenge frame itself is a white
+  panel (`adyen-dark.css`), never its parent, which on API only also holds the card form; its dark
+  text was unreadable on the dark card.
 - Styling's Drop-in column opts out with `.keep-light` (the light token set) and
   `color-scheme: light`: the checkout and the export look the same in both themes. Everything around
   it is the tool's and follows the switch: toolbar, test data, options panel and the canvas, which

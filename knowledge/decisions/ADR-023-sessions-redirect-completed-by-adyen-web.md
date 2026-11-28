@@ -42,11 +42,12 @@ The owner asked to follow the guide (2026-11-28).
   payment ([ADR-007](ADR-007-order-state-from-authoritative-events.md)).
 - `POST /api/digital/orders/:id/redirect-result` serves Advanced only and answers 409 for a
   Sessions order (fail closed). Advanced keeps `/payments/details`.
-- The `redirectResult` and `sessionId` leave the URL before the submit, so a reload never submits
+- The `redirectResult` and `sessionId` leave the URL right before the submit, after the order and
+  client-key checks (a failed check leaves them for a reload to retry), so a reload never submits
   them twice. The tab keeps Adyen Web's answer (Pending until it comes) in `sessionStorage` with
   the number of settled attempts it saw, and a reload shows it again: the order's last settled
   attempt may be an older refusal, not this payment. A settled attempt stored later is newer
-  and wins, and the page polls while the answer is Pending or Received.
+  and wins, and the page polls while the answer is Pending or Received, on the return itself as on a reload.
 
 **Consequences.** Locally, without a tunnel or a replay, a Sessions order paid by redirect stays
 `open` after the return even though the page shows Authorised: no webhook arrives

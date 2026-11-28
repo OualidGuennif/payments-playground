@@ -145,7 +145,6 @@ export default function RedirectReturn(props: {
           // Sessions (ADR-023): Adyen Web submits the redirectResult through the
           // session; this server never calls /payments/details for it, and the
           // order follows the AUTHORISATION webhook.
-          forgetRedirect();
           const next = unwrap(await order.get()) as OrderDetail;
           if (stopped) return;
           setDetail(next);
@@ -155,7 +154,11 @@ export default function RedirectReturn(props: {
           const bootstrap = unwrap(await apiClient<App>().api.bootstrap.get()) as {
             clientKey?: string;
           };
+          if (stopped) return;
           if (!bootstrap.clientKey) throw new Error("A valid TEST client key is required.");
+          // Nothing was submitted until here, so a failed check above leaves the redirect in
+          // the URL for a reload to try again; from here on it is spent.
+          forgetRedirect();
           // Until Adyen Web answers, a reload knows nothing of this payment: it shows
           // Pending and waits for a newer settled attempt, never the older one.
           keepSessionAnswer(props.orderId, { resultCode: "Pending" }, next.attempts);
@@ -166,7 +169,10 @@ export default function RedirectReturn(props: {
           });
           const answered = outcomeFrom(result as Record<string, unknown>);
           keepSessionAnswer(props.orderId, answered, next.attempts);
-          if (!stopped) setOutcome(answered);
+          if (stopped) return;
+          setOutcome(answered);
+          // Pending or Received: only the webhook settles it, so wait for it as a reload would.
+          if (!isFinal(answered)) timer = setTimeout(() => poll(10), 3000);
         } else if (props.redirectResult) {
           // Advanced: the server submits it to /payments/details and settles the attempt.
           const response = unwrap(

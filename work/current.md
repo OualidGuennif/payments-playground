@@ -9,11 +9,11 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-28, in chat, with a screenshot: "c'est une catastrophe la page 3DS sur
   fond noir" (Sessions, Drop-in, Adyen's TEST Mastercard); "Oui, release" after the screenshots.
-- State: fixed on develop, checked locally on TEST: white panel in dark, light unchanged, 375 px and
-  desktop; Sessions Drop-in, Advanced Components and API only Authorised after the challenge.
-- Next: release v0.17.0 and check the live stylesheet (who: agent).
+- State: v0.17.0 live (main `1d7f28f`, tag v0.17.0, CI green); the rules are in the served
+  stylesheet; the challenge itself paid locally on TEST only (three flows, 375 px and desktop).
+- Next: in prod, dark theme, a challenge on the iPhone and in Safari (who: owner).
 - Blocker: none.
-- Evidence: CHANGELOG.md 0.17.0; ADR-010 (amended 2026-11-28).
+- Evidence: knowledge/current/digital-status.md (v0.17.0 deploy row); GitHub release v0.17.0.
 
 ## Page width on large screens, three apps — WAITING-OWNER
 

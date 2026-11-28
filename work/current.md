@@ -9,11 +9,11 @@ WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>
 
 - Owner decision: 2026-11-27, in chat: centre and narrow the content like ElevenLabs and Voyage
   Privé, from UI/UX guidelines and Apple's principles; 2026-11-28 "Oui, go", then "Oui, release".
-- State: on develop, unreleased: one page column (1140, 1240 beside the inspector, 1440 Styling,
-  Velune header row 1240); measured locally at 375 to 1920 px, light and dark.
-- Next: visual yes on the 1710 px screenshots (who: owner); then release v0.16.0 (agent).
+- State: v0.16.0 live (main `973785c`, tag v0.16.0, CI green); widths checked in prod at 1710 px
+  in the three apps; other widths, light theme and the docked Shopper checked locally only.
+- Next: look at the three apps on the 15-inch MacBook and say if the column feels right (who: owner).
 - Blocker: none.
-- Evidence: knowledge/policies/ui-ux.md (Page width); this session's handover.
+- Evidence: knowledge/current/digital-status.md (v0.16.0 deploy row); GitHub release v0.16.0.
 
 ## Digital: the server decides a Sessions renewal (ADR-022) — WAITING-OWNER
 
